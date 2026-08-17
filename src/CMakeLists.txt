@@ -2,12 +2,14 @@ idf_component_register(
     SRCS
         "main.cpp"
         "board/board_power.cpp"
+        "board/board_sensor_bus.cpp"
         "board/board_shared_spi.cpp"
         "core/app_log.cpp"
         "display/display_test_pattern.cpp"
         "display/sticky_display.cpp"
         "display/touch_test_pattern.cpp"
         "input/sticky_touch.cpp"
+        "sensors/sticky_imu.cpp"
         "ui/canvas.cpp"
         "ui/font.cpp"
     INCLUDE_DIRS
@@ -16,6 +18,7 @@ idf_component_register(
         "core"
         "display"
         "input"
+        "sensors"
         "ui"
     REQUIRES
         esp_driver_gpio

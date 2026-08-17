@@ -1,8 +1,10 @@
 #include "app_log.h"
 #include "board_power.h"
+#include "board_sensor_bus.h"
 #include "board_shared_spi.h"
 #include "canvas.h"
 #include "sticky_display.h"
+#include "sticky_imu.h"
 #include "sticky_touch.h"
 #include "touch_test_pattern.h"
 
@@ -176,6 +178,11 @@ extern "C" void app_main()
         halt_after_error("board_shared_spi", shared_spi_result);
     }
 
+    const esp_err_t sensor_bus_result = board_sensor_bus_init();
+    if (sensor_bus_result != ESP_OK) {
+        halt_after_error("board_sensor_bus", sensor_bus_result);
+    }
+
     const esp_err_t display_result = sticky_display_init();
     if (display_result != ESP_OK) {
         halt_after_error("sticky_display_init", display_result);
@@ -198,6 +205,15 @@ extern "C" void app_main()
     const esp_err_t touch_result = sticky_touch_init();
     if (touch_result != ESP_OK) {
         halt_after_error("sticky_touch_init", touch_result);
+    }
+
+    const esp_err_t imu_result = sticky_imu_init(board_sensor_i2c_bus());
+    if (imu_result != ESP_OK) {
+        halt_after_error("sticky_imu_init", imu_result);
+    }
+    const esp_err_t imu_monitor_result = sticky_imu_start_monitoring();
+    if (imu_monitor_result != ESP_OK) {
+        halt_after_error("sticky_imu_monitor", imu_monitor_result);
     }
 
 #if STICKY_LOG_BOOT_DETAILS_ENABLED

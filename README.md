@@ -30,7 +30,14 @@
 - 五点触摸测试画面和物理坐标转换。
 - 每次首次检测到手指时输出一条坐标日志。
 
-IMU和正式产品页面将在触摸真机验收后逐项加入。
+正式产品页面将在IMU真机验收后逐项加入。
+
+阶段 3 正在验证LSM6DS3TR-C姿态检测：
+
+- 使用GPIO0和GPIO1的I2C1共享传感器总线。
+- 按参考源码配置104Hz、±2g加速度计。
+- 每100毫秒采样一次，连续5次一致后输出新的稳定姿态。
+- 日志只在稳定姿态变化时输出。
 
 ## 环境
 
@@ -87,6 +94,9 @@ display=touch_test_pattern result=ok
 touch=init_begin
 touch=controller_ready
 touch=polling_ready
+sensor_bus=ready
+imu=ready
+imu=monitoring
 system=idf
 memory=flash
 memory=heap
@@ -128,6 +138,7 @@ src/board/              电源、引脚和SD/屏幕共享SPI准备
 src/core/               日志与后续应用核心
 src/display/            屏幕初始化、刷新和测试图案
 src/input/              GT911触摸初始化、坐标转换和采样
+src/sensors/            LSM6DS3TR-C加速度计和稳定姿态判定
 src/ui/                 画布、基础图形和5×7字体
 src/main.cpp            固件入口、启动诊断和显示验证流程
 platformio.ini          开发版与发布版构建配置
@@ -155,3 +166,11 @@ partitions.csv          固件与资源空间分配
 3. 依次点击`TOP_LEFT`、`TOP_RIGHT`、`CENTER`、`BOTTOM_LEFT`和`BOTTOM_RIGHT`。
 4. 每次手指按下时，确认串口只出现一条`touch=detected`日志。
 5. 松手后再次按下，应再输出一条新日志。
+
+## 阶段 3 验收
+
+1. 烧录`sticky-debug`并打开串口。
+2. 确认启动时出现`sensor_bus=ready`、`imu=ready`和`imu=monitoring`。
+3. 让屏幕正面朝上和朝下，确认分别输出`face_up`和`face_down`。
+4. 将设备竖起并依次转向四个方向，确认日志输出对应的`arrow_up`、`arrow_down`、`arrow_left`或`arrow_right`。
+5. 每次姿态稳定约0.5秒后应只输出一条新日志。
