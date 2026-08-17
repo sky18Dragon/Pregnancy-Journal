@@ -1,4 +1,5 @@
 #include "app_log.h"
+#include "sticky_app.h"
 #include "board_power.h"
 #include "board_sensor_bus.h"
 #include "board_shared_spi.h"
@@ -214,6 +215,11 @@ extern "C" void app_main()
     const esp_err_t imu_monitor_result = sticky_imu_start_monitoring();
     if (imu_monitor_result != ESP_OK) {
         halt_after_error("sticky_imu_monitor", imu_monitor_result);
+    }
+
+    const esp_err_t app_result = sticky_app_start(*canvas);
+    if (app_result != ESP_OK) {
+        halt_after_error("sticky_app_start", app_result);
     }
 
 #if STICKY_LOG_BOOT_DETAILS_ENABLED

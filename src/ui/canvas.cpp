@@ -7,12 +7,28 @@
 #include "font.h"
 
 Canvas::Canvas(uint16_t width, uint16_t height, uint8_t *buffer, size_t buffer_size)
-    : width_(width),
-      height_(height),
+    : physical_width_(width),
+      physical_height_(height),
       stride_((width + 3U) / 4U),
       buffer_(buffer),
       buffer_size_(buffer_size)
 {
+}
+
+uint16_t Canvas::width() const
+{
+    return rotation_ == CanvasRotation::Deg90Clockwise ||
+                   rotation_ == CanvasRotation::Deg90CounterClockwise
+               ? physical_height_
+               : physical_width_;
+}
+
+uint16_t Canvas::height() const
+{
+    return rotation_ == CanvasRotation::Deg90Clockwise ||
+                   rotation_ == CanvasRotation::Deg90CounterClockwise
+               ? physical_width_
+               : physical_height_;
 }
 
 void Canvas::clear(GrayLevel color)
@@ -28,14 +44,36 @@ void Canvas::clear(GrayLevel color)
 
 void Canvas::draw_pixel(int x, int y, GrayLevel color)
 {
-    if (buffer_ == nullptr || x < 0 || y < 0 || x >= width_ || y >= height_) {
+    if (buffer_ == nullptr || x < 0 || y < 0 || x >= width() || y >= height()) {
         return;
+    }
+
+    int physical_x = x;
+    int physical_y = y;
+    switch (rotation_) {
+    case CanvasRotation::Deg90Clockwise:
+        physical_x = physical_width_ - 1 - y;
+        physical_y = x;
+        break;
+    case CanvasRotation::Deg180:
+        physical_x = physical_width_ - 1 - x;
+        physical_y = physical_height_ - 1 - y;
+        break;
+    case CanvasRotation::Deg90CounterClockwise:
+        physical_x = y;
+        physical_y = physical_height_ - 1 - x;
+        break;
+    case CanvasRotation::Deg0:
+    default:
+        break;
     }
 
     // Pixels are packed from the most-significant pair to the least-significant pair.
     // 每个字节从高位到低位依次保存四个像素，每个像素占两位。
-    const size_t index = static_cast<size_t>(y) * stride_ + static_cast<size_t>(x) / 4U;
-    const uint8_t shift = static_cast<uint8_t>((3 - (x & 0x03)) * 2);
+    const size_t index = static_cast<size_t>(physical_y) * stride_ +
+                         static_cast<size_t>(physical_x) / 4U;
+    const uint8_t shift =
+        static_cast<uint8_t>((3 - (physical_x & 0x03)) * 2);
     const uint8_t mask = static_cast<uint8_t>(0x03U << shift);
     const uint8_t value = static_cast<uint8_t>(color) << shift;
     buffer_[index] = static_cast<uint8_t>((buffer_[index] & ~mask) | value);
@@ -89,8 +127,8 @@ void Canvas::fill_rect(int x, int y, int width, int height, GrayLevel color)
     // 进入循环前统一裁剪边界，使超出屏幕的矩形也能安全绘制。
     const int start_x = std::max(0, x);
     const int start_y = std::max(0, y);
-    const int end_x = std::min<int>(width_, x + width);
-    const int end_y = std::min<int>(height_, y + height);
+    const int end_x = std::min<int>(this->width(), x + width);
+    const int end_y = std::min<int>(this->height(), y + height);
     for (int row = start_y; row < end_y; ++row) {
         for (int column = start_x; column < end_x; ++column) {
             draw_pixel(column, row, color);

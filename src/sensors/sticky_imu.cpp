@@ -101,27 +101,6 @@ StickyImuOrientation classify_orientation(float x, float y, float z)
     return StickyImuOrientation::Unknown;
 }
 
-const char *orientation_name(StickyImuOrientation orientation)
-{
-    switch (orientation) {
-    case StickyImuOrientation::Landscape0:
-        return "landscape_0";
-    case StickyImuOrientation::Landscape180:
-        return "landscape_180";
-    case StickyImuOrientation::Portrait0:
-        return "portrait_0";
-    case StickyImuOrientation::Portrait180:
-        return "portrait_180";
-    case StickyImuOrientation::FaceUp:
-        return "face_up";
-    case StickyImuOrientation::FaceDown:
-        return "face_down";
-    case StickyImuOrientation::Unknown:
-    default:
-        return "unknown";
-    }
-}
-
 float acceleration_magnitude(const StickyImuState &state)
 {
     return std::sqrt(state.acceleration_x_g * state.acceleration_x_g +
@@ -170,7 +149,7 @@ void begin_motion(PlacementTracker &tracker,
     reset_quiet_candidate(tracker, sample);
     STICKY_LOGI(kTag,
                 "imu=motion state=moving from=%s delta_g=%.3f",
-                orientation_name(tracker.settled_orientation),
+                sticky_imu_orientation_name(tracker.settled_orientation),
                 static_cast<double>(delta_g));
 }
 
@@ -190,8 +169,8 @@ void commit_settled_placement(PlacementTracker &tracker,
     tracker.moving = false;
     STICKY_LOGI(kTag,
                 "imu=placement state=settled from=%s to=%s motion_ms=%lu quiet_samples=%d x_g=%.3f y_g=%.3f z_g=%.3f",
-                orientation_name(previous),
-                orientation_name(tracker.settled_orientation),
+                sticky_imu_orientation_name(previous),
+                sticky_imu_orientation_name(tracker.settled_orientation),
                 static_cast<unsigned long>(motion_ms),
                 tracker.quiet_sample_count,
                 static_cast<double>(sample.acceleration_x_g),
@@ -249,8 +228,8 @@ void update_placement(PlacementTracker &tracker, StickyImuState &sample)
 #if STICKY_LOG_MOTION_SAMPLES_ENABLED
     STICKY_LOGD(kTag,
                 "imu=sample observed=%s settled=%s motion=%s magnitude_g=%.3f step_delta_g=%.3f quiet_samples=%d x_g=%.3f y_g=%.3f z_g=%.3f",
-                orientation_name(sample.orientation),
-                orientation_name(tracker.settled_orientation),
+                sticky_imu_orientation_name(sample.orientation),
+                sticky_imu_orientation_name(tracker.settled_orientation),
                 tracker.moving ? "moving" : "still",
                 static_cast<double>(acceleration_magnitude(sample)),
                 static_cast<double>(step_delta),
@@ -405,4 +384,25 @@ esp_err_t sticky_imu_get_state(StickyImuState &state)
     state = s_latest_state;
     taskEXIT_CRITICAL(&s_state_lock);
     return state.valid ? ESP_OK : ESP_ERR_INVALID_STATE;
+}
+
+const char *sticky_imu_orientation_name(StickyImuOrientation orientation)
+{
+    switch (orientation) {
+    case StickyImuOrientation::Landscape0:
+        return "landscape_0";
+    case StickyImuOrientation::Landscape180:
+        return "landscape_180";
+    case StickyImuOrientation::Portrait0:
+        return "portrait_0";
+    case StickyImuOrientation::Portrait180:
+        return "portrait_180";
+    case StickyImuOrientation::FaceUp:
+        return "face_up";
+    case StickyImuOrientation::FaceDown:
+        return "face_down";
+    case StickyImuOrientation::Unknown:
+    default:
+        return "unknown";
+    }
 }

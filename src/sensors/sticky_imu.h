@@ -33,3 +33,7 @@ esp_err_t sticky_imu_start_monitoring();
 // Copies the latest acceleration, motion flag, and settled orientation.
 // 复制最近一次加速度、移动标记和最终放稳姿态。
 esp_err_t sticky_imu_get_state(StickyImuState &state);
+
+// Returns the stable log and UI name for one orientation value.
+// 返回姿态对应的稳定日志与界面名称。
+const char *sticky_imu_orientation_name(StickyImuOrientation orientation);

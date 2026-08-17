@@ -48,14 +48,21 @@
 
 上述方向以真机屏幕文字正常阅读的横置方向作为0度基准；从`landscape_0`顺时针旋转90度后为`portrait_0`。
 
-阶段 4 正在验证拿起、旋转和最终放稳状态：
+阶段 4 已完成拿起、旋转和最终放稳状态真机验收：
 
 - 每100毫秒读取一次加速度和当前方向。
 - 重力向量离开放稳位置后，只输出一次移动开始日志。
 - 方向、重力大小和重力向量连续稳定约1秒后，才提交最终放稳姿态。
 - 旋转过程中的原始采样日志由独立宏控制，默认关闭。
 
-正式产品页面将在放稳状态真机验收后逐项加入。
+阶段 5 已实现番茄钟触发候选流程，等待真机验收：
+
+- 普通页面会按横置、竖置和180度方向自动转正。
+- 从`landscape_0`顺时针转到`portrait_0`，或从`landscape_180`顺时针转到`portrait_180`时，显示番茄钟确认页。
+- 确认页完成刷新后开始计10秒，在屏幕上触摸一次即启动15分钟番茄钟。
+- 10秒内没有触摸时，进入普通竖屏主页。
+- 确认期间再次移动设备时，取消本次候选，并在设备最终放稳后显示对应的普通页面。
+- 番茄钟运行时每分钟更新一次画面，15分钟后显示完成页。
 
 ## 环境
 
@@ -115,6 +122,7 @@ touch=controller_ready
 touch=polling_ready
 imu=ready
 imu=monitoring
+app=ready
 system=idf
 memory=flash
 memory=heap
@@ -123,7 +131,7 @@ phase=ready result=ok
 
 `detect_level=1`表示当前未检测到MicroSD卡，插卡后通常会显示`detect_level=0`。这一阶段只将MicroSD的控制脚设置为参考工程的启动状态，尚未挂载或读写存储卡。
 
-屏幕会执行一次全屏刷新，然后显示`TOUCH 5 POINT TEST`和五个触摸目标点。本阶段只增加姿态日志，不改变屏幕内容。
+屏幕启动时先显示`TOUCH 5 POINT TEST`和五个触摸目标点。加速度计完成第一次放稳姿态判定后，页面会自动切换为对应方向的`STICKY HOME`。
 
 ## 日志设计
 
@@ -153,12 +161,13 @@ boards/                 Sticky 的 PlatformIO 板卡定义
 components/seeed_epaper SSD1677/UC8179 电子纸公共驱动
 components/debug_logging 电子纸和触摸的编译期详细日志开关
 src/board/              电源、引脚和SD/屏幕共享SPI准备
-src/core/               日志与后续应用核心
+src/app/                页面切换、确认窗口和番茄钟状态机
+src/core/               日志基础设施
 src/display/            屏幕初始化、刷新和测试图案
 src/input/              GT911触摸初始化、坐标转换和采样
 src/sensors/            LSM6DS3TR-C加速度计和稳定姿态判定
-src/ui/                 画布、基础图形和5×7字体
-src/main.cpp            固件入口、启动诊断和显示验证流程
+src/ui/                 可旋转画布、基础图形、5×7字体和应用页面
+src/main.cpp            固件入口、启动诊断和各功能模块启动顺序
 platformio.ini          开发版与发布版构建配置
 sdkconfig.defaults      ESP-IDF 硬件配置
 partitions.csv          固件与资源空间分配
@@ -206,3 +215,28 @@ partitions.csv          固件与资源空间分配
 10. 保持设备静止，确认姿态日志不会持续刷新。
 
 如需逐条查看旋转过程，可在`platformio.ini`的Debug环境中将`STICKY_LOG_MOTION_SAMPLES_ENABLED`设为`1`；验证最终状态时保持为`0`。
+
+## 阶段 5 验收
+
+### 主流程：超时进入普通竖屏页
+
+1. 烧录`sticky-debug`并打开串口，将设备屏幕朝上平放在桌面，等待日志显示`to=face_up`。
+2. 从桌面连续拿起设备，转到`landscape_0`并放稳2秒，确认屏幕显示正向的`STICKY HOME`和`LANDSCAPE 0`。
+3. 从当前`landscape_0`顺时针转90度到`portrait_0`，放稳后确认屏幕显示`POMODORO`、`15:00`和`TAP TO START`。
+4. 保持设备不动，同时不触摸屏幕，等待10秒。
+5. 确认屏幕自动进入正向的`STICKY HOME`和`PORTRAIT 0`，日志出现`state=timeout fallback=portrait_base`。
+
+### 主流程：触摸启动番茄钟
+
+6. 从上一步的`portrait_0`逆时针转90度回到`landscape_0`，放稳2秒。
+7. 从当前`landscape_0`再次顺时针转90度到`portrait_0`，等待番茄钟确认页完全显示。
+8. 在10秒内触摸屏幕任意位置一次，确认日志依次出现`state=accepted`和`pomodoro=timer state=started duration_s=900`。
+9. 确认屏幕显示`FOCUS SESSION`、`15:00`和`POMODORO RUNNING`。
+
+### 边缘流程：候选期间继续移动
+
+10. 重启设备，按第1至第3步再次进入番茄钟确认页。
+11. 确认页显示后，立即把设备从`portrait_0`逆时针转回`landscape_0`并放稳。
+12. 确认日志先出现`state=canceled reason=motion`，放稳后屏幕显示普通的`LANDSCAPE 0`主页，番茄钟不会启动。
+
+上述每一步都从上一步的结束姿态继续动作，无需中途重新摆放设备。

@@ -29,6 +29,9 @@ bool s_touching = false;
 bool s_read_error_reported = false;
 uint16_t s_last_x = 0;
 uint16_t s_last_y = 0;
+portMUX_TYPE s_press_lock = portMUX_INITIALIZER_UNLOCKED;
+StickyTouchPress s_pending_press = {};
+bool s_press_pending = false;
 
 uint16_t scale_coordinate(uint16_t value,
                           uint16_t source_max,
@@ -77,6 +80,10 @@ void touch_task(void *)
                                        s_last_y);
             if (!s_touching) {
                 s_touching = true;
+                taskENTER_CRITICAL(&s_press_lock);
+                s_pending_press = {s_last_x, s_last_y};
+                s_press_pending = true;
+                taskEXIT_CRITICAL(&s_press_lock);
                 STICKY_LOGI(kTag,
                             "touch=detected x=%u y=%u id=%u size=%u",
                             static_cast<unsigned>(s_last_x),
@@ -176,4 +183,24 @@ esp_err_t sticky_touch_init()
                 "touch=polling_ready interval_ms=30 driver_output=%d result=ok",
                 STICKY_LOG_TOUCH_DRIVER_OUTPUT_ENABLED);
     return ESP_OK;
+}
+
+bool sticky_touch_take_press(StickyTouchPress &press)
+{
+    bool has_press = false;
+    taskENTER_CRITICAL(&s_press_lock);
+    if (s_press_pending) {
+        press = s_pending_press;
+        s_press_pending = false;
+        has_press = true;
+    }
+    taskEXIT_CRITICAL(&s_press_lock);
+    return has_press;
+}
+
+void sticky_touch_clear_press()
+{
+    taskENTER_CRITICAL(&s_press_lock);
+    s_press_pending = false;
+    taskEXIT_CRITICAL(&s_press_lock);
 }

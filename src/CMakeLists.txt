@@ -1,6 +1,7 @@
 idf_component_register(
     SRCS
         "main.cpp"
+        "app/sticky_app.cpp"
         "board/board_power.cpp"
         "board/board_sensor_bus.cpp"
         "board/board_shared_spi.cpp"
@@ -10,10 +11,12 @@ idf_component_register(
         "display/touch_test_pattern.cpp"
         "input/sticky_touch.cpp"
         "sensors/sticky_imu.cpp"
+        "ui/app_pages.cpp"
         "ui/canvas.cpp"
         "ui/font.cpp"
     INCLUDE_DIRS
         "."
+        "app"
         "board"
         "core"
         "display"

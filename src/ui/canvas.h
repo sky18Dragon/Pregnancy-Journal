@@ -10,17 +10,29 @@ enum class GrayLevel : uint8_t {
     White = 3,
 };
 
+enum class CanvasRotation : uint8_t {
+    Deg0,
+    Deg90Clockwise,
+    Deg180,
+    Deg90CounterClockwise,
+};
+
 class Canvas {
 public:
     // Wraps a caller-owned 2-bit grayscale buffer as an 800x480 drawing surface.
     // 将调用方提供的2位灰度缓冲区包装成可绘图画布，画布本身不负责释放内存。
     Canvas(uint16_t width, uint16_t height, uint8_t *buffer, size_t buffer_size);
 
-    uint16_t width() const { return width_; }
-    uint16_t height() const { return height_; }
+    uint16_t width() const;
+    uint16_t height() const;
     size_t stride() const { return stride_; }
     uint8_t *data() { return buffer_; }
     const uint8_t *data() const { return buffer_; }
+
+    // Rotates logical drawing coordinates while preserving the physical buffer.
+    // 旋转逻辑绘图坐标，底层物理缓冲区保持不变。
+    void set_rotation(CanvasRotation rotation) { rotation_ = rotation; }
+    CanvasRotation rotation() const { return rotation_; }
 
     void clear(GrayLevel color = GrayLevel::White);
 
@@ -36,9 +48,10 @@ public:
                    GrayLevel color = GrayLevel::Black);
 
 private:
-    uint16_t width_;
-    uint16_t height_;
+    uint16_t physical_width_;
+    uint16_t physical_height_;
     size_t stride_;
     uint8_t *buffer_;
     size_t buffer_size_;
+    CanvasRotation rotation_ = CanvasRotation::Deg0;
 };
