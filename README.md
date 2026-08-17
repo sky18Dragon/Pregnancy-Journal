@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-阶段 0 已建立以下基础能力：
+阶段 0 已完成真机验收，具备以下基础能力：
 
 - ESP32-S3、32 MB Flash 和 Octal PSRAM 工程配置。
 - 8 MB 固件分区与约 24 MB 资源分区。
@@ -12,7 +12,18 @@
 - 启动原因、唤醒原因、芯片、Flash、堆内存与 PSRAM 诊断日志。
 - 开发版与发布版两套日志配置。
 
-电子纸、触摸、IMU 和正式应用将在后续阶段逐项加入。
+阶段 1 已加入最小电子纸显示链路：
+
+- SSD1677控制器和800×480电子纸驱动。
+- GPIO47屏幕供电与SPI2总线初始化。
+- 电子纸与MicroSD共享SPI2时的板级引脚准备。
+- 在屏幕驱动启动前预装GPIO中断服务。
+- 位于PSRAM中的2位灰度画布和旋转缓冲区。
+- 5×7 ASCII点阵字体和基础绘图函数。
+- 带方向标记的黑白全屏测试画面。
+- 屏幕初始化、缓冲区和刷新耗时诊断日志。
+
+触摸、IMU和正式产品页面将在屏幕真机验收后逐项加入。
 
 ## 环境
 
@@ -53,11 +64,28 @@ phase=start
 boot=reason
 step=begin
 step=ready
+shared_spi=prepare_begin
+shared_spi=sd_idle cs_level=1 en_level=1 detect_level=1
+shared_spi=gpio_isr_ready state=installed
+shared_spi=prepare_done result=ok
+display=init_begin
+display=power_on
+display=spi_bus_ready
+display=spi_device_ready
+display=panel_ready
+display=framebuffer_ready
+display=refresh_begin mode=monochrome_full
+display=refresh_done mode=monochrome_full
+display=test_pattern result=ok
 system=idf
 memory=flash
 memory=heap
 phase=ready result=ok
 ```
+
+`detect_level=1`表示当前未检测到MicroSD卡，插卡后通常会显示`detect_level=0`。这一阶段只将MicroSD的控制脚设置为参考工程的启动状态，尚未挂载或读写存储卡。
+
+屏幕会执行一次全屏刷新，然后显示白色背景、黑色外框、四种不同的角标和中央文字`STICKY DISPLAY OK`。左上角应是带白色`TL`文字的黑色方块，可用它确认画面方向。
 
 ## 日志设计
 
@@ -83,19 +111,27 @@ phase=ready result=ok
 
 ```text
 boards/                 Sticky 的 PlatformIO 板卡定义
-src/board/              电源、引脚和后续共享板级资源
+components/seeed_epaper SSD1677/UC8179 电子纸公共驱动
+components/debug_logging 电子纸和触摸的编译期详细日志开关
+src/board/              电源、引脚和SD/屏幕共享SPI准备
 src/core/               日志与后续应用核心
-src/main.cpp            固件入口和启动诊断
+src/display/            屏幕初始化、刷新和测试图案
+src/ui/                 画布、基础图形和5×7字体
+src/main.cpp            固件入口、启动诊断和显示验证流程
 platformio.ini          开发版与发布版构建配置
 sdkconfig.defaults      ESP-IDF 硬件配置
 partitions.csv          固件与资源空间分配
 ```
 
-## 阶段 0 验收
+## 阶段 1 验收
 
 1. 编译 `sticky-debug` 和 `sticky-release`。
 2. 烧录 `sticky-debug`。
-3. 确认 Sticky 上电后保持运行。
-4. 确认串口出现 `phase=ready result=ok`。
-5. 连续运行一分钟，确认出现两次心跳且可用内存没有持续下降。
-6. 按复位键，确认新的启动日志再次完整出现。
+3. 确认串口依次出现`shared_spi=sd_idle cs_level=1 en_level=1`和`shared_spi=prepare_done result=ok`。
+4. 等待电子纸完成一次全屏闪烁刷新。
+5. 确认屏幕中央显示`STICKY DISPLAY OK`，四角图形完整可见。
+6. 确认带`TL`文字的黑色方块位于左上角，文字没有镜像。
+7. 确认串口出现`display=test_pattern result=ok`和`phase=ready result=ok`。
+8. 连续运行一分钟，确认出现两次心跳且可用内存没有持续下降。
+9. 按复位键，确认屏幕可以再次刷新出相同测试画面。
+10. 分别在MicroSD卡插入和拔出状态下复位一次，确认两种状态都能完成屏幕刷新。

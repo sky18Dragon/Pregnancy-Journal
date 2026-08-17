@@ -14,6 +14,8 @@ constexpr TickType_t kPowerSettleDelay = pdMS_TO_TICKS(100);
 
 esp_err_t set_power_level(gpio_num_t pin, uint32_t level)
 {
+    // Centralize GPIO writes so every failed latch operation has the same log shape.
+    // 集中处理锁存引脚写入，让所有失败日志都保持相同格式。
     const esp_err_t result = gpio_set_level(pin, level);
     if (result != ESP_OK) {
         STICKY_LOGE(kTag,
@@ -84,4 +86,3 @@ esp_err_t board_power_init()
     STICKY_LOGI(kTag, "step=ready hold=high lock=high result=ok");
     return ESP_OK;
 }
-

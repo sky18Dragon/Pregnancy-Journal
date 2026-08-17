@@ -4,3 +4,21 @@
 #define PIN_POWER_HOLD 45
 #define PIN_POWER_LOCK 46
 
+// SSD1677 e-paper panel on SPI2 / SPI2总线上的SSD1677电子纸屏幕
+#define PIN_EPD_MOSI 14
+#define PIN_EPD_CLK 13
+#define PIN_EPD_MISO 12
+#define PIN_EPD_CS 15
+#define PIN_EPD_DC 16
+#define PIN_EPD_RST 17
+#define PIN_EPD_BUSY 18
+#define PIN_EPD_EN 47
+
+// MicroSD shares SPI2 data and clock lines with the e-paper panel.
+// MicroSD与电子纸共用SPI2的数据线和时钟线，通过独立CS引脚避免总线冲突。
+#define PIN_SD_CS 8
+#define PIN_SD_EN 10
+#define PIN_SD_DETECT 11
+#define PIN_SD_MOSI PIN_EPD_MOSI
+#define PIN_SD_MISO PIN_EPD_MISO
+#define PIN_SD_CLK PIN_EPD_CLK

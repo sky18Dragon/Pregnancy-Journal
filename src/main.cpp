@@ -1,5 +1,9 @@
 #include "app_log.h"
 #include "board_power.h"
+#include "board_shared_spi.h"
+#include "canvas.h"
+#include "display_test_pattern.h"
+#include "sticky_display.h"
 
 #include <cinttypes>
 
@@ -26,8 +30,23 @@ namespace {
 constexpr char kTag[] = "sticky_boot";
 constexpr TickType_t kHeartbeatInterval = pdMS_TO_TICKS(30000);
 
+// Keeps the device alive after a required startup component fails.
+// 必要组件启动失败后保持设备运行，方便串口持续保留最后一条错误信息。
+[[noreturn]] void halt_after_error(const char *component, esp_err_t result)
+{
+    STICKY_LOGE(kTag,
+                "phase=halt component=%s result=%s",
+                component,
+                esp_err_to_name(result));
+    while (true) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
 const char *reset_reason_name(esp_reset_reason_t reason)
 {
+    // Convert hardware reset codes into stable text fields for log comparison.
+    // 将硬件复位代码转换成稳定文本，方便对比不同测试日志。
     switch (reason) {
     case ESP_RST_POWERON:
         return "power_on";
@@ -57,6 +76,8 @@ const char *reset_reason_name(esp_reset_reason_t reason)
 
 const char *wakeup_reason_name(esp_sleep_wakeup_cause_t cause)
 {
+    // Deep-sleep wake sources use a separate ESP-IDF enumeration from reset reasons.
+    // 深度睡眠唤醒原因使用另一套枚举，因此在这里单独转换。
     switch (cause) {
     case ESP_SLEEP_WAKEUP_EXT0:
         return "ext0";
@@ -88,6 +109,8 @@ const char *wakeup_reason_name(esp_sleep_wakeup_cause_t cause)
 #if STICKY_LOG_BOOT_DETAILS_ENABLED
 void log_system_details()
 {
+    // These diagnostics are compiled only into profiles that request boot details.
+    // 这些硬件诊断只会编译进启用了启动详情的固件配置。
     esp_chip_info_t chip = {};
     esp_chip_info(&chip);
 
@@ -142,13 +165,34 @@ extern "C" void app_main()
 
     const esp_err_t power_result = board_power_init();
     if (power_result != ESP_OK) {
-        STICKY_LOGE(kTag,
-                    "phase=halt component=board_power result=%s",
-                    esp_err_to_name(power_result));
-        while (true) {
-            vTaskDelay(pdMS_TO_TICKS(1000));
-        }
+        halt_after_error("board_power", power_result);
     }
+
+    // Isolate the other SPI2 device before the e-paper driver owns the bus.
+    // 在电子纸驱动接管SPI2前，先让共享总线上的SD卡进入确定的空闲状态。
+    const esp_err_t shared_spi_result = board_shared_spi_prepare();
+    if (shared_spi_result != ESP_OK) {
+        halt_after_error("board_shared_spi", shared_spi_result);
+    }
+
+    const esp_err_t display_result = sticky_display_init();
+    if (display_result != ESP_OK) {
+        halt_after_error("sticky_display_init", display_result);
+    }
+
+    Canvas *canvas = sticky_display_canvas();
+    if (canvas == nullptr) {
+        halt_after_error("sticky_display_canvas", ESP_ERR_INVALID_STATE);
+    }
+
+    // Render one deterministic image before adding product pages or input logic.
+    // 在接入产品页面和输入逻辑前，先绘制一张固定图案验证完整显示链路。
+    display_test_pattern_render(*canvas);
+    const esp_err_t refresh_result = sticky_display_refresh_monochrome();
+    if (refresh_result != ESP_OK) {
+        halt_after_error("sticky_display_refresh", refresh_result);
+    }
+    STICKY_LOGI(kTag, "display=test_pattern result=ok");
 
 #if STICKY_LOG_BOOT_DETAILS_ENABLED
     log_system_details();
