@@ -23,21 +23,39 @@
 - 带方向标记的黑白全屏测试画面。
 - 屏幕初始化、缓冲区和刷新耗时诊断日志。
 
-阶段 2 正在验证GT911触摸链路：
+阶段 2 已完成GT911触摸链路真机验收：
 
 - I2C0总线、触摸供电、复位和中断引脚。
 - GT911双地址探测、分辨率读取和坐标采样。
 - 五点触摸测试画面和物理坐标转换。
 - 每次首次检测到手指时输出一条坐标日志。
 
-正式产品页面将在IMU真机验收后逐项加入。
-
-阶段 3 正在验证LSM6DS3TR-C姿态检测：
+阶段 3 已完成LSM6DS3TR-C基础姿态检测真机验收：
 
 - 使用GPIO0和GPIO1的I2C1共享传感器总线。
 - 按参考源码配置104Hz、±2g加速度计。
-- 每100毫秒采样一次，连续5次一致后输出新的稳定姿态。
-- 日志只在稳定姿态变化时输出。
+- 已验证正反平放和四个竖立方向的映射。
+- 四个竖立方向使用横置、竖置及其180度旋转表示。
+
+方向日志含义：
+
+- `landscape_0`：横置0度。
+- `landscape_180`：横置旋转180度。
+- `portrait_0`：竖置0度。
+- `portrait_180`：竖置旋转180度。
+- `face_up`：平放且屏幕正面朝上。
+- `face_down`：平放且屏幕正面朝下。
+
+上述方向以真机屏幕文字正常阅读的横置方向作为0度基准；从`landscape_0`顺时针旋转90度后为`portrait_0`。
+
+阶段 4 正在验证拿起、旋转和最终放稳状态：
+
+- 每100毫秒读取一次加速度和当前方向。
+- 重力向量离开放稳位置后，只输出一次移动开始日志。
+- 方向、重力大小和重力向量连续稳定约1秒后，才提交最终放稳姿态。
+- 旋转过程中的原始采样日志由独立宏控制，默认关闭。
+
+正式产品页面将在放稳状态真机验收后逐项加入。
 
 ## 环境
 
@@ -82,6 +100,7 @@ shared_spi=prepare_begin
 shared_spi=sd_idle cs_level=1 en_level=1 detect_level=1
 shared_spi=gpio_isr_ready state=installed
 shared_spi=prepare_done result=ok
+sensor_bus=ready
 display=init_begin
 display=power_on
 display=spi_bus_ready
@@ -94,7 +113,6 @@ display=touch_test_pattern result=ok
 touch=init_begin
 touch=controller_ready
 touch=polling_ready
-sensor_bus=ready
 imu=ready
 imu=monitoring
 system=idf
@@ -105,7 +123,7 @@ phase=ready result=ok
 
 `detect_level=1`表示当前未检测到MicroSD卡，插卡后通常会显示`detect_level=0`。这一阶段只将MicroSD的控制脚设置为参考工程的启动状态，尚未挂载或读写存储卡。
 
-屏幕会执行一次全屏刷新，然后显示白色背景、黑色外框、四种不同的角标和中央文字`STICKY DISPLAY OK`。左上角应是带白色`TL`文字的黑色方块，可用它确认画面方向。
+屏幕会执行一次全屏刷新，然后显示`TOUCH 5 POINT TEST`和五个触摸目标点。本阶段只增加姿态日志，不改变屏幕内容。
 
 ## 日志设计
 
@@ -171,6 +189,20 @@ partitions.csv          固件与资源空间分配
 
 1. 烧录`sticky-debug`并打开串口。
 2. 确认启动时出现`sensor_bus=ready`、`imu=ready`和`imu=monitoring`。
-3. 让屏幕正面朝上和朝下，确认分别输出`face_up`和`face_down`。
-4. 将设备竖起并依次转向四个方向，确认日志输出对应的`arrow_up`、`arrow_down`、`arrow_left`或`arrow_right`。
-5. 每次姿态稳定约0.5秒后应只输出一条新日志。
+3. 让屏幕正面朝上和朝下，确认最终放稳日志分别包含`face_up`和`face_down`。
+4. 从横置0度开始，每次顺时针旋转90度并放稳，确认日志依次包含`landscape_0`、`portrait_0`、`landscape_180`、`portrait_180`，最后回到`landscape_0`。
+
+## 阶段 4 验收
+
+1. 烧录`sticky-debug`并打开串口。
+2. 将设备屏幕朝上平放在桌面，静置2秒，确认最终方向为`face_up`。
+3. 从`face_up`连续拿起并转到横置0度，让屏幕文字保持正常阅读方向，停稳2秒，确认最终方向为`landscape_0`。
+4. 保持设备竖立，从`landscape_0`顺时针旋转90度，停稳2秒，确认最终方向为`portrait_0`。
+5. 从`portrait_0`继续顺时针旋转90度，停稳2秒，确认最终方向为`landscape_180`。
+6. 从`landscape_180`继续顺时针旋转90度，停稳2秒，确认最终方向为`portrait_180`。
+7. 从`portrait_180`继续顺时针旋转90度，停稳2秒，确认最终方向回到`landscape_0`。
+8. 从`landscape_0`直接将设备屏幕朝上放回桌面，静置2秒，确认最终方向回到`face_up`。
+9. 每一步都从上一步的结束姿态继续；每段动作应先出现一条`imu=motion state=moving`，再出现一条`imu=placement state=settled`。
+10. 保持设备静止，确认姿态日志不会持续刷新。
+
+如需逐条查看旋转过程，可在`platformio.ini`的Debug环境中将`STICKY_LOG_MOTION_SAMPLES_ENABLED`设为`1`；验证最终状态时保持为`0`。

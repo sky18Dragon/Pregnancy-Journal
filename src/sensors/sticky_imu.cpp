@@ -23,7 +23,14 @@ constexpr uint8_t kAccelerometer104Hz2g = 0x40;
 constexpr uint8_t kRegisterAutoIncrement = 0x04;
 constexpr float kAccelerationScaleG = 0.000061F;
 constexpr float kOrientationThresholdG = 0.70F;
-constexpr int kStableSampleCount = 5;
+
+// Placement thresholds operate on the measured gravity vector in g.
+// 放稳状态阈值使用以g为单位的重力向量。
+constexpr float kMotionStartDeltaG = 0.10F;
+constexpr float kQuietVectorDeltaG = 0.05F;
+constexpr float kQuietMagnitudeMinG = 0.75F;
+constexpr float kQuietMagnitudeMaxG = 1.25F;
+constexpr int kSettleSampleCount = 10;
 constexpr TickType_t kPollInterval = pdMS_TO_TICKS(100);
 constexpr uint32_t kTaskStackSize = 3072;
 constexpr UBaseType_t kTaskPriority = 4;
@@ -32,6 +39,21 @@ i2c_master_dev_handle_t s_device = nullptr;
 TaskHandle_t s_monitor_task = nullptr;
 portMUX_TYPE s_state_lock = portMUX_INITIALIZER_UNLOCKED;
 StickyImuState s_latest_state = {};
+
+// Holds one complete movement session from the last settled pose to the next.
+// 保存从上一次放稳姿态到下一次放稳姿态的一整段移动过程。
+struct PlacementTracker {
+    StickyImuOrientation settled_orientation = StickyImuOrientation::Unknown;
+    StickyImuOrientation quiet_candidate = StickyImuOrientation::Unknown;
+    StickyImuState settled_reference = {};
+    StickyImuState quiet_anchor = {};
+    StickyImuState previous_sample = {};
+    int quiet_sample_count = 0;
+    bool moving = false;
+    bool has_settled_reference = false;
+    bool has_previous_sample = false;
+    TickType_t motion_started_at = 0;
+};
 
 esp_err_t write_register(uint8_t reg, uint8_t value)
 {
@@ -65,16 +87,16 @@ StickyImuOrientation classify_orientation(float x, float y, float z)
                          : StickyImuOrientation::FaceDown;
     }
     if (abs_x >= kOrientationThresholdG && abs_x > abs_y) {
-        // Calibration: -X is the normal landscape down direction.
-        // 校准结果：横向放置时-X指向物理下方。
-        return x < 0.0F ? StickyImuOrientation::ArrowDown
-                        : StickyImuOrientation::ArrowUp;
+        // Hardware calibration: +X is portrait 0; -X is portrait 180.
+        // 真机校准结果：+X为竖置0度，-X为竖置180度。
+        return x < 0.0F ? StickyImuOrientation::Portrait180
+                        : StickyImuOrientation::Portrait0;
     }
     if (abs_y >= kOrientationThresholdG) {
-        // Calibration: portrait -Y points toward the physical ground.
-        // 校准结果：竖向放置时-Y指向物理下方。
-        return y < 0.0F ? StickyImuOrientation::ArrowRight
-                        : StickyImuOrientation::ArrowLeft;
+        // Hardware calibration: -Y is landscape 0; +Y is landscape 180.
+        // 真机校准结果：-Y为横置0度，+Y为横置180度。
+        return y < 0.0F ? StickyImuOrientation::Landscape0
+                        : StickyImuOrientation::Landscape180;
     }
     return StickyImuOrientation::Unknown;
 }
@@ -82,14 +104,14 @@ StickyImuOrientation classify_orientation(float x, float y, float z)
 const char *orientation_name(StickyImuOrientation orientation)
 {
     switch (orientation) {
-    case StickyImuOrientation::ArrowUp:
-        return "arrow_up";
-    case StickyImuOrientation::ArrowDown:
-        return "arrow_down";
-    case StickyImuOrientation::ArrowLeft:
-        return "arrow_left";
-    case StickyImuOrientation::ArrowRight:
-        return "arrow_right";
+    case StickyImuOrientation::Landscape0:
+        return "landscape_0";
+    case StickyImuOrientation::Landscape180:
+        return "landscape_180";
+    case StickyImuOrientation::Portrait0:
+        return "portrait_0";
+    case StickyImuOrientation::Portrait180:
+        return "portrait_180";
     case StickyImuOrientation::FaceUp:
         return "face_up";
     case StickyImuOrientation::FaceDown:
@@ -98,6 +120,152 @@ const char *orientation_name(StickyImuOrientation orientation)
     default:
         return "unknown";
     }
+}
+
+float acceleration_magnitude(const StickyImuState &state)
+{
+    return std::sqrt(state.acceleration_x_g * state.acceleration_x_g +
+                     state.acceleration_y_g * state.acceleration_y_g +
+                     state.acceleration_z_g * state.acceleration_z_g);
+}
+
+float acceleration_delta(const StickyImuState &first,
+                         const StickyImuState &second)
+{
+    const float delta_x = first.acceleration_x_g - second.acceleration_x_g;
+    const float delta_y = first.acceleration_y_g - second.acceleration_y_g;
+    const float delta_z = first.acceleration_z_g - second.acceleration_z_g;
+    return std::sqrt(delta_x * delta_x + delta_y * delta_y +
+                     delta_z * delta_z);
+}
+
+bool is_quiet_sample(const StickyImuState &sample)
+{
+    const float magnitude = acceleration_magnitude(sample);
+    return sample.orientation != StickyImuOrientation::Unknown &&
+           magnitude >= kQuietMagnitudeMinG &&
+           magnitude <= kQuietMagnitudeMaxG;
+}
+
+void reset_quiet_candidate(PlacementTracker &tracker,
+                           const StickyImuState &sample)
+{
+    if (is_quiet_sample(sample)) {
+        tracker.quiet_candidate = sample.orientation;
+        tracker.quiet_anchor = sample;
+        tracker.quiet_sample_count = 1;
+    } else {
+        tracker.quiet_candidate = StickyImuOrientation::Unknown;
+        tracker.quiet_anchor = sample;
+        tracker.quiet_sample_count = 0;
+    }
+}
+
+void begin_motion(PlacementTracker &tracker,
+                  const StickyImuState &sample,
+                  float delta_g)
+{
+    tracker.moving = true;
+    tracker.motion_started_at = xTaskGetTickCount();
+    reset_quiet_candidate(tracker, sample);
+    STICKY_LOGI(kTag,
+                "imu=motion state=moving from=%s delta_g=%.3f",
+                orientation_name(tracker.settled_orientation),
+                static_cast<double>(delta_g));
+}
+
+void commit_settled_placement(PlacementTracker &tracker,
+                              const StickyImuState &sample)
+{
+    const StickyImuOrientation previous = tracker.settled_orientation;
+    const uint32_t motion_ms = tracker.moving
+                                   ? static_cast<uint32_t>(pdTICKS_TO_MS(
+                                         xTaskGetTickCount() -
+                                         tracker.motion_started_at))
+                                   : 0;
+
+    tracker.settled_orientation = tracker.quiet_candidate;
+    tracker.settled_reference = sample;
+    tracker.has_settled_reference = true;
+    tracker.moving = false;
+    STICKY_LOGI(kTag,
+                "imu=placement state=settled from=%s to=%s motion_ms=%lu quiet_samples=%d x_g=%.3f y_g=%.3f z_g=%.3f",
+                orientation_name(previous),
+                orientation_name(tracker.settled_orientation),
+                static_cast<unsigned long>(motion_ms),
+                tracker.quiet_sample_count,
+                static_cast<double>(sample.acceleration_x_g),
+                static_cast<double>(sample.acceleration_y_g),
+                static_cast<double>(sample.acceleration_z_g));
+}
+
+void update_placement(PlacementTracker &tracker, StickyImuState &sample)
+{
+    // Compares each sample with the last committed pose and current quiet window.
+    // 将每次采样与上次已提交姿态及当前安静窗口进行比较。
+    const float reference_delta = tracker.has_settled_reference
+                                      ? acceleration_delta(
+                                            sample, tracker.settled_reference)
+                                      : 0.0F;
+
+    if (!tracker.has_settled_reference) {
+        if (tracker.quiet_sample_count == 0 ||
+            sample.orientation != tracker.quiet_candidate ||
+            acceleration_delta(sample, tracker.quiet_anchor) >
+                kQuietVectorDeltaG) {
+            reset_quiet_candidate(tracker, sample);
+        } else if (is_quiet_sample(sample)) {
+            ++tracker.quiet_sample_count;
+        }
+    } else if (!tracker.moving) {
+        const bool left_settled_position =
+            reference_delta >= kMotionStartDeltaG ||
+            sample.orientation != tracker.settled_orientation ||
+            !is_quiet_sample(sample);
+        if (left_settled_position) {
+            begin_motion(tracker, sample, reference_delta);
+        }
+    } else if (!is_quiet_sample(sample)) {
+        reset_quiet_candidate(tracker, sample);
+    } else if (sample.orientation != tracker.quiet_candidate ||
+               acceleration_delta(sample, tracker.quiet_anchor) >
+                   kQuietVectorDeltaG) {
+        reset_quiet_candidate(tracker, sample);
+    } else {
+        ++tracker.quiet_sample_count;
+    }
+
+    // Commits only after one orientation and its gravity vector stay quiet.
+    // 只有方向及其重力向量持续安静后，才提交最终放稳姿态。
+    if ((!tracker.has_settled_reference || tracker.moving) &&
+        tracker.quiet_sample_count >= kSettleSampleCount) {
+        commit_settled_placement(tracker, sample);
+    }
+
+    const float step_delta = tracker.has_previous_sample
+                                 ? acceleration_delta(
+                                       sample, tracker.previous_sample)
+                                 : 0.0F;
+#if STICKY_LOG_MOTION_SAMPLES_ENABLED
+    STICKY_LOGD(kTag,
+                "imu=sample observed=%s settled=%s motion=%s magnitude_g=%.3f step_delta_g=%.3f quiet_samples=%d x_g=%.3f y_g=%.3f z_g=%.3f",
+                orientation_name(sample.orientation),
+                orientation_name(tracker.settled_orientation),
+                tracker.moving ? "moving" : "still",
+                static_cast<double>(acceleration_magnitude(sample)),
+                static_cast<double>(step_delta),
+                tracker.quiet_sample_count,
+                static_cast<double>(sample.acceleration_x_g),
+                static_cast<double>(sample.acceleration_y_g),
+                static_cast<double>(sample.acceleration_z_g));
+#else
+    (void)step_delta;
+#endif
+
+    tracker.previous_sample = sample;
+    tracker.has_previous_sample = true;
+    sample.orientation = tracker.settled_orientation;
+    sample.moving = tracker.moving;
 }
 
 esp_err_t read_acceleration(StickyImuState &state)
@@ -130,41 +298,15 @@ void store_state(const StickyImuState &state)
 
 void monitor_task(void *)
 {
-    StickyImuOrientation candidate = StickyImuOrientation::Unknown;
-    StickyImuOrientation stable = StickyImuOrientation::Unknown;
-    int candidate_count = 0;
+    PlacementTracker tracker = {};
     TickType_t next_read = xTaskGetTickCount();
 
     while (true) {
         StickyImuState sample = {};
         const esp_err_t result = read_acceleration(sample);
         if (result == ESP_OK) {
-            // Counts consecutive samples of the same candidate orientation.
-            // 统计连续出现同一候选姿态的采样次数。
-            if (sample.orientation == candidate) {
-                ++candidate_count;
-            } else {
-                candidate = sample.orientation;
-                candidate_count = 1;
-            }
-
-            // Publishes and logs a stable orientation only when it changes.
-            // 仅在姿态连续稳定且发生变化时保存状态并输出一次日志。
-            if (candidate_count >= kStableSampleCount && candidate != stable) {
-                stable = candidate;
-                sample.orientation = stable;
-                store_state(sample);
-                STICKY_LOGI(kTag,
-                            "imu=orientation value=%s x_g=%.3f y_g=%.3f z_g=%.3f stable_samples=%d",
-                            orientation_name(stable),
-                            static_cast<double>(sample.acceleration_x_g),
-                            static_cast<double>(sample.acceleration_y_g),
-                            static_cast<double>(sample.acceleration_z_g),
-                            kStableSampleCount);
-            } else {
-                sample.orientation = stable;
-                store_state(sample);
-            }
+            update_placement(tracker, sample);
+            store_state(sample);
         } else {
             STICKY_LOGE(kTag,
                         "imu=read result=%s",
@@ -249,8 +391,11 @@ esp_err_t sticky_imu_start_monitoring()
         return ESP_ERR_NO_MEM;
     }
     STICKY_LOGI(kTag,
-                "imu=monitoring interval_ms=100 stable_samples=%d result=ok",
-                kStableSampleCount);
+                "imu=monitoring interval_ms=100 settle_samples=%d motion_delta_g=%.2f quiet_delta_g=%.2f raw_samples=%d result=ok",
+                kSettleSampleCount,
+                static_cast<double>(kMotionStartDeltaG),
+                static_cast<double>(kQuietVectorDeltaG),
+                STICKY_LOG_MOTION_SAMPLES_ENABLED);
     return ESP_OK;
 }
 
