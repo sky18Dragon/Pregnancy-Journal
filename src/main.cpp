@@ -2,8 +2,9 @@
 #include "board_power.h"
 #include "board_shared_spi.h"
 #include "canvas.h"
-#include "display_test_pattern.h"
 #include "sticky_display.h"
+#include "sticky_touch.h"
+#include "touch_test_pattern.h"
 
 #include <cinttypes>
 
@@ -185,14 +186,19 @@ extern "C" void app_main()
         halt_after_error("sticky_display_canvas", ESP_ERR_INVALID_STATE);
     }
 
-    // Render one deterministic image before adding product pages or input logic.
-    // 在接入产品页面和输入逻辑前，先绘制一张固定图案验证完整显示链路。
-    display_test_pattern_render(*canvas);
+    // Draws the fixed physical targets used by the touch validation task.
+    // 绘制触摸验证任务使用的固定物理目标点。
+    touch_test_pattern_render(*canvas);
     const esp_err_t refresh_result = sticky_display_refresh_monochrome();
     if (refresh_result != ESP_OK) {
         halt_after_error("sticky_display_refresh", refresh_result);
     }
-    STICKY_LOGI(kTag, "display=test_pattern result=ok");
+    STICKY_LOGI(kTag, "display=touch_test_pattern result=ok");
+
+    const esp_err_t touch_result = sticky_touch_init();
+    if (touch_result != ESP_OK) {
+        halt_after_error("sticky_touch_init", touch_result);
+    }
 
 #if STICKY_LOG_BOOT_DETAILS_ENABLED
     log_system_details();

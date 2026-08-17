@@ -6,6 +6,8 @@ idf_component_register(
         "core/app_log.cpp"
         "display/display_test_pattern.cpp"
         "display/sticky_display.cpp"
+        "display/touch_test_pattern.cpp"
+        "input/sticky_touch.cpp"
         "ui/canvas.cpp"
         "ui/font.cpp"
     INCLUDE_DIRS
@@ -13,11 +15,14 @@ idf_component_register(
         "board"
         "core"
         "display"
+        "input"
         "ui"
     REQUIRES
         esp_driver_gpio
+        esp_driver_i2c
         esp_driver_spi
         esp_hw_support
+        gt911
         seeed_epaper
         spi_flash
 )

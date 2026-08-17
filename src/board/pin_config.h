@@ -22,3 +22,10 @@
 #define PIN_SD_MOSI PIN_EPD_MOSI
 #define PIN_SD_MISO PIN_EPD_MISO
 #define PIN_SD_CLK PIN_EPD_CLK
+
+// GT911 touch controller on I2C0 / I2C0总线上的GT911触摸控制器
+#define PIN_TOUCH_SCL 2
+#define PIN_TOUCH_SDA 3
+#define PIN_TOUCH_EN 42
+#define PIN_TOUCH_INT 21
+#define PIN_TOUCH_RST 41

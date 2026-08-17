@@ -31,6 +31,10 @@
 #define STICKY_LOG_TOUCH_SAMPLES_ENABLED 0
 #endif
 
+#ifndef STICKY_LOG_TOUCH_DRIVER_OUTPUT_ENABLED
+#define STICKY_LOG_TOUCH_DRIVER_OUTPUT_ENABLED 0
+#endif
+
 #ifndef STICKY_LOG_MOTION_SAMPLES_ENABLED
 #define STICKY_LOG_MOTION_SAMPLES_ENABLED 0
 #endif
@@ -87,4 +91,3 @@ void app_log_init();
 // Enables the selected application log level for one module tag.
 // 为一个模块标签启用当前应用日志等级。
 void app_log_register_tag(const char *tag);
-
