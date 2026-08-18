@@ -12,6 +12,8 @@ idf_component_register(
         "devices/sticky_buzzer.cpp"
         "display/sticky_display.cpp"
         "input/sticky_touch.cpp"
+        "ui/assets/pixel_asset.cpp"
+        "ui/assets/status_bunny_assets.cpp"
         "ui/canvas.cpp"
         "ui/font.cpp"
     INCLUDE_DIRS
@@ -24,6 +26,7 @@ idf_component_register(
         "display"
         "input"
         "ui"
+        "ui/assets"
     REQUIRES
         esp_driver_gpio
         esp_driver_i2c

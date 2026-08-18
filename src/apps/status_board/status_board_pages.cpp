@@ -6,6 +6,8 @@
 #include <cstring>
 
 #include "canvas.h"
+#include "pixel_asset.h"
+#include "status_bunny_assets.h"
 
 namespace {
 
@@ -163,190 +165,23 @@ void draw_button(Canvas &canvas,
         canvas, rect, y, label, scale, foreground);
 }
 
-void draw_sun_icon(Canvas &canvas,
-                   int center_x,
-                   int center_y,
-                   int radius,
-                   GrayLevel color)
-{
-    canvas.draw_circle(center_x, center_y, radius, color);
-    const int inner = radius + 5;
-    const int outer = radius + 13;
-    canvas.draw_line(center_x, center_y - inner,
-                     center_x, center_y - outer, color);
-    canvas.draw_line(center_x, center_y + inner,
-                     center_x, center_y + outer, color);
-    canvas.draw_line(center_x - inner, center_y,
-                     center_x - outer, center_y, color);
-    canvas.draw_line(center_x + inner, center_y,
-                     center_x + outer, center_y, color);
-    canvas.draw_line(center_x - inner + 2, center_y - inner + 2,
-                     center_x - outer + 3, center_y - outer + 3, color);
-    canvas.draw_line(center_x + inner - 2, center_y - inner + 2,
-                     center_x + outer - 3, center_y - outer + 3, color);
-    canvas.draw_line(center_x - inner + 2, center_y + inner - 2,
-                     center_x - outer + 3, center_y + outer - 3, color);
-    canvas.draw_line(center_x + inner - 2, center_y + inner - 2,
-                     center_x + outer - 3, center_y + outer - 3, color);
-}
-
-void draw_meeting_icon(Canvas &canvas,
-                       int center_x,
-                       int center_y,
-                       int size,
-                       GrayLevel color)
-{
-    const int head_radius = size / 6;
-    const int offset = size / 4;
-    canvas.fill_circle(center_x - offset, center_y - size / 5,
-                       head_radius, color);
-    canvas.fill_circle(center_x + offset, center_y - size / 5,
-                       head_radius, color);
-    canvas.fill_rect(center_x - offset - head_radius,
-                     center_y + 1,
-                     head_radius * 2,
-                     size / 3,
-                     color);
-    canvas.fill_rect(center_x + offset - head_radius,
-                     center_y + 1,
-                     head_radius * 2,
-                     size / 3,
-                     color);
-}
-
-void draw_message_icon(Canvas &canvas,
-                       int center_x,
-                       int center_y,
-                       int size,
-                       GrayLevel color)
-{
-    const int x = center_x - size / 2;
-    const int y = center_y - size / 3;
-    canvas.draw_rect(x, y, size, size * 2 / 3, color);
-    canvas.draw_line(x + size / 4, y + size * 2 / 3,
-                     x + size / 5, y + size * 5 / 6, color);
-    canvas.draw_line(x + size / 5, y + size * 5 / 6,
-                     x + size / 2, y + size * 2 / 3, color);
-    canvas.fill_circle(center_x - size / 5, center_y, 2, color);
-    canvas.fill_circle(center_x, center_y, 2, color);
-    canvas.fill_circle(center_x + size / 5, center_y, 2, color);
-}
-
-void draw_lunch_icon(Canvas &canvas,
-                     int center_x,
-                     int center_y,
-                     int size,
-                     GrayLevel color)
-{
-    const int top = center_y - size / 2;
-    const int bottom = center_y + size / 2;
-    const int fork_x = center_x - size / 4;
-    const int knife_x = center_x + size / 4;
-    canvas.draw_line(fork_x, top, fork_x, bottom, color);
-    canvas.draw_line(fork_x - 5, top, fork_x - 5, center_y - size / 8, color);
-    canvas.draw_line(fork_x + 5, top, fork_x + 5, center_y - size / 8, color);
-    canvas.draw_line(fork_x - 5, center_y - size / 8,
-                     fork_x + 5, center_y - size / 8, color);
-    canvas.fill_rect(knife_x - 3, top, 7, size, color);
-}
-
-void draw_house_icon(Canvas &canvas,
-                     int center_x,
-                     int center_y,
-                     int size,
-                     GrayLevel color)
-{
-    const int half = size / 2;
-    canvas.draw_line(center_x - half, center_y - 4,
-                     center_x, center_y - half, color);
-    canvas.draw_line(center_x, center_y - half,
-                     center_x + half, center_y - 4, color);
-    canvas.draw_rect(center_x - half + 5,
-                     center_y - 4,
-                     size - 10,
-                     half + 8,
-                     color);
-    canvas.draw_rect(center_x - 6, center_y + 8, 12, half - 5, color);
-}
-
-void draw_custom_icon(Canvas &canvas,
-                      int center_x,
-                      int center_y,
-                      int size,
-                      GrayLevel color)
-{
-    const int radius = size / 2;
-    canvas.draw_circle(center_x, center_y, radius, color);
-    canvas.draw_line(center_x - radius / 2, center_y,
-                     center_x + radius / 2, center_y, color);
-    canvas.draw_line(center_x, center_y - radius / 2,
-                     center_x, center_y + radius / 2, color);
-}
-
-void draw_meeting_scene(Canvas &canvas)
-{
-    // Draws two pixel characters, a table, and a laptop as one scene.
-    // 将两个像素人物、桌子和电脑绘制成一幅完整的会议场景。
-    constexpr int kLeftX = 612;
-    constexpr int kRightX = 720;
-    constexpr int kHeadY = 105;
-    constexpr int kCenters[] = {kLeftX, kRightX};
-
-    for (const int center_x : kCenters) {
-        canvas.fill_circle(center_x, kHeadY, 28, GrayLevel::White);
-        canvas.fill_rect(center_x - 21, 55, 15, 36, GrayLevel::White);
-        canvas.fill_rect(center_x + 6, 55, 15, 36, GrayLevel::White);
-        canvas.fill_circle(center_x - 14, 55, 7, GrayLevel::White);
-        canvas.fill_circle(center_x + 14, 55, 7, GrayLevel::White);
-        canvas.fill_rect(center_x - 23, 132, 46, 37, GrayLevel::White);
-        canvas.fill_circle(center_x - 10, 103, 3, GrayLevel::Black);
-        canvas.fill_circle(center_x + 10, 103, 3, GrayLevel::Black);
-        canvas.draw_line(center_x - 4, 116,
-                         center_x, 120, GrayLevel::Black);
-        canvas.draw_line(center_x, 120,
-                         center_x + 4, 116, GrayLevel::Black);
-    }
-
-    canvas.fill_rect(575, 168, 185, 5, GrayLevel::White);
-    canvas.fill_rect(583, 173, 5, 32, GrayLevel::White);
-    canvas.fill_rect(747, 173, 5, 32, GrayLevel::White);
-    canvas.draw_rect(661, 141, 42, 27, GrayLevel::White);
-    canvas.draw_line(661, 168, 710, 168, GrayLevel::White);
-
-    canvas.draw_rect(650, 57, 48, 29, GrayLevel::White);
-    canvas.draw_line(664, 86, 657, 94, GrayLevel::White);
-    canvas.fill_circle(662, 72, 2, GrayLevel::White);
-    canvas.fill_circle(674, 72, 2, GrayLevel::White);
-    canvas.fill_circle(686, 72, 2, GrayLevel::White);
-}
-
-void draw_status_icon(Canvas &canvas,
-                      StatusBoardStatus status,
-                      int center_x,
-                      int center_y,
-                      int size,
-                      GrayLevel color)
+StatusBunnyAssetId status_asset_id(StatusBoardStatus status)
 {
     switch (status) {
     case StatusBoardStatus::Focusing:
-        draw_sun_icon(canvas, center_x, center_y, size / 3, color);
-        break;
+        return StatusBunnyAssetId::Focusing;
     case StatusBoardStatus::InMeeting:
-        draw_meeting_icon(canvas, center_x, center_y, size, color);
-        break;
+        return StatusBunnyAssetId::InMeeting;
     case StatusBoardStatus::Welcome:
-        draw_message_icon(canvas, center_x, center_y, size, color);
-        break;
+        return StatusBunnyAssetId::Welcome;
     case StatusBoardStatus::OutForLunch:
-        draw_lunch_icon(canvas, center_x, center_y, size, color);
-        break;
+        return StatusBunnyAssetId::OutForLunch;
     case StatusBoardStatus::OffDuty:
-        draw_house_icon(canvas, center_x, center_y, size, color);
-        break;
+        return StatusBunnyAssetId::OffDuty;
     case StatusBoardStatus::Custom:
-        draw_custom_icon(canvas, center_x, center_y, size, color);
-        break;
+        return StatusBunnyAssetId::Custom;
     }
+    return StatusBunnyAssetId::Custom;
 }
 
 const char *status_title(StatusBoardStatus status)
@@ -385,23 +220,6 @@ const char *status_detail(StatusBoardStatus status)
         return "CUSTOM STATUS";
     }
     return "";
-}
-
-int title_scale(StatusBoardStatus status)
-{
-    switch (status) {
-    case StatusBoardStatus::OutForLunch:
-        return 4;
-    case StatusBoardStatus::InMeeting:
-        return 6;
-    case StatusBoardStatus::Custom:
-        return 8;
-    case StatusBoardStatus::Focusing:
-    case StatusBoardStatus::Welcome:
-    case StatusBoardStatus::OffDuty:
-    default:
-        return 7;
-    }
 }
 
 void draw_status_label(Canvas &canvas,
@@ -449,12 +267,12 @@ void draw_status_button(Canvas &canvas,
         draw_double_rect(canvas, rect, GrayLevel::Black);
     }
 
-    draw_status_icon(canvas,
-                     status,
-                     rect.x + rect.width / 2,
-                     rect.y + rect.height / 2 - 20,
-                     64,
-                     foreground);
+    pixel_asset_draw_centered(canvas,
+                              rect.x + rect.width / 2,
+                              rect.y + rect.height / 2 - 20,
+                              status_bunny_asset(status_asset_id(status)),
+                              1,
+                              foreground);
     draw_status_label(canvas, rect, status, foreground);
 }
 
@@ -587,26 +405,18 @@ void status_board_page_render_display(Canvas &canvas,
                                 custom_text[0] != '\0'
                             ? custom_text
                             : status_title(selected_status);
-    if (selected_status == StatusBoardStatus::InMeeting) {
-        canvas.draw_text(48,
-                         240,
-                         title,
-                         title_scale(selected_status),
-                         GrayLevel::White);
-        draw_meeting_scene(canvas);
-    } else {
-        const int scale = display_text_scale(title);
-        draw_centered_text(canvas, 118, title, scale, GrayLevel::White);
-        draw_status_icon(canvas,
-                         selected_status,
-                         400,
-                         315,
-                         110,
-                         GrayLevel::White);
-    }
+    const int scale = display_text_scale(title);
+    draw_centered_text(canvas, 86, title, scale, GrayLevel::White);
+    pixel_asset_draw_centered(
+        canvas,
+        400,
+        295,
+        status_bunny_asset(status_asset_id(selected_status)),
+        3,
+        GrayLevel::White);
 
     draw_centered_text(canvas,
-                       415,
+                       440,
                        status_detail(selected_status),
                        3,
                        GrayLevel::White);
