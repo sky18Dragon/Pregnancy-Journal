@@ -514,7 +514,7 @@ void status_board_page_render_display_pet(Canvas &canvas,
             secondary_frame
                 ? StatusBunnyAnimationFrame::Secondary
                 : StatusBunnyAnimationFrame::Primary),
-        4,
+        2,
         GrayLevel::White);
 }
 

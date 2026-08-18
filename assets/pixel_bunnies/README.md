@@ -6,6 +6,7 @@
 
 - `source/`：1254×1254的设计源图，保留完整细节，适合后续重新裁切和生成其他尺寸。
 - `firmware/80x80/`：经过裁切、缩放和黑白化的固件预览图，与代码中的1位位图内容一致。
+- `firmware/display_animation/`：用于横屏子页的160×160高精度主帧和次帧预览图。
 - `firmware/pet_animation/`：菜单底部宠物巡场动画的96×96固件预览图。
 - `src/ui/assets/`：固件中的通用绘制接口与压缩位图数据。
 
@@ -45,7 +46,7 @@
 python3 tools/generate_pixel_bunnies.py
 ```
 
-脚本会更新80×80预览图和`src/ui/assets/status_bunny_assets.cpp`。固件采用每像素1位的高位优先排列，每张80×80素材占800字节。
+脚本会更新80×80菜单预览、160×160子页动画预览和`src/ui/assets/status_bunny_assets.cpp`。固件采用每像素1位的高位优先排列，80×80素材每张占800字节，160×160素材每张占3200字节。
 
 宠物动画素材使用独立生成脚本：
 

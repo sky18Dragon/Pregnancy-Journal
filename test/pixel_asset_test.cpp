@@ -79,10 +79,10 @@ int main()
             id, StatusBunnyAnimationFrame::Primary);
         const PixelAsset &secondary = status_bunny_animation_asset(
             id, StatusBunnyAnimationFrame::Secondary);
-        assert(primary.width == 80U);
-        assert(primary.height == 80U);
-        assert(secondary.width == 80U);
-        assert(secondary.height == 80U);
+        assert(primary.width == 160U);
+        assert(primary.height == 160U);
+        assert(secondary.width == 160U);
+        assert(secondary.height == 160U);
         assert(primary.data != secondary.data);
     }
     return 0;

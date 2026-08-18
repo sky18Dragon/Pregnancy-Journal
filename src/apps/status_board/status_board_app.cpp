@@ -20,8 +20,8 @@ constexpr TickType_t kPollInterval = pdMS_TO_TICKS(40);
 constexpr uint32_t kTaskStackSize = 4096;
 constexpr UBaseType_t kTaskPriority = 3;
 constexpr size_t kCustomTextMaximum = 20U;
-constexpr uint16_t kDisplayPrimaryHoldMs = 950U;
-constexpr uint16_t kDisplaySecondaryHoldMs = 500U;
+constexpr uint16_t kDisplayPrimaryHoldMs = 450U;
+constexpr uint16_t kDisplaySecondaryHoldMs = 250U;
 
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
