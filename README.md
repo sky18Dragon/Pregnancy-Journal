@@ -8,11 +8,12 @@
 
 ### 横屏状态牌
 
-- 原生使用800×480横屏坐标，上半屏展示当前状态，下半屏提供状态选择。
-- 提供`FOCUSING`、`IN A MEETING`、`WELCOME`、`OUT FOR LUNCH`、`OFF DUTY`和`CUSTOM`六种状态。
-- 点击任一状态后立即更新顶部大字、说明文字、图标和底部选中项。
-- 首次显示使用黑白全屏刷新，切换状态使用黑白局部快刷。
-- 自定义状态当前显示移动端设置入口提示，后续与手机端数据接口连接。
+- 原生使用800×480横屏坐标，一级菜单横向排列六种状态：`FOCUSING`、`IN A MEETING`、`WELCOME`、`OUT FOR LUNCH`、`OFF DUTY`和`CUSTOM`。
+- 点击预设状态后进入二级展示页，状态文字、图标和补充信息铺满整个屏幕。
+- 二级展示页左上角保留低存在感的`< BACK`触摸区，点击后返回一级菜单。
+- 点击`CUSTOM`进入设备端全键盘，可直接输入最多20个大写字母、数字或空格。
+- 自定义键盘提供`123`/`ABC`切换、空格、删除、清空和应用操作；有效内容应用后进入全屏展示页。
+- 首次显示使用黑白全屏刷新，菜单选择、页面跳转和键盘输入使用黑白局部快刷。
 
 ### 番茄钟主页
 
@@ -97,7 +98,7 @@ touch=controller_ready
 touch=polling_ready
 buzzer=ready
 phase=ready result=ok
-status_board=ready orientation=landscape status=in_meeting choices=6 result=ok
+status_board=ready orientation=landscape page=menu status=in_meeting choices=6 result=ok
 ```
 
 ## 日志设计
@@ -127,7 +128,7 @@ boards/                    Sticky的PlatformIO板卡定义
 components/seeed_epaper    SSD1677/UC8179电子纸驱动
 components/debug_logging   编译期详细日志开关
 src/apps/pomodoro/         已完成的独立番茄钟页面、触摸映射和状态机
-src/apps/status_board/     横屏状态牌页面、六状态映射和交互任务
+src/apps/status_board/     横屏状态牌页面、状态机、自定义键盘和交互任务
 src/board/                 电源、引脚和共享SPI准备
 src/core/                  日志基础设施
 src/devices/               蜂鸣器等独立设备接口
@@ -145,13 +146,19 @@ platformio.ini             开发版与发布版构建配置
 以下动作按顺序连续执行，方便将页面现象与串口日志一一对应。
 
 1. 烧录`sticky-debug`并打开串口，等待横屏状态牌显示。
-2. 确认上半屏默认显示`IN A MEETING`和`BACK AT 15:00`，下半屏`IN A MEETING`为黑底选中状态。
-3. 从左到右依次点击六个状态，确认顶部大字、说明文字、图标和底部黑底选中项同步变化。
-4. 点击`CUSTOM`，确认顶部显示`CUSTOM`和`SET IN MOBILE APP`。
-5. 再点击一次已经选中的`CUSTOM`，确认页面不重复刷新，日志记录`result=unchanged`。
-6. 点击顶部状态展示区和按钮之间的空白区域，确认当前状态保持不变。
+2. 确认一级菜单横向显示六个状态，默认选中的`IN A MEETING`为黑底，其余状态为白底。
+3. 点击`FOCUSING`，确认进入黑底全屏展示页，大字、图标和`UNTIL 14:30`完整显示。
+4. 点击左上角`< BACK`，确认返回一级菜单，并且`FOCUSING`保持为黑底选中状态。
+5. 按同样顺序依次打开`IN A MEETING`、`WELCOME`、`OUT FOR LUNCH`和`OFF DUTY`，每次都使用左上角返回一级菜单。
+6. 点击`CUSTOM`，确认进入设备端QWERTY全键盘，输入框显示`TYPE STATUS_`和`0 / 20`。
+7. 连续输入`DEEP WORK MODE`，确认输入框与字符计数随每次按键更新。
+8. 点击`123`，输入数字`2`，再点击`DELETE`删除该数字，确认数字键盘和删除操作都有效。
+9. 点击`APPLY`，确认进入黑底全屏展示页并居中显示`DEEP WORK MODE`。
+10. 点击`< BACK`返回一级菜单，再进入`CUSTOM`，确认刚才的自定义文字仍然保留。
+11. 点击`CLEAR`后直接点击`APPLY`，确认页面保留在输入界面并显示至少输入一个字符的提示。
+12. 连续输入20个字符后再点击任意字符，确认计数保持`20 / 20`，已输入内容不被覆盖。
 
-主流程成功时，日志会按操作出现`status_board=touch`和`status_board=selection`，并且触摸轮询保持安静。
+主流程成功时，日志会按操作出现`status_board=touch`、`status_board=custom_input`和`status_board=transition`，并且触摸轮询保持安静。
 
 ## 番茄钟回归验收
 

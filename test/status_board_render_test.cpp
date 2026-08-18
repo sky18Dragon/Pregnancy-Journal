@@ -41,14 +41,25 @@ int main()
 {
     std::vector<uint8_t> buffer(kStride * kHeight, 0xFFU);
     Canvas canvas(kWidth, kHeight, buffer.data(), buffer.size());
-    status_board_page_render(canvas, StatusBoardStatus::InMeeting);
+
+    status_board_page_render_menu(canvas, StatusBoardStatus::InMeeting);
+    write_preview(buffer, "/tmp/status_board_menu.ppm");
+
+    status_board_page_render_display(
+        canvas, StatusBoardStatus::Focusing, "");
+    write_preview(buffer, "/tmp/status_board_display.ppm");
+
+    status_board_page_render_custom_input(canvas,
+                                          "DEEP WORK MODE",
+                                          StatusBoardKeyboardMode::Letters,
+                                          false);
 
     assert(canvas.rotation() == CanvasRotation::Deg0);
-    assert(pixel_level(buffer, 20, 20) ==
+    assert(pixel_level(buffer, 145, 20) ==
            static_cast<uint8_t>(GrayLevel::Black));
-    assert(pixel_level(buffer, 200, 320) ==
+    assert(pixel_level(buffer, 600, 420) ==
            static_cast<uint8_t>(GrayLevel::Black));
-    assert(pixel_level(buffer, 80, 320) ==
+    assert(pixel_level(buffer, 400, 170) ==
            static_cast<uint8_t>(GrayLevel::White));
 
     write_preview(buffer, "/tmp/status_board_preview.ppm");

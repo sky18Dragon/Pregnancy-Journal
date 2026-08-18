@@ -5,6 +5,7 @@ idf_component_register(
         "apps/pomodoro/pomodoro_pages.cpp"
         "apps/status_board/status_board_app.cpp"
         "apps/status_board/status_board_pages.cpp"
+        "apps/status_board/status_board_state.cpp"
         "board/board_power.cpp"
         "board/board_shared_spi.cpp"
         "core/app_log.cpp"
