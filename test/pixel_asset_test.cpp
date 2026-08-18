@@ -65,5 +65,25 @@ int main()
     assert(focusing.height == 80U);
     assert(focusing.data != nullptr);
     assert(meeting.data != focusing.data);
+
+    constexpr StatusBunnyAssetId kStatusIds[] = {
+        StatusBunnyAssetId::Focusing,
+        StatusBunnyAssetId::InMeeting,
+        StatusBunnyAssetId::Welcome,
+        StatusBunnyAssetId::OutForLunch,
+        StatusBunnyAssetId::OffDuty,
+        StatusBunnyAssetId::Custom,
+    };
+    for (StatusBunnyAssetId id : kStatusIds) {
+        const PixelAsset &primary = status_bunny_animation_asset(
+            id, StatusBunnyAnimationFrame::Primary);
+        const PixelAsset &secondary = status_bunny_animation_asset(
+            id, StatusBunnyAnimationFrame::Secondary);
+        assert(primary.width == 80U);
+        assert(primary.height == 80U);
+        assert(secondary.width == 80U);
+        assert(secondary.height == 80U);
+        assert(primary.data != secondary.data);
+    }
     return 0;
 }

@@ -31,6 +31,17 @@ ASSETS = (
     AssetSpec("custom.png", "kCustomData", "Custom", (200, 90, 870, 1080)),
 )
 
+ANIMATION_ASSETS = (
+    AssetSpec("focusing_alt.png", "kFocusingAltData", "Focusing", (120, 120, 1014, 1014)),
+    AssetSpec("in_meeting_alt.png", "kInMeetingAltData", "InMeeting", (80, 220, 1100, 820)),
+    AssetSpec("welcome_alt.png", "kWelcomeAltData", "Welcome", (230, 60, 900, 1140)),
+    AssetSpec("out_for_lunch_alt.png", "kOutForLunchAltData", "OutForLunch", (180, 130, 900, 980)),
+    AssetSpec("off_duty_alt.png", "kOffDutyAltData", "OffDuty", (180, 100, 900, 1040)),
+    AssetSpec("custom_alt.png", "kCustomAltData", "Custom", (200, 90, 870, 1080)),
+)
+
+ALL_ASSETS = ASSETS + ANIMATION_ASSETS
+
 ASSET_SIZE = 80
 CONTENT_SIZE = 72
 BLACK_THRESHOLD = 220
@@ -113,7 +124,7 @@ def write_cpp(packed_assets: dict[str, bytes]) -> None:
         "#include \"status_bunny_assets.h\"\n\n",
         "namespace {\n\n",
     ]
-    for spec in ASSETS:
+    for spec in ALL_ASSETS:
         sections.append(format_array(spec.symbol, packed_assets[spec.symbol]))
         sections.append("\n")
     sections.extend(
@@ -140,6 +151,30 @@ def write_cpp(packed_assets: dict[str, bytes]) -> None:
             f"    static constexpr PixelAsset fallback = "
             f"{{{ASSET_SIZE}, {ASSET_SIZE}, kCustomData}};\n",
             "    return fallback;\n",
+            "}\n\n",
+            "const PixelAsset &status_bunny_animation_asset(\n",
+            "    StatusBunnyAssetId id, StatusBunnyAnimationFrame frame)\n",
+            "{\n",
+            "    if (frame == StatusBunnyAnimationFrame::Primary) {\n",
+            "        return status_bunny_asset(id);\n",
+            "    }\n",
+            "    switch (id) {\n",
+        ]
+    )
+    for spec in ANIMATION_ASSETS:
+        sections.extend(
+            [
+                f"    case StatusBunnyAssetId::{spec.enum_name}: {{\n",
+                f"        static constexpr PixelAsset asset = "
+                f"{{{ASSET_SIZE}, {ASSET_SIZE}, {spec.symbol}}};\n",
+                "        return asset;\n",
+                "    }\n",
+            ]
+        )
+    sections.extend(
+        [
+            "    }\n",
+            "    return status_bunny_asset(id);\n",
             "}\n",
         ]
     )
@@ -148,10 +183,10 @@ def write_cpp(packed_assets: dict[str, bytes]) -> None:
 
 def main() -> None:
     packed_assets = {
-        spec.symbol: pack_pixels(render_asset(spec)) for spec in ASSETS
+        spec.symbol: pack_pixels(render_asset(spec)) for spec in ALL_ASSETS
     }
     write_cpp(packed_assets)
-    print(f"Generated {len(ASSETS)} assets in {OUTPUT_CPP}")
+    print(f"Generated {len(ALL_ASSETS)} assets in {OUTPUT_CPP}")
 
 
 if __name__ == "__main__":

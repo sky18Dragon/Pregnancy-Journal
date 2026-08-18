@@ -11,6 +11,17 @@ enum class StatusBunnyAssetId {
     Custom,
 };
 
+enum class StatusBunnyAnimationFrame {
+    Primary,
+    Secondary,
+};
+
 // Returns one reusable 80x80 bunny scene from flash memory.
 // 返回一张存放在固件闪存中的80x80可复用兔子场景素材。
 const PixelAsset &status_bunny_asset(StatusBunnyAssetId id);
+
+// Returns one primary or secondary frame for a full-screen status animation.
+// 返回全屏状态动画的主帧或次帧素材。
+const PixelAsset &status_bunny_animation_asset(
+    StatusBunnyAssetId id,
+    StatusBunnyAnimationFrame frame);

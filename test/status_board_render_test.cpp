@@ -121,11 +121,31 @@ int main()
         "/tmp/status_display_off_duty.ppm",
         "/tmp/status_display_custom.ppm",
     };
+    constexpr const char *kDisplaySecondaryPaths[] = {
+        "/tmp/status_display_focusing_secondary.ppm",
+        "/tmp/status_display_in_meeting_secondary.ppm",
+        "/tmp/status_display_welcome_secondary.ppm",
+        "/tmp/status_display_out_for_lunch_secondary.ppm",
+        "/tmp/status_display_off_duty_secondary.ppm",
+        "/tmp/status_display_custom_secondary.ppm",
+    };
     for (size_t index = 0; index < 6U; ++index) {
         status_board_page_render_display(
             canvas, kStatuses[index], "DEEP WORK MODE");
         assert_bottom_band_is_clear(buffer);
         write_preview(buffer, kDisplayPaths[index]);
+
+        const std::vector<uint8_t> primary_buffer = buffer;
+        status_board_page_render_display_pet(
+            canvas, kStatuses[index], true);
+        for (int y = 0; y < kHeight; ++y) {
+            for (int x = 0; x < 460; ++x) {
+                assert(pixel_level(buffer, x, y) ==
+                       pixel_level(primary_buffer, x, y));
+            }
+        }
+        assert_bottom_band_is_clear(buffer);
+        write_preview(buffer, kDisplaySecondaryPaths[index]);
     }
 
     status_board_page_render_custom_input(canvas,

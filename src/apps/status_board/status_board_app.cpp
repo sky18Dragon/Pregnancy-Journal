@@ -20,6 +20,8 @@ constexpr TickType_t kPollInterval = pdMS_TO_TICKS(40);
 constexpr uint32_t kTaskStackSize = 4096;
 constexpr UBaseType_t kTaskPriority = 3;
 constexpr size_t kCustomTextMaximum = 20U;
+constexpr uint16_t kDisplayPrimaryHoldMs = 950U;
+constexpr uint16_t kDisplaySecondaryHoldMs = 500U;
 
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
@@ -30,6 +32,8 @@ size_t s_custom_text_length = 0U;
 bool s_input_error = false;
 size_t s_pet_frame_index = 0U;
 int64_t s_next_pet_frame_us = 0;
+bool s_display_secondary_frame = false;
+int64_t s_next_display_frame_us = 0;
 
 esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
 {
@@ -82,6 +86,21 @@ void reset_pet_animation()
     s_next_pet_frame_us = 0;
 }
 
+void schedule_current_display_frame()
+{
+    const uint16_t hold_ms = s_display_secondary_frame
+                                 ? kDisplaySecondaryHoldMs
+                                 : kDisplayPrimaryHoldMs;
+    s_next_display_frame_us =
+        esp_timer_get_time() + static_cast<int64_t>(hold_ms) * 1000LL;
+}
+
+void reset_display_animation()
+{
+    s_display_secondary_frame = false;
+    s_next_display_frame_us = 0;
+}
+
 void render_page(bool partial_refresh)
 {
     switch (s_state.page) {
@@ -105,6 +124,8 @@ void render_page(bool partial_refresh)
     refresh_display(partial_refresh);
     if (s_state.page == StatusBoardPage::Menu) {
         schedule_current_pet_frame();
+    } else if (s_state.page == StatusBoardPage::Display) {
+        schedule_current_display_frame();
     }
 }
 
@@ -129,6 +150,26 @@ void render_next_pet_frame()
                     (esp_timer_get_time() - refresh_started_us) / 1000LL));
 #endif
     schedule_current_pet_frame();
+}
+
+void render_next_display_frame()
+{
+    s_display_secondary_frame = !s_display_secondary_frame;
+    status_board_page_render_display_pet(
+        *s_canvas, s_state.selected_status, s_display_secondary_frame);
+#if STICKY_LOG_STATUS_ANIMATION_ENABLED
+    const int64_t refresh_started_us = esp_timer_get_time();
+#endif
+    refresh_display(true, false);
+#if STICKY_LOG_STATUS_ANIMATION_ENABLED
+    STICKY_LOGD(kTag,
+                "status_board=status_animation status=%s frame=%s refresh_ms=%lld",
+                status_board_status_name(s_state.selected_status),
+                s_display_secondary_frame ? "secondary" : "primary",
+                static_cast<long long>(
+                    (esp_timer_get_time() - refresh_started_us) / 1000LL));
+#endif
+    schedule_current_display_frame();
 }
 
 bool append_character(char character)
@@ -223,6 +264,10 @@ bool handle_action(StatusBoardAction action)
         s_state.page == StatusBoardPage::Menu) {
         reset_pet_animation();
     }
+    if (previous_page != StatusBoardPage::Display &&
+        s_state.page == StatusBoardPage::Display) {
+        reset_display_animation();
+    }
     STICKY_LOGI(kTag,
                 "status_board=transition page_from=%s page_to=%s status_from=%s status_to=%s action=%s result=ok",
                 status_board_page_name(previous_page),
@@ -273,6 +318,8 @@ void app_task(void *)
     STICKY_LOGI(kTag,
                 "status_board=pet_animation state=ready frames=%u loop=left_jump_right_walk_left result=ok",
                 static_cast<unsigned>(status_pet_frame_count()));
+    STICKY_LOGI(kTag,
+                "status_board=status_animation state=ready statuses=6 frames_per_status=2 result=ok");
 
     while (true) {
         StickyTouchPress press = {};
@@ -317,6 +364,10 @@ void app_task(void *)
             s_next_pet_frame_us > 0 &&
             esp_timer_get_time() >= s_next_pet_frame_us) {
             render_next_pet_frame();
+        } else if (s_state.page == StatusBoardPage::Display &&
+                   s_next_display_frame_us > 0 &&
+                   esp_timer_get_time() >= s_next_display_frame_us) {
+            render_next_display_frame();
         }
 
         vTaskDelay(kPollInterval);

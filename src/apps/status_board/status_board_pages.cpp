@@ -20,6 +20,12 @@ constexpr int kPetGroundX = 20;
 constexpr int kPetGroundY = 456;
 constexpr int kPetGroundWidth = kScreenWidth - kPetGroundX * 2;
 constexpr int kPetGroundHeight = 2;
+constexpr int kDisplayPetX = 460;
+constexpr int kDisplayPetY = 60;
+constexpr int kDisplayPetWidth = kScreenWidth - kDisplayPetX;
+constexpr int kDisplayPetHeight = 360;
+constexpr int kDisplayPetCenterX = 630;
+constexpr int kDisplayPetCenterY = 240;
 
 struct Rect {
     int x;
@@ -484,11 +490,30 @@ void status_board_page_render_display(Canvas &canvas,
                             ? custom_text
                             : status_title(selected_status);
     draw_display_title(canvas, selected_status, title);
+    status_board_page_render_display_pet(
+        canvas, selected_status, false);
+}
+
+void status_board_page_render_display_pet(Canvas &canvas,
+                                          StatusBoardStatus selected_status,
+                                          bool secondary_frame)
+{
+    // Only the right-hand scene is replaced between animation frames.
+    // 动画帧切换时只替换右侧场景区域。
+    canvas.fill_rect(kDisplayPetX,
+                     kDisplayPetY,
+                     kDisplayPetWidth,
+                     kDisplayPetHeight,
+                     GrayLevel::Black);
     pixel_asset_draw_centered(
         canvas,
-        630,
-        240,
-        status_bunny_asset(status_asset_id(selected_status)),
+        kDisplayPetCenterX,
+        kDisplayPetCenterY,
+        status_bunny_animation_asset(
+            status_asset_id(selected_status),
+            secondary_frame
+                ? StatusBunnyAnimationFrame::Secondary
+                : StatusBunnyAnimationFrame::Primary),
         4,
         GrayLevel::White);
 }

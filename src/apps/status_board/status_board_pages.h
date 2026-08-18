@@ -95,6 +95,12 @@ void status_board_page_render_display(Canvas &canvas,
                                       StatusBoardStatus selected_status,
                                       const char *custom_text);
 
+// Replaces only the full-screen page's bunny with one animation frame.
+// 仅替换全屏状态页右侧的一帧兔子动画。
+void status_board_page_render_display_pet(Canvas &canvas,
+                                          StatusBoardStatus selected_status,
+                                          bool secondary_frame);
+
 // Draws the on-device custom-status editor and its active keyboard.
 // 绘制设备端自定义状态编辑器及当前键盘。
 void status_board_page_render_custom_input(
