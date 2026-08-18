@@ -792,6 +792,19 @@ bool status_board_action_character(StatusBoardAction action, char &character)
     return false;
 }
 
+bool status_board_action_can_batch(StatusBoardAction action)
+{
+    if ((action >= StatusBoardAction::KeyA &&
+         action <= StatusBoardAction::KeyZ) ||
+        (action >= StatusBoardAction::Digit0 &&
+         action <= StatusBoardAction::Digit9)) {
+        return true;
+    }
+    return action == StatusBoardAction::Space ||
+           action == StatusBoardAction::Delete ||
+           action == StatusBoardAction::Clear;
+}
+
 const char *status_board_page_name(StatusBoardPage page)
 {
     switch (page) {

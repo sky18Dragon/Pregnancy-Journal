@@ -112,6 +112,10 @@ bool status_board_action_status(StatusBoardAction action,
 // 返回字母键或数字键对应的字符。
 bool status_board_action_character(StatusBoardAction action, char &character);
 
+// Returns whether consecutive actions can share one display refresh.
+// 返回连续操作是否可以共用一次屏幕刷新。
+bool status_board_action_can_batch(StatusBoardAction action);
+
 const char *status_board_page_name(StatusBoardPage page);
 const char *status_board_status_name(StatusBoardStatus status);
 const char *status_board_action_name(StatusBoardAction action);

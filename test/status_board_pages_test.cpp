@@ -90,5 +90,15 @@ int main()
     assert(status_board_action_character(StatusBoardAction::Digit9, character));
     assert(character == '9');
     assert(!status_board_action_character(StatusBoardAction::Apply, character));
+
+    assert(status_board_action_can_batch(StatusBoardAction::KeyA));
+    assert(status_board_action_can_batch(StatusBoardAction::Digit5));
+    assert(status_board_action_can_batch(StatusBoardAction::Space));
+    assert(status_board_action_can_batch(StatusBoardAction::Delete));
+    assert(status_board_action_can_batch(StatusBoardAction::Clear));
+    assert(!status_board_action_can_batch(StatusBoardAction::Back));
+    assert(!status_board_action_can_batch(StatusBoardAction::Apply));
+    assert(!status_board_action_can_batch(
+        StatusBoardAction::ToggleKeyboard));
     return 0;
 }

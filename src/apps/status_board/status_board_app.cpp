@@ -4,6 +4,7 @@
 
 #include "app_log.h"
 #include "canvas.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "status_board_pages.h"
@@ -43,16 +44,31 @@ void render_page(bool partial_refresh)
         break;
     }
 
+#if STICKY_LOG_DISPLAY_TIMING_ENABLED
+    const int64_t refresh_started_us = esp_timer_get_time();
+    STICKY_LOGD(kTag,
+                "status_board=refresh state=begin page=%s mode=%s",
+                status_board_page_name(s_state.page),
+                partial_refresh ? "partial" : "full");
+#endif
     const esp_err_t result = partial_refresh
                                  ? sticky_display_refresh_partial()
                                  : sticky_display_refresh_monochrome();
+#if STICKY_LOG_DISPLAY_TIMING_ENABLED
+    STICKY_LOGD(kTag,
+                "status_board=refresh state=done page=%s mode=%s elapsed_ms=%lld result=%s",
+                status_board_page_name(s_state.page),
+                partial_refresh ? "partial" : "full",
+                static_cast<long long>(
+                    (esp_timer_get_time() - refresh_started_us) / 1000LL),
+                esp_err_to_name(result));
+#endif
     if (result != ESP_OK) {
         STICKY_LOGE(kTag,
                     "status_board=display refresh=%s result=%s",
                     partial_refresh ? "partial" : "full",
                     esp_err_to_name(result));
     }
-    sticky_touch_clear_press();
 }
 
 bool append_character(char character)
@@ -109,7 +125,7 @@ bool handle_custom_editor_action(StatusBoardAction action)
     }
 }
 
-void handle_action(StatusBoardAction action)
+bool handle_action(StatusBoardAction action)
 {
     if (s_state.page == StatusBoardPage::CustomInput &&
         handle_custom_editor_action(action)) {
@@ -120,8 +136,7 @@ void handle_action(StatusBoardAction action)
                     s_keyboard_mode == StatusBoardKeyboardMode::Letters
                         ? "letters"
                         : "numbers");
-        render_page(true);
-        return;
+        return true;
     }
 
     if (s_state.page == StatusBoardPage::CustomInput &&
@@ -130,15 +145,14 @@ void handle_action(StatusBoardAction action)
         s_input_error = true;
         STICKY_LOGW(kTag,
                     "status_board=custom_input action=apply result=empty");
-        render_page(true);
-        return;
+        return true;
     }
 
     const StatusBoardPage previous_page = s_state.page;
     const StatusBoardStatus previous_status = s_state.selected_status;
     if (!status_board_state_handle_action(
             s_state, action, s_custom_text_length > 0U)) {
-        return;
+        return false;
     }
 
     if (s_state.page == StatusBoardPage::CustomInput) {
@@ -152,11 +166,41 @@ void handle_action(StatusBoardAction action)
                 status_board_status_name(previous_status),
                 status_board_status_name(s_state.selected_status),
                 status_board_action_name(action));
-    render_page(true);
+    return true;
+}
+
+StatusBoardAction action_for_press(const StickyTouchPress &press)
+{
+    int logical_x = 0;
+    int logical_y = 0;
+    s_canvas->physical_to_logical(
+        press.x, press.y, logical_x, logical_y);
+    const StatusBoardAction action =
+        status_board_page_action_at(s_state.page,
+                                    s_keyboard_mode,
+                                    logical_x,
+                                    logical_y);
+    if (action != StatusBoardAction::None) {
+        const uint32_t now_ms =
+            static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
+        STICKY_LOGI(kTag,
+                    "status_board=touch page=%s action=%s physical_x=%u physical_y=%u logical_x=%d logical_y=%d queue_latency_ms=%u",
+                    status_board_page_name(s_state.page),
+                    status_board_action_name(action),
+                    static_cast<unsigned>(press.x),
+                    static_cast<unsigned>(press.y),
+                    logical_x,
+                    logical_y,
+                    static_cast<unsigned>(now_ms - press.captured_at_ms));
+    }
+    return action;
 }
 
 void app_task(void *)
 {
+    // Clears boot-time events before starting the first frame.
+    // 开始绘制首帧前清理启动阶段的事件。
+    sticky_touch_clear_press();
     render_page(false);
     STICKY_LOGI(kTag,
                 "status_board=ready orientation=landscape page=%s status=%s choices=6 result=ok",
@@ -166,25 +210,37 @@ void app_task(void *)
     while (true) {
         StickyTouchPress press = {};
         if (sticky_touch_take_press(press)) {
-            int logical_x = 0;
-            int logical_y = 0;
-            s_canvas->physical_to_logical(
-                press.x, press.y, logical_x, logical_y);
-            const StatusBoardAction action =
-                status_board_page_action_at(s_state.page,
-                                            s_keyboard_mode,
-                                            logical_x,
-                                            logical_y);
-            if (action != StatusBoardAction::None) {
-                STICKY_LOGI(kTag,
-                            "status_board=touch page=%s action=%s physical_x=%u physical_y=%u logical_x=%d logical_y=%d",
-                            status_board_page_name(s_state.page),
-                            status_board_action_name(action),
-                            static_cast<unsigned>(press.x),
-                            static_cast<unsigned>(press.y),
-                            logical_x,
-                            logical_y);
-                handle_action(action);
+            bool redraw_needed = false;
+            unsigned batched_actions = 0;
+
+            while (true) {
+                const StatusBoardAction action = action_for_press(press);
+                if (action != StatusBoardAction::None) {
+                    redraw_needed = handle_action(action) || redraw_needed;
+                    ++batched_actions;
+
+                    if (!status_board_action_can_batch(action)) {
+                        // Clears remaining events from the current layout
+                        // before rendering the next interaction layout.
+                        // 绘制下一个交互布局前，清理当前布局剩余的事件。
+                        sticky_touch_clear_press();
+                        break;
+                    }
+                }
+
+                if (s_state.page != StatusBoardPage::CustomInput ||
+                    !sticky_touch_take_press(press)) {
+                    break;
+                }
+            }
+
+            if (redraw_needed) {
+                if (batched_actions > 1U) {
+                    STICKY_LOGI(kTag,
+                                "status_board=input_batch actions=%u refreshes=1",
+                                batched_actions);
+                }
+                render_page(true);
             }
         }
 

@@ -6,7 +6,9 @@
 #include "app_log.h"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
 #include "freertos/task.h"
 #include "gt911.h"
 #include "pin_config.h"
@@ -21,6 +23,7 @@ constexpr uint16_t kPortraitHeight = 800;
 constexpr TickType_t kPollInterval = pdMS_TO_TICKS(30);
 constexpr uint32_t kTaskStackSize = 4096;
 constexpr UBaseType_t kTaskPriority = 5;
+constexpr UBaseType_t kPressQueueLength = 8;
 
 i2c_master_bus_handle_t s_touch_bus = nullptr;
 GT911 s_controller;
@@ -29,9 +32,7 @@ bool s_touching = false;
 bool s_read_error_reported = false;
 uint16_t s_last_x = 0;
 uint16_t s_last_y = 0;
-portMUX_TYPE s_press_lock = portMUX_INITIALIZER_UNLOCKED;
-StickyTouchPress s_pending_press = {};
-bool s_press_pending = false;
+QueueHandle_t s_press_queue = nullptr;
 
 uint16_t scale_coordinate(uint16_t value,
                           uint16_t source_max,
@@ -80,16 +81,27 @@ void touch_task(void *)
                                        s_last_y);
             if (!s_touching) {
                 s_touching = true;
-                taskENTER_CRITICAL(&s_press_lock);
-                s_pending_press = {s_last_x, s_last_y};
-                s_press_pending = true;
-                taskEXIT_CRITICAL(&s_press_lock);
-                STICKY_LOGI(kTag,
-                            "touch=detected x=%u y=%u id=%u size=%u",
-                            static_cast<unsigned>(s_last_x),
-                            static_cast<unsigned>(s_last_y),
-                            static_cast<unsigned>(point.id),
-                            static_cast<unsigned>(point.size));
+                const StickyTouchPress press = {
+                    s_last_x,
+                    s_last_y,
+                    static_cast<uint32_t>(esp_timer_get_time() / 1000LL),
+                };
+                if (xQueueSend(s_press_queue, &press, 0) == pdTRUE) {
+                    STICKY_LOGI(kTag,
+                                "touch=detected x=%u y=%u id=%u size=%u queued=%u",
+                                static_cast<unsigned>(s_last_x),
+                                static_cast<unsigned>(s_last_y),
+                                static_cast<unsigned>(point.id),
+                                static_cast<unsigned>(point.size),
+                                static_cast<unsigned>(
+                                    uxQueueMessagesWaiting(s_press_queue)));
+                } else {
+                    STICKY_LOGW(kTag,
+                                "touch=queue result=full capacity=%u x=%u y=%u",
+                                static_cast<unsigned>(kPressQueueLength),
+                                static_cast<unsigned>(s_last_x),
+                                static_cast<unsigned>(s_last_y));
+                }
             }
             s_read_error_reported = false;
         } else if (count == 0) {
@@ -165,6 +177,13 @@ esp_err_t sticky_touch_init()
                 static_cast<unsigned>(sensor_width),
                 static_cast<unsigned>(sensor_height));
 
+    // Stores up to eight ordered press events in a FreeRTOS queue.
+    // 使用FreeRTOS队列按顺序保存最多8个按下事件。
+    s_press_queue = xQueueCreate(kPressQueueLength, sizeof(StickyTouchPress));
+    if (s_press_queue == nullptr) {
+        return ESP_ERR_NO_MEM;
+    }
+
 #if !STICKY_LOG_TOUCH_DRIVER_OUTPUT_ENABLED
     // Keeps the reference driver code enabled while silencing its polling logs.
     // 保留参考驱动的完整执行路径，同时关闭轮询日志输出。
@@ -177,30 +196,26 @@ esp_err_t sticky_touch_init()
                     nullptr,
                     kTaskPriority,
                     &s_touch_task) != pdPASS) {
+        vQueueDelete(s_press_queue);
+        s_press_queue = nullptr;
         return ESP_ERR_NO_MEM;
     }
     STICKY_LOGI(kTag,
-                "touch=polling_ready interval_ms=30 driver_output=%d result=ok",
+                "touch=polling_ready interval_ms=30 queue_capacity=%u driver_output=%d result=ok",
+                static_cast<unsigned>(kPressQueueLength),
                 STICKY_LOG_TOUCH_DRIVER_OUTPUT_ENABLED);
     return ESP_OK;
 }
 
 bool sticky_touch_take_press(StickyTouchPress &press)
 {
-    bool has_press = false;
-    taskENTER_CRITICAL(&s_press_lock);
-    if (s_press_pending) {
-        press = s_pending_press;
-        s_press_pending = false;
-        has_press = true;
-    }
-    taskEXIT_CRITICAL(&s_press_lock);
-    return has_press;
+    return s_press_queue != nullptr &&
+           xQueueReceive(s_press_queue, &press, 0) == pdTRUE;
 }
 
 void sticky_touch_clear_press()
 {
-    taskENTER_CRITICAL(&s_press_lock);
-    s_press_pending = false;
-    taskEXIT_CRITICAL(&s_press_lock);
+    if (s_press_queue != nullptr) {
+        xQueueReset(s_press_queue);
+    }
 }
