@@ -1,6 +1,10 @@
 idf_component_register(
     SRCS
         "main.cpp"
+        "apps/book_of_answers/book_of_answers_answers.cpp"
+        "apps/book_of_answers/book_of_answers_app.cpp"
+        "apps/book_of_answers/book_of_answers_pages.cpp"
+        "apps/book_of_answers/book_of_answers_state.cpp"
         "apps/pomodoro/pomodoro_app.cpp"
         "apps/pomodoro/pomodoro_pages.cpp"
         "apps/status_board/status_board_app.cpp"
@@ -14,12 +18,14 @@ idf_component_register(
         "display/sticky_display.cpp"
         "input/sticky_touch.cpp"
         "ui/assets/pixel_asset.cpp"
+        "ui/assets/book_of_answers_assets.cpp"
         "ui/assets/pet_animation_assets.cpp"
         "ui/assets/status_bunny_assets.cpp"
         "ui/canvas.cpp"
         "ui/font.cpp"
     INCLUDE_DIRS
         "."
+        "apps/book_of_answers"
         "apps/pomodoro"
         "apps/status_board"
         "board"

@@ -2,11 +2,24 @@
 
 这是 reTerminal Sticky 的新固件工程。工程使用 PlatformIO 管理构建、烧录和串口监视，底层框架采用 ESP-IDF。`Sticky_dashboard_demo`是硬件驱动的参考来源。
 
-当前`feature/ui-experience`分支将状态牌作为一个完整、独立的APP运行。启动入口直接进入横屏状态选择页，方便先验证页面布局和触摸切换体验；产品主页和IMU入口将在后续整合阶段接入。番茄钟APP源码继续保留，等待最终整合。
+当前`feature/ui-experience`分支将答案书作为一个完整、独立的APP运行。启动入口直接进入竖屏答案书主页，方便验证答案类型选择、页面动画、随机结果与触摸交互；产品主页和IMU入口将在后续整合阶段接入。番茄钟与状态牌APP源码继续保留，等待最终整合。
 
 ## 当前功能
 
-### 横屏状态牌
+### 答案书
+
+- 主页面可以选择`MESSAGE`或`YES / NO`两种答案类型，返回主页时保留刚才的选择。
+- 当前独立体验通过点击`SHAKE TO ASK`启动摇晃序列；最终整合时，IMU摇晃事件将连接到同一个状态机入口。
+- 摇晃页面交替播放左右两个大幅动作，兔子的身体、耳朵、手臂和水晶球位置都会明显变化。
+- 摇晃结束后依次显示`HOLD STILL`、`THINKING...`和`REVEALING...`过渡页面。
+- `MESSAGE`模式从18条两行短句中随机选择答案；存在多个答案时不会连续重复同一条。
+- `YES / NO`模式严格使用`YES`、`NO`和`UNCLEAR`三个结果，同样不会连续重复。
+- 两类结果页都提供`ASK AGAIN`和`END`；再次提问保留答案类型，结束后返回主页面。
+- 页面切换和动画使用黑白局部快刷，首次进入APP使用黑白全屏刷新。
+- 触摸使用现有有序事件队列，动画期间产生的触摸会被当前动画页面消费，结果页不会收到遗留点击。
+- 答案书插画拥有独立素材库，设计源图、固件预览与生成脚本集中存放在`assets/book_of_answers/`。
+
+### 保留的横屏状态牌
 
 - 原生使用800×480横屏坐标，一级菜单横向排列六张内容高度卡片：`FOCUSING`、`IN A MEETING`、`WELCOME`、`OUT FOR LUNCH`、`OFF DUTY`和`CUSTOM`；卡片只包住兔子与英文名称。
 - 一级菜单底部是完整的宠物巡场区域：一条横跨底部的地面线标出行走路径，兔子在左侧挥手和蓄力，分段跳到右侧庆祝，再分段走回左侧循环。
@@ -62,7 +75,7 @@
 - 电子纸与MicroSD共享SPI2，启动时先将MicroSD控制脚设置为确定的空闲状态。
 - GPIO45和GPIO46负责板级供电锁存。
 
-番茄钟APP位于`src/apps/pomodoro/`，只通过屏幕、触摸和蜂鸣器接口使用硬件。原有姿态与方向页面源码继续保留，后续由产品入口负责选择并启动APP。
+答案书APP位于`src/apps/book_of_answers/`，当前只通过屏幕和触摸接口使用硬件。番茄钟、状态牌、姿态与方向页面源码继续保留，后续由产品入口负责选择并启动APP。
 
 ## 环境
 
@@ -107,7 +120,7 @@ touch=controller_ready
 touch=polling_ready
 buzzer=ready
 phase=ready result=ok
-status_board=ready orientation=landscape page=menu status=in_meeting choices=6 result=ok
+book=ready page=home mode=message message_answers=18 crystal_answers=3 shake_frames=4 result=ok
 ```
 
 ## 日志设计
@@ -130,10 +143,12 @@ status_board=ready orientation=landscape page=menu status=in_meeting choices=6 r
 - `STICKY_LOG_MOTION_SAMPLES_ENABLED`
 - `STICKY_LOG_PET_ANIMATION_ENABLED`
 - `STICKY_LOG_STATUS_ANIMATION_ENABLED`
+- `STICKY_LOG_BOOK_ANIMATION_ENABLED`
 - `STICKY_LOG_TIMER_TICKS_ENABLED`
 
 宠物动画默认只记录一次启动信息，不使用通用刷新耗时日志逐帧刷屏。需要查看每帧动作、位置和刷新耗时时，将`STICKY_LOG_PET_ANIMATION_ENABLED`设为`1`。
 子页兔子动画采用同样的安静日志策略，需要逐帧调试时将`STICKY_LOG_STATUS_ANIMATION_ENABLED`设为`1`。
+答案书默认记录页面切换、答案类型、随机结果和有效触摸。需要查看左右摇球帧序号时，将`STICKY_LOG_BOOK_ANIMATION_ENABLED`设为`1`。
 
 ## 工程结构
 
@@ -143,6 +158,8 @@ components/seeed_epaper    SSD1677/UC8179电子纸驱动
 components/debug_logging   编译期详细日志开关
 src/apps/pomodoro/         已完成的独立番茄钟页面、触摸映射和状态机
 src/apps/status_board/     横屏状态牌页面、状态机、自定义键盘和交互任务
+src/apps/book_of_answers/  答案书页面、答案池、触摸映射和动画状态机
+assets/book_of_answers/    答案书设计源图与固件黑白素材预览
 assets/pixel_bunnies/      像素兔子设计源图、状态与宠物动画固件预览
 src/board/                 电源、引脚和共享SPI准备
 src/core/                  日志基础设施
@@ -151,12 +168,33 @@ src/display/               屏幕初始化和刷新
 src/input/                 GT911触摸初始化、坐标转换和采样
 src/sensors/               已保留的姿态检测源码
 src/ui/                    画布、字体、公共1位像素素材接口和已保留页面源码
-src/main.cpp               当前独立状态牌启动入口
+src/main.cpp               当前独立答案书启动入口
 test/                      可在电脑上运行的回归测试
 platformio.ini             开发版与发布版构建配置
 ```
 
-## 状态牌真机验收
+## 答案书真机验收
+
+以下操作连续执行，方便把画面变化与串口日志对应起来。
+
+1. 烧录`sticky-debug`并打开串口，等待竖屏答案书主页显示。
+2. 确认默认选中`MESSAGE`，主页显示完整的兔子、水晶球、桌面和`SHAKE TO ASK`按钮。
+3. 点击`YES / NO`，确认右侧选项变成黑底，左侧`MESSAGE`恢复白底描边。
+4. 点击`MESSAGE`，确认选择恢复到左侧，并且页面只执行一次局部快刷。
+5. 点击`SHAKE TO ASK`，确认兔子和水晶球先后明显摆向左右两侧，而桌面保持在原位置。
+6. 确认摇晃结束后依次出现`HOLD STILL`、`THINKING...`、水晶球闪光和`REVEALING...`。
+7. 确认最终进入一句话答案页，答案区域为黑底白字，兔子举起答案卡片。
+8. 点击`ASK AGAIN`，确认无需返回主页即可重新播放完整动画并获得新答案。
+9. 确认连续两次一句话答案不同，再点击`END`返回主页，并确认仍选中`MESSAGE`。
+10. 选择`YES / NO`并开始，确认结果只能是`YES`、`NO`或`UNCLEAR`，水晶球与右侧兔子轮廓完整。
+11. 在分类结果页连续点击两次`ASK AGAIN`，确认相邻两次结果不同。
+12. 点击`END`返回主页，确认仍选中`YES / NO`。
+13. 在摇晃、思考或揭晓动画期间点击屏幕，确认动画继续完成，进入结果页后不会自动触发`ASK AGAIN`或`END`。
+14. 快速连续点击一次答案类型和一次`SHAKE TO ASK`，确认触摸按顺序生效，没有卡顿或丢失。
+
+主流程成功时，日志会出现`book=touch`、`book=transition`和`book=answer selected`。开发版默认不会逐帧打印摇晃动画；需要逐帧观察时，把`STICKY_LOG_BOOK_ANIMATION_ENABLED`设为`1`重新编译。
+
+## 状态牌真机验收（切换独立入口后使用）
 
 以下动作按顺序连续执行，方便将页面现象与串口日志一一对应。
 
