@@ -6,6 +6,7 @@
 
 - `source/`：1254×1254的设计源图，保留完整细节，适合后续重新裁切和生成其他尺寸。
 - `firmware/80x80/`：经过裁切、缩放和黑白化的固件预览图，与代码中的1位位图内容一致。
+- `firmware/pet_animation/`：菜单底部宠物巡场动画的96×96固件预览图。
 - `src/ui/assets/`：固件中的通用绘制接口与压缩位图数据。
 
 ## 当前场景
@@ -17,6 +18,14 @@
 - `off_duty`：兔子背包挥手离开。
 - `custom`：兔子举着可填写的状态牌。
 
+## 宠物动画动作
+
+- `pet_wave`：在左侧挥手。
+- `pet_crouch`：起跳前蓄力或落地。
+- `pet_jump`：从左侧分段跳到右侧。
+- `pet_celebrate`：在右侧举手庆祝。
+- `pet_walk_left`：从右侧分段走回左侧。
+
 ## 重新生成
 
 电脑已安装FFmpeg时，在工程根目录执行：
@@ -26,6 +35,14 @@ python3 tools/generate_pixel_bunnies.py
 ```
 
 脚本会更新80×80预览图和`src/ui/assets/status_bunny_assets.cpp`。固件采用每像素1位的高位优先排列，每张80×80素材占800字节。
+
+宠物动画素材使用独立生成脚本：
+
+```bash
+python3 tools/generate_pet_animation.py
+```
+
+该脚本更新`firmware/pet_animation/`与`src/ui/assets/pet_animation_assets.cpp`。
 
 ## 在页面中使用
 

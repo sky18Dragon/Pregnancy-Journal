@@ -8,7 +8,9 @@
 
 ### 横屏状态牌
 
-- 原生使用800×480横屏坐标，一级菜单横向排列六张内容高度卡片：`FOCUSING`、`IN A MEETING`、`WELCOME`、`OUT FOR LUNCH`、`OFF DUTY`和`CUSTOM`；卡片只包住兔子与英文名称，屏幕下方保留完整留白。
+- 原生使用800×480横屏坐标，一级菜单横向排列六张内容高度卡片：`FOCUSING`、`IN A MEETING`、`WELCOME`、`OUT FOR LUNCH`、`OFF DUTY`和`CUSTOM`；卡片只包住兔子与英文名称。
+- 一级菜单底部是完整的宠物巡场区域：兔子在左侧挥手和蓄力，分段跳到右侧庆祝，再分段走回左侧循环。
+- 宠物动画每帧只重绘底部区域并使用黑白局部快刷；应用每轮先处理触摸，再更新动画。
 - 点击预设状态后进入二级展示页，状态文字和像素兔子场景共同铺满整个屏幕。
 - 二级展示页只表达当前状态，不显示固定时间或补充信息。
 - 六种状态使用完整轮廓、表情和动作的像素兔子素材；菜单与全屏页共用同一张1位位图，黑白背景自动切换绘制颜色。
@@ -123,7 +125,10 @@ status_board=ready orientation=landscape page=menu status=in_meeting choices=6 r
 - `STICKY_LOG_TOUCH_SAMPLES_ENABLED`
 - `STICKY_LOG_TOUCH_DRIVER_OUTPUT_ENABLED`
 - `STICKY_LOG_MOTION_SAMPLES_ENABLED`
+- `STICKY_LOG_PET_ANIMATION_ENABLED`
 - `STICKY_LOG_TIMER_TICKS_ENABLED`
+
+宠物动画默认只记录一次启动信息，不使用通用刷新耗时日志逐帧刷屏。需要查看每帧动作、位置和刷新耗时时，将`STICKY_LOG_PET_ANIMATION_ENABLED`设为`1`。
 
 ## 工程结构
 
@@ -133,7 +138,7 @@ components/seeed_epaper    SSD1677/UC8179电子纸驱动
 components/debug_logging   编译期详细日志开关
 src/apps/pomodoro/         已完成的独立番茄钟页面、触摸映射和状态机
 src/apps/status_board/     横屏状态牌页面、状态机、自定义键盘和交互任务
-assets/pixel_bunnies/      像素兔子设计源图、80×80固件预览和生成说明
+assets/pixel_bunnies/      像素兔子设计源图、状态与宠物动画固件预览
 src/board/                 电源、引脚和共享SPI准备
 src/core/                  日志基础设施
 src/devices/               蜂鸣器等独立设备接口
@@ -151,20 +156,22 @@ platformio.ini             开发版与发布版构建配置
 以下动作按顺序连续执行，方便将页面现象与串口日志一一对应。
 
 1. 烧录`sticky-debug`并打开串口，等待横屏状态牌显示。
-2. 确认一级菜单横向显示六个状态，每张卡片只包住对应的像素兔子和英文名称，屏幕下方保留整齐空白；默认选中的`IN A MEETING`为黑底白兔线稿，其余状态为白底黑兔线稿。
-3. 点击`FOCUSING`，确认进入黑底全屏展示页，左侧大字和右侧专注工作的兔子共同铺满画面，页面不显示固定时间。
-4. 点击左上角返回箭头及箭头周围区域，确认都能返回一级菜单，并且`FOCUSING`保持为黑底选中状态。
-5. 按同样顺序依次打开`IN A MEETING`、`WELCOME`、`OUT FOR LUNCH`和`OFF DUTY`，每次都使用左上角返回一级菜单。
-6. 点击`CUSTOM`，确认进入设备端QWERTY全键盘，输入框显示`TYPE STATUS_`和`0 / 20`。
-7. 连续输入`DEEP WORK MODE`，确认输入框与字符计数随每次按键更新。
-8. 点击`123`，输入数字`2`，再点击`DELETE`删除该数字，确认数字键盘和删除操作都有效。
-9. 点击`APPLY`，确认进入黑底全屏展示页并居中显示`DEEP WORK MODE`。
-10. 点击左上角返回箭头返回一级菜单，再进入`CUSTOM`，确认刚才的自定义文字仍然保留。
-11. 点击`CLEAR`后直接点击`APPLY`，确认页面保留在输入界面并显示至少输入一个字符的提示。
-12. 连续输入20个字符后再点击任意字符，确认计数保持`20 / 20`，已输入内容不被覆盖。
-13. 点击`CLEAR`，快速连续输入`STICKY`，确认六个字母按顺序完整出现；日志可出现`status_board=input_batch actions=... refreshes=1`。
-14. 在自定义输入页点击一个字母，并在电子纸仍在刷新时点击一次左上角返回箭头，确认前一次刷新完成后自动返回一级菜单，无需重复点击。
-15. 进入任一预设状态的二级展示页，点击一次左上角箭头或其周围区域，确认页面完成一次局刷后返回一级菜单。
+2. 确认一级菜单横向显示六个状态，每张卡片只包住对应的像素兔子和英文名称；默认选中的`IN A MEETING`为黑底白兔线稿，其余状态为白底黑兔线稿。
+3. 观察底部宠物：左边挥手后蓄力，分三段跳到右边，右边举手庆祝，再分三段走回左边，然后自动重复。
+4. 在兔子跳跃或走动时点击任意状态卡片，确认当前刷新结束后只需一次点击就能进入对应二级页。
+5. 点击`FOCUSING`，确认进入黑底全屏展示页，左侧大字和右侧专注工作的兔子共同铺满画面，页面不显示固定时间。
+6. 点击左上角返回箭头及箭头周围区域，确认都能返回一级菜单，并且`FOCUSING`保持为黑底选中状态。
+7. 按同样顺序依次打开`IN A MEETING`、`WELCOME`、`OUT FOR LUNCH`和`OFF DUTY`，每次都使用左上角返回一级菜单。
+8. 点击`CUSTOM`，确认进入设备端QWERTY全键盘，输入框显示`TYPE STATUS_`和`0 / 20`。
+9. 连续输入`DEEP WORK MODE`，确认输入框与字符计数随每次按键更新。
+10. 点击`123`，输入数字`2`，再点击`DELETE`删除该数字，确认数字键盘和删除操作都有效。
+11. 点击`APPLY`，确认进入黑底全屏展示页并居中显示`DEEP WORK MODE`。
+12. 点击左上角返回箭头返回一级菜单，再进入`CUSTOM`，确认刚才的自定义文字仍然保留。
+13. 点击`CLEAR`后直接点击`APPLY`，确认页面保留在输入界面并显示至少输入一个字符的提示。
+14. 连续输入20个字符后再点击任意字符，确认计数保持`20 / 20`，已输入内容不被覆盖。
+15. 点击`CLEAR`，快速连续输入`STICKY`，确认六个字母按顺序完整出现；日志可出现`status_board=input_batch actions=... refreshes=1`。
+16. 在自定义输入页点击一个字母，并在电子纸仍在刷新时点击一次左上角返回箭头，确认前一次刷新完成后自动返回一级菜单，无需重复点击。
+17. 进入任一预设状态的二级展示页，点击一次左上角箭头或其周围区域，确认页面完成一次局刷后返回一级菜单。
 
 主流程成功时，日志会按操作出现`status_board=touch`、`status_board=custom_input`和`status_board=transition`，并且触摸轮询保持安静。
 开发版日志中的`queue_latency_ms`表示点击从触摸队列到应用处理所等待的时间，`status_board=refresh state=done`中的`elapsed_ms`表示电子纸完成本次刷新的时间。

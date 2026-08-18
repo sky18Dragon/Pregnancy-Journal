@@ -13,6 +13,9 @@ namespace {
 
 constexpr int kScreenWidth = 800;
 constexpr int kScreenHeight = 480;
+constexpr int kPetBandY = 340;
+constexpr int kPetBandHeight = kScreenHeight - kPetBandY;
+constexpr int kPetCenterY = 410;
 
 struct Rect {
     int x;
@@ -437,6 +440,25 @@ void status_board_page_render_menu(Canvas &canvas,
                            kStatuses[index],
                            kStatuses[index] == selected_status);
     }
+}
+
+void status_board_page_render_menu_pet(Canvas &canvas,
+                                       PetAnimationPose pose,
+                                       int center_x)
+{
+    // The card row ends at y=340, so each frame can replace the free band.
+    // 状态卡片在y=340结束，因此每帧只需替换底部留白区。
+    canvas.fill_rect(0,
+                     kPetBandY,
+                     kScreenWidth,
+                     kPetBandHeight,
+                     GrayLevel::White);
+    pixel_asset_draw_centered(canvas,
+                              center_x,
+                              kPetCenterY,
+                              pet_animation_asset(pose),
+                              1,
+                              GrayLevel::Black);
 }
 
 void status_board_page_render_display(Canvas &canvas,

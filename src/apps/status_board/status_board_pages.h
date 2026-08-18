@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "pet_animation_assets.h"
+
 class Canvas;
 
 enum class StatusBoardStatus : uint8_t {
@@ -80,6 +82,12 @@ enum class StatusBoardAction : uint8_t {
 // 绘制包含六种状态的一级选择菜单。
 void status_board_page_render_menu(Canvas &canvas,
                                    StatusBoardStatus selected_status);
+
+// Replaces only the menu's bottom band with one pet animation frame.
+// 仅替换一级菜单底部区域中的一帧宠物动画。
+void status_board_page_render_menu_pet(Canvas &canvas,
+                                       PetAnimationPose pose,
+                                       int center_x);
 
 // Draws one selected status as a full-screen second-level page.
 // 将选中的状态绘制为全屏二级页面。

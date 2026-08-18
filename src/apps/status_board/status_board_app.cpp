@@ -9,6 +9,7 @@
 #include "freertos/task.h"
 #include "status_board_pages.h"
 #include "status_board_state.h"
+#include "status_pet_animation.h"
 #include "sticky_display.h"
 #include "sticky_touch.h"
 
@@ -27,12 +28,69 @@ StatusBoardKeyboardMode s_keyboard_mode = StatusBoardKeyboardMode::Letters;
 char s_custom_text[kCustomTextMaximum + 1U] = {};
 size_t s_custom_text_length = 0U;
 bool s_input_error = false;
+size_t s_pet_frame_index = 0U;
+int64_t s_next_pet_frame_us = 0;
+
+esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
+{
+#if !STICKY_LOG_DISPLAY_TIMING_ENABLED
+    (void)timing_log;
+#endif
+#if STICKY_LOG_DISPLAY_TIMING_ENABLED
+    int64_t refresh_started_us = 0;
+    if (timing_log) {
+        refresh_started_us = esp_timer_get_time();
+        STICKY_LOGD(kTag,
+                    "status_board=refresh state=begin page=%s mode=%s",
+                    status_board_page_name(s_state.page),
+                    partial_refresh ? "partial" : "full");
+    }
+#endif
+    const esp_err_t result = partial_refresh
+                                 ? sticky_display_refresh_partial()
+                                 : sticky_display_refresh_monochrome();
+#if STICKY_LOG_DISPLAY_TIMING_ENABLED
+    if (timing_log) {
+        STICKY_LOGD(kTag,
+                    "status_board=refresh state=done page=%s mode=%s elapsed_ms=%lld result=%s",
+                    status_board_page_name(s_state.page),
+                    partial_refresh ? "partial" : "full",
+                    static_cast<long long>(
+                        (esp_timer_get_time() - refresh_started_us) / 1000LL),
+                    esp_err_to_name(result));
+    }
+#endif
+    if (result != ESP_OK) {
+        STICKY_LOGE(kTag,
+                    "status_board=display refresh=%s result=%s",
+                    partial_refresh ? "partial" : "full",
+                    esp_err_to_name(result));
+    }
+    return result;
+}
+
+void schedule_current_pet_frame()
+{
+    const StatusPetFrame &frame = status_pet_frame(s_pet_frame_index);
+    s_next_pet_frame_us =
+        esp_timer_get_time() + static_cast<int64_t>(frame.hold_ms) * 1000LL;
+}
+
+void reset_pet_animation()
+{
+    s_pet_frame_index = 0U;
+    s_next_pet_frame_us = 0;
+}
 
 void render_page(bool partial_refresh)
 {
     switch (s_state.page) {
     case StatusBoardPage::Menu:
         status_board_page_render_menu(*s_canvas, s_state.selected_status);
+        status_board_page_render_menu_pet(
+            *s_canvas,
+            status_pet_frame(s_pet_frame_index).pose,
+            status_pet_frame(s_pet_frame_index).center_x);
         break;
     case StatusBoardPage::Display:
         status_board_page_render_display(
@@ -44,31 +102,33 @@ void render_page(bool partial_refresh)
         break;
     }
 
-#if STICKY_LOG_DISPLAY_TIMING_ENABLED
-    const int64_t refresh_started_us = esp_timer_get_time();
-    STICKY_LOGD(kTag,
-                "status_board=refresh state=begin page=%s mode=%s",
-                status_board_page_name(s_state.page),
-                partial_refresh ? "partial" : "full");
-#endif
-    const esp_err_t result = partial_refresh
-                                 ? sticky_display_refresh_partial()
-                                 : sticky_display_refresh_monochrome();
-#if STICKY_LOG_DISPLAY_TIMING_ENABLED
-    STICKY_LOGD(kTag,
-                "status_board=refresh state=done page=%s mode=%s elapsed_ms=%lld result=%s",
-                status_board_page_name(s_state.page),
-                partial_refresh ? "partial" : "full",
-                static_cast<long long>(
-                    (esp_timer_get_time() - refresh_started_us) / 1000LL),
-                esp_err_to_name(result));
-#endif
-    if (result != ESP_OK) {
-        STICKY_LOGE(kTag,
-                    "status_board=display refresh=%s result=%s",
-                    partial_refresh ? "partial" : "full",
-                    esp_err_to_name(result));
+    refresh_display(partial_refresh);
+    if (s_state.page == StatusBoardPage::Menu) {
+        schedule_current_pet_frame();
     }
+}
+
+void render_next_pet_frame()
+{
+    s_pet_frame_index =
+        (s_pet_frame_index + 1U) % status_pet_frame_count();
+    const StatusPetFrame &frame = status_pet_frame(s_pet_frame_index);
+    status_board_page_render_menu_pet(
+        *s_canvas, frame.pose, frame.center_x);
+#if STICKY_LOG_PET_ANIMATION_ENABLED
+    const int64_t refresh_started_us = esp_timer_get_time();
+#endif
+    refresh_display(true, false);
+#if STICKY_LOG_PET_ANIMATION_ENABLED
+    STICKY_LOGD(kTag,
+                "status_board=pet_animation frame=%u pose=%s center_x=%d refresh_ms=%lld",
+                static_cast<unsigned>(s_pet_frame_index),
+                status_pet_pose_name(frame.pose),
+                frame.center_x,
+                static_cast<long long>(
+                    (esp_timer_get_time() - refresh_started_us) / 1000LL));
+#endif
+    schedule_current_pet_frame();
 }
 
 bool append_character(char character)
@@ -159,6 +219,10 @@ bool handle_action(StatusBoardAction action)
         s_keyboard_mode = StatusBoardKeyboardMode::Letters;
         s_input_error = false;
     }
+    if (previous_page != StatusBoardPage::Menu &&
+        s_state.page == StatusBoardPage::Menu) {
+        reset_pet_animation();
+    }
     STICKY_LOGI(kTag,
                 "status_board=transition page_from=%s page_to=%s status_from=%s status_to=%s action=%s result=ok",
                 status_board_page_name(previous_page),
@@ -206,6 +270,9 @@ void app_task(void *)
                 "status_board=ready orientation=landscape page=%s status=%s choices=6 result=ok",
                 status_board_page_name(s_state.page),
                 status_board_status_name(s_state.selected_status));
+    STICKY_LOGI(kTag,
+                "status_board=pet_animation state=ready frames=%u loop=left_jump_right_walk_left result=ok",
+                static_cast<unsigned>(status_pet_frame_count()));
 
     while (true) {
         StickyTouchPress press = {};
@@ -242,6 +309,14 @@ void app_task(void *)
                 }
                 render_page(true);
             }
+        }
+
+        // Touch is always handled before an animation refresh is considered.
+        // 每轮循环总是先处理触摸，再判断是否刷新动画。
+        if (s_state.page == StatusBoardPage::Menu &&
+            s_next_pet_frame_us > 0 &&
+            esp_timer_get_time() >= s_next_pet_frame_us) {
+            render_next_pet_frame();
         }
 
         vTaskDelay(kPollInterval);

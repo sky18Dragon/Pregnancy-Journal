@@ -5,6 +5,7 @@
 
 #include "canvas.h"
 #include "status_board_pages.h"
+#include "status_pet_animation.h"
 
 namespace {
 
@@ -45,6 +46,22 @@ void assert_bottom_band_is_clear(const std::vector<uint8_t> &buffer)
     }
 }
 
+size_t black_pixel_count(const std::vector<uint8_t> &buffer,
+                         int top,
+                         int bottom)
+{
+    size_t count = 0U;
+    for (int y = top; y < bottom; ++y) {
+        for (int x = 0; x < kWidth; ++x) {
+            if (pixel_level(buffer, x, y) ==
+                static_cast<uint8_t>(GrayLevel::Black)) {
+                ++count;
+            }
+        }
+    }
+    return count;
+}
+
 }  // namespace
 
 int main()
@@ -53,7 +70,27 @@ int main()
     Canvas canvas(kWidth, kHeight, buffer.data(), buffer.size());
 
     status_board_page_render_menu(canvas, StatusBoardStatus::InMeeting);
+    const StatusPetFrame &left_frame = status_pet_frame(0U);
+    status_board_page_render_menu_pet(
+        canvas, left_frame.pose, left_frame.center_x);
+    assert(black_pixel_count(buffer, 340, 480) > 100U);
     write_preview(buffer, "/tmp/status_board_menu.ppm");
+
+    constexpr size_t kPreviewFrames[] = {2U, 4U, 5U, 6U, 8U};
+    constexpr const char *kPreviewPaths[] = {
+        "/tmp/status_pet_jump_left.ppm",
+        "/tmp/status_pet_jump_right.ppm",
+        "/tmp/status_pet_celebrate.ppm",
+        "/tmp/status_pet_walk_right.ppm",
+        "/tmp/status_pet_walk_left.ppm",
+    };
+    for (size_t index = 0U; index < 5U; ++index) {
+        const StatusPetFrame &frame = status_pet_frame(kPreviewFrames[index]);
+        status_board_page_render_menu_pet(
+            canvas, frame.pose, frame.center_x);
+        assert(black_pixel_count(buffer, 340, 480) > 100U);
+        write_preview(buffer, kPreviewPaths[index]);
+    }
 
     status_board_page_render_display(
         canvas, StatusBoardStatus::Focusing, "");
