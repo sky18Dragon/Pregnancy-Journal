@@ -2,9 +2,10 @@
 
 - Source visual truth: `/Users/mengdu/.codex/generated_images/01a00e64-6173-7c61-900b-598f2bc9b152/exec-054e9c84-ff4f-4411-ab90-26adfcc58ecd.png`
 - Firmware menu screenshot: `/tmp/status_board_menu.png`
-- Firmware display screenshot: `/tmp/status_board_display.png`
+- Firmware display screenshot: `/tmp/status_board_display_no_time.png`
+- Six-state display contact sheet: `/tmp/status_display_no_time_contact.png`
 - Asset contact sheet: `/tmp/pixel_bunny_library.png`
-- Combined comparison: `/tmp/status_board_asset_compare.png`
+- Combined comparison: `/tmp/status_board_no_time_compare.png`
 - Target viewport: 800×480
 
 ## Full-view comparison
@@ -20,7 +21,7 @@ All six 80×80 firmware previews preserve the important source characteristics a
 - Illustration language: every status uses one complete pixel bunny scene.
 - Monochrome behavior: assets contain only transparent and foreground pixels, matching the black-and-white panel refresh path.
 - Scale: menu cards use the native 80×80 asset; display pages use integer 3× scaling to retain crisp square pixels.
-- Composition: the full-screen title, illustration, and detail text remain centered with separate vertical regions.
+- Composition: the status title fills the left region and the 4× bunny scene fills the right region, with no fixed-time row competing for attention.
 - Reuse: source PNGs, firmware previews, packed bitmap data, and the drawing API are stored as one shared UI asset system.
 
 ## Findings

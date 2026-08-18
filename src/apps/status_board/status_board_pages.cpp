@@ -203,25 +203,6 @@ const char *status_title(StatusBoardStatus status)
     return "UNKNOWN";
 }
 
-const char *status_detail(StatusBoardStatus status)
-{
-    switch (status) {
-    case StatusBoardStatus::Focusing:
-        return "UNTIL 14:30";
-    case StatusBoardStatus::InMeeting:
-        return "BACK AT 15:00";
-    case StatusBoardStatus::Welcome:
-        return "COME IN";
-    case StatusBoardStatus::OutForLunch:
-        return "BACK AT 13:30";
-    case StatusBoardStatus::OffDuty:
-        return "BACK TOMORROW";
-    case StatusBoardStatus::Custom:
-        return "CUSTOM STATUS";
-    }
-    return "";
-}
-
 void draw_status_label(Canvas &canvas,
                        const Rect &rect,
                        StatusBoardStatus status,
@@ -282,19 +263,56 @@ void begin_landscape_page(Canvas &canvas, GrayLevel background)
     canvas.clear(background);
 }
 
-int display_text_scale(const char *text)
+int display_text_scale(const char *text, int maximum_scale)
 {
-    const size_t length = std::strlen(text);
-    if (length <= 8U) {
-        return 11;
+    constexpr int kTextRegionWidth = 420;
+    const int unscaled_width = text_width(text, 1);
+    if (unscaled_width <= 0) {
+        return 1;
     }
-    if (length <= 12U) {
-        return 8;
+    return std::max(1,
+                    std::min(maximum_scale,
+                             kTextRegionWidth / unscaled_width));
+}
+
+void draw_display_title(Canvas &canvas,
+                        StatusBoardStatus status,
+                        const char *title)
+{
+    constexpr Rect kTextRegion = {20, 76, 440, 328};
+
+    // Preset phrases use deliberate line breaks so both words and artwork can
+    // fill the landscape page. Custom text scales to the same left region.
+    // 预设短语通过固定换行铺满横屏左侧，自定义文字缩放到同一区域。
+    switch (status) {
+    case StatusBoardStatus::InMeeting:
+        draw_centered_text_in_rect(
+            canvas, kTextRegion, 150, "IN A", 8, GrayLevel::White);
+        draw_centered_text_in_rect(
+            canvas, kTextRegion, 235, "MEETING", 8, GrayLevel::White);
+        return;
+    case StatusBoardStatus::OutForLunch:
+        draw_centered_text_in_rect(
+            canvas, kTextRegion, 150, "OUT FOR", 8, GrayLevel::White);
+        draw_centered_text_in_rect(
+            canvas, kTextRegion, 235, "LUNCH", 8, GrayLevel::White);
+        return;
+    case StatusBoardStatus::OffDuty:
+        draw_centered_text_in_rect(
+            canvas, kTextRegion, 150, "OFF", 9, GrayLevel::White);
+        draw_centered_text_in_rect(
+            canvas, kTextRegion, 240, "DUTY", 9, GrayLevel::White);
+        return;
+    case StatusBoardStatus::Focusing:
+    case StatusBoardStatus::Welcome:
+    case StatusBoardStatus::Custom:
+        break;
     }
-    if (length <= 16U) {
-        return 6;
-    }
-    return 5;
+
+    const int scale = display_text_scale(title, 8);
+    const int y = 240 - 7 * scale / 2;
+    draw_centered_text_in_rect(
+        canvas, kTextRegion, y, title, scale, GrayLevel::White);
 }
 
 void draw_key(Canvas &canvas,
@@ -405,21 +423,14 @@ void status_board_page_render_display(Canvas &canvas,
                                 custom_text[0] != '\0'
                             ? custom_text
                             : status_title(selected_status);
-    const int scale = display_text_scale(title);
-    draw_centered_text(canvas, 86, title, scale, GrayLevel::White);
+    draw_display_title(canvas, selected_status, title);
     pixel_asset_draw_centered(
         canvas,
-        400,
-        295,
+        630,
+        240,
         status_bunny_asset(status_asset_id(selected_status)),
-        3,
+        4,
         GrayLevel::White);
-
-    draw_centered_text(canvas,
-                       440,
-                       status_detail(selected_status),
-                       3,
-                       GrayLevel::White);
 }
 
 void status_board_page_render_custom_input(

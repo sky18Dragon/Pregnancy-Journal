@@ -35,6 +35,16 @@ void write_preview(const std::vector<uint8_t> &buffer, const char *path)
     }
 }
 
+void assert_bottom_band_is_clear(const std::vector<uint8_t> &buffer)
+{
+    for (int y = 415; y < kHeight; ++y) {
+        for (int x = 0; x < kWidth; ++x) {
+            assert(pixel_level(buffer, x, y) ==
+                   static_cast<uint8_t>(GrayLevel::Black));
+        }
+    }
+}
+
 }  // namespace
 
 int main()
@@ -47,7 +57,31 @@ int main()
 
     status_board_page_render_display(
         canvas, StatusBoardStatus::Focusing, "");
+    assert_bottom_band_is_clear(buffer);
     write_preview(buffer, "/tmp/status_board_display.ppm");
+
+    constexpr StatusBoardStatus kStatuses[] = {
+        StatusBoardStatus::Focusing,
+        StatusBoardStatus::InMeeting,
+        StatusBoardStatus::Welcome,
+        StatusBoardStatus::OutForLunch,
+        StatusBoardStatus::OffDuty,
+        StatusBoardStatus::Custom,
+    };
+    constexpr const char *kDisplayPaths[] = {
+        "/tmp/status_display_focusing.ppm",
+        "/tmp/status_display_in_meeting.ppm",
+        "/tmp/status_display_welcome.ppm",
+        "/tmp/status_display_out_for_lunch.ppm",
+        "/tmp/status_display_off_duty.ppm",
+        "/tmp/status_display_custom.ppm",
+    };
+    for (size_t index = 0; index < 6U; ++index) {
+        status_board_page_render_display(
+            canvas, kStatuses[index], "DEEP WORK MODE");
+        assert_bottom_band_is_clear(buffer);
+        write_preview(buffer, kDisplayPaths[index]);
+    }
 
     status_board_page_render_custom_input(canvas,
                                           "DEEP WORK MODE",
