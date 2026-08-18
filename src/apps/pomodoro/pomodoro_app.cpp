@@ -7,7 +7,9 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "pomodoro_countdown.h"
 #include "pomodoro_pages.h"
+#include "pomodoro_render_policy.h"
 #include "sticky_buzzer.h"
 #include "sticky_display.h"
 #include "sticky_touch.h"
@@ -34,7 +36,6 @@ uint8_t s_custom_seconds = 0;
 bool s_replace_field_on_digit = true;
 int64_t s_timer_deadline_us = 0;
 int64_t s_paused_remaining_us = 0;
-uint32_t s_displayed_minute_bucket = 0;
 uint32_t s_displayed_remaining_seconds = 0;
 
 void log_refresh_failure(const char *mode, esp_err_t result)
@@ -47,7 +48,9 @@ void log_refresh_failure(const char *mode, esp_err_t result)
     }
 }
 
-void render_current_page(bool partial_refresh = false)
+void render_current_page(
+    bool partial_refresh = false,
+    PomodoroRenderReason reason = PomodoroRenderReason::InteractiveChange)
 {
     switch (s_page) {
     case PomodoroPage::Setup:
@@ -92,7 +95,9 @@ void render_current_page(bool partial_refresh = false)
                                  ? sticky_display_refresh_partial()
                                  : sticky_display_refresh_monochrome();
     log_refresh_failure(partial_refresh ? "partial" : "full", result);
-    sticky_touch_clear_press();
+    if (pomodoro_render_clears_pending_touch(reason)) {
+        sticky_touch_clear_press();
+    }
 }
 
 void change_page(PomodoroPage target, const char *reason, bool partial = false)
@@ -172,17 +177,11 @@ uint32_t remaining_seconds_rounded_up(int64_t remaining_us)
     return static_cast<uint32_t>((remaining_us + 999999LL) / 1000000LL);
 }
 
-uint32_t minute_bucket(uint32_t remaining_seconds)
-{
-    return (remaining_seconds + 59U) / 60U;
-}
-
 void start_timer()
 {
     s_total_seconds = s_selected_seconds;
     s_paused_remaining_us = static_cast<int64_t>(s_total_seconds) * 1000000LL;
     s_timer_deadline_us = esp_timer_get_time() + s_paused_remaining_us;
-    s_displayed_minute_bucket = minute_bucket(s_total_seconds);
     s_displayed_remaining_seconds = s_total_seconds;
     STICKY_LOGI(kTag,
                 "pomodoro=timer state=started duration_s=%lu",
@@ -203,8 +202,6 @@ void pause_timer(const char *reason)
 void resume_timer()
 {
     s_timer_deadline_us = esp_timer_get_time() + s_paused_remaining_us;
-    s_displayed_minute_bucket = minute_bucket(
-        remaining_seconds_rounded_up(s_paused_remaining_us));
     s_displayed_remaining_seconds =
         remaining_seconds_rounded_up(s_paused_remaining_us);
     STICKY_LOGI(kTag,
@@ -221,7 +218,6 @@ void return_to_setup(const char *reason)
     s_total_seconds = s_selected_seconds;
     s_timer_deadline_us = 0;
     s_paused_remaining_us = 0;
-    s_displayed_minute_bucket = 0;
     s_displayed_remaining_seconds = 0;
     change_page(PomodoroPage::Setup, reason);
 }
@@ -400,29 +396,17 @@ void update_running_timer()
     const uint32_t remaining_seconds =
         remaining_seconds_rounded_up(remaining_us);
 
-    // Short timers and the final minute expose every second through fast refresh.
-    // 短计时和最后一分钟通过快刷显示每一秒的变化。
-    if (remaining_seconds <= 60U) {
-        if (remaining_seconds != s_displayed_remaining_seconds) {
-            s_displayed_remaining_seconds = remaining_seconds;
-#if STICKY_LOG_TIMER_TICKS_ENABLED
-            STICKY_LOGD(kTag,
-                        "pomodoro=timer state=checkpoint cadence=second remaining_s=%lu",
-                        static_cast<unsigned long>(remaining_seconds));
-#endif
-            render_current_page(true);
-        }
-        return;
-    }
-
-    const uint32_t current_bucket = minute_bucket(remaining_seconds);
-    if (current_bucket != s_displayed_minute_bucket) {
-        s_displayed_minute_bucket = current_bucket;
+    // Every duration renders each visible second through partial fast refresh.
+    // 所有时长都通过局部快刷显示每一秒的变化。
+    if (pomodoro_countdown_should_render_frame(
+            s_displayed_remaining_seconds, remaining_seconds)) {
         s_displayed_remaining_seconds = remaining_seconds;
-        STICKY_LOGI(kTag,
-                    "pomodoro=timer state=checkpoint cadence=minute remaining_s=%lu",
+#if STICKY_LOG_TIMER_TICKS_ENABLED
+        STICKY_LOGD(kTag,
+                    "pomodoro=timer state=checkpoint cadence=second remaining_s=%lu",
                     static_cast<unsigned long>(remaining_seconds));
-        render_current_page(true);
+#endif
+        render_current_page(true, PomodoroRenderReason::CountdownTick);
     }
 }
 
