@@ -1,13 +1,11 @@
 #include "app_log.h"
-#include "sticky_app.h"
 #include "board_power.h"
-#include "board_sensor_bus.h"
 #include "board_shared_spi.h"
 #include "canvas.h"
+#include "pomodoro_app.h"
+#include "sticky_buzzer.h"
 #include "sticky_display.h"
-#include "sticky_imu.h"
 #include "sticky_touch.h"
-#include "touch_test_pattern.h"
 
 #include <cinttypes>
 
@@ -179,11 +177,6 @@ extern "C" void app_main()
         halt_after_error("board_shared_spi", shared_spi_result);
     }
 
-    const esp_err_t sensor_bus_result = board_sensor_bus_init();
-    if (sensor_bus_result != ESP_OK) {
-        halt_after_error("board_sensor_bus", sensor_bus_result);
-    }
-
     const esp_err_t display_result = sticky_display_init();
     if (display_result != ESP_OK) {
         halt_after_error("sticky_display_init", display_result);
@@ -194,32 +187,22 @@ extern "C" void app_main()
         halt_after_error("sticky_display_canvas", ESP_ERR_INVALID_STATE);
     }
 
-    // Draws the fixed physical targets used by the touch validation task.
-    // 绘制触摸验证任务使用的固定物理目标点。
-    touch_test_pattern_render(*canvas);
-    const esp_err_t refresh_result = sticky_display_refresh_monochrome();
-    if (refresh_result != ESP_OK) {
-        halt_after_error("sticky_display_refresh", refresh_result);
-    }
-    STICKY_LOGI(kTag, "display=touch_test_pattern result=ok");
-
     const esp_err_t touch_result = sticky_touch_init();
     if (touch_result != ESP_OK) {
         halt_after_error("sticky_touch_init", touch_result);
     }
 
-    const esp_err_t imu_result = sticky_imu_init(board_sensor_i2c_bus());
-    if (imu_result != ESP_OK) {
-        halt_after_error("sticky_imu_init", imu_result);
-    }
-    const esp_err_t imu_monitor_result = sticky_imu_start_monitoring();
-    if (imu_monitor_result != ESP_OK) {
-        halt_after_error("sticky_imu_monitor", imu_monitor_result);
+    const esp_err_t buzzer_result = sticky_buzzer_init();
+    if (buzzer_result != ESP_OK) {
+        halt_after_error("sticky_buzzer_init", buzzer_result);
     }
 
-    const esp_err_t app_result = sticky_app_start(*canvas);
+    // Runs Pomodoro as a complete standalone app. The product shell and IMU
+    // entry rules will connect to this boundary in a later integration stage.
+    // 当前直接运行完整番茄钟APP，产品外壳和IMU入口将在后续整合阶段接入。
+    const esp_err_t app_result = pomodoro_app_start(*canvas);
     if (app_result != ESP_OK) {
-        halt_after_error("sticky_app_start", app_result);
+        halt_after_error("pomodoro_app_start", app_result);
     }
 
 #if STICKY_LOG_BOOT_DETAILS_ENABLED

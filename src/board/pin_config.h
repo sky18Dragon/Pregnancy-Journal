@@ -34,3 +34,6 @@
 #define PIN_TOUCH_EN 42
 #define PIN_TOUCH_INT 21
 #define PIN_TOUCH_RST 41
+
+// Onboard passive buzzer / 板载无源蜂鸣器
+#define PIN_BUZZER 48

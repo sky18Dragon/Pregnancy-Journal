@@ -136,6 +136,70 @@ void Canvas::fill_rect(int x, int y, int width, int height, GrayLevel color)
     }
 }
 
+void Canvas::draw_circle(int center_x,
+                         int center_y,
+                         int radius,
+                         GrayLevel color)
+{
+    if (radius < 0) {
+        return;
+    }
+
+    // Draws the circle perimeter with the integer midpoint algorithm.
+    // 使用整数中点圆算法绘制圆形边缘。
+    int x = radius;
+    int y = 0;
+    int error = 1 - radius;
+    while (x >= y) {
+        draw_pixel(center_x + x, center_y + y, color);
+        draw_pixel(center_x + y, center_y + x, color);
+        draw_pixel(center_x - y, center_y + x, color);
+        draw_pixel(center_x - x, center_y + y, color);
+        draw_pixel(center_x - x, center_y - y, color);
+        draw_pixel(center_x - y, center_y - x, color);
+        draw_pixel(center_x + y, center_y - x, color);
+        draw_pixel(center_x + x, center_y - y, color);
+
+        ++y;
+        if (error < 0) {
+            error += 2 * y + 1;
+        } else {
+            --x;
+            error += 2 * (y - x + 1);
+        }
+    }
+}
+
+void Canvas::fill_circle(int center_x,
+                         int center_y,
+                         int radius,
+                         GrayLevel color)
+{
+    if (radius < 0) {
+        return;
+    }
+
+    // Fills the circle interior with horizontal spans.
+    // 使用水平线段填充圆形内部。
+    int x = radius;
+    int y = 0;
+    int error = 1 - radius;
+    while (x >= y) {
+        draw_line(center_x - x, center_y + y, center_x + x, center_y + y, color);
+        draw_line(center_x - x, center_y - y, center_x + x, center_y - y, color);
+        draw_line(center_x - y, center_y + x, center_x + y, center_y + x, color);
+        draw_line(center_x - y, center_y - x, center_x + y, center_y - x, color);
+
+        ++y;
+        if (error < 0) {
+            error += 2 * y + 1;
+        } else {
+            --x;
+            error += 2 * (y - x + 1);
+        }
+    }
+}
+
 void Canvas::draw_text(int x, int y, const char *text, uint8_t scale, GrayLevel color)
 {
     if (text == nullptr || scale == 0) {
@@ -159,5 +223,31 @@ void Canvas::draw_text(int x, int y, const char *text, uint8_t scale, GrayLevel 
             }
         }
         cursor_x += (kFontWidth + kFontSpacing) * scale;
+    }
+}
+
+void Canvas::physical_to_logical(int physical_x,
+                                 int physical_y,
+                                 int &logical_x,
+                                 int &logical_y) const
+{
+    switch (rotation_) {
+    case CanvasRotation::Deg90Clockwise:
+        logical_x = physical_y;
+        logical_y = physical_width_ - 1 - physical_x;
+        break;
+    case CanvasRotation::Deg180:
+        logical_x = physical_width_ - 1 - physical_x;
+        logical_y = physical_height_ - 1 - physical_y;
+        break;
+    case CanvasRotation::Deg90CounterClockwise:
+        logical_x = physical_height_ - 1 - physical_y;
+        logical_y = physical_x;
+        break;
+    case CanvasRotation::Deg0:
+    default:
+        logical_x = physical_x;
+        logical_y = physical_y;
+        break;
     }
 }

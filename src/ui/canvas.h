@@ -44,8 +44,19 @@ public:
     void draw_rect(int x, int y, int width, int height,
                    GrayLevel color = GrayLevel::Black);
     void fill_rect(int x, int y, int width, int height, GrayLevel color);
+    void draw_circle(int center_x, int center_y, int radius,
+                     GrayLevel color = GrayLevel::Black);
+    void fill_circle(int center_x, int center_y, int radius,
+                     GrayLevel color = GrayLevel::Black);
     void draw_text(int x, int y, const char *text, uint8_t scale = 1,
                    GrayLevel color = GrayLevel::Black);
+
+    // Converts a physical touch coordinate into the current logical page axes.
+    // 将物理触摸坐标转换为当前旋转页面使用的逻辑坐标。
+    void physical_to_logical(int physical_x,
+                             int physical_y,
+                             int &logical_x,
+                             int &logical_y) const;
 
 private:
     uint16_t physical_width_;
