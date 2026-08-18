@@ -74,6 +74,14 @@ int main()
     status_board_page_render_menu_pet(
         canvas, left_frame.pose, left_frame.center_x);
     assert(black_pixel_count(buffer, 340, 480) > 100U);
+    assert(pixel_level(buffer, 20, 456) ==
+           static_cast<uint8_t>(GrayLevel::Black));
+    assert(pixel_level(buffer, 779, 457) ==
+           static_cast<uint8_t>(GrayLevel::Black));
+    assert(pixel_level(buffer, 19, 456) ==
+           static_cast<uint8_t>(GrayLevel::White));
+    assert(pixel_level(buffer, 780, 456) ==
+           static_cast<uint8_t>(GrayLevel::White));
     write_preview(buffer, "/tmp/status_board_menu.ppm");
 
     constexpr size_t kPreviewFrames[] = {2U, 4U, 5U, 6U, 8U};

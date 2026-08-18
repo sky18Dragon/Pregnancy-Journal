@@ -16,6 +16,10 @@ constexpr int kScreenHeight = 480;
 constexpr int kPetBandY = 340;
 constexpr int kPetBandHeight = kScreenHeight - kPetBandY;
 constexpr int kPetCenterY = 410;
+constexpr int kPetGroundX = 20;
+constexpr int kPetGroundY = 456;
+constexpr int kPetGroundWidth = kScreenWidth - kPetGroundX * 2;
+constexpr int kPetGroundHeight = 2;
 
 struct Rect {
     int x;
@@ -453,6 +457,11 @@ void status_board_page_render_menu_pet(Canvas &canvas,
                      kScreenWidth,
                      kPetBandHeight,
                      GrayLevel::White);
+    canvas.fill_rect(kPetGroundX,
+                     kPetGroundY,
+                     kPetGroundWidth,
+                     kPetGroundHeight,
+                     GrayLevel::Black);
     pixel_asset_draw_centered(canvas,
                               center_x,
                               kPetCenterY,
