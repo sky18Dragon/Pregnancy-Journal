@@ -36,7 +36,7 @@ constexpr Rect kStatusRects[] = {
     {660, 100, 118, 340},
 };
 
-constexpr Rect kBackRect = {20, 20, 110, 52};
+constexpr Rect kBackRect = {0, 0, 145, 120};
 constexpr Rect kInputRect = {145, 20, 635, 140};
 constexpr Rect kLetterRow1[] = {
     {15, 180, 70, 58}, {92, 180, 70, 58}, {169, 180, 70, 58},
@@ -163,6 +163,37 @@ void draw_button(Canvas &canvas,
     const int y = rect.y + (rect.height - 7 * scale) / 2;
     draw_centered_text_in_rect(
         canvas, rect, y, label, scale, foreground);
+}
+
+void draw_back_arrow(Canvas &canvas, GrayLevel color)
+{
+    // Draws one compact left arrow while the surrounding corner remains the
+    // larger invisible touch target.
+    // 绘制小巧的左箭头，箭头周围的左上角区域作为更大的隐形触摸范围。
+    constexpr int kPointX = 24;
+    constexpr int kCenterY = 35;
+    constexpr int kHeadEndX = 37;
+    constexpr int kShaftEndX = 62;
+    constexpr int kHeadHalfHeight = 13;
+    constexpr int kThickness = 2;
+
+    for (int offset = 0; offset < kThickness; ++offset) {
+        canvas.draw_line(kPointX,
+                         kCenterY + offset,
+                         kHeadEndX,
+                         kCenterY - kHeadHalfHeight + offset,
+                         color);
+        canvas.draw_line(kPointX,
+                         kCenterY + offset,
+                         kHeadEndX,
+                         kCenterY + kHeadHalfHeight + offset,
+                         color);
+    }
+    canvas.fill_rect(kPointX,
+                     kCenterY,
+                     kShaftEndX - kPointX,
+                     kThickness,
+                     color);
 }
 
 StatusBunnyAssetId status_asset_id(StatusBoardStatus status)
@@ -414,9 +445,7 @@ void status_board_page_render_display(Canvas &canvas,
 {
     begin_landscape_page(canvas, GrayLevel::Black);
 
-    // The visible label is small while the full rectangle remains touchable.
-    // 返回文字保持低存在感，完整矩形区域仍可触摸。
-    canvas.draw_text(28, 24, "< BACK", 2, GrayLevel::White);
+    draw_back_arrow(canvas, GrayLevel::White);
 
     const char *title = selected_status == StatusBoardStatus::Custom &&
                                 custom_text != nullptr &&
@@ -440,7 +469,7 @@ void status_board_page_render_custom_input(
     bool input_error)
 {
     begin_landscape_page(canvas, GrayLevel::White);
-    draw_button(canvas, kBackRect, "< BACK", false, 2);
+    draw_back_arrow(canvas, GrayLevel::Black);
     draw_double_rect(canvas, kInputRect, GrayLevel::Black);
 
     const char *safe_text = text == nullptr ? "" : text;

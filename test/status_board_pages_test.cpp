@@ -41,6 +41,14 @@ int main()
                                        45) == StatusBoardAction::Back);
     assert(status_board_page_action_at(StatusBoardPage::Display,
                                        StatusBoardKeyboardMode::Letters,
+                                       140,
+                                       119) == StatusBoardAction::Back);
+    assert(status_board_page_action_at(StatusBoardPage::Display,
+                                       StatusBoardKeyboardMode::Letters,
+                                       145,
+                                       119) == StatusBoardAction::None);
+    assert(status_board_page_action_at(StatusBoardPage::Display,
+                                       StatusBoardKeyboardMode::Letters,
                                        400,
                                        200) == StatusBoardAction::None);
 
@@ -48,6 +56,10 @@ int main()
                                        StatusBoardKeyboardMode::Letters,
                                        50,
                                        205) == StatusBoardAction::KeyQ);
+    assert(status_board_page_action_at(StatusBoardPage::CustomInput,
+                                       StatusBoardKeyboardMode::Letters,
+                                       140,
+                                       119) == StatusBoardAction::Back);
     assert(status_board_page_action_at(StatusBoardPage::CustomInput,
                                        StatusBoardKeyboardMode::Letters,
                                        740,
