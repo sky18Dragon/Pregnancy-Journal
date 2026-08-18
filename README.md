@@ -2,9 +2,17 @@
 
 这是 reTerminal Sticky 的新固件工程。工程使用 PlatformIO 管理构建、烧录和串口监视，底层框架采用 ESP-IDF。`Sticky_dashboard_demo`是硬件驱动的参考来源。
 
-当前`feature/ui-experience`分支将番茄钟作为一个完整、独立的APP运行。启动入口直接进入番茄钟，方便先验证页面、触摸、计时和蜂鸣器体验；产品主页和IMU入口将在后续整合阶段接入。
+当前`feature/ui-experience`分支将状态牌作为一个完整、独立的APP运行。启动入口直接进入横屏状态选择页，方便先验证页面布局和触摸切换体验；产品主页和IMU入口将在后续整合阶段接入。番茄钟APP源码继续保留，等待最终整合。
 
 ## 当前功能
+
+### 横屏状态牌
+
+- 原生使用800×480横屏坐标，上半屏展示当前状态，下半屏提供状态选择。
+- 提供`FOCUSING`、`IN A MEETING`、`WELCOME`、`OUT FOR LUNCH`、`OFF DUTY`和`CUSTOM`六种状态。
+- 点击任一状态后立即更新顶部大字、说明文字、图标和底部选中项。
+- 首次显示使用黑白全屏刷新，切换状态使用黑白局部快刷。
+- 自定义状态当前显示移动端设置入口提示，后续与手机端数据接口连接。
 
 ### 番茄钟主页
 
@@ -89,7 +97,7 @@ touch=controller_ready
 touch=polling_ready
 buzzer=ready
 phase=ready result=ok
-pomodoro=ready page=setup default_duration_s=900 result=ok
+status_board=ready orientation=landscape status=in_meeting choices=6 result=ok
 ```
 
 ## 日志设计
@@ -118,7 +126,8 @@ pomodoro=ready page=setup default_duration_s=900 result=ok
 boards/                    Sticky的PlatformIO板卡定义
 components/seeed_epaper    SSD1677/UC8179电子纸驱动
 components/debug_logging   编译期详细日志开关
-src/apps/pomodoro/         独立番茄钟页面、触摸映射和状态机
+src/apps/pomodoro/         已完成的独立番茄钟页面、触摸映射和状态机
+src/apps/status_board/     横屏状态牌页面、六状态映射和交互任务
 src/board/                 电源、引脚和共享SPI准备
 src/core/                  日志基础设施
 src/devices/               蜂鸣器等独立设备接口
@@ -126,12 +135,25 @@ src/display/               屏幕初始化和刷新
 src/input/                 GT911触摸初始化、坐标转换和采样
 src/sensors/               已保留的姿态检测源码
 src/ui/                    画布、基础图形、字体和已保留页面源码
-src/main.cpp               独立番茄钟启动入口
+src/main.cpp               当前独立状态牌启动入口
 test/                      可在电脑上运行的回归测试
 platformio.ini             开发版与发布版构建配置
 ```
 
-## 真机验收
+## 状态牌真机验收
+
+以下动作按顺序连续执行，方便将页面现象与串口日志一一对应。
+
+1. 烧录`sticky-debug`并打开串口，等待横屏状态牌显示。
+2. 确认上半屏默认显示`IN A MEETING`和`BACK AT 15:00`，下半屏`IN A MEETING`为黑底选中状态。
+3. 从左到右依次点击六个状态，确认顶部大字、说明文字、图标和底部黑底选中项同步变化。
+4. 点击`CUSTOM`，确认顶部显示`CUSTOM`和`SET IN MOBILE APP`。
+5. 再点击一次已经选中的`CUSTOM`，确认页面不重复刷新，日志记录`result=unchanged`。
+6. 点击顶部状态展示区和按钮之间的空白区域，确认当前状态保持不变。
+
+主流程成功时，日志会按操作出现`status_board=touch`和`status_board=selection`，并且触摸轮询保持安静。
+
+## 番茄钟回归验收
 
 以下动作按顺序连续执行，方便将页面现象与串口日志一一对应。
 

@@ -3,6 +3,8 @@ idf_component_register(
         "main.cpp"
         "apps/pomodoro/pomodoro_app.cpp"
         "apps/pomodoro/pomodoro_pages.cpp"
+        "apps/status_board/status_board_app.cpp"
+        "apps/status_board/status_board_pages.cpp"
         "board/board_power.cpp"
         "board/board_shared_spi.cpp"
         "core/app_log.cpp"
@@ -14,6 +16,7 @@ idf_component_register(
     INCLUDE_DIRS
         "."
         "apps/pomodoro"
+        "apps/status_board"
         "board"
         "core"
         "devices"

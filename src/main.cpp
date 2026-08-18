@@ -2,7 +2,7 @@
 #include "board_power.h"
 #include "board_shared_spi.h"
 #include "canvas.h"
-#include "pomodoro_app.h"
+#include "status_board_app.h"
 #include "sticky_buzzer.h"
 #include "sticky_display.h"
 #include "sticky_touch.h"
@@ -197,12 +197,12 @@ extern "C" void app_main()
         halt_after_error("sticky_buzzer_init", buzzer_result);
     }
 
-    // Runs Pomodoro as a complete standalone app. The product shell and IMU
-    // entry rules will connect to this boundary in a later integration stage.
-    // 当前直接运行完整番茄钟APP，产品外壳和IMU入口将在后续整合阶段接入。
-    const esp_err_t app_result = pomodoro_app_start(*canvas);
+    // Runs Status Board as a complete standalone landscape app. The product
+    // shell and IMU entry rules will connect to this boundary later.
+    // 当前直接运行完整横屏状态牌APP，产品外壳和IMU入口将在后续整合阶段接入。
+    const esp_err_t app_result = status_board_app_start(*canvas);
     if (app_result != ESP_OK) {
-        halt_after_error("pomodoro_app_start", app_result);
+        halt_after_error("status_board_app_start", app_result);
     }
 
 #if STICKY_LOG_BOOT_DETAILS_ENABLED
