@@ -35,6 +35,7 @@ bool s_replace_field_on_digit = true;
 int64_t s_timer_deadline_us = 0;
 int64_t s_paused_remaining_us = 0;
 uint32_t s_displayed_minute_bucket = 0;
+uint32_t s_displayed_remaining_seconds = 0;
 
 void log_refresh_failure(const char *mode, esp_err_t result)
 {
@@ -182,6 +183,7 @@ void start_timer()
     s_paused_remaining_us = static_cast<int64_t>(s_total_seconds) * 1000000LL;
     s_timer_deadline_us = esp_timer_get_time() + s_paused_remaining_us;
     s_displayed_minute_bucket = minute_bucket(s_total_seconds);
+    s_displayed_remaining_seconds = s_total_seconds;
     STICKY_LOGI(kTag,
                 "pomodoro=timer state=started duration_s=%lu",
                 static_cast<unsigned long>(s_total_seconds));
@@ -203,6 +205,8 @@ void resume_timer()
     s_timer_deadline_us = esp_timer_get_time() + s_paused_remaining_us;
     s_displayed_minute_bucket = minute_bucket(
         remaining_seconds_rounded_up(s_paused_remaining_us));
+    s_displayed_remaining_seconds =
+        remaining_seconds_rounded_up(s_paused_remaining_us);
     STICKY_LOGI(kTag,
                 "pomodoro=timer state=resumed remaining_s=%lu",
                 static_cast<unsigned long>(
@@ -210,18 +214,15 @@ void resume_timer()
     change_page(PomodoroPage::Running, "resume");
 }
 
-void reset_to_setup(const char *reason)
+void return_to_setup(const char *reason)
 {
-    s_selected_seconds = kDefaultDurationSeconds;
-    s_total_seconds = kDefaultDurationSeconds;
-    s_custom_hours = 0;
-    s_custom_minutes = 15;
-    s_custom_seconds = 0;
-    s_active_field = PomodoroTimeField::Minutes;
-    s_replace_field_on_digit = true;
+    // Keeps the most recently selected duration ready for the next session.
+    // 保留最近一次选择的时长，供下一轮专注直接使用。
+    s_total_seconds = s_selected_seconds;
     s_timer_deadline_us = 0;
     s_paused_remaining_us = 0;
     s_displayed_minute_bucket = 0;
+    s_displayed_remaining_seconds = 0;
     change_page(PomodoroPage::Setup, reason);
 }
 
@@ -373,7 +374,7 @@ void handle_action(PomodoroAction action)
             }
         } else if (action == PomodoroAction::EndNow) {
             STICKY_LOGI(kTag, "pomodoro=timer state=ended_early");
-            reset_to_setup("end_now");
+            return_to_setup("end_now");
         }
     } else if (s_page == PomodoroPage::Alarm &&
                action == PomodoroAction::EndAlarm) {
@@ -383,7 +384,7 @@ void handle_action(PomodoroAction action)
                         "pomodoro=alarm stop=failed result=%s",
                         esp_err_to_name(buzzer_result));
         }
-        reset_to_setup("alarm_ended");
+        return_to_setup("alarm_ended");
     }
 }
 
@@ -396,17 +397,30 @@ void update_running_timer()
     }
 
     s_paused_remaining_us = remaining_us;
-    if (s_total_seconds < 60U) {
+    const uint32_t remaining_seconds =
+        remaining_seconds_rounded_up(remaining_us);
+
+    // Short timers and the final minute expose every second through fast refresh.
+    // 短计时和最后一分钟通过快刷显示每一秒的变化。
+    if (remaining_seconds <= 60U) {
+        if (remaining_seconds != s_displayed_remaining_seconds) {
+            s_displayed_remaining_seconds = remaining_seconds;
+#if STICKY_LOG_TIMER_TICKS_ENABLED
+            STICKY_LOGD(kTag,
+                        "pomodoro=timer state=checkpoint cadence=second remaining_s=%lu",
+                        static_cast<unsigned long>(remaining_seconds));
+#endif
+            render_current_page(true);
+        }
         return;
     }
 
-    const uint32_t remaining_seconds =
-        remaining_seconds_rounded_up(remaining_us);
     const uint32_t current_bucket = minute_bucket(remaining_seconds);
     if (current_bucket != s_displayed_minute_bucket) {
         s_displayed_minute_bucket = current_bucket;
+        s_displayed_remaining_seconds = remaining_seconds;
         STICKY_LOGI(kTag,
-                    "pomodoro=timer state=checkpoint remaining_s=%lu",
+                    "pomodoro=timer state=checkpoint cadence=minute remaining_s=%lu",
                     static_cast<unsigned long>(remaining_seconds));
         render_current_page(true);
     }

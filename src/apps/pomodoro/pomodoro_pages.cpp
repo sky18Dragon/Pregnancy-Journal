@@ -12,6 +12,11 @@ namespace {
 constexpr float kPi = 3.14159265358979323846F;
 constexpr int kScreenWidth = 480;
 constexpr int kScreenHeight = 800;
+constexpr int kActionButtonX = 40;
+constexpr int kActionButtonWidth = 400;
+constexpr int kActionButtonHeight = 64;
+constexpr int kPresetHighlightInsetX = 12;
+constexpr int kPresetHighlightTopExtension = 2;
 
 struct Rect {
     int x;
@@ -27,47 +32,60 @@ struct Rect {
 };
 
 constexpr Rect kSetupPresetRects[] = {
-    {25, 455, 135, 72},
-    {172, 455, 135, 72},
-    {320, 455, 135, 72},
-    {25, 535, 135, 72},
-    {172, 535, 135, 72},
-    {320, 535, 135, 72},
+    {25, 515, 135, 38},
+    {172, 515, 135, 38},
+    {320, 515, 135, 38},
+    {25, 559, 135, 38},
+    {172, 559, 135, 38},
+    {320, 559, 135, 38},
 };
-constexpr Rect kCustomTimeRect = {40, 625, 400, 52};
-constexpr Rect kStartRect = {40, 700, 400, 68};
+constexpr Rect kCustomTimeRect = {
+    kActionButtonX, 615, kActionButtonWidth, kActionButtonHeight};
+constexpr Rect kStartRect = {
+    kActionButtonX, 696, kActionButtonWidth, kActionButtonHeight};
 
 constexpr Rect kTimeFieldRects[] = {
-    {90, 190, 90, 120},
-    {195, 190, 90, 120},
-    {300, 190, 90, 120},
+    {90, 205, 90, 135},
+    {195, 205, 90, 135},
+    {300, 205, 90, 135},
 };
 constexpr Rect kKeypadRects[] = {
-    {40, 375, 125, 55},
-    {178, 375, 125, 55},
-    {315, 375, 125, 55},
-    {40, 435, 125, 55},
-    {178, 435, 125, 55},
-    {315, 435, 125, 55},
-    {40, 495, 125, 55},
-    {178, 495, 125, 55},
-    {315, 495, 125, 55},
-    {40, 555, 125, 55},
-    {178, 555, 125, 55},
-    {315, 555, 125, 55},
+    {40, 450, 125, 46},
+    {178, 450, 125, 46},
+    {315, 450, 125, 46},
+    {40, 500, 125, 46},
+    {178, 500, 125, 46},
+    {315, 500, 125, 46},
+    {40, 550, 125, 46},
+    {178, 550, 125, 46},
+    {315, 550, 125, 46},
+    {40, 600, 125, 46},
+    {178, 600, 125, 46},
+    {315, 600, 125, 46},
 };
-constexpr Rect kUseCustomRect = {40, 655, 400, 68};
-constexpr Rect kBackRect = {140, 735, 200, 52};
+constexpr Rect kUseCustomRect = {
+    kActionButtonX, 665, kActionButtonWidth, kActionButtonHeight};
+constexpr Rect kBackRect = {140, 738, 200, 50};
 
-constexpr Rect kPrimaryTimerRect = {40, 650, 400, 72};
-constexpr Rect kSecondaryTimerRect = {80, 730, 320, 60};
-constexpr Rect kKeepSessionRect = {40, 620, 400, 68};
-constexpr Rect kEndNowRect = {40, 705, 400, 68};
-constexpr Rect kEndAlarmRect = {40, 690, 400, 78};
+// Full-width action buttons share one size across every Pomodoro page.
+// 所有番茄钟页面的通栏操作按钮统一使用同一尺寸。
+constexpr Rect kPrimaryTimerRect = {
+    kActionButtonX, 600, kActionButtonWidth, kActionButtonHeight};
+constexpr Rect kSecondaryTimerRect = {80, 680, 320, 60};
+constexpr Rect kKeepSessionRect = {
+    kActionButtonX, 620, kActionButtonWidth, kActionButtonHeight};
+constexpr Rect kEndNowRect = {
+    kActionButtonX, 704, kActionButtonWidth, kActionButtonHeight};
+constexpr Rect kEndAlarmRect = {
+    kActionButtonX, 696, kActionButtonWidth, kActionButtonHeight};
 
 int text_width(const char *text, int scale)
 {
-    return static_cast<int>(std::strlen(text)) * 6 * scale;
+    const size_t length = std::strlen(text);
+    if (length == 0U) {
+        return 0;
+    }
+    return (static_cast<int>(length) * 6 - 1) * scale;
 }
 
 void draw_centered_text(Canvas &canvas,
@@ -243,17 +261,27 @@ void draw_timer_content(Canvas &canvas,
                         uint32_t total_seconds)
 {
     draw_tomato_mark(canvas);
-    draw_centered_text(canvas, 78, title, 4);
+    draw_centered_text(canvas, 70, title, 4);
     draw_segmented_ring(canvas,
-                        315,
-                        168,
+                        330,
+                        205,
                         ring_segments(remaining_seconds, total_seconds));
 
     char time_text[16] = {};
     format_duration(remaining_seconds, time_text, sizeof(time_text));
-    const int scale = std::strlen(time_text) > 5U ? 5 : 8;
-    draw_centered_text(canvas, 280, time_text, scale);
-    draw_centered_text(canvas, 362, "TIME LEFT", 3);
+    const int scale = std::strlen(time_text) > 5U ? 5 : 10;
+    constexpr int kCaptionScale = 3;
+    constexpr int kTimeCaptionGap = 18;
+    // Centers the time and its caption as one visual block inside the ring.
+    // 将时间和说明文字作为一个整体放在圆环正中央。
+    const int content_height = 7 * scale + kTimeCaptionGap +
+                               7 * kCaptionScale;
+    const int time_y = 330 - content_height / 2;
+    draw_centered_text(canvas, time_y, time_text, scale);
+    draw_centered_text(canvas,
+                       time_y + 7 * scale + kTimeCaptionGap,
+                       "TIME LEFT",
+                       kCaptionScale);
 }
 
 }  // namespace
@@ -262,14 +290,24 @@ void pomodoro_page_render_setup(Canvas &canvas, uint32_t selected_seconds)
 {
     begin_page(canvas);
     draw_tomato_mark(canvas);
-    draw_centered_text(canvas, 75, "CHOOSE A FOCUS TIME", 3);
-    draw_split_ring(canvas, 285, 150);
+    draw_centered_text(canvas, 70, "CHOOSE A FOCUS TIME", 3);
+    draw_split_ring(canvas, 300, 180);
 
     char time_text[16] = {};
     format_duration(selected_seconds, time_text, sizeof(time_text));
-    const int scale = std::strlen(time_text) > 5U ? 5 : 8;
-    draw_centered_text(canvas, 250, time_text, scale);
-    draw_centered_text(canvas, 320, "SELECTED", 2);
+    const int scale = std::strlen(time_text) > 5U ? 6 : 11;
+    constexpr int kSelectedScale = 2;
+    constexpr int kTimeSelectedGap = 10;
+    // Centers the selected duration and caption as one visual block.
+    // 将选中时间和说明文字作为一个整体居中显示。
+    const int content_height = 7 * scale + kTimeSelectedGap +
+                               7 * kSelectedScale;
+    const int time_y = 300 - content_height / 2;
+    draw_centered_text(canvas, time_y, time_text, scale);
+    draw_centered_text(canvas,
+                       time_y + 7 * scale + kTimeSelectedGap,
+                       "SELECTED",
+                       kSelectedScale);
 
     constexpr const char *kPresetTop[] = {"10", "30", "1", "3", "5", "15"};
     constexpr const char *kPresetBottom[] = {
@@ -279,33 +317,38 @@ void pomodoro_page_render_setup(Canvas &canvas, uint32_t selected_seconds)
     for (int index = 0; index < 6; ++index) {
         const Rect &rect = kSetupPresetRects[index];
         if (selected_seconds == kPresetSeconds[index]) {
-            canvas.fill_rect(rect.x,
-                             rect.y,
-                             rect.width,
-                             rect.height,
+            canvas.fill_rect(rect.x + kPresetHighlightInsetX,
+                             rect.y - kPresetHighlightTopExtension,
+                             rect.width - 2 * kPresetHighlightInsetX,
+                             rect.height + kPresetHighlightTopExtension,
                              GrayLevel::Black);
         }
         const GrayLevel color = selected_seconds == kPresetSeconds[index]
                                     ? GrayLevel::White
                                     : GrayLevel::Black;
-        const int number_scale = 4;
-        canvas.draw_text(rect.x +
-                             (rect.width - text_width(kPresetTop[index], number_scale)) /
-                                 2,
-                         rect.y + 9,
+        const int number_scale = 3;
+        const int unit_scale = 1;
+        constexpr int kNumberUnitGap = 4;
+        const int number_width = text_width(kPresetTop[index], number_scale);
+        const int unit_width = text_width(kPresetBottom[index], unit_scale);
+        const int label_width = number_width + kNumberUnitGap + unit_width;
+        const int label_x = rect.x + (rect.width - label_width) / 2;
+        const int number_y = rect.y + 7;
+        // Places the smaller unit at the lower-right corner of the number.
+        // 将较小的单位放在数字右下角，并将两者作为整体居中。
+        canvas.draw_text(label_x,
+                         number_y,
                          kPresetTop[index],
                          number_scale,
                          color);
-        canvas.draw_text(rect.x +
-                             (rect.width - text_width(kPresetBottom[index], 2)) /
-                                 2,
-                         rect.y + 43,
+        canvas.draw_text(label_x + number_width + kNumberUnitGap,
+                         number_y + 14,
                          kPresetBottom[index],
-                         2,
+                         unit_scale,
                          color);
     }
 
-    draw_button(canvas, kCustomTimeRect, "CUSTOM TIME +", false, 2);
+    draw_button(canvas, kCustomTimeRect, "CUSTOM TIME +", false, 4);
     draw_button(canvas, kStartRect, "START FOCUS", true, 4);
 }
 
@@ -317,8 +360,8 @@ void pomodoro_page_render_custom_time(Canvas &canvas,
 {
     begin_page(canvas);
     draw_tomato_mark(canvas);
-    draw_centered_text(canvas, 70, "CUSTOM TIME", 3);
-    draw_segmented_ring(canvas, 240, 125, 6);
+    draw_centered_text(canvas, 65, "CUSTOM TIME", 3);
+    draw_segmented_ring(canvas, 270, 165, 6);
 
     char time_text[16] = {};
     std::snprintf(time_text,
@@ -327,16 +370,16 @@ void pomodoro_page_render_custom_time(Canvas &canvas,
                   static_cast<unsigned>(hours),
                   static_cast<unsigned>(minutes),
                   static_cast<unsigned>(seconds));
-    draw_centered_text(canvas, 205, time_text, 5);
-    canvas.draw_text(123, 265, "HR", 2);
-    canvas.draw_text(222, 265, "MIN", 2);
-    canvas.draw_text(324, 265, "SEC", 2);
+    draw_centered_text(canvas, 235, time_text, 5);
+    canvas.draw_text(123, 300, "HR", 2);
+    canvas.draw_text(222, 300, "MIN", 2);
+    canvas.draw_text(324, 300, "SEC", 2);
 
     const int active_index = active_field == PomodoroTimeField::Hours
                                  ? 0
                                  : active_field == PomodoroTimeField::Minutes ? 1 : 2;
     canvas.fill_rect(kTimeFieldRects[active_index].x + 14,
-                     302,
+                     335,
                      kTimeFieldRects[active_index].width - 28,
                      5,
                      GrayLevel::Black);
@@ -359,7 +402,7 @@ void pomodoro_page_render_custom_time(Canvas &canvas,
                                    GrayLevel::Black);
     }
 
-    draw_button(canvas, kUseCustomRect, "USE THIS TIME", true, 3);
+    draw_button(canvas, kUseCustomRect, "USE THIS TIME", true, 4);
     draw_centered_text_in_rect(
         canvas, kBackRect, "BACK", 3, GrayLevel::Black);
 }
@@ -392,7 +435,7 @@ void pomodoro_page_render_end_confirmation(Canvas &canvas,
     draw_timer_content(
         canvas, "END SESSION?", remaining_seconds, total_seconds);
     draw_centered_text(canvas, 570, "YOUR PROGRESS WILL END.", 2);
-    draw_button(canvas, kKeepSessionRect, "KEEP SESSION", true, 3);
+    draw_button(canvas, kKeepSessionRect, "KEEP SESSION", true, 4);
     draw_button(canvas, kEndNowRect, "END NOW", false, 4);
 }
 
@@ -418,7 +461,7 @@ void pomodoro_page_render_alarm(Canvas &canvas, uint32_t focused_seconds)
                       static_cast<unsigned long>(focused_seconds));
     }
     draw_centered_text(canvas, 565, focused_text, 2);
-    draw_button(canvas, kEndAlarmRect, "END", true, 5);
+    draw_button(canvas, kEndAlarmRect, "END", true, 4);
 }
 
 PomodoroAction pomodoro_page_action_at(PomodoroPage page, int x, int y)
