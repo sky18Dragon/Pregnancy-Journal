@@ -3,8 +3,7 @@
 #include <cstddef>
 
 struct BookMessageAnswer {
-    const char *first_line;
-    const char *second_line;
+    const char *text;
 };
 
 size_t book_message_answer_count();

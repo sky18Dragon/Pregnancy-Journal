@@ -12,7 +12,7 @@
 - 当前独立体验通过点击`SHAKE TO ASK`启动摇晃序列；最终整合时，IMU摇晃事件将连接到同一个状态机入口。
 - 摇晃页面交替播放左右两个大幅动作，兔子的身体、耳朵、手臂和水晶球位置都会明显变化。
 - 摇晃结束后依次显示`HOLD STILL`、`THINKING...`和`REVEALING...`过渡页面。
-- `MESSAGE`模式从18条两行短句中随机选择答案；存在多个答案时不会连续重复同一条。
+- `MESSAGE`模式使用来源CSV中的前350条英文答案，按原始顺序生成固件答案表；结果页会根据句子长度自动排成一至四行，并且不会连续重复同一条。
 - `YES / NO`模式严格使用`YES`、`NO`和`UNCLEAR`三个结果，同样不会连续重复。
 - 两类结果页都提供`ASK AGAIN`和`END`；再次提问保留答案类型，结束后返回主页面。
 - 页面切换和动画使用黑白局部快刷，首次进入APP使用黑白全屏刷新。
@@ -120,7 +120,7 @@ touch=controller_ready
 touch=polling_ready
 buzzer=ready
 phase=ready result=ok
-book=ready page=home mode=message message_answers=18 crystal_answers=3 shake_frames=4 result=ok
+book=ready page=home mode=message message_answers=350 crystal_answers=3 shake_frames=4 result=ok
 ```
 
 ## 日志设计

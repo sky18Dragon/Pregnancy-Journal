@@ -87,7 +87,9 @@ int main()
     write_preview(buffer, "/tmp/book_revealing.ppm");
 
     book_of_answers_page_render_message_result(
-        canvas, "TRUST YOUR", "INSTINCTS");
+        canvas,
+        "IT COULD MEAN THAT YOU MAY HAVE TO DO SOMETHING THAT "
+        "YOU'VE NEVER DONE");
     assert(book_of_answers_page_action_at(
                BookOfAnswersPage::MessageResult, 240, 710) ==
            BookOfAnswersAction::AskAgain);

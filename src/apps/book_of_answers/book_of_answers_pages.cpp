@@ -30,6 +30,15 @@ constexpr Rect kCrystalModeRect = {250, 620, 195, 56};
 constexpr Rect kStartRect = {40, 700, 400, 64};
 constexpr Rect kAskAgainRect = {40, 680, 400, 64};
 constexpr Rect kEndRect = {120, 748, 240, 52};
+constexpr size_t kAnswerMaximumLines = 4U;
+constexpr size_t kAnswerMaximumCharactersPerLine = 23U;
+constexpr size_t kAnswerLineCapacity =
+    kAnswerMaximumCharactersPerLine + 1U;
+
+struct WrappedAnswer {
+    char lines[kAnswerMaximumLines][kAnswerLineCapacity] = {};
+    size_t line_count = 0U;
+};
 
 int text_width(const char *text, int scale)
 {
@@ -46,6 +55,86 @@ int fitted_text_scale(const char *text, int maximum_scale, int width)
         return 1;
     }
     return std::max(1, std::min(maximum_scale, width / unscaled_width));
+}
+
+WrappedAnswer wrap_answer_text(const char *answer)
+{
+    WrappedAnswer wrapped = {};
+    if (answer == nullptr || answer[0] == '\0') {
+        std::memcpy(wrapped.lines[0], "?", 2U);
+        wrapped.line_count = 1U;
+        return wrapped;
+    }
+
+    // Greedily wraps complete words into the same four-line boundary that the
+    // CSV generator validates before firmware compilation.
+    // 按完整单词依次换行，行数和行宽与固件生成脚本的校验边界保持一致。
+    const char *cursor = answer;
+    while (*cursor != '\0') {
+        while (*cursor == ' ') {
+            ++cursor;
+        }
+        if (*cursor == '\0') {
+            break;
+        }
+
+        const char *word = cursor;
+        while (*cursor != '\0' && *cursor != ' ') {
+            ++cursor;
+        }
+        const size_t word_length = static_cast<size_t>(cursor - word);
+
+        if (wrapped.line_count == 0U) {
+            wrapped.line_count = 1U;
+        }
+        char *line = wrapped.lines[wrapped.line_count - 1U];
+        const size_t line_length = std::strlen(line);
+        const size_t separator = line_length == 0U ? 0U : 1U;
+        if (line_length + separator + word_length >
+            kAnswerMaximumCharactersPerLine) {
+            if (wrapped.line_count >= kAnswerMaximumLines) {
+                break;
+            }
+            ++wrapped.line_count;
+            line = wrapped.lines[wrapped.line_count - 1U];
+        } else if (separator != 0U) {
+            line[line_length] = ' ';
+        }
+
+        const size_t target_offset = std::strlen(line);
+        const size_t copy_length = std::min(
+            word_length,
+            kAnswerMaximumCharactersPerLine - target_offset);
+        std::memcpy(line + target_offset, word, copy_length);
+        line[target_offset + copy_length] = '\0';
+    }
+    return wrapped;
+}
+
+int answer_text_scale(const WrappedAnswer &answer)
+{
+    int scale = 3;
+    switch (answer.line_count) {
+    case 1U:
+        scale = 6;
+        break;
+    case 2U:
+        scale = 5;
+        break;
+    case 3U:
+        scale = 4;
+        break;
+    case 4U:
+    default:
+        scale = 3;
+        break;
+    }
+
+    for (size_t line = 0U; line < answer.line_count; ++line) {
+        scale = std::min(
+            scale, fitted_text_scale(answer.lines[line], scale, 420));
+    }
+    return scale;
 }
 
 void draw_centered_text(Canvas &canvas,
@@ -231,8 +320,7 @@ void book_of_answers_page_render_revealing(Canvas &canvas)
 }
 
 void book_of_answers_page_render_message_result(Canvas &canvas,
-                                                const char *first_line,
-                                                const char *second_line)
+                                                const char *answer)
 {
     begin_page(canvas);
     draw_header(canvas);
@@ -243,27 +331,22 @@ void book_of_answers_page_render_message_result(Canvas &canvas,
                      kAnswerPanel.width,
                      kAnswerPanel.height,
                      GrayLevel::Black);
-    const bool two_lines = second_line != nullptr && second_line[0] != '\0';
-    if (two_lines) {
-        const int first_scale = fitted_text_scale(first_line, 5, 420);
-        const int second_scale = fitted_text_scale(second_line, 5, 420);
+    const WrappedAnswer wrapped = wrap_answer_text(answer);
+    const int scale = answer_text_scale(wrapped);
+    const int line_height = 7 * scale;
+    const int line_gap = 3 * scale;
+    const int text_height =
+        static_cast<int>(wrapped.line_count) * line_height +
+        static_cast<int>(wrapped.line_count - 1U) * line_gap;
+    int line_y =
+        kAnswerPanel.y + (kAnswerPanel.height - text_height) / 2;
+    for (size_t line = 0U; line < wrapped.line_count; ++line) {
         draw_centered_text(canvas,
-                           124,
-                           first_line,
-                           first_scale,
-                           GrayLevel::White);
-        draw_centered_text(canvas,
-                           190,
-                           second_line,
-                           second_scale,
-                           GrayLevel::White);
-    } else {
-        const int scale = fitted_text_scale(first_line, 6, 420);
-        draw_centered_text(canvas,
-                           160,
-                           first_line,
+                           line_y,
+                           wrapped.lines[line],
                            scale,
                            GrayLevel::White);
+        line_y += line_height + line_gap;
     }
 
     pixel_asset_draw_centered(

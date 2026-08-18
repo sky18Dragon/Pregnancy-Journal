@@ -16,8 +16,7 @@ void book_of_answers_page_render_shaking(Canvas &canvas,
 void book_of_answers_page_render_thinking(Canvas &canvas);
 void book_of_answers_page_render_revealing(Canvas &canvas);
 void book_of_answers_page_render_message_result(Canvas &canvas,
-                                                const char *first_line,
-                                                const char *second_line);
+                                                const char *answer);
 void book_of_answers_page_render_crystal_result(Canvas &canvas,
                                                 const char *answer);
 

@@ -52,7 +52,14 @@ int main()
     assert(second < 3U);
     assert(second != first);
 
-    assert(book_message_answer_count() == 18U);
+    assert(book_message_answer_count() == 350U);
+    assert(std::strcmp(book_message_answer(0U).text,
+                       "YOU WILL NOT BE DISAPPOINTED") == 0);
+    assert(std::strcmp(book_message_answer(228U).text,
+                       "IT COULD MEAN THAT YOU MAY HAVE TO DO SOMETHING "
+                       "THAT YOU'VE NEVER DONE") == 0);
+    assert(std::strcmp(book_message_answer(349U).text,
+                       "DON'T GET CAUGHT UP IN THE DETAILS") == 0);
     assert(book_crystal_answer_count() == 3U);
     assert(std::strcmp(book_crystal_answer(0U), "YES") == 0);
     assert(std::strcmp(book_crystal_answer(1U), "NO") == 0);

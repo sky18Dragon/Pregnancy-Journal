@@ -115,7 +115,7 @@ void render_current_page(bool partial_refresh, bool timing_log = true)
         const BookMessageAnswer &answer =
             book_message_answer(s_message_answer_index);
         book_of_answers_page_render_message_result(
-            *s_canvas, answer.first_line, answer.second_line);
+            *s_canvas, answer.text);
         break;
     }
     case BookOfAnswersPage::CrystalResult:
@@ -138,10 +138,10 @@ void choose_answer_for_round()
         const BookMessageAnswer &answer =
             book_message_answer(s_message_answer_index);
         STICKY_LOGI(kTag,
-                    "book=answer selected mode=message index=%u first=%s second=%s",
+                    "book=answer selected mode=message index=%u source_id=%u answer=%s",
                     static_cast<unsigned>(s_message_answer_index),
-                    answer.first_line,
-                    answer.second_line);
+                    static_cast<unsigned>(s_message_answer_index + 1U),
+                    answer.text);
         return;
     }
 
