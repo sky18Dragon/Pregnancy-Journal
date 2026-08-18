@@ -22,6 +22,7 @@ All six 80×80 firmware previews preserve the important source characteristics a
 - Monochrome behavior: assets contain only transparent and foreground pixels, matching the black-and-white panel refresh path.
 - Scale: menu cards use the native 80×80 asset; display pages use integer 3× scaling to retain crisp square pixels.
 - Composition: the status title fills the left region and the 4× bunny scene fills the right region, with no fixed-time row competing for attention.
+- Menu rhythm: six equal content-height cards contain only the bunny scene and label, leaving a continuous blank area below the row.
 - Reuse: source PNGs, firmware previews, packed bitmap data, and the drawing API are stored as one shared UI asset system.
 
 ## Findings

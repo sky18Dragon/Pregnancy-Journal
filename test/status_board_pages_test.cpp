@@ -83,6 +83,10 @@ int main()
                                        250) == StatusBoardAction::None);
     assert(status_board_page_action_at(StatusBoardPage::Menu,
                                        StatusBoardKeyboardMode::Letters,
+                                       79,
+                                       360) == StatusBoardAction::None);
+    assert(status_board_page_action_at(StatusBoardPage::Menu,
+                                       StatusBoardKeyboardMode::Letters,
                                        800,
                                        479) == StatusBoardAction::None);
 
