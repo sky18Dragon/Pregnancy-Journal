@@ -2,20 +2,23 @@
 
 这是 reTerminal Sticky 的新固件工程。工程使用 PlatformIO 管理构建、烧录和串口监视，底层框架采用 ESP-IDF。`Sticky_dashboard_demo`是硬件驱动的参考来源。
 
-当前`feature/ui-experience`分支将答案书作为一个完整、独立的APP运行。启动入口直接进入竖屏答案书主页，使用IMU摇晃开始提问，并独立验证答案类型、全页动画、随机结果与触摸交互。番茄钟与状态牌APP源码继续保留，等待最终整合。
+当前`feature/ui-experience`分支将桌宠作为一个完整、独立的APP运行。启动入口直接进入竖屏幼兔主页，用于独立验证主页视觉、喂食、抚摸、陪玩、成长值、亲密值、测试时间和存档。答案书、番茄钟与状态牌APP源码继续保留，等待最终整合。
 
 ## 当前功能
 
-### 桌宠养成系统（设计阶段）
+### 桌宠养成系统（幼兔主页实现阶段）
 
 - 桌宠采用一条共同童年和三条性格成长路线：贪吃型、亲密型和活力型。
 - 用户每天通过喂饭、摸摸和陪玩积累成长值与亲密度，日奖励上限让完整成长过程保持稳定节奏。
 - 青年期根据长期互动习惯确定成长路线；分数接近时由用户完成一次最终陪伴动作选择路线。
 - 成长阶段、每日奖励、亲密等级、温和回归、台词筛选、存档字段和电脑端测试矩阵已经形成完整规则。
-- 首个测试固件会把一天压缩为120秒，并将成长奖励放大10倍、亲密奖励放大5倍；完整生命周期可以在约6分钟内走完。
-- 测试页面将提供下一天、增加成长、增加亲密和重置桌宠四项开发操作；正式版本通过一个编译开关恢复日历时间与标准奖励。
+- 当前测试固件把一天压缩为120秒，并将成长奖励放大10倍、亲密奖励放大5倍；幼兔阶段可以快速达到30点进化边界。
+- 点击右上角`TEST`进入测试页面，可执行下一天、增加成长、增加亲密和二次确认重置；每次变化都会保存到桌宠自己的NVS存档。
 - 角色成长设定图位于`assets/desktop_pet/concepts/growth_lineage_v1.png`，详细系统设计位于`docs/desktop_pet_growth_system.md`。
-- 首个实现切片覆盖蛋的孵化、幼崽主页、三种互动、每日结算、持久化和可加速测试时间。
+- 当前实现切片覆盖幼兔主页、三种独立动作、每日结算、持久化和可加速测试时间；蛋的孵化和后续成长阶段按后续子功能逐项接入。
+- 主页使用独立的一位位图素材库：房间、待机兔子、喂食兔子、抚摸兔子、扑球兔子、三种操作图标和爱心图标均可单独更新。
+- 每次动作显示约1.3秒的专属姿势和对白，随后自动恢复待机；互动期间的触摸由独立触摸任务继续采集。
+- 上电先对白屏执行一次全刷，主页首次显示使用黑白全刷，动作、数值和测试页面使用黑白局部快刷。
 
 ### 答案书
 
@@ -91,7 +94,7 @@
 - 电子纸与MicroSD共享SPI2，启动时先将MicroSD控制脚设置为确定的空闲状态。
 - GPIO45和GPIO46负责板级供电锁存。
 
-答案书APP位于`src/apps/book_of_answers/`，当前通过屏幕、触摸和IMU接口使用硬件。番茄钟、状态牌、姿态与方向页面源码继续保留，后续由产品入口负责选择并启动APP。
+桌宠APP位于`src/apps/desktop_pet/`，当前通过屏幕、触摸和NVS存档接口使用硬件。答案书、番茄钟、状态牌、姿态与方向页面源码继续保留，后续由产品入口负责选择并启动APP。
 
 ## 环境
 
@@ -138,10 +141,8 @@ touch=controller_ready
 touch=polling_ready
 buzzer=ready
 sensor_bus=ready
-imu=ready
-imu=monitoring
 phase=ready result=ok
-book=ready page=home mode=message input=continuous_imu_shake required_shake_ms=3000 message_answers=350 crystal_answers=3 shake_frames=4 animated_pages=7 result=ok
+pet=ready page=home profile=test save=new day=1 growth=10 love=18 result=ok
 ```
 
 ## 日志设计
@@ -165,11 +166,13 @@ book=ready page=home mode=message input=continuous_imu_shake required_shake_ms=3
 - `STICKY_LOG_PET_ANIMATION_ENABLED`
 - `STICKY_LOG_STATUS_ANIMATION_ENABLED`
 - `STICKY_LOG_BOOK_ANIMATION_ENABLED`
+- `STICKY_LOG_DESKTOP_PET_ENABLED`
 - `STICKY_LOG_TIMER_TICKS_ENABLED`
 
 宠物动画默认只记录一次启动信息，不使用通用刷新耗时日志逐帧刷屏。需要查看每帧动作、位置和刷新耗时时，将`STICKY_LOG_PET_ANIMATION_ENABLED`设为`1`。
 子页兔子动画采用同样的安静日志策略，需要逐帧调试时将`STICKY_LOG_STATUS_ANIMATION_ENABLED`设为`1`。
 答案书默认记录页面切换、答案类型、随机结果、有效触摸和摇晃检测结果。开发版会记录三次有效摇晃峰值；需要查看所有页面逐帧序号时，将`STICKY_LOG_BOOK_ANIMATION_ENABLED`设为`1`。
+桌宠开发版记录有效触摸、操作、奖励变化、存档和刷新时间；发布版通过`STICKY_LOG_DESKTOP_PET_ENABLED=0`关闭详细触摸与存档日志。
 
 ## 工程结构
 
@@ -180,6 +183,7 @@ components/debug_logging   编译期详细日志开关
 src/apps/pomodoro/         已完成的独立番茄钟页面、触摸映射和状态机
 src/apps/status_board/     横屏状态牌页面、状态机、自定义键盘和交互任务
 src/apps/book_of_answers/  答案书页面、答案池、触摸映射和动画状态机
+src/apps/desktop_pet/      桌宠主页、成长状态、NVS存档、触摸映射和应用任务
 assets/book_of_answers/    答案书设计源图与固件黑白素材预览
 assets/pixel_bunnies/      像素兔子设计源图、状态与宠物动画固件预览
 assets/desktop_pet/        桌宠成长路线、阶段与动作素材
@@ -191,10 +195,28 @@ src/display/               屏幕初始化和刷新
 src/input/                 GT911触摸初始化、坐标转换和采样
 src/sensors/               姿态监测与防误触发摇晃检测
 src/ui/                    画布、字体、公共1位像素素材接口和已保留页面源码
-src/main.cpp               当前独立答案书启动入口
+src/main.cpp               当前独立桌宠启动入口
 test/                      可在电脑上运行的回归测试
 platformio.ini             开发版与发布版构建配置
 ```
+
+## 桌宠真机验收
+
+以下动作连续执行，方便把屏幕变化、成长数值和串口日志对应起来。
+
+1. 烧录`sticky-debug`并打开串口，确认屏幕先完整清白，再显示竖屏幼兔主页。
+2. 确认主页顶部显示`HATCHLING`、`GROWTH 10 / 30`、两颗爱心、`LOVE 18`和`TEST`。
+3. 确认中部房间包含窗户、地毯、食盆、书架和球，兔子完整覆盖在场景前方，地板线不会穿过兔子身体。
+4. 点击`FEED`，确认兔子变成抱胡萝卜的喂食姿势，对白和成长/亲密数值更新，约1.3秒后恢复待机。
+5. 点击`PET`，确认兔子闭眼接受抚摸；点击`PLAY`，确认兔子以离地扑球姿势出现，两种动作都不是简单放大缩小。
+6. 快速连续点击三个入口，确认每次点击都会按顺序处理，页面没有永久卡死，日志依次出现`pet=care action=...`。
+7. 点击右上角`TEST`，确认进入测试面板；依次点击`NEXT DAY`、`+30 GROWTH`和`+20 LOVE`，确认数值立即更新。
+8. 点击测试面板右上角`X`，确认回到主页并保留刚才的数值。
+9. 断电重启，确认日志显示`save=loaded`，主页继续显示断电前的成长、亲密和日期。
+10. 再次进入测试面板，第一次点击`RESET PET`只出现确认提示；第二次点击后恢复`DAY 1`、`GROWTH 10`和`LOVE 18`。
+11. 重置后不操作并等待120秒，确认`DAY 1`自动变为`DAY 2`，当天三种奖励次数重新开放。
+
+成功时，启动日志会出现`pet=ready page=home profile=test`；每次照料会出现`pet=care`，测试操作会出现`pet=test`，自动换日会出现`pet=day source=timer`。
 
 ## 答案书真机验收
 

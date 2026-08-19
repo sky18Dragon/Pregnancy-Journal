@@ -5,6 +5,10 @@ idf_component_register(
         "apps/book_of_answers/book_of_answers_app.cpp"
         "apps/book_of_answers/book_of_answers_pages.cpp"
         "apps/book_of_answers/book_of_answers_state.cpp"
+        "apps/desktop_pet/desktop_pet_app.cpp"
+        "apps/desktop_pet/desktop_pet_pages.cpp"
+        "apps/desktop_pet/desktop_pet_state.cpp"
+        "apps/desktop_pet/desktop_pet_storage.cpp"
         "apps/pomodoro/pomodoro_app.cpp"
         "apps/pomodoro/pomodoro_pages.cpp"
         "apps/status_board/status_board_app.cpp"
@@ -22,6 +26,7 @@ idf_component_register(
         "sensors/sticky_shake_detector.cpp"
         "ui/assets/pixel_asset.cpp"
         "ui/assets/book_of_answers_assets.cpp"
+        "ui/assets/desktop_pet_assets.cpp"
         "ui/assets/pet_animation_assets.cpp"
         "ui/assets/status_bunny_assets.cpp"
         "ui/canvas.cpp"
@@ -29,6 +34,7 @@ idf_component_register(
     INCLUDE_DIRS
         "."
         "apps/book_of_answers"
+        "apps/desktop_pet"
         "apps/pomodoro"
         "apps/status_board"
         "board"
@@ -46,6 +52,7 @@ idf_component_register(
         esp_driver_spi
         esp_hw_support
         gt911
+        nvs_flash
         seeed_epaper
         spi_flash
 )

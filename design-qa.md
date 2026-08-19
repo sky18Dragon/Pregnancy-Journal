@@ -34,3 +34,29 @@ No actionable P0, P1, or P2 visual differences remain for the pixel-asset implem
 - P3: verify the one-pixel menu outlines and the white-on-black selected asset after flashing, because the electronic-paper waveform can change their perceived thickness.
 
 final result: passed
+
+# Desktop Pet Home Design QA
+
+- Selected reference: `assets/desktop_pet/concepts/home_selected_480x800.png`
+- Firmware home render: `assets/desktop_pet/qa/home_firmware_render.png`
+- Combined comparison: `assets/desktop_pet/qa/home_reference_comparison.png`
+- Target viewport: 480×800 portrait on the physical 800×480 panel
+
+## Fidelity surfaces
+
+- The hierarchy matches the selected concept: stage and values, speech bubble, room scene, large central rabbit, then three equal care actions.
+- The room, rabbit poses, and action icons are packed source artwork rather than geometric placeholders.
+- Character masks preserve the white body and stop room lines from showing through the rabbit.
+- Feed, pet, and play use independent silhouettes; play shows a real airborne pounce instead of a size change.
+- The bottom action areas keep large 160×170 touch targets while the visible labels and icons remain compact.
+
+## Findings
+
+No actionable P0, P1, or P2 differences remain in the computer-rendered home page.
+
+## Physical-panel check
+
+- P3: verify the one-pixel speech-bubble border and room details after flashing because the e-paper waveform can alter perceived line weight.
+- P3: verify that three consecutive partial-refresh interactions remain responsive and visually clean on the device.
+
+final result: passed for computer render; physical-panel verification pending
