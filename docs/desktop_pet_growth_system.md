@@ -1,0 +1,276 @@
+# Desktop Pet Growth System
+
+## Product Goal
+
+The desktop pet is a long-term companion that grows through daily care. A user can feed, pet, and play with the rabbit in a short daily session. Those choices build growth progress, affection, and one of three personality paths.
+
+The first release follows one shared childhood and three personality branches:
+
+```text
+Egg -> Hatchling -> Child -> Foodie Youth       -> Foodie Adult
+                         -> Affectionate Youth  -> Affectionate Adult
+                         -> Active Youth        -> Active Adult
+```
+
+The current character reference is stored at:
+
+`assets/desktop_pet/concepts/growth_lineage_v1.png`
+
+## Core Player Loop
+
+The daily experience is designed to take about 30 to 90 seconds:
+
+1. Open the pet page and receive a stage- and affection-aware greeting.
+2. Feed, pet, or play with the rabbit.
+3. Watch a short e-paper-friendly action animation.
+4. Gain growth and affection within the daily reward limits.
+5. Return on later days to unlock a new life stage, dialogue, and animation set.
+
+Every interaction remains available after its daily reward has been collected. Later interactions continue to produce animation and dialogue, while the reward counters remain stable until the next day.
+
+## Persistent Values
+
+The saved state contains these groups of data:
+
+### Identity
+
+- Save-data version
+- Life stage
+- Personality branch
+- Hatch date
+- Total companion days
+
+### Progress
+
+- Growth points: `0..280`
+- Affection: `0..100`
+- Current care streak
+- Longest care streak
+
+### Daily Care
+
+- Current date key
+- Growth earned today
+- Affection earned today
+- Rewarded feeds today
+- Rewarded petting sessions today
+- Rewarded play sessions today
+- First-visit reward status
+
+### Personality Evidence
+
+- Foodie path score
+- Affectionate path score
+- Active path score
+- The most recent rewarded care action
+
+### Dialogue Memory
+
+- Recently shown dialogue identifiers
+- Last greeting context
+- Last absence length
+
+All values are stored in a versioned NVS record. A state migration function converts older records when new fields are introduced.
+
+## Life Stages
+
+| Stage | Growth range | Expected care time | Visible change |
+| --- | ---: | ---: | --- |
+| Egg | Before hatching | First session | Egg rocks and cracks after three touches |
+| Hatchling | 0-29 | About 3 active days | Round body, short ears, oversized feet |
+| Child | 30-119 | About 9 additional active days | Longer ears, stable walking and clearer expressions |
+| Youth | 120-279 | About 16 additional active days | Personality branch becomes visually distinct |
+| Adult | 280 | Around the fourth week | Complete branch silhouette and exclusive actions |
+
+Growth points preserve the user's achieved progress. Each stage transition plays once, saves immediately, and then opens the new stage home scene.
+
+## Daily Rewards
+
+The system uses a daily growth cap of `10` and a daily affection cap of `8`.
+
+| Interaction | Rewarded uses per day | Growth | Affection | Personality evidence |
+| --- | ---: | ---: | ---: | ---: |
+| First visit | 1 | +1 | +1 | None |
+| First meal | 1 | +4 | +1 | Foodie +3 |
+| Snack | 1 | +2 | +1 | Foodie +3 |
+| Petting | 3 | +1 each | +2 each | Affectionate +2 each |
+| Play | 1 | +3 | +3 | Active +6 |
+
+The evidence weights give each path the same maximum daily contribution:
+
+- Foodie: `6` points per day
+- Affectionate: `6` points per day
+- Active: `6` points per day
+
+This keeps the route comparison fair even though the three actions have different daily use counts.
+
+When one action reaches its daily reward count, it switches to a companion response:
+
+- Extra food produces a full and satisfied response.
+- Extra petting produces a relaxed social response.
+- Extra play produces a short free-play response.
+
+These responses keep the pet interactive without changing daily progress.
+
+## Personality Branch Decision
+
+The personality branch is evaluated when growth reaches `120`.
+
+1. Compare the three accumulated personality scores.
+2. A route becomes automatic when its score leads the second-place score by at least `6` points.
+3. When the top scores are closer than `6`, the rabbit enters a bonding-choice scene.
+4. The user completes one final feeding, petting, or play action to choose the route.
+5. The selected branch is saved before the youth evolution animation begins.
+
+The score remains internal during childhood. The home page communicates personality through behavior and dialogue instead of showing three competitive meters.
+
+## Affection
+
+| Affection | Relationship | Interaction tone |
+| ---: | --- | --- |
+| 0-24 | Shy | Short answers, cautious posture, curious glances |
+| 25-49 | Familiar | Greets the user and responds more openly |
+| 50-79 | Close | Requests attention and shares branch-specific feelings |
+| 80-100 | Best Friend | Exclusive greetings, trust animations, and intimate dialogue |
+
+Affection gains follow the daily cap. Calendar catch-up applies a gentle return model:
+
+- The first three missed days form a grace period.
+- Each later missed day changes affection by `-2`.
+- One startup catch-up changes affection by at most `-10`.
+- A return greeting acknowledges the absence and immediately offers a positive care action.
+
+Growth progress remains permanent, so returning users continue from their achieved life stage.
+
+## Care Streak
+
+The first rewarded interaction of a calendar day records one active care day.
+
+- Consecutive active dates increase the current streak.
+- A missed date starts a new current streak on the next active day.
+- The longest streak remains as a lifetime record.
+- Milestones at 3, 7, 14, and 30 days unlock one-time dialogue and small celebratory poses.
+
+The streak supports positive recognition. Growth and core interactions remain available at every streak value.
+
+## Dialogue System
+
+Dialogue is selected from tagged entries. Each entry can specify:
+
+- Context: greeting, idle, feed, pet, play, full, tired, return, evolution ready, or evolution complete
+- Minimum and maximum life stage
+- Personality branch or shared branch
+- Minimum and maximum affection
+- Selection weight
+- Dialogue identifier
+- Display text
+
+The selector uses this order:
+
+1. Filter by the current context.
+2. Filter by life stage.
+3. Prefer the current personality branch after the youth evolution.
+4. Filter by affection range.
+5. Remove the five most recently displayed identifiers.
+6. Choose from the remaining weighted entries.
+7. Use a shared fallback entry when a specialized group is empty.
+
+The first content set targets at least 120 English lines:
+
+- 48 shared stage and affection lines
+- 36 branch-personality lines
+- 24 interaction-result lines
+- 12 milestone, return, and evolution lines
+
+The firmware stores dialogue as data, allowing new lines to be added without changing the growth engine.
+
+## Time and Date Rules
+
+The pet engine receives time through a clock interface.
+
+Production mode uses the device's trusted local date. A date becomes trusted after the normal product time source has been initialized. The daily rollover is applied once for each newly observed trusted date.
+
+Development mode provides controlled time:
+
+- Advance one simulated day manually.
+- Set growth and affection values.
+- Force any life stage or personality branch.
+- Reset pet data through a dedicated development action.
+
+This mode makes a four-week lifecycle testable in minutes while preserving the production rules.
+
+## E-Paper Animation Rules
+
+Each action uses two to four key frames with clear pose changes:
+
+- Idle: ears, eyes, paws, or breathing silhouette
+- Feed: reach, bite, chew, satisfied pose
+- Pet: initial touch, ears relax, happy response
+- Play: anticipation, large movement, landing, celebration
+- Evolution: old silhouette, transition frame, new silhouette
+
+The animation controller redraws only the pet and nearby prop region during an action. A stable final frame remains after the action finishes. Page changes and evolution scenes use a full-page refresh, while ordinary actions use the panel's monochrome fast-refresh path.
+
+The display policy tracks visible partial refreshes and requests a cleanup refresh at a threshold verified on Sticky hardware.
+
+## Planned Software Modules
+
+The implementation will use these independent modules:
+
+- `desktop_pet_state`: versioned persistent values and state validation
+- `desktop_pet_engine`: rewards, date rollover, stage transitions, affection, and branch selection
+- `desktop_pet_dialogue`: tagged dialogue filtering and recent-line protection
+- `desktop_pet_app`: touch routing and top-level application state
+- `desktop_pet_pages`: home, action, branch-choice, and evolution rendering
+- `desktop_pet_animation`: frame timing and redraw regions
+- `desktop_pet_content`: stage thresholds, dialogue, and branch metadata
+
+The growth engine and dialogue selector stay independent from the display, touch controller, IMU, and NVS driver. Native tests can therefore validate the complete lifecycle on a computer.
+
+## Logging Requirements
+
+Normal development logs record:
+
+- Daily rollover result
+- Rewarded care action
+- Daily growth and affection totals
+- Stage transition readiness and completion
+- Personality score comparison and selected branch
+- Persistence load, migration, and save result
+
+High-frequency frame logs use a dedicated compile-time switch named `STICKY_LOG_DESKTOP_PET_ANIMATION_ENABLED`. The default development output remains focused on user actions and lifecycle changes.
+
+## Native Test Matrix
+
+The first implementation keeps regression tests for:
+
+1. First-visit reward occurs once per date.
+2. Every action stops adding values at its daily reward count.
+3. Total daily growth stops at `10`.
+4. Total daily affection stops at `8`.
+5. A date rollover resets only daily counters.
+6. Growth reaches the correct stage thresholds.
+7. Growth remains stable across missed dates.
+8. Affection grace and catch-up limits are applied once.
+9. Each dominant personality score selects the expected branch.
+10. Close personality scores enter the bonding-choice state.
+11. The final bonding action selects and persists a branch.
+12. Dialogue respects context, stage, branch, and affection tags.
+13. Dialogue does not repeat one of the five recent entries when alternatives exist.
+14. Save loading validates ranges and migrates older versions.
+15. Replaying the same date after reboot produces the same persistent result.
+
+## First Implementation Boundary
+
+The first vertical slice covers the complete Hatchling experience:
+
+- New pet state and egg hatching
+- Hatchling home page
+- Feed, pet, and play actions
+- Growth and affection rewards
+- Daily caps and date rollover
+- Persistent save and reload
+- Development time controls
+- Native rule tests
+
+Later slices add the Child stage, branch decision, three Youth forms, three Adult forms, and the full dialogue library on top of the same tested engine.
