@@ -8,11 +8,10 @@ namespace {
 
 constexpr char kNamespace[] = "sticky_pet";
 constexpr char kStateKey[] = "state";
-constexpr uint32_t kCurrentVersion = 1U;
 
 void sanitize(DesktopPetState &state)
 {
-    state.version = kCurrentVersion;
+    state.version = kDesktopPetStateVersion;
     state.growth = std::min<uint16_t>(
         state.growth, kDesktopPetHatchlingGrowthLimit);
     state.love = std::min<uint8_t>(state.love, 100U);
@@ -38,7 +37,7 @@ esp_err_t desktop_pet_storage_load(DesktopPetState &state, bool &found)
     result = nvs_get_blob(handle, kStateKey, &state, &size);
     nvs_close(handle);
     if (result == ESP_ERR_NVS_NOT_FOUND || size != sizeof(state) ||
-        state.version != kCurrentVersion) {
+        state.version != kDesktopPetStateVersion) {
         state = {};
         return ESP_OK;
     }
@@ -83,4 +82,3 @@ esp_err_t desktop_pet_storage_reset()
     nvs_close(handle);
     return result;
 }
-

@@ -150,6 +150,12 @@ The test home page will display a small `TEST` badge. Tapping it opens a develop
 
 The accelerated rewards will still pass through the normal daily counters and caps. Personality evidence keeps its production values so automatic and close-score branch decisions remain representative.
 
+### Current Implemented Slice
+
+The current firmware implements the Hatchling home and stops growth at the `30`-point Child boundary. Reaching the boundary emits `I'M READY TO GROW!` once, then the home dialogue returns to its normal message. Feed, pet, and play remain interactive at the boundary and continue to follow their daily affection and personality rules.
+
+Egg hatching, the Child page, evolution transitions, and later stage artwork are the next independent feature blocks. Their addition will remove the temporary Hatchling boundary cap while retaining the same saved progress and test profile.
+
 ### Production Profile
 
 The final firmware uses `STICKY_DESKTOP_PET_TEST_MODE=0` with these values:

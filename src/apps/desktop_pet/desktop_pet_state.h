@@ -26,8 +26,10 @@ enum class DesktopPetPose : uint8_t {
     Play,
 };
 
+constexpr uint32_t kDesktopPetStateVersion = 2U;
+
 struct DesktopPetState {
-    uint32_t version = 1U;
+    uint32_t version = kDesktopPetStateVersion;
     uint16_t growth = 10U;
     uint8_t love = 18U;
     uint16_t day = 1U;
@@ -64,4 +66,3 @@ void desktop_pet_state_advance_day(DesktopPetState &state);
 
 const char *desktop_pet_action_name(DesktopPetAction action);
 const char *desktop_pet_pose_name(DesktopPetPose pose);
-

@@ -6,9 +6,20 @@
 int main()
 {
     DesktopPetState state = {};
+    assert(state.version == kDesktopPetStateVersion);
+    assert(state.version == 2U);
     assert(state.growth == 10U);
     assert(state.love == 18U);
     assert(state.day == 1U);
+
+    const DesktopPetActionResult add_growth =
+        desktop_pet_state_apply(state, DesktopPetAction::AddGrowth);
+    assert(std::strcmp(add_growth.message, "I'M READY TO GROW!") == 0);
+    const DesktopPetActionResult add_growth_again =
+        desktop_pet_state_apply(state, DesktopPetAction::AddGrowth);
+    assert(std::strcmp(add_growth_again.message,
+                       "GROWTH LIMIT REACHED.") == 0);
+    state = {};
 
     const DesktopPetActionResult feed =
         desktop_pet_state_apply(state, DesktopPetAction::Feed);
@@ -28,6 +39,8 @@ int main()
     assert(second_feed.growth_delta == 0U);
     assert(second_feed.love_delta == 5U);
     assert(state.foodie_score == 6U);
+    assert(std::strcmp(second_feed.message,
+                       "YUM! THAT WAS DELICIOUS!") == 0);
 
     const DesktopPetActionResult third_feed =
         desktop_pet_state_apply(state, DesktopPetAction::Feed);
@@ -41,6 +54,7 @@ int main()
     assert(pet.pose == DesktopPetPose::Pet);
     assert(pet.love_delta == 10U);
     assert(state.affectionate_score == 2U);
+    assert(std::strcmp(pet.message, "THAT FEELS SO NICE!") == 0);
 
     const DesktopPetActionResult play =
         desktop_pet_state_apply(state, DesktopPetAction::Play);
@@ -64,4 +78,3 @@ int main()
     assert(state.day == 1U);
     return 0;
 }
-

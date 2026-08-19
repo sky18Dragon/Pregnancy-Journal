@@ -67,11 +67,13 @@ DesktopPetActionResult care_result(DesktopPetState &state,
     DesktopPetActionResult result = {};
     result.changed = true;
     result.pose = pose;
+    const uint16_t growth_before = state.growth;
     result.growth_delta = award_growth(state, growth);
     result.love_delta = award_love(state, love);
     result.rewarded = result.growth_delta > 0U || result.love_delta > 0U;
     result.message = result.rewarded ? rewarded_message : companion_message;
-    if (state.growth >= kDesktopPetHatchlingGrowthLimit) {
+    if (growth_before < kDesktopPetHatchlingGrowthLimit &&
+        state.growth >= kDesktopPetHatchlingGrowthLimit) {
         result.message = "I'M READY TO GROW!";
     }
     return result;
@@ -131,13 +133,19 @@ DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
     case DesktopPetAction::AddGrowth: {
         DesktopPetActionResult result = {};
         result.changed = true;
+        const uint16_t growth_before = state.growth;
         result.growth_delta =
             static_cast<uint16_t>(std::min<uint16_t>(
                 30U, kDesktopPetHatchlingGrowthLimit - state.growth));
         state.growth = static_cast<uint16_t>(state.growth + result.growth_delta);
-        result.message = state.growth >= kDesktopPetHatchlingGrowthLimit
-                             ? "I'M READY TO GROW!"
-                             : "I FEEL A LITTLE BIGGER!";
+        if (growth_before < kDesktopPetHatchlingGrowthLimit &&
+            state.growth >= kDesktopPetHatchlingGrowthLimit) {
+            result.message = "I'M READY TO GROW!";
+        } else if (result.growth_delta > 0U) {
+            result.message = "I FEEL A LITTLE BIGGER!";
+        } else {
+            result.message = "GROWTH LIMIT REACHED.";
+        }
         return result;
     }
     case DesktopPetAction::AddLove: {

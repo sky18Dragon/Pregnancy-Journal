@@ -24,12 +24,13 @@ constexpr TickType_t kPollInterval = pdMS_TO_TICKS(30);
 constexpr uint32_t kTaskStackSize = 6144;
 constexpr UBaseType_t kTaskPriority = 3;
 constexpr int64_t kActionPoseHoldUs = 1300000LL;
+constexpr char kHomeMessage[] = "LET'S SPEND TODAY TOGETHER.";
 
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
 DesktopPetState s_state = {};
 DesktopPetPose s_pose = DesktopPetPose::Idle;
-const char *s_message = "LET'S SPEND TODAY TOGETHER.";
+const char *s_message = kHomeMessage;
 bool s_test_open = false;
 bool s_reset_confirmation = false;
 int64_t s_pose_deadline_us = 0;
@@ -106,6 +107,9 @@ void handle_test_action(DesktopPetAction action)
     if (action == DesktopPetAction::CloseTest) {
         s_test_open = false;
         s_reset_confirmation = false;
+        s_message = kHomeMessage;
+        s_pose = DesktopPetPose::Idle;
+        s_pose_deadline_us = 0;
         sticky_touch_clear_press();
         render_current_page(true);
         return;
@@ -168,7 +172,6 @@ void handle_action(DesktopPetAction action)
     }
     s_pose = result.pose;
     s_message = result.message;
-    s_pose_deadline_us = esp_timer_get_time() + kActionPoseHoldUs;
     save_state(desktop_pet_action_name(action));
     STICKY_LOGI(kTag,
                 "pet=care action=%s pose=%s rewarded=%d growth_delta=%u love_delta=%u growth=%u love=%u result=ok",
@@ -180,6 +183,10 @@ void handle_action(DesktopPetAction action)
                 static_cast<unsigned>(s_state.growth),
                 static_cast<unsigned>(s_state.love));
     render_current_page(true);
+    // Hold time begins after the e-paper refresh finishes so the complete
+    // pose remains visible for the requested duration.
+    // 电子纸刷新完成后再开始计时，确保完整动作真正显示足够时长。
+    s_pose_deadline_us = esp_timer_get_time() + kActionPoseHoldUs;
 }
 
 DesktopPetAction action_for_press(const StickyTouchPress &press)
@@ -243,9 +250,10 @@ void app_task(void *)
         }
 
         const int64_t now_us = esp_timer_get_time();
-        if (!s_test_open && s_pose != DesktopPetPose::Idle &&
+        if (!s_test_open && s_pose_deadline_us > 0 &&
             now_us >= s_pose_deadline_us) {
             s_pose = DesktopPetPose::Idle;
+            s_message = kHomeMessage;
             s_pose_deadline_us = 0;
             render_current_page(true, false);
         }
@@ -261,6 +269,7 @@ void app_task(void *)
                         "pet=day source=timer day=%u result=ok",
                         static_cast<unsigned>(s_state.day));
             render_current_page(true);
+            s_pose_deadline_us = esp_timer_get_time() + kActionPoseHoldUs;
         }
 #endif
         vTaskDelay(kPollInterval);
