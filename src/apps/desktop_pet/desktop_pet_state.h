@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "core/pet_core.h"
+
 #ifndef STICKY_DESKTOP_PET_TEST_MODE
 #define STICKY_DESKTOP_PET_TEST_MODE 1
 #endif
@@ -26,21 +28,11 @@ enum class DesktopPetPose : uint8_t {
     Play,
 };
 
-constexpr uint32_t kDesktopPetStateVersion = 2U;
+constexpr uint32_t kDesktopPetStateVersion = 3U;
 
 struct DesktopPetState {
     uint32_t version = kDesktopPetStateVersion;
-    uint16_t growth = 10U;
-    uint8_t love = 18U;
-    uint16_t day = 1U;
-    uint16_t growth_earned_today = 0U;
-    uint8_t love_earned_today = 0U;
-    uint8_t feed_count_today = 0U;
-    uint8_t pet_count_today = 0U;
-    uint8_t play_count_today = 0U;
-    uint16_t foodie_score = 0U;
-    uint16_t affectionate_score = 0U;
-    uint16_t active_score = 0U;
+    PetCoreState pet = {};
 };
 
 struct DesktopPetActionResult {
@@ -54,6 +46,7 @@ struct DesktopPetActionResult {
 
 constexpr uint16_t kDesktopPetHatchlingGrowthLimit = 30U;
 constexpr uint32_t kDesktopPetTestDayLengthMs = 120000U;
+constexpr uint32_t kDesktopPetTestNeedMinutesPerDay = 10U;
 
 // Applies one care or test action to the persistent pet state.
 // 将一次照料或测试操作应用到可持久化的桌宠状态。
@@ -64,5 +57,6 @@ DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
 // 开始新的模拟日期，并只重置当天奖励计数。
 void desktop_pet_state_advance_day(DesktopPetState &state);
 
+const char *desktop_pet_state_mood_label(const DesktopPetState &state);
 const char *desktop_pet_action_name(DesktopPetAction action);
 const char *desktop_pet_pose_name(DesktopPetPose pose);

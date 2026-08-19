@@ -27,7 +27,7 @@ void on_complete()
 
 int main()
 {
-    const PetCoreProfile &profile = pet_core_test_profile();
+    const PetCoreProfile &profile = pet_core_production_profile();
     PetCoreState state = {};
 
     PetRtcDateTime rtc = {2024U, 2U, 29U, 12U, 30U, 0U};
@@ -161,5 +161,20 @@ int main()
 
     assert(sizeof(PetCoreState) <= 128U);
     assert(sizeof(PetAnimationQueue) <= 768U);
+
+    PetCoreState accelerated = {};
+    const PetCoreActionResult accelerated_feed = pet_core_apply_action(
+        accelerated, PetCoreAction::Feed, pet_core_test_profile());
+    assert(accelerated_feed.growth_delta == 20);
+    assert(accelerated_feed.bond_delta == 5);
+    assert(accelerated.growth == 30U);
+    assert(accelerated.bond == 23U);
+
+    accelerated.feed_count_today = UINT8_MAX;
+    const uint16_t growth_at_limit = accelerated.growth;
+    pet_core_apply_action(
+        accelerated, PetCoreAction::Feed, pet_core_test_profile());
+    assert(accelerated.feed_count_today == UINT8_MAX);
+    assert(accelerated.growth == growth_at_limit);
     return 0;
 }

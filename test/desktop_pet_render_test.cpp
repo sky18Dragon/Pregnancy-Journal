@@ -87,6 +87,12 @@ int main()
         "LET'S CHASE IT!");
     write_preview(buffer, "/tmp/desktop_pet_play.ppm");
 
+    state.pet.needs.food = 20U;
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Idle,
+        "CARROT. NOW. PLEASE.");
+    write_preview(buffer, "/tmp/desktop_pet_hungry.ppm");
+
     desktop_pet_page_render_test(canvas, state, false);
     assert(desktop_pet_page_action_at(true, 240, 290) ==
            DesktopPetAction::NextDay);
@@ -99,4 +105,3 @@ int main()
     write_preview(buffer, "/tmp/desktop_pet_test.ppm");
     return 0;
 }
-

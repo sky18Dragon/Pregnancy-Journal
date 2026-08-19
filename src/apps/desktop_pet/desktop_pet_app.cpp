@@ -7,6 +7,7 @@
 #include "desktop_pet_pages.h"
 #include "desktop_pet_state.h"
 #include "desktop_pet_storage.h"
+#include "pet_dialogue.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -31,12 +32,24 @@ TaskHandle_t s_app_task = nullptr;
 DesktopPetState s_state = {};
 DesktopPetPose s_pose = DesktopPetPose::Idle;
 const char *s_message = kHomeMessage;
+const char *s_home_message = kHomeMessage;
 bool s_test_open = false;
 bool s_reset_confirmation = false;
 int64_t s_pose_deadline_us = 0;
 #if STICKY_DESKTOP_PET_TEST_MODE
 int64_t s_day_deadline_us = 0;
 #endif
+
+const char *select_home_message()
+{
+    const PetDialogueContext context =
+        pet_dialogue_context_for_state(s_state.pet);
+    const PetDialogueEntry *entry = pet_dialogue_pick(
+        s_state.pet,
+        context,
+        static_cast<uint32_t>(esp_timer_get_time()));
+    return entry == nullptr ? kHomeMessage : entry->text;
+}
 
 esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
 {
@@ -88,11 +101,13 @@ void save_state(const char *reason)
     if (result == ESP_OK) {
 #if STICKY_LOG_DESKTOP_PET_ENABLED
         STICKY_LOGD(kTag,
-                    "pet=save reason=%s day=%u growth=%u love=%u result=ok",
+                    "pet=save reason=%s day=%u growth=%u love=%u food=%u mood=%s result=ok",
                     reason,
-                    static_cast<unsigned>(s_state.day),
-                    static_cast<unsigned>(s_state.growth),
-                    static_cast<unsigned>(s_state.love));
+                    static_cast<unsigned>(s_state.pet.day),
+                    static_cast<unsigned>(s_state.pet.growth),
+                    static_cast<unsigned>(s_state.pet.bond),
+                    static_cast<unsigned>(s_state.pet.needs.food),
+                    desktop_pet_state_mood_label(s_state));
 #endif
         return;
     }
@@ -107,7 +122,8 @@ void handle_test_action(DesktopPetAction action)
     if (action == DesktopPetAction::CloseTest) {
         s_test_open = false;
         s_reset_confirmation = false;
-        s_message = kHomeMessage;
+        s_home_message = select_home_message();
+        s_message = s_home_message;
         s_pose = DesktopPetPose::Idle;
         s_pose_deadline_us = 0;
         sticky_touch_clear_press();
@@ -138,13 +154,16 @@ void handle_test_action(DesktopPetAction action)
     }
     s_reset_confirmation = false;
     s_message = result.message;
+    s_home_message = select_home_message();
     save_state(desktop_pet_action_name(action));
     STICKY_LOGI(kTag,
-                "pet=test action=%s day=%u growth=%u love=%u result=ok",
+                "pet=test action=%s day=%u growth=%u love=%u food=%u mood=%s result=ok",
                 desktop_pet_action_name(action),
-                static_cast<unsigned>(s_state.day),
-                static_cast<unsigned>(s_state.growth),
-                static_cast<unsigned>(s_state.love));
+                static_cast<unsigned>(s_state.pet.day),
+                static_cast<unsigned>(s_state.pet.growth),
+                static_cast<unsigned>(s_state.pet.bond),
+                static_cast<unsigned>(s_state.pet.needs.food),
+                desktop_pet_state_mood_label(s_state));
     render_current_page(true);
 }
 
@@ -172,16 +191,19 @@ void handle_action(DesktopPetAction action)
     }
     s_pose = result.pose;
     s_message = result.message;
+    s_home_message = select_home_message();
     save_state(desktop_pet_action_name(action));
     STICKY_LOGI(kTag,
-                "pet=care action=%s pose=%s rewarded=%d growth_delta=%u love_delta=%u growth=%u love=%u result=ok",
+                "pet=care action=%s pose=%s rewarded=%d growth_delta=%u love_delta=%u growth=%u love=%u food=%u mood=%s result=ok",
                 desktop_pet_action_name(action),
                 desktop_pet_pose_name(result.pose),
                 result.rewarded ? 1 : 0,
                 static_cast<unsigned>(result.growth_delta),
                 static_cast<unsigned>(result.love_delta),
-                static_cast<unsigned>(s_state.growth),
-                static_cast<unsigned>(s_state.love));
+                static_cast<unsigned>(s_state.pet.growth),
+                static_cast<unsigned>(s_state.pet.bond),
+                static_cast<unsigned>(s_state.pet.needs.food),
+                desktop_pet_state_mood_label(s_state));
     render_current_page(true);
     // Hold time begins after the e-paper refresh finishes so the complete
     // pose remains visible for the requested duration.
@@ -225,6 +247,8 @@ void app_task(void *)
     }
 
     sticky_touch_clear_press();
+    s_home_message = select_home_message();
+    s_message = s_home_message;
     render_current_page(false);
 #if STICKY_DESKTOP_PET_TEST_MODE
     s_day_deadline_us = esp_timer_get_time() +
@@ -232,16 +256,18 @@ void app_task(void *)
                             1000LL;
 #endif
     STICKY_LOGI(kTag,
-                "pet=ready page=home profile=%s save=%s day=%u growth=%u love=%u result=ok",
+                "pet=ready page=home profile=%s save=%s day=%u growth=%u love=%u food=%u mood=%s result=ok",
 #if STICKY_DESKTOP_PET_TEST_MODE
                 "test",
 #else
                 "production",
 #endif
                 found ? "loaded" : "new",
-                static_cast<unsigned>(s_state.day),
-                static_cast<unsigned>(s_state.growth),
-                static_cast<unsigned>(s_state.love));
+                static_cast<unsigned>(s_state.pet.day),
+                static_cast<unsigned>(s_state.pet.growth),
+                static_cast<unsigned>(s_state.pet.bond),
+                static_cast<unsigned>(s_state.pet.needs.food),
+                desktop_pet_state_mood_label(s_state));
 
     while (true) {
         StickyTouchPress press = {};
@@ -253,7 +279,7 @@ void app_task(void *)
         if (!s_test_open && s_pose_deadline_us > 0 &&
             now_us >= s_pose_deadline_us) {
             s_pose = DesktopPetPose::Idle;
-            s_message = kHomeMessage;
+            s_message = s_home_message;
             s_pose_deadline_us = 0;
             render_current_page(true, false);
         }
@@ -264,10 +290,13 @@ void app_task(void *)
             s_day_deadline_us +=
                 static_cast<int64_t>(kDesktopPetTestDayLengthMs) * 1000LL;
             s_message = "A NEW DAY TOGETHER!";
+            s_home_message = select_home_message();
             save_state("automatic_next_day");
             STICKY_LOGI(kTag,
-                        "pet=day source=timer day=%u result=ok",
-                        static_cast<unsigned>(s_state.day));
+                        "pet=day source=timer day=%u food=%u mood=%s result=ok",
+                        static_cast<unsigned>(s_state.pet.day),
+                        static_cast<unsigned>(s_state.pet.needs.food),
+                        desktop_pet_state_mood_label(s_state));
             render_current_page(true);
             s_pose_deadline_us = esp_timer_get_time() + kActionPoseHoldUs;
         }

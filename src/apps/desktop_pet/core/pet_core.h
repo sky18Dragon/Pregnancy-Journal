@@ -73,10 +73,13 @@ struct PetCoreProfile {
     uint8_t sleeping_joy_floor = 35U;
     uint8_t sleeping_hygiene_floor = 45U;
     uint8_t care_need_floor = 40U;
-    uint8_t daily_bond_limit = 20U;
+    uint8_t daily_bond_limit = 8U;
     uint16_t hatchling_growth_limit = 30U;
     uint16_t child_growth_limit = 120U;
     uint16_t youth_growth_limit = 280U;
+    uint16_t daily_growth_limit = 10U;
+    uint8_t growth_multiplier = 1U;
+    uint8_t bond_multiplier = 1U;
 };
 
 struct PetCoreState {
@@ -97,6 +100,7 @@ struct PetCoreState {
     uint8_t mistake_cooldown_minutes = 0U;
     uint8_t waste_count = 0U;
     uint16_t waste_minute_accumulator = 0U;
+    uint16_t growth_earned_today = 0U;
     uint8_t bond_earned_today = 0U;
     uint8_t feed_count_today = 0U;
     uint8_t pet_count_today = 0U;
@@ -137,6 +141,10 @@ void pet_core_advance_minutes(PetCoreState &state,
                               uint32_t minutes,
                               const PetCoreProfile &profile,
                               bool offline);
+
+// Advances one simulated day and resets daily reward counters.
+// 推进一个模拟日期，并重置当天奖励计数。
+void pet_core_advance_day(PetCoreState &state);
 
 PetMood pet_core_mood(const PetCoreState &state);
 bool pet_core_can_evolve(const PetCoreState &state,

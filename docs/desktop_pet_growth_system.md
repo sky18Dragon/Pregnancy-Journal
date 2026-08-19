@@ -156,7 +156,9 @@ The current visible firmware implements the Hatchling home and stops growth at t
 
 An independent core framework now exists under `src/apps/desktop_pet/core/`. It models six life stages, food, joy, energy, hygiene, seven relationship moods plus urgent need states, sleep, waste, care mistakes, bond, streaks, personality evidence, evolution readiness, dialogue history, bounded offline progression, a fixed animation queue, RTC conversion, and validated two-slot save records.
 
-The new framework is intentionally not connected to the approved Hatchling UI in this slice. Egg hatching, the Child page, evolution transitions, and later stage artwork remain the next visual feature blocks. The following integration slice will adapt the existing home controls and NVS backend to the core one subsystem at a time.
+The approved Hatchling UI now stores its growth, bond, daily counters, personality evidence, food, and mood in `PetCoreState`. The home page displays food and the current mood, test-day rollover advances the need simulation, feeding restores food even after its daily growth reward has been collected, and state-aware dialogue is selected from the compact runtime table. Version-2 Hatchling saves migrate into the shared core record.
+
+Sleep, cleaning, PCF8563 hardware time, the validated two-slot save backend, Egg hatching, the Child page, evolution transitions, and later stage artwork remain independent integration blocks.
 
 ### Production Profile
 
@@ -288,7 +290,7 @@ The independent framework currently contains:
 - `pet_save_record`: versioned records, checksum validation, sequence ordering, and two-slot selection
 - `pet_rtc_time`: validated PCF8563 calendar conversion
 
-The existing `desktop_pet_app`, `desktop_pet_pages`, `desktop_pet_state`, and `desktop_pet_storage` modules continue to run the approved Hatchling UI. The next integration slice will connect them to the core without changing the hardware drivers.
+The existing `desktop_pet_app`, `desktop_pet_pages`, `desktop_pet_state`, and `desktop_pet_storage` modules run the approved Hatchling UI and now use `PetCoreState` for visible care values. The state wrapper keeps UI actions separate from the reusable rule engine, while storage migrates version-2 Hatchling values into version 3.
 
 The framework stays independent from the display, touch controller, IMU, NVS driver, and RTC driver. Native tests can therefore validate pet behavior on a computer. The NVS and PCF8563 hardware adapters remain explicit integration tasks.
 

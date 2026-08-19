@@ -11,7 +11,6 @@
 namespace {
 
 constexpr int kScreenWidth = 480;
-constexpr int kScreenHeight = 800;
 
 struct Rect {
     int x;
@@ -231,17 +230,25 @@ void desktop_pet_page_render_home(Canvas &canvas,
 
     char growth_label[24] = {};
     std::snprintf(growth_label, sizeof(growth_label), "GROWTH %u / %u",
-                  static_cast<unsigned>(state.growth),
+                  static_cast<unsigned>(state.pet.growth),
                   static_cast<unsigned>(kDesktopPetHatchlingGrowthLimit));
     canvas.draw_text(24, 72, growth_label, 2);
-    draw_progress(canvas, state.growth);
+    draw_progress(canvas, state.pet.growth);
 
     pixel_asset_draw(canvas, 310, 67,
                      desktop_pet_asset(DesktopPetAssetId::LoveIcon));
     char love_label[16] = {};
     std::snprintf(love_label, sizeof(love_label), "LOVE %u",
-                  static_cast<unsigned>(state.love));
+                  static_cast<unsigned>(state.pet.bond));
     canvas.draw_text(380, 76, love_label, 2);
+
+    char food_label[16] = {};
+    std::snprintf(food_label, sizeof(food_label), "FOOD %u",
+                  static_cast<unsigned>(state.pet.needs.food));
+    canvas.draw_text(24, 118, food_label, 2);
+    const char *mood_label = desktop_pet_state_mood_label(state);
+    canvas.draw_text(456 - text_width(mood_label, 2),
+                     118, mood_label, 2);
 
     pixel_asset_draw(canvas, 20, 226,
                      desktop_pet_asset(DesktopPetAssetId::Room));
@@ -263,7 +270,7 @@ void desktop_pet_page_render_home(Canvas &canvas,
 
     char day_label[16] = {};
     std::snprintf(day_label, sizeof(day_label), "DAY %u",
-                  static_cast<unsigned>(state.day));
+                  static_cast<unsigned>(state.pet.day));
     draw_centered(canvas, 775, day_label, 2);
 }
 
@@ -279,15 +286,19 @@ void desktop_pet_page_render_test(Canvas &canvas,
     char scores[64] = {};
     std::snprintf(scores, sizeof(scores),
                   "DAY %u  GROWTH %u  LOVE %u",
-                  static_cast<unsigned>(state.day),
-                  static_cast<unsigned>(state.growth),
-                  static_cast<unsigned>(state.love));
+                  static_cast<unsigned>(state.pet.day),
+                  static_cast<unsigned>(state.pet.growth),
+                  static_cast<unsigned>(state.pet.bond));
     draw_centered(canvas, 115, scores, 2);
-    std::snprintf(scores, sizeof(scores), "FOOD %u  PET %u  PLAY %u",
-                  static_cast<unsigned>(state.foodie_score),
-                  static_cast<unsigned>(state.affectionate_score),
-                  static_cast<unsigned>(state.active_score));
+    std::snprintf(scores, sizeof(scores), "PATH F%u  P%u  A%u",
+                  static_cast<unsigned>(state.pet.foodie_score),
+                  static_cast<unsigned>(state.pet.affectionate_score),
+                  static_cast<unsigned>(state.pet.active_score));
     draw_centered(canvas, 155, scores, 2);
+    std::snprintf(scores, sizeof(scores), "FOOD %u  MOOD %s",
+                  static_cast<unsigned>(state.pet.needs.food),
+                  desktop_pet_state_mood_label(state));
+    draw_centered(canvas, 195, scores, 2);
 
     draw_button(canvas, kNextDayRect, "NEXT DAY", false);
     draw_button(canvas, kAddGrowthRect, "+30 GROWTH", false);

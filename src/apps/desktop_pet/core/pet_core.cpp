@@ -21,10 +21,13 @@ const PetCoreProfile kTestProfile = {
     35U,
     45U,
     40U,
-    20U,
+    40U,
     30U,
     120U,
     280U,
+    100U,
+    10U,
+    5U,
 };
 
 uint8_t clamp_percent(int value)
@@ -37,6 +40,13 @@ uint16_t saturating_add_u16(uint16_t value, uint16_t amount)
     const uint32_t sum = static_cast<uint32_t>(value) + amount;
     return static_cast<uint16_t>(std::min<uint32_t>(
         sum, std::numeric_limits<uint16_t>::max()));
+}
+
+uint8_t saturating_increment_u8(uint8_t value)
+{
+    return value == std::numeric_limits<uint8_t>::max()
+               ? value
+               : static_cast<uint8_t>(value + 1U);
 }
 
 uint16_t growth_limit(const PetCoreState &state,
@@ -68,11 +78,23 @@ void apply_growth(PetCoreState &state,
                   const PetCoreProfile &profile,
                   PetCoreActionResult &result)
 {
+    const uint32_t multiplied =
+        static_cast<uint32_t>(amount) * profile.growth_multiplier;
+    const uint16_t requested = static_cast<uint16_t>(std::min<uint32_t>(
+        multiplied, std::numeric_limits<uint16_t>::max()));
+    const uint16_t daily_remaining =
+        state.growth_earned_today >= profile.daily_growth_limit
+            ? 0U
+            : static_cast<uint16_t>(profile.daily_growth_limit -
+                                    state.growth_earned_today);
     const uint16_t limit = growth_limit(state, profile);
     const uint16_t remaining = state.growth >= limit ? 0U
                                                       : limit - state.growth;
-    const uint16_t awarded = std::min(amount, remaining);
+    const uint16_t awarded =
+        std::min(requested, std::min(daily_remaining, remaining));
     state.growth = saturating_add_u16(state.growth, awarded);
+    state.growth_earned_today =
+        saturating_add_u16(state.growth_earned_today, awarded);
     result.growth_delta = static_cast<int16_t>(awarded);
 }
 
@@ -81,12 +103,15 @@ void apply_bond(PetCoreState &state,
                 const PetCoreProfile &profile,
                 PetCoreActionResult &result)
 {
+    const uint16_t multiplied =
+        static_cast<uint16_t>(amount) * profile.bond_multiplier;
     const uint8_t daily_remaining =
         state.bond_earned_today >= profile.daily_bond_limit
             ? 0U
             : static_cast<uint8_t>(profile.daily_bond_limit -
                                    state.bond_earned_today);
-    const uint8_t awarded = std::min(amount, daily_remaining);
+    const uint8_t awarded = static_cast<uint8_t>(std::min<uint16_t>(
+        multiplied, daily_remaining));
     const uint8_t total_remaining =
         state.bond >= 100U ? 0U : static_cast<uint8_t>(100U - state.bond);
     const uint8_t applied = std::min(awarded, total_remaining);
@@ -106,6 +131,7 @@ void start_new_day(PetCoreState &state, uint32_t day_key)
                 elapsed_days, std::numeric_limits<uint16_t>::max())));
     }
     state.current_day_key = day_key;
+    state.growth_earned_today = 0U;
     state.bond_earned_today = 0U;
     state.feed_count_today = 0U;
     state.pet_count_today = 0U;
@@ -263,29 +289,44 @@ PetCoreActionResult pet_core_apply_action(PetCoreState &state,
     case PetCoreAction::Feed:
         result.activity = PetActivity::Eating;
         state.activity = result.activity;
-        ++state.feed_count_today;
-        state.foodie_score = saturating_add_u16(state.foodie_score, 3U);
-        apply_growth(state, 4U, profile, result);
-        apply_bond(state, 1U, profile, result);
+        {
+            const uint8_t rewarded_uses = 2U;
+            const uint16_t growth = state.feed_count_today == 0U ? 4U : 2U;
+            if (state.feed_count_today < rewarded_uses) {
+                state.foodie_score = saturating_add_u16(
+                    state.foodie_score, 3U);
+                apply_growth(state, growth, profile, result);
+                apply_bond(state, 1U, profile, result);
+            }
+        }
+        state.feed_count_today =
+            saturating_increment_u8(state.feed_count_today);
         state.needs.food = clamp_percent(state.needs.food + 30);
         break;
     case PetCoreAction::Pet:
         result.activity = PetActivity::Petting;
         state.activity = result.activity;
-        ++state.pet_count_today;
-        state.affectionate_score =
-            saturating_add_u16(state.affectionate_score, 2U);
-        apply_growth(state, 1U, profile, result);
-        apply_bond(state, 2U, profile, result);
+        if (state.pet_count_today < 3U) {
+            state.affectionate_score =
+                saturating_add_u16(state.affectionate_score, 2U);
+            apply_growth(state, 1U, profile, result);
+            apply_bond(state, 2U, profile, result);
+        }
+        state.pet_count_today =
+            saturating_increment_u8(state.pet_count_today);
         state.needs.joy = clamp_percent(state.needs.joy + 5);
         break;
     case PetCoreAction::Play:
         result.activity = PetActivity::Playing;
         state.activity = result.activity;
-        ++state.play_count_today;
-        state.active_score = saturating_add_u16(state.active_score, 6U);
-        apply_growth(state, 3U, profile, result);
-        apply_bond(state, 3U, profile, result);
+        if (state.play_count_today < 1U) {
+            state.active_score = saturating_add_u16(
+                state.active_score, 6U);
+            apply_growth(state, 3U, profile, result);
+            apply_bond(state, 3U, profile, result);
+        }
+        state.play_count_today =
+            saturating_increment_u8(state.play_count_today);
         state.needs.joy = clamp_percent(state.needs.joy + 12);
         state.needs.energy = clamp_percent(state.needs.energy - 8);
         state.needs.food = clamp_percent(state.needs.food - 4);
@@ -309,6 +350,16 @@ PetCoreActionResult pet_core_apply_action(PetCoreState &state,
     update_evolution_ready(state, profile);
     result.evolution_became_ready = !was_ready && state.evolution_ready;
     return result;
+}
+
+void pet_core_advance_day(PetCoreState &state)
+{
+    state.day = saturating_add_u16(state.day, 1U);
+    state.growth_earned_today = 0U;
+    state.bond_earned_today = 0U;
+    state.feed_count_today = 0U;
+    state.pet_count_today = 0U;
+    state.play_count_today = 0U;
 }
 
 void pet_core_advance_minutes(PetCoreState &state,
