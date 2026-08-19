@@ -86,7 +86,7 @@ Growth points preserve the user's achieved progress. Each stage transition plays
 
 ## Daily Rewards
 
-The system uses a daily growth cap of `10` and a daily affection cap of `8`.
+The production balance uses a daily growth cap of `10` and a daily affection cap of `8`.
 
 | Interaction | Rewarded uses per day | Growth | Affection | Personality evidence |
 | --- | ---: | ---: | ---: | ---: |
@@ -111,6 +111,60 @@ When one action reaches its daily reward count, it switches to a companion respo
 - Extra play produces a short free-play response.
 
 These responses keep the pet interactive without changing daily progress.
+
+## Balance Profiles
+
+The growth engine reads all timing and reward values from one balance profile. The test firmware and production firmware use the same state machine, stage thresholds, action limits, personality evidence, persistence format, and dialogue rules.
+
+### Fast Test Profile
+
+The first desktop-pet development build will use `STICKY_DESKTOP_PET_TEST_MODE=1` with these values:
+
+| Setting | Test value |
+| --- | ---: |
+| Simulated day length | 120 seconds |
+| Growth reward multiplier | 10x |
+| Affection reward multiplier | 5x |
+| Daily growth cap | 100 |
+| Daily affection cap | 40 |
+| Personality evidence multiplier | 1x |
+| Stage thresholds | 30 / 120 / 280 |
+
+With full daily care, the test profile reaches:
+
+- Child during the first simulated day
+- Youth during the second simulated day
+- Adult during the third simulated day
+- Close affection during the first simulated day
+- Best Friend affection during the second or third simulated day
+
+A complete lifecycle can therefore be exercised in about six minutes while retaining real daily rollover, reward caps, route scoring, stage transitions, persistence, and dialogue changes.
+
+The test home page will display a small `TEST` badge. Tapping it opens a development panel with:
+
+- `NEXT DAY`: advances exactly one simulated date and runs normal rollover logic
+- `+30 GROWTH`: moves toward the next threshold through the normal stage evaluator
+- `+20 LOVE`: moves through affection dialogue tiers
+- `RESET PET`: clears only desktop-pet test state after confirmation
+- Current stage, growth, affection, and three personality scores
+
+The accelerated rewards will still pass through the normal daily counters and caps. Personality evidence keeps its production values so automatic and close-score branch decisions remain representative.
+
+### Production Profile
+
+The final firmware uses `STICKY_DESKTOP_PET_TEST_MODE=0` with these values:
+
+| Setting | Production value |
+| --- | ---: |
+| Day source | Trusted local calendar date |
+| Growth reward multiplier | 1x |
+| Affection reward multiplier | 1x |
+| Daily growth cap | 10 |
+| Daily affection cap | 8 |
+| Personality evidence multiplier | 1x |
+| Stage thresholds | 30 / 120 / 280 |
+
+Switching profiles changes balance constants and test controls. Saved fields, stage meanings, route meanings, action counts, and content identifiers remain identical.
 
 ## Personality Branch Decision
 
@@ -192,7 +246,8 @@ Production mode uses the device's trusted local date. A date becomes trusted aft
 
 Development mode provides controlled time:
 
-- Advance one simulated day manually.
+- Roll over automatically every 120 seconds of test runtime.
+- Advance one simulated day manually from the test panel.
 - Set growth and affection values.
 - Force any life stage or personality branch.
 - Reset pet data through a dedicated development action.
@@ -259,6 +314,9 @@ The first implementation keeps regression tests for:
 13. Dialogue does not repeat one of the five recent entries when alternatives exist.
 14. Save loading validates ranges and migrates older versions.
 15. Replaying the same date after reboot produces the same persistent result.
+16. Test multipliers still stop at the test-profile daily caps.
+17. Test and production profiles produce the same route result from the same care-action sequence.
+18. `NEXT DAY` applies one rollover and remains idempotent across an immediate reboot.
 
 ## First Implementation Boundary
 
@@ -270,7 +328,7 @@ The first vertical slice covers the complete Hatchling experience:
 - Growth and affection rewards
 - Daily caps and date rollover
 - Persistent save and reload
-- Development time controls
+- Two-minute simulated days and visible development controls
 - Native rule tests
 
 Later slices add the Child stage, branch decision, three Youth forms, three Adult forms, and the full dialogue library on top of the same tested engine.
