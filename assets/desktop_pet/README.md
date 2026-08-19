@@ -17,7 +17,7 @@ This directory stores the original monochrome visual system for the Sticky deskt
 
 `concepts/home_selected_v1.png` is the approved portrait home-screen reference. `concepts/home_selected_480x800.png` is its normalized comparison copy.
 
-The current `source/` set contains the approved room and four independent Hatchling poses: idle, feed, pet, and play. The `firmware/` directory contains their generated 1-bit previews plus the three action icons and love icon.
+The current `source/` set contains the approved room, four independent Hatchling poses, and the rabbit speech-bubble source used by `TALK`. The `firmware/` directory contains their generated 1-bit previews plus the four action icons and love icon.
 
 Run the asset generator from the project root:
 

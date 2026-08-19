@@ -14,6 +14,7 @@ enum class DesktopPetAssetId : uint8_t {
     PlayMask,
     FeedIcon,
     PetIcon,
+    TalkIcon,
     PlayIcon,
     LoveIcon,
 };

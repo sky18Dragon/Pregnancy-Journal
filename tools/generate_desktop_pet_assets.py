@@ -190,6 +190,7 @@ def main() -> None:
         AssetSpec("play", source_dir / "hatchling_play.png", 220, 220, "crop=1000:1000:127:127", True),
         AssetSpec("feed_icon", concept_dir / "home_selected_480x800.png", 82, 72, "crop=110:95:25:620"),
         AssetSpec("pet_icon", concept_dir / "home_selected_480x800.png", 82, 72, "crop=100:95:195:620"),
+        AssetSpec("talk_icon", source_dir / "talk_icon_v1.png", 82, 72, "crop=1000:880:127:180"),
         AssetSpec("play_icon", concept_dir / "home_selected_480x800.png", 82, 72, "crop=100:95:350:620"),
         AssetSpec("love_icon", concept_dir / "home_selected_480x800.png", 64, 30, "crop=64:42:312:66"),
     ]
@@ -204,7 +205,7 @@ def main() -> None:
     header_path = args.root / "src" / "ui" / "assets" / "desktop_pet_assets.h"
     source_path = args.root / "src" / "ui" / "assets" / "desktop_pet_assets.cpp"
     header_path.write_text(
-        """#pragma once\n\n#include \"pixel_asset.h\"\n\nenum class DesktopPetAssetId : uint8_t {\n    Room,\n    Idle,\n    IdleMask,\n    Feed,\n    FeedMask,\n    Pet,\n    PetMask,\n    Play,\n    PlayMask,\n    FeedIcon,\n    PetIcon,\n    PlayIcon,\n    LoveIcon,\n};\n\n// Returns one generated desktop-pet bitmap.\n// 返回一张已生成的桌宠位图。\nconst PixelAsset &desktop_pet_asset(DesktopPetAssetId id);\n""",
+        """#pragma once\n\n#include \"pixel_asset.h\"\n\nenum class DesktopPetAssetId : uint8_t {\n    Room,\n    Idle,\n    IdleMask,\n    Feed,\n    FeedMask,\n    Pet,\n    PetMask,\n    Play,\n    PlayMask,\n    FeedIcon,\n    PetIcon,\n    TalkIcon,\n    PlayIcon,\n    LoveIcon,\n};\n\n// Returns one generated desktop-pet bitmap.\n// 返回一张已生成的桌宠位图。\nconst PixelAsset &desktop_pet_asset(DesktopPetAssetId id);\n""",
         encoding="utf-8",
     )
 
