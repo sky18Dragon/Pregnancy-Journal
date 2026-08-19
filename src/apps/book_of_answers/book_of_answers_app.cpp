@@ -39,7 +39,6 @@ size_t s_animation_frame_index = 0U;
 size_t s_message_answer_index = kBookOfAnswersNoIndex;
 size_t s_crystal_answer_index = kBookOfAnswersNoIndex;
 int64_t s_animation_deadline_us = 0;
-int64_t s_ritual_started_us = 0;
 
 esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
 {
@@ -207,7 +206,6 @@ void handle_action(BookOfAnswersAction action, const char *reason)
 
     if (s_state.page == BookOfAnswersPage::Shaking) {
         s_shake_frame_index = 0U;
-        s_ritual_started_us = esp_timer_get_time();
     }
 
     const bool page_changed = previous_page != s_state.page;
@@ -223,6 +221,8 @@ void handle_action(BookOfAnswersAction action, const char *reason)
     render_current_page(true);
 }
 
+void complete_shake_stage();
+
 void advance_animation()
 {
     const bool answer_animation_page =
@@ -233,15 +233,22 @@ void advance_animation()
         answer_animation_page ||
         s_state.page == BookOfAnswersPage::ShakeLonger;
 
-    // The complete animation is the ritual timer. Releasing the shake before
-    // any stage finishes redirects to the guidance page instead of an answer.
-    // 完整动画就是仪式计时器；任一阶段提前停下都会进入引导页，不会显示答案。
-    if (answer_animation_page && !sticky_imu_is_shaking()) {
-        const int64_t elapsed_ms =
-            (esp_timer_get_time() - s_ritual_started_us) / 1000LL;
+    // The user only needs to keep shaking during the fixed three-second shake
+    // stage. Thinking and revealing continue normally after qualification.
+    // 用户只需在固定三秒摇晃阶段保持动作；达标后正常播放思考和揭晓动画。
+    if (s_state.page == BookOfAnswersPage::Shaking &&
+        !sticky_imu_is_shaking()) {
+        const uint32_t shake_duration_ms =
+            sticky_imu_shake_duration_ms();
+        if (book_of_answers_shake_qualified(shake_duration_ms)) {
+            complete_shake_stage();
+            return;
+        }
         STICKY_LOGI(kTag,
-                    "book=shake qualification=insufficient animation_ms=%lld reason=stopped_early",
-                    static_cast<long long>(elapsed_ms));
+                    "book=shake qualification=insufficient shake_ms=%u required_ms=%u reason=stopped_early",
+                    static_cast<unsigned>(shake_duration_ms),
+                    static_cast<unsigned>(
+                        kBookOfAnswersRequiredShakeMs));
         handle_action(
             BookOfAnswersAction::ShakeStopped, "imu_shake_stopped");
         return;
@@ -284,12 +291,12 @@ void advance_animation()
     }
 
     const BookOfAnswersPage previous_page = s_state.page;
+    if (previous_page == BookOfAnswersPage::Shaking) {
+        s_shake_frame_index = 0U;
+        render_current_page(true, false);
+        return;
+    }
     if (previous_page == BookOfAnswersPage::Revealing) {
-        const int64_t elapsed_ms =
-            (esp_timer_get_time() - s_ritual_started_us) / 1000LL;
-        STICKY_LOGI(kTag,
-                    "book=shake qualification=passed animation_ms=%lld result=ok",
-                    static_cast<long long>(elapsed_ms));
         choose_answer_for_round();
     }
     if (!book_of_answers_state_advance(s_state)) {
@@ -303,6 +310,41 @@ void advance_animation()
     log_transition(previous_page,
                    BookOfAnswersAction::None,
                    "animation_complete");
+    render_current_page(true);
+}
+
+void complete_shake_stage()
+{
+    if (s_state.page != BookOfAnswersPage::Shaking) {
+        return;
+    }
+    const uint32_t shake_duration_ms = sticky_imu_shake_duration_ms();
+    if (!book_of_answers_shake_qualified(shake_duration_ms)) {
+        STICKY_LOGI(kTag,
+                    "book=shake qualification=insufficient shake_ms=%u required_ms=%u reason=stopped_early",
+                    static_cast<unsigned>(shake_duration_ms),
+                    static_cast<unsigned>(
+                        kBookOfAnswersRequiredShakeMs));
+        handle_action(
+            BookOfAnswersAction::ShakeStopped, "imu_shake_stopped");
+        return;
+    }
+
+    const BookOfAnswersPage previous_page = s_state.page;
+    STICKY_LOGI(kTag,
+                "book=shake qualification=passed shake_ms=%u required_ms=%u result=ok",
+                static_cast<unsigned>(shake_duration_ms),
+                static_cast<unsigned>(kBookOfAnswersRequiredShakeMs));
+    if (!book_of_answers_state_advance(s_state)) {
+        return;
+    }
+
+    s_animation_frame_index = 0U;
+    s_shake_frame_index = 0U;
+    sticky_touch_clear_press();
+    log_transition(previous_page,
+                   BookOfAnswersAction::None,
+                   "shake_duration_complete");
     render_current_page(true);
 }
 
@@ -335,7 +377,8 @@ void app_task(void *)
     sticky_touch_clear_press();
     render_current_page(false);
     STICKY_LOGI(kTag,
-                "book=ready page=home mode=message input=continuous_imu_shake message_answers=%u crystal_answers=%u shake_frames=%u animated_pages=7 result=ok",
+                "book=ready page=home mode=message input=continuous_imu_shake required_shake_ms=%u message_answers=%u crystal_answers=%u shake_frames=%u animated_pages=7 result=ok",
+                static_cast<unsigned>(kBookOfAnswersRequiredShakeMs),
                 static_cast<unsigned>(book_message_answer_count()),
                 static_cast<unsigned>(book_crystal_answer_count()),
                 static_cast<unsigned>(kShakeFrameCount));
@@ -361,26 +404,35 @@ void app_task(void *)
         }
 
         if (sticky_imu_take_shake_stopped_event()) {
-            const bool answer_animation_page =
-                s_state.page == BookOfAnswersPage::Shaking ||
-                s_state.page == BookOfAnswersPage::Thinking ||
-                s_state.page == BookOfAnswersPage::Revealing;
-            if (answer_animation_page) {
-                const int64_t elapsed_ms =
-                    (esp_timer_get_time() - s_ritual_started_us) / 1000LL;
-                STICKY_LOGI(
-                    kTag,
-                    "book=shake qualification=insufficient animation_ms=%lld reason=stopped_early",
-                    static_cast<long long>(elapsed_ms));
-                handle_action(BookOfAnswersAction::ShakeStopped,
-                              "imu_shake_stopped");
+            if (s_state.page == BookOfAnswersPage::Shaking) {
+                const uint32_t shake_duration_ms =
+                    sticky_imu_shake_duration_ms();
+                if (book_of_answers_shake_qualified(
+                        shake_duration_ms)) {
+                    complete_shake_stage();
+                } else {
+                    STICKY_LOGI(
+                        kTag,
+                        "book=shake qualification=insufficient shake_ms=%u required_ms=%u reason=stopped_early",
+                        static_cast<unsigned>(shake_duration_ms),
+                        static_cast<unsigned>(
+                            kBookOfAnswersRequiredShakeMs));
+                    handle_action(BookOfAnswersAction::ShakeStopped,
+                                  "imu_shake_stopped");
+                }
             }
         }
 
-        // Touch is consumed before any timed animation refresh.
-        // 每轮先处理触摸，再判断是否推进定时动画。
-        if (s_animation_deadline_us > 0 &&
-            esp_timer_get_time() >= s_animation_deadline_us) {
+        // IMU peak span is measured in the sensor task, so display refresh
+        // duration cannot extend or shorten the required shake input.
+        // 有效峰值跨度由传感器任务独立计时，屏幕刷新不会延长或缩短摇晃输入。
+        const int64_t now_us = esp_timer_get_time();
+        if (s_state.page == BookOfAnswersPage::Shaking &&
+            book_of_answers_shake_qualified(
+                sticky_imu_shake_duration_ms())) {
+            complete_shake_stage();
+        } else if (s_animation_deadline_us > 0 &&
+                   now_us >= s_animation_deadline_us) {
             advance_animation();
         }
 

@@ -32,6 +32,7 @@ int main()
     result = sticky_shake_detector_update(
         state, 1.0F, 0.0F, 0.1F, 1900U);
     assert(result.session_stopped && !result.session_active);
+    assert(result.active_duration_ms == 150U);
 
     // Repeated movement distributed across the full animation keeps the
     // session alive until the application is ready to reveal the answer.
@@ -55,5 +56,6 @@ int main()
     result = sticky_shake_detector_update(
         state, -1.0F, 0.0F, 0.1F, 6200U);
     assert(result.session_stopped && !result.session_active);
+    assert(result.active_duration_ms >= 3000U);
     return 0;
 }

@@ -1,6 +1,5 @@
 #include <cassert>
 #include <cstring>
-#include <initializer_list>
 
 #include "book_of_answers_answers.h"
 #include "book_of_answers_state.h"
@@ -10,6 +9,8 @@ int main()
     BookOfAnswersState state = {};
     assert(state.page == BookOfAnswersPage::Home);
     assert(state.mode == BookOfAnswersMode::Message);
+    assert(!book_of_answers_shake_qualified(2999U));
+    assert(book_of_answers_shake_qualified(3000U));
 
     assert(book_of_answers_state_handle_action(
         state, BookOfAnswersAction::SelectCrystal));
@@ -21,18 +22,15 @@ int main()
         state, BookOfAnswersAction::ShakeStarted));
     assert(state.page == BookOfAnswersPage::Shaking);
 
-    // Stopping during any answer-animation stage routes to guidance.
-    // 在答案动画的任一阶段停下，都会进入继续摇晃引导页。
-    for (const BookOfAnswersPage page : {
-             BookOfAnswersPage::Shaking,
-             BookOfAnswersPage::Thinking,
-             BookOfAnswersPage::Revealing}) {
-        BookOfAnswersState stopped = state;
-        stopped.page = page;
-        assert(book_of_answers_state_handle_action(
-            stopped, BookOfAnswersAction::ShakeStopped));
-        assert(stopped.page == BookOfAnswersPage::ShakeLonger);
-    }
+    // Only stopping during the three-second shake stage routes to guidance.
+    // 只有在三秒摇晃阶段提前停下，才会进入继续摇晃引导页。
+    BookOfAnswersState stopped = state;
+    assert(book_of_answers_state_handle_action(
+        stopped, BookOfAnswersAction::ShakeStopped));
+    assert(stopped.page == BookOfAnswersPage::ShakeLonger);
+    stopped.page = BookOfAnswersPage::Thinking;
+    assert(!book_of_answers_state_handle_action(
+        stopped, BookOfAnswersAction::ShakeStopped));
     assert(!book_of_answers_state_handle_action(
         state, BookOfAnswersAction::End));
 

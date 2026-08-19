@@ -21,11 +21,8 @@ bool book_of_answers_state_handle_action(BookOfAnswersState &state,
         return false;
     }
 
-    const bool animation_page =
-        state.page == BookOfAnswersPage::Shaking ||
-        state.page == BookOfAnswersPage::Thinking ||
-        state.page == BookOfAnswersPage::Revealing;
-    if (animation_page && action == BookOfAnswersAction::ShakeStopped) {
+    if (state.page == BookOfAnswersPage::Shaking &&
+        action == BookOfAnswersAction::ShakeStopped) {
         state.page = BookOfAnswersPage::ShakeLonger;
         return true;
     }
@@ -77,6 +74,11 @@ bool book_of_answers_state_advance(BookOfAnswersState &state)
         return false;
     }
     return false;
+}
+
+bool book_of_answers_shake_qualified(uint32_t shake_duration_ms)
+{
+    return shake_duration_ms >= kBookOfAnswersRequiredShakeMs;
 }
 
 size_t book_of_answers_choose_index(uint32_t random_value,

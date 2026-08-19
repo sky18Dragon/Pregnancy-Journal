@@ -42,7 +42,8 @@ StickyShakeDetectorResult sticky_shake_detector_update(
     // 当连续动作的间隔超过上限时，立即结束本次摇晃会话。
     if (state.session_active &&
         now_ms - state.last_peak_ms > kMaximumActiveGapMs) {
-        result.active_duration_ms = now_ms - state.session_started_ms;
+        result.active_duration_ms =
+            state.last_peak_ms - state.session_started_ms;
         state.session_active = false;
         state.candidate_peak_count = 0U;
         result.session_stopped = true;
@@ -64,7 +65,7 @@ StickyShakeDetectorResult sticky_shake_detector_update(
         result.session_active = state.session_active;
         if (state.session_active) {
             result.active_duration_ms =
-                now_ms - state.session_started_ms;
+                state.last_peak_ms - state.session_started_ms;
         }
         return result;
     }
@@ -73,7 +74,8 @@ StickyShakeDetectorResult sticky_shake_detector_update(
     state.last_peak_ms = now_ms;
     if (state.session_active) {
         result.session_active = true;
-        result.active_duration_ms = now_ms - state.session_started_ms;
+        result.active_duration_ms =
+            state.last_peak_ms - state.session_started_ms;
         return result;
     }
 
@@ -85,11 +87,13 @@ StickyShakeDetectorResult sticky_shake_detector_update(
 
     if (state.candidate_peak_count >= kRequiredStartPeakCount) {
         state.session_active = true;
-        state.session_started_ms = now_ms;
+        state.session_started_ms = state.candidate_started_ms;
         state.candidate_peak_count = 0U;
         result.candidate_peak_count = 0U;
         result.session_started = true;
         result.session_active = true;
+        result.active_duration_ms =
+            state.last_peak_ms - state.session_started_ms;
     }
     return result;
 }

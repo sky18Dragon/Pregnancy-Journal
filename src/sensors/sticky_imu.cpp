@@ -43,6 +43,7 @@ StickyImuState s_latest_state = {};
 bool s_shake_started_event_pending = false;
 bool s_shake_stopped_event_pending = false;
 bool s_shake_session_active = false;
+uint32_t s_shake_session_duration_ms = 0U;
 
 // Holds one complete movement session from the last settled pose to the next.
 // 保存从上一次放稳姿态到下一次放稳姿态的一整段移动过程。
@@ -297,6 +298,12 @@ void monitor_task(void *)
                                              sample.acceleration_y_g,
                                              sample.acceleration_z_g,
                                              now_ms);
+            if (shake.session_started || shake.session_active ||
+                shake.session_stopped) {
+                taskENTER_CRITICAL(&s_state_lock);
+                s_shake_session_duration_ms = shake.active_duration_ms;
+                taskEXIT_CRITICAL(&s_state_lock);
+            }
             if (shake.peak) {
                 STICKY_LOGD(kTag,
                             "imu=shake state=peak active=%d candidate_count=%u duration_ms=%u delta_g=%.3f",
@@ -452,6 +459,14 @@ bool sticky_imu_is_shaking()
     const bool active = s_shake_session_active;
     taskEXIT_CRITICAL(&s_state_lock);
     return active;
+}
+
+uint32_t sticky_imu_shake_duration_ms()
+{
+    taskENTER_CRITICAL(&s_state_lock);
+    const uint32_t duration_ms = s_shake_session_duration_ms;
+    taskEXIT_CRITICAL(&s_state_lock);
+    return duration_ms;
 }
 
 const char *sticky_imu_orientation_name(StickyImuOrientation orientation)

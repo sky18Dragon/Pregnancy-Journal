@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "driver/i2c_master.h"
 #include "esp_err.h"
 
@@ -45,6 +47,10 @@ bool sticky_imu_take_shake_stopped_event();
 // Reports whether effective shake peaks are still arriving continuously.
 // 返回当前是否仍在持续收到有效摇晃峰值。
 bool sticky_imu_is_shaking();
+
+// Returns the time span covered by effective peaks in the current session.
+// 返回当前摇晃会话中有效峰值实际覆盖的时间跨度。
+uint32_t sticky_imu_shake_duration_ms();
 
 // Returns the stable log and UI name for one orientation value.
 // 返回姿态对应的稳定日志与界面名称。

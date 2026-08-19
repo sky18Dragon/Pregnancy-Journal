@@ -305,8 +305,8 @@ void book_of_answers_page_render_thinking(
 {
     begin_page(canvas);
     draw_header(canvas);
-    draw_centered_text(canvas, 116, "KEEP SHAKING", 3);
-    draw_centered_text(canvas, 154, "KEEP YOUR QUESTION IN MIND", 2);
+    draw_centered_text(canvas, 116, "HOLD STILL", 3);
+    draw_centered_text(canvas, 154, "LET THE CRYSTAL SETTLE", 2);
     pixel_asset_draw_centered(
         canvas,
         240,
@@ -315,7 +315,7 @@ void book_of_answers_page_render_thinking(
             frame == BookOfAnswersAnimationFrame::Primary
                 ? BookOfAnswersAssetId::Thinking
                 : BookOfAnswersAssetId::ThinkingAlt));
-    draw_transition_footer(canvas, "LET THE CRYSTAL THINK", "THINKING...");
+    draw_transition_footer(canvas, "KEEP YOUR QUESTION IN MIND", "THINKING...");
 }
 
 void book_of_answers_page_render_revealing(
@@ -324,8 +324,8 @@ void book_of_answers_page_render_revealing(
 {
     begin_page(canvas);
     draw_header(canvas);
-    draw_centered_text(canvas, 116, "KEEP SHAKING", 3);
-    draw_centered_text(canvas, 154, "THE ANSWER IS NEAR", 3);
+    draw_centered_text(canvas, 116, "THE CRYSTAL", 3);
+    draw_centered_text(canvas, 154, "HAS DECIDED", 3);
     pixel_asset_draw_centered(
         canvas,
         240,
@@ -334,7 +334,7 @@ void book_of_answers_page_render_revealing(
             frame == BookOfAnswersAnimationFrame::Primary
                 ? BookOfAnswersAssetId::Revealing
                 : BookOfAnswersAssetId::RevealingAlt));
-    draw_transition_footer(canvas, "ONE LAST MOMENT", "REVEALING...");
+    draw_transition_footer(canvas, "YOUR ANSWER IS READY", "REVEALING...");
 }
 
 void book_of_answers_page_render_shake_longer(
