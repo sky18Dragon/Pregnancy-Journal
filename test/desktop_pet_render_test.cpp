@@ -60,7 +60,7 @@ int main()
     DesktopPetState state = {};
 
     desktop_pet_page_render_home(
-        canvas, state, DesktopPetPose::Idle,
+        canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::Normal,
         "LET'S SPEND TODAY TOGETHER.");
     assert(canvas.rotation() == CanvasRotation::Deg90CounterClockwise);
     assert(black_pixel_count(buffer) > 18000U);
@@ -77,23 +77,44 @@ int main()
     write_preview(buffer, "/tmp/desktop_pet_home.ppm");
 
     desktop_pet_page_render_home(
-        canvas, state, DesktopPetPose::Feed,
+        canvas, state, DesktopPetPose::Feed, DesktopPetIdleFrame::Normal,
         "YUM! THAT WAS DELICIOUS!");
     write_preview(buffer, "/tmp/desktop_pet_feed.ppm");
     desktop_pet_page_render_home(
-        canvas, state, DesktopPetPose::Pet,
+        canvas, state, DesktopPetPose::Pet, DesktopPetIdleFrame::Normal,
         "THAT FEELS SO NICE!");
     write_preview(buffer, "/tmp/desktop_pet_pet.ppm");
     desktop_pet_page_render_home(
-        canvas, state, DesktopPetPose::Play,
+        canvas, state, DesktopPetPose::Play, DesktopPetIdleFrame::Normal,
         "LET'S CHASE IT!");
     write_preview(buffer, "/tmp/desktop_pet_play.ppm");
 
     state.pet.needs.food = 20U;
     desktop_pet_page_render_home(
-        canvas, state, DesktopPetPose::Idle,
+        canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::Hungry,
         "CARROT. NOW. PLEASE.");
     write_preview(buffer, "/tmp/desktop_pet_hungry.ppm");
+
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::Blink,
+        "JUST A HAPPY LITTLE BLINK.");
+    write_preview(buffer, "/tmp/desktop_pet_idle_blink.ppm");
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::EarTwitch,
+        "DID YOU HEAR THAT?");
+    write_preview(buffer, "/tmp/desktop_pet_idle_ear.ppm");
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::LookAround,
+        "WHAT'S OVER THERE?");
+    write_preview(buffer, "/tmp/desktop_pet_idle_look.ppm");
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::Stretch,
+        "BIG STRETCH!");
+    write_preview(buffer, "/tmp/desktop_pet_idle_stretch.ppm");
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::Tired,
+        "RESTING MY EYES A MOMENT.");
+    write_preview(buffer, "/tmp/desktop_pet_idle_tired.ppm");
 
     desktop_pet_page_render_test(canvas, state, false);
     assert(desktop_pet_page_action_at(true, 240, 290) ==

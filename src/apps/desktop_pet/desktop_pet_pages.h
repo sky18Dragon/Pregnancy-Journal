@@ -9,6 +9,7 @@ class Canvas;
 void desktop_pet_page_render_home(Canvas &canvas,
                                   const DesktopPetState &state,
                                   DesktopPetPose pose,
+                                  DesktopPetIdleFrame idle_frame,
                                   const char *message);
 
 // Draws the accelerated-build control panel.
@@ -18,4 +19,3 @@ void desktop_pet_page_render_test(Canvas &canvas,
                                   bool reset_confirmation);
 
 DesktopPetAction desktop_pet_page_action_at(bool test_open, int x, int y);
-

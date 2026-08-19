@@ -12,6 +12,7 @@ idf_component_register(
         "apps/desktop_pet/core/pet_animation_queue.cpp"
         "apps/desktop_pet/core/pet_core.cpp"
         "apps/desktop_pet/core/pet_dialogue.cpp"
+        "apps/desktop_pet/core/pet_idle_scheduler.cpp"
         "apps/desktop_pet/core/pet_rtc_time.cpp"
         "apps/desktop_pet/core/pet_save_record.cpp"
         "apps/pomodoro/pomodoro_app.cpp"

@@ -29,6 +29,16 @@ enum class DesktopPetPose : uint8_t {
     Play,
 };
 
+enum class DesktopPetIdleFrame : uint8_t {
+    Normal,
+    Blink,
+    EarTwitch,
+    LookAround,
+    Stretch,
+    Hungry,
+    Tired,
+};
+
 constexpr uint32_t kDesktopPetStateVersion = 3U;
 
 struct DesktopPetState {

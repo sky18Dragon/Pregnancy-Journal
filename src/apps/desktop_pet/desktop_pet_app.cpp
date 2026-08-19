@@ -7,7 +7,9 @@
 #include "desktop_pet_pages.h"
 #include "desktop_pet_state.h"
 #include "desktop_pet_storage.h"
+#include "pet_animation_queue.h"
 #include "pet_dialogue.h"
+#include "pet_idle_scheduler.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -32,11 +34,16 @@ Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
 DesktopPetState s_state = {};
 DesktopPetPose s_pose = DesktopPetPose::Idle;
+DesktopPetIdleFrame s_idle_frame = DesktopPetIdleFrame::Normal;
 const char *s_message = kHomeMessage;
 const char *s_home_message = kHomeMessage;
 bool s_test_open = false;
 bool s_reset_confirmation = false;
 int64_t s_pose_deadline_us = 0;
+int64_t s_idle_next_us = 0;
+PetAnimationQueue s_idle_animation;
+PetIdleAction s_previous_idle_action = PetIdleAction::None;
+PetIdleAction s_second_previous_idle_action = PetIdleAction::None;
 #if STICKY_DESKTOP_PET_TEST_MODE
 int64_t s_day_deadline_us = 0;
 #endif
@@ -91,9 +98,170 @@ void render_current_page(bool partial_refresh, bool timing_log = true)
             *s_canvas, s_state, s_reset_confirmation);
     } else {
         desktop_pet_page_render_home(
-            *s_canvas, s_state, s_pose, s_message);
+            *s_canvas, s_state, s_pose, s_idle_frame, s_message);
     }
     refresh_display(partial_refresh, timing_log);
+}
+
+DesktopPetIdleFrame idle_frame_for_action(PetIdleAction action)
+{
+    switch (action) {
+    case PetIdleAction::Blink:
+        return DesktopPetIdleFrame::Blink;
+    case PetIdleAction::EarTwitch:
+        return DesktopPetIdleFrame::EarTwitch;
+    case PetIdleAction::LookAround:
+        return DesktopPetIdleFrame::LookAround;
+    case PetIdleAction::Stretch:
+        return DesktopPetIdleFrame::Stretch;
+    case PetIdleAction::Hungry:
+        return DesktopPetIdleFrame::Hungry;
+    case PetIdleAction::Tired:
+        return DesktopPetIdleFrame::Tired;
+    case PetIdleAction::None:
+    default:
+        return DesktopPetIdleFrame::Normal;
+    }
+}
+
+void enqueue_idle_frame(DesktopPetIdleFrame frame,
+                        uint16_t duration_ms,
+                        uint32_t now_ms)
+{
+    PetAnimationNode node = {};
+    node.type = PetAnimationNodeType::Pose;
+    node.asset_id = static_cast<uint16_t>(frame);
+    node.duration_ms = duration_ms;
+    s_idle_animation.enqueue(node, now_ms);
+}
+
+void schedule_next_idle(int64_t now_us)
+{
+    const uint32_t random_value =
+        static_cast<uint32_t>(now_us / 1000LL) ^
+        static_cast<uint32_t>(s_state.pet.day * 2654435761U);
+    const uint32_t delay_ms = pet_idle_next_delay_ms(
+        random_value,
+#if STICKY_DESKTOP_PET_TEST_MODE
+        true
+#else
+        false
+#endif
+    );
+    s_idle_next_us = now_us + static_cast<int64_t>(delay_ms) * 1000LL;
+}
+
+void cancel_idle_animation(bool schedule_next)
+{
+    s_idle_animation.reset();
+    s_idle_frame = DesktopPetIdleFrame::Normal;
+    s_idle_next_us = 0;
+    if (schedule_next) {
+        schedule_next_idle(esp_timer_get_time());
+    }
+}
+
+// Builds one non-blocking frame sequence for the selected idle action.
+// 为选中的待机动作建立一段非阻塞帧序列。
+void start_idle_animation(int64_t now_us)
+{
+    const uint32_t now_ms = static_cast<uint32_t>(now_us / 1000LL);
+    const PetIdleAction action = pet_idle_select(
+        s_state.pet,
+        s_previous_idle_action,
+        s_second_previous_idle_action,
+        now_ms ^ static_cast<uint32_t>(s_state.pet.bond * 97U));
+    s_second_previous_idle_action = s_previous_idle_action;
+    s_previous_idle_action = action;
+    s_idle_animation.reset();
+
+    const DesktopPetIdleFrame action_frame = idle_frame_for_action(action);
+    switch (action) {
+    case PetIdleAction::EarTwitch:
+        enqueue_idle_frame(action_frame, 900U, now_ms);
+        enqueue_idle_frame(DesktopPetIdleFrame::Normal, 350U, now_ms);
+        enqueue_idle_frame(action_frame, 900U, now_ms);
+        enqueue_idle_frame(DesktopPetIdleFrame::Normal, 650U, now_ms);
+        break;
+    case PetIdleAction::Blink:
+        enqueue_idle_frame(action_frame, 900U, now_ms);
+        enqueue_idle_frame(DesktopPetIdleFrame::Normal, 650U, now_ms);
+        break;
+    case PetIdleAction::LookAround:
+        enqueue_idle_frame(action_frame, 1600U, now_ms);
+        enqueue_idle_frame(DesktopPetIdleFrame::Normal, 650U, now_ms);
+        break;
+    case PetIdleAction::Stretch:
+        enqueue_idle_frame(action_frame, 1800U, now_ms);
+        enqueue_idle_frame(DesktopPetIdleFrame::Normal, 650U, now_ms);
+        break;
+    case PetIdleAction::Hungry:
+        enqueue_idle_frame(action_frame, 2000U, now_ms);
+        enqueue_idle_frame(DesktopPetIdleFrame::Normal, 650U, now_ms);
+        break;
+    case PetIdleAction::Tired:
+        enqueue_idle_frame(action_frame, 2300U, now_ms);
+        enqueue_idle_frame(DesktopPetIdleFrame::Normal, 650U, now_ms);
+        break;
+    case PetIdleAction::None:
+    default:
+        schedule_next_idle(now_us);
+        return;
+    }
+
+    s_idle_next_us = 0;
+    s_idle_frame = action_frame;
+    s_message = pet_idle_message(action);
+#if STICKY_LOG_PET_ANIMATION_ENABLED
+    STICKY_LOGD(kTag,
+                "pet=idle action=%s queue_size=%u result=start",
+                pet_idle_action_name(action),
+                static_cast<unsigned>(s_idle_animation.size()));
+#endif
+    render_current_page(true, false);
+}
+
+// Advances autonomous frames without blocking touch processing.
+// 推进自主动作帧，同时保持触摸处理不被阻塞。
+void update_idle_animation(int64_t now_us)
+{
+    if (s_test_open || s_pose != DesktopPetPose::Idle ||
+        s_pose_deadline_us > 0) {
+        return;
+    }
+
+    const uint32_t now_ms = static_cast<uint32_t>(now_us / 1000LL);
+    if (s_idle_animation.playing()) {
+        s_idle_animation.update(now_ms);
+        const PetAnimationNode *node = s_idle_animation.current();
+        const DesktopPetIdleFrame next_frame = node == nullptr
+                                                   ? DesktopPetIdleFrame::Normal
+                                                   : static_cast<DesktopPetIdleFrame>(
+                                                         node->asset_id);
+        if (next_frame != s_idle_frame) {
+            s_idle_frame = next_frame;
+            if (s_idle_frame == DesktopPetIdleFrame::Normal) {
+                s_message = s_home_message;
+            }
+#if STICKY_LOG_PET_ANIMATION_ENABLED
+            STICKY_LOGD(kTag,
+                        "pet=idle frame=%u queue_size=%u",
+                        static_cast<unsigned>(s_idle_frame),
+                        static_cast<unsigned>(s_idle_animation.size()));
+#endif
+            render_current_page(true, false);
+        }
+        if (!s_idle_animation.playing()) {
+            schedule_next_idle(now_us);
+        }
+        return;
+    }
+
+    if (s_idle_next_us == 0) {
+        schedule_next_idle(now_us);
+    } else if (now_us >= s_idle_next_us) {
+        start_idle_animation(now_us);
+    }
 }
 
 void save_state(const char *reason)
@@ -126,7 +294,9 @@ void handle_test_action(DesktopPetAction action)
         s_home_message = select_home_message();
         s_message = s_home_message;
         s_pose = DesktopPetPose::Idle;
+        s_idle_frame = DesktopPetIdleFrame::Normal;
         s_pose_deadline_us = 0;
+        schedule_next_idle(esp_timer_get_time());
         sticky_touch_clear_press();
         render_current_page(true);
         return;
@@ -177,6 +347,7 @@ void handle_action(DesktopPetAction action)
         handle_test_action(action);
         return;
     }
+    cancel_idle_animation(false);
     if (action == DesktopPetAction::OpenTest) {
         s_test_open = true;
         s_reset_confirmation = false;
@@ -191,6 +362,7 @@ void handle_action(DesktopPetAction action)
         return;
     }
     s_pose = result.pose;
+    s_idle_frame = DesktopPetIdleFrame::Normal;
     s_message = result.message;
     s_home_message = select_home_message();
     save_state(desktop_pet_action_name(action));
@@ -251,9 +423,12 @@ void app_task(void *)
     }
 
     sticky_touch_clear_press();
+    s_idle_animation.reset();
+    s_idle_frame = DesktopPetIdleFrame::Normal;
     s_home_message = select_home_message();
     s_message = s_home_message;
     render_current_page(false);
+    schedule_next_idle(esp_timer_get_time());
 #if STICKY_DESKTOP_PET_TEST_MODE
     s_day_deadline_us = esp_timer_get_time() +
                         static_cast<int64_t>(kDesktopPetTestDayLengthMs) *
@@ -283,13 +458,18 @@ void app_task(void *)
         if (!s_test_open && s_pose_deadline_us > 0 &&
             now_us >= s_pose_deadline_us) {
             s_pose = DesktopPetPose::Idle;
+            s_idle_frame = DesktopPetIdleFrame::Normal;
             s_message = s_home_message;
             s_pose_deadline_us = 0;
             render_current_page(true, false);
+            schedule_next_idle(esp_timer_get_time());
         }
+
+        update_idle_animation(now_us);
 
 #if STICKY_DESKTOP_PET_TEST_MODE
         if (s_day_deadline_us > 0 && now_us >= s_day_deadline_us) {
+            cancel_idle_animation(false);
             desktop_pet_state_advance_day(s_state);
             s_day_deadline_us +=
                 static_cast<int64_t>(kDesktopPetTestDayLengthMs) * 1000LL;

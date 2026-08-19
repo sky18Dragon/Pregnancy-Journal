@@ -147,7 +147,50 @@ void draw_speech_bubble(Canvas &canvas, const char *message)
     }
 }
 
-DesktopPetAssetId pose_asset(DesktopPetPose pose)
+DesktopPetAssetId idle_frame_asset(DesktopPetIdleFrame frame)
+{
+    switch (frame) {
+    case DesktopPetIdleFrame::Blink:
+        return DesktopPetAssetId::IdleBlink;
+    case DesktopPetIdleFrame::EarTwitch:
+        return DesktopPetAssetId::IdleEarTwitch;
+    case DesktopPetIdleFrame::LookAround:
+        return DesktopPetAssetId::IdleLookAround;
+    case DesktopPetIdleFrame::Stretch:
+        return DesktopPetAssetId::IdleStretch;
+    case DesktopPetIdleFrame::Hungry:
+        return DesktopPetAssetId::IdleHungry;
+    case DesktopPetIdleFrame::Tired:
+        return DesktopPetAssetId::IdleTired;
+    case DesktopPetIdleFrame::Normal:
+    default:
+        return DesktopPetAssetId::Idle;
+    }
+}
+
+DesktopPetAssetId idle_frame_mask_asset(DesktopPetIdleFrame frame)
+{
+    switch (frame) {
+    case DesktopPetIdleFrame::Blink:
+        return DesktopPetAssetId::IdleBlinkMask;
+    case DesktopPetIdleFrame::EarTwitch:
+        return DesktopPetAssetId::IdleEarTwitchMask;
+    case DesktopPetIdleFrame::LookAround:
+        return DesktopPetAssetId::IdleLookAroundMask;
+    case DesktopPetIdleFrame::Stretch:
+        return DesktopPetAssetId::IdleStretchMask;
+    case DesktopPetIdleFrame::Hungry:
+        return DesktopPetAssetId::IdleHungryMask;
+    case DesktopPetIdleFrame::Tired:
+        return DesktopPetAssetId::IdleTiredMask;
+    case DesktopPetIdleFrame::Normal:
+    default:
+        return DesktopPetAssetId::IdleMask;
+    }
+}
+
+DesktopPetAssetId pose_asset(DesktopPetPose pose,
+                             DesktopPetIdleFrame idle_frame)
 {
     switch (pose) {
     case DesktopPetPose::Feed:
@@ -158,11 +201,12 @@ DesktopPetAssetId pose_asset(DesktopPetPose pose)
         return DesktopPetAssetId::Play;
     case DesktopPetPose::Idle:
     default:
-        return DesktopPetAssetId::Idle;
+        return idle_frame_asset(idle_frame);
     }
 }
 
-DesktopPetAssetId pose_mask_asset(DesktopPetPose pose)
+DesktopPetAssetId pose_mask_asset(DesktopPetPose pose,
+                                  DesktopPetIdleFrame idle_frame)
 {
     switch (pose) {
     case DesktopPetPose::Feed:
@@ -173,7 +217,7 @@ DesktopPetAssetId pose_mask_asset(DesktopPetPose pose)
         return DesktopPetAssetId::PlayMask;
     case DesktopPetPose::Idle:
     default:
-        return DesktopPetAssetId::IdleMask;
+        return idle_frame_mask_asset(idle_frame);
     }
 }
 
@@ -217,6 +261,7 @@ void draw_action(Canvas &canvas,
 void desktop_pet_page_render_home(Canvas &canvas,
                                   const DesktopPetState &state,
                                   DesktopPetPose pose,
+                                  DesktopPetIdleFrame idle_frame,
                                   const char *message)
 {
     canvas.set_rotation(CanvasRotation::Deg90CounterClockwise);
@@ -254,10 +299,12 @@ void desktop_pet_page_render_home(Canvas &canvas,
     pixel_asset_draw(canvas, 20, 226,
                      desktop_pet_asset(DesktopPetAssetId::Room));
     pixel_asset_draw_centered(canvas, 240, 411,
-                              desktop_pet_asset(pose_mask_asset(pose)),
+                              desktop_pet_asset(
+                                  pose_mask_asset(pose, idle_frame)),
                               1, GrayLevel::White);
     pixel_asset_draw_centered(canvas, 240, 411,
-                              desktop_pet_asset(pose_asset(pose)));
+                              desktop_pet_asset(
+                                  pose_asset(pose, idle_frame)));
     draw_speech_bubble(canvas, message);
 
     canvas.fill_rect(14, 599, 452, 3, GrayLevel::Black);

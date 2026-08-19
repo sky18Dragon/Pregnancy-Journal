@@ -294,6 +294,8 @@ The existing `desktop_pet_app`, `desktop_pet_pages`, `desktop_pet_state`, and `d
 
 The Hatchling home screen maps direct taps on the rabbit body to petting. The bottom action row contains `FEED`, `TALK`, and `PLAY`. `TALK` selects urgent need dialogue first, then uses bond ranges `0-34`, `35-69`, and `70-100` for increasingly familiar lines. Talking does not award growth or bond points, and its selected line remains visible for four seconds.
 
+The Hatchling also runs a non-blocking autonomous behavior loop. Common actions include blinking, a two-step ear twitch, looking around, and a full-body stretch. Hungry and tired moods add dedicated belly-holding and resting poses. Each action uses the shared fixed animation queue, avoids the two most recent selections, synchronizes its dialogue with the visible pose, and yields immediately when a touch action arrives. Development timing is 4-8 seconds between sequences; production timing is 12-28 seconds.
+
 The framework stays independent from the display, touch controller, IMU, NVS driver, and RTC driver. Native tests can therefore validate pet behavior on a computer. The NVS and PCF8563 hardware adapters remain explicit integration tasks.
 
 ## Open-Source Source Library

@@ -5,6 +5,7 @@
 #include "pet_animation_queue.h"
 #include "pet_core.h"
 #include "pet_dialogue.h"
+#include "pet_idle_scheduler.h"
 #include "pet_rtc_time.h"
 #include "pet_save_record.h"
 
@@ -137,6 +138,30 @@ int main()
     assert(close_talk != nullptr);
     assert(close_talk->minimum_bond == 70U);
     assert(close_talk->maximum_bond == 100U);
+
+    PetCoreState idle_pet = {};
+    PetIdleAction previous_idle = PetIdleAction::None;
+    PetIdleAction second_previous_idle = PetIdleAction::None;
+    for (uint32_t index = 0U; index < 12U; ++index) {
+        const PetIdleAction selected = pet_idle_select(
+            idle_pet, previous_idle, second_previous_idle, index);
+        assert(selected != PetIdleAction::None);
+        assert(selected != previous_idle);
+        assert(selected != second_previous_idle);
+        second_previous_idle = previous_idle;
+        previous_idle = selected;
+    }
+    idle_pet.needs.food = 20U;
+    const PetIdleAction hungry_idle = pet_idle_select(
+        idle_pet, PetIdleAction::Blink, PetIdleAction::EarTwitch, 1U);
+    assert(hungry_idle == PetIdleAction::Hungry);
+    idle_pet.needs.food = 80U;
+    idle_pet.needs.energy = 20U;
+    const PetIdleAction tired_idle = pet_idle_select(
+        idle_pet, PetIdleAction::Blink, PetIdleAction::EarTwitch, 1U);
+    assert(tired_idle == PetIdleAction::Tired);
+    assert(pet_idle_next_delay_ms(0U, true) == 4000U);
+    assert(pet_idle_next_delay_ms(0U, false) == 12000U);
 
     PetAnimationQueue queue;
     queue.reset();

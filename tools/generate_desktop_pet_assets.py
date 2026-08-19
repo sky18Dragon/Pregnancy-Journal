@@ -185,6 +185,12 @@ def main() -> None:
     specs = [
         AssetSpec("room", source_dir / "room_background.png", 440, 340, "crop=1350:1040:0:62"),
         AssetSpec("idle", source_dir / "hatchling_idle.png", 220, 220, "crop=920:920:167:167", True),
+        AssetSpec("idle_blink", source_dir / "hatchling_blink.png", 220, 220, "crop=920:920:167:167", True),
+        AssetSpec("idle_ear_twitch", source_dir / "hatchling_ear_twitch.png", 220, 220, "crop=1000:1000:127:127", True),
+        AssetSpec("idle_look_around", source_dir / "hatchling_look.png", 220, 220, "crop=1000:1000:127:127", True),
+        AssetSpec("idle_stretch", source_dir / "hatchling_stretch.png", 220, 220, "crop=1150:1150:52:52", True),
+        AssetSpec("idle_hungry", source_dir / "hatchling_hungry.png", 220, 220, "crop=1000:1000:127:127", True),
+        AssetSpec("idle_tired", source_dir / "hatchling_tired.png", 220, 220, "crop=1000:1000:127:127", True),
         AssetSpec("feed", source_dir / "hatchling_feed.png", 220, 220, "crop=920:920:167:167", True),
         AssetSpec("pet", source_dir / "hatchling_pet.png", 220, 220, "crop=920:920:167:167", True),
         AssetSpec("play", source_dir / "hatchling_play.png", 220, 220, "crop=1000:1000:127:127", True),
@@ -205,7 +211,7 @@ def main() -> None:
     header_path = args.root / "src" / "ui" / "assets" / "desktop_pet_assets.h"
     source_path = args.root / "src" / "ui" / "assets" / "desktop_pet_assets.cpp"
     header_path.write_text(
-        """#pragma once\n\n#include \"pixel_asset.h\"\n\nenum class DesktopPetAssetId : uint8_t {\n    Room,\n    Idle,\n    IdleMask,\n    Feed,\n    FeedMask,\n    Pet,\n    PetMask,\n    Play,\n    PlayMask,\n    FeedIcon,\n    PetIcon,\n    TalkIcon,\n    PlayIcon,\n    LoveIcon,\n};\n\n// Returns one generated desktop-pet bitmap.\n// 返回一张已生成的桌宠位图。\nconst PixelAsset &desktop_pet_asset(DesktopPetAssetId id);\n""",
+        """#pragma once\n\n#include \"pixel_asset.h\"\n\nenum class DesktopPetAssetId : uint8_t {\n    Room,\n    Idle,\n    IdleMask,\n    IdleBlink,\n    IdleBlinkMask,\n    IdleEarTwitch,\n    IdleEarTwitchMask,\n    IdleLookAround,\n    IdleLookAroundMask,\n    IdleStretch,\n    IdleStretchMask,\n    IdleHungry,\n    IdleHungryMask,\n    IdleTired,\n    IdleTiredMask,\n    Feed,\n    FeedMask,\n    Pet,\n    PetMask,\n    Play,\n    PlayMask,\n    FeedIcon,\n    PetIcon,\n    TalkIcon,\n    PlayIcon,\n    LoveIcon,\n};\n\n// Returns one generated desktop-pet bitmap.\n// 返回一张已生成的桌宠位图。\nconst PixelAsset &desktop_pet_asset(DesktopPetAssetId id);\n""",
         encoding="utf-8",
     )
 
