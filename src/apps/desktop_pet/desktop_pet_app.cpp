@@ -25,6 +25,7 @@ constexpr TickType_t kPollInterval = pdMS_TO_TICKS(30);
 constexpr uint32_t kTaskStackSize = 6144;
 constexpr UBaseType_t kTaskPriority = 3;
 constexpr int64_t kActionPoseHoldUs = 1300000LL;
+constexpr int64_t kTalkMessageHoldUs = 4000000LL;
 constexpr char kHomeMessage[] = "LET'S SPEND TODAY TOGETHER.";
 
 Canvas *s_canvas = nullptr;
@@ -208,7 +209,10 @@ void handle_action(DesktopPetAction action)
     // Hold time begins after the e-paper refresh finishes so the complete
     // pose remains visible for the requested duration.
     // 电子纸刷新完成后再开始计时，确保完整动作真正显示足够时长。
-    s_pose_deadline_us = esp_timer_get_time() + kActionPoseHoldUs;
+    const int64_t hold_us = action == DesktopPetAction::Talk
+                                ? kTalkMessageHoldUs
+                                : kActionPoseHoldUs;
+    s_pose_deadline_us = esp_timer_get_time() + hold_us;
 }
 
 DesktopPetAction action_for_press(const StickyTouchPress &press)

@@ -12,6 +12,7 @@ enum class DesktopPetAction : uint8_t {
     None,
     Feed,
     Pet,
+    Talk,
     Play,
     OpenTest,
     CloseTest,

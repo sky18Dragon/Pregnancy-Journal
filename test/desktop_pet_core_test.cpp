@@ -116,6 +116,28 @@ int main()
     assert(first_line->id != second_line->id);
     assert(pet_dialogue_text_bytes() < 4096U);
 
+    PetCoreState talking = {};
+    const PetDialogueEntry *talk_lines[6] = {};
+    for (uint32_t index = 0U; index < 6U; ++index) {
+        talk_lines[index] = pet_dialogue_pick(
+            talking, PetDialogueContext::Talk, index);
+        assert(talk_lines[index] != nullptr);
+        assert(talk_lines[index]->minimum_bond == 0U);
+        assert(talk_lines[index]->maximum_bond == 34U);
+        for (uint32_t earlier = 0U; earlier < index; ++earlier) {
+            assert(talk_lines[index]->id != talk_lines[earlier]->id);
+        }
+    }
+    talking.bond = 70U;
+    std::memset(talking.recent_dialogue_ids,
+                0,
+                sizeof(talking.recent_dialogue_ids));
+    const PetDialogueEntry *close_talk = pet_dialogue_pick(
+        talking, PetDialogueContext::Talk, 0U);
+    assert(close_talk != nullptr);
+    assert(close_talk->minimum_bond == 70U);
+    assert(close_talk->maximum_bond == 100U);
+
     PetAnimationQueue queue;
     queue.reset();
     PetAnimationNode pose = {};

@@ -67,9 +67,11 @@ int main()
     assert(desktop_pet_page_action_at(false, 80, 680) ==
            DesktopPetAction::Feed);
     assert(desktop_pet_page_action_at(false, 240, 680) ==
-           DesktopPetAction::Pet);
+           DesktopPetAction::Talk);
     assert(desktop_pet_page_action_at(false, 400, 680) ==
            DesktopPetAction::Play);
+    assert(desktop_pet_page_action_at(false, 240, 500) ==
+           DesktopPetAction::Pet);
     assert(desktop_pet_page_action_at(false, 440, 35) ==
            DesktopPetAction::OpenTest);
     write_preview(buffer, "/tmp/desktop_pet_home.ppm");

@@ -65,6 +65,63 @@ int main()
     assert(play.pose == DesktopPetPose::Play);
     assert(state.pet.active_score == 6U);
 
+    DesktopPetState talk_state = {};
+    const uint16_t growth_before_talk = talk_state.pet.growth;
+    const uint8_t love_before_talk = talk_state.pet.bond;
+    const char *talk_lines[6] = {};
+    for (size_t index = 0U; index < 6U; ++index) {
+        const DesktopPetActionResult talk = desktop_pet_state_apply(
+            talk_state, DesktopPetAction::Talk);
+        assert(talk.changed);
+        assert(!talk.rewarded);
+        assert(talk.pose == DesktopPetPose::Idle);
+        assert(talk.message != nullptr);
+        talk_lines[index] = talk.message;
+        for (size_t earlier = 0U; earlier < index; ++earlier) {
+            assert(std::strcmp(talk_lines[index], talk_lines[earlier]) != 0);
+        }
+    }
+    assert(talk_state.pet.growth == growth_before_talk);
+    assert(talk_state.pet.bond == love_before_talk);
+
+    talk_state.pet.bond = 50U;
+    std::memset(talk_state.pet.recent_dialogue_ids,
+                0,
+                sizeof(talk_state.pet.recent_dialogue_ids));
+    const DesktopPetActionResult familiar_talk = desktop_pet_state_apply(
+        talk_state, DesktopPetAction::Talk);
+    assert(std::strcmp(familiar_talk.message,
+                       "I'M GLAD YOU CAME BACK.") == 0 ||
+           std::strcmp(familiar_talk.message,
+                       "TELL ME ABOUT YOUR DAY.") == 0 ||
+           std::strcmp(familiar_talk.message,
+                       "SHALL WE HOP SOMEWHERE?") == 0 ||
+           std::strcmp(familiar_talk.message,
+                       "YOU MAKE THIS ROOM FEEL WARM.") == 0 ||
+           std::strcmp(familiar_talk.message,
+                       "I SAVED THIS SPOT FOR YOU.") == 0 ||
+           std::strcmp(familiar_talk.message,
+                       "LET'S SPEND MORE TIME TOGETHER.") == 0);
+
+    talk_state.pet.bond = 80U;
+    std::memset(talk_state.pet.recent_dialogue_ids,
+                0,
+                sizeof(talk_state.pet.recent_dialogue_ids));
+    const DesktopPetActionResult close_talk = desktop_pet_state_apply(
+        talk_state, DesktopPetAction::Talk);
+    assert(std::strcmp(close_talk.message,
+                       "YOU'RE MY FAVORITE PERSON.") == 0 ||
+           std::strcmp(close_talk.message,
+                       "I TRUST YOU WITH MY CARROTS.") == 0 ||
+           std::strcmp(close_talk.message,
+                       "EVERY DAY IS BETTER WITH YOU.") == 0 ||
+           std::strcmp(close_talk.message,
+                       "I KNEW YOU WOULD COME BACK.") == 0 ||
+           std::strcmp(close_talk.message,
+                       "LET'S STAY TOGETHER A WHILE.") == 0 ||
+           std::strcmp(close_talk.message,
+                       "HOME IS WHERE YOU ARE.") == 0);
+
     desktop_pet_state_advance_day(state);
     assert(state.pet.day == 2U);
     assert(state.pet.needs.food == 76U);

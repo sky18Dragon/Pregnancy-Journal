@@ -292,6 +292,8 @@ The independent framework currently contains:
 
 The existing `desktop_pet_app`, `desktop_pet_pages`, `desktop_pet_state`, and `desktop_pet_storage` modules run the approved Hatchling UI and now use `PetCoreState` for visible care values. The state wrapper keeps UI actions separate from the reusable rule engine, while storage migrates version-2 Hatchling values into version 3.
 
+The Hatchling home screen maps direct taps on the rabbit body to petting. The bottom action row contains `FEED`, `TALK`, and `PLAY`. `TALK` selects urgent need dialogue first, then uses bond ranges `0-34`, `35-69`, and `70-100` for increasingly familiar lines. Talking does not award growth or bond points, and its selected line remains visible for four seconds.
+
 The framework stays independent from the display, touch controller, IMU, NVS driver, and RTC driver. Native tests can therefore validate pet behavior on a computer. The NVS and PCF8563 hardware adapters remain explicit integration tasks.
 
 ## Open-Source Source Library
@@ -347,7 +349,7 @@ The first vertical slice covers the complete Hatchling experience:
 
 - New pet state and egg hatching
 - Hatchling home page
-- Feed, pet, and play actions
+- Feed, direct-pet, talk, and play actions
 - Growth and affection rewards
 - Daily caps and date rollover
 - Persistent save and reload

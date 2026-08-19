@@ -18,6 +18,7 @@ enum class PetDialogueContext : uint8_t {
     Tired,
     Feed,
     Pet,
+    Talk,
     Play,
     Clean,
     EvolutionReady,

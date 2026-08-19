@@ -27,8 +27,9 @@ struct Rect {
 
 constexpr Rect kTestBadgeRect = {390, 12, 90, 72};
 constexpr Rect kFeedRect = {0, 600, 160, 170};
-constexpr Rect kPetRect = {160, 600, 160, 170};
+constexpr Rect kTalkRect = {160, 600, 160, 170};
 constexpr Rect kPlayRect = {320, 600, 160, 170};
+constexpr Rect kPetBodyRect = {125, 380, 230, 210};
 
 constexpr Rect kCloseTestRect = {360, 20, 100, 55};
 constexpr Rect kNextDayRect = {35, 255, 410, 70};
@@ -211,6 +212,28 @@ void draw_action(Canvas &canvas,
                      715, label, 3);
 }
 
+// Draws the pixel speech-bubble icon used by the TALK action.
+// 绘制TALK操作使用的像素对话框图标。
+void draw_talk_action(Canvas &canvas, int center_x)
+{
+    constexpr int width = 68;
+    constexpr int height = 42;
+    const int x = center_x - width / 2;
+    const int y = 654;
+    canvas.draw_rect(x, y, width, height, GrayLevel::Black);
+    canvas.draw_rect(x + 2, y + 2, width - 4, height - 4,
+                     GrayLevel::Black);
+    canvas.draw_line(x + 18, y + height - 1,
+                     x + 24, y + height + 8, GrayLevel::Black);
+    canvas.draw_line(x + 24, y + height + 8,
+                     x + 31, y + height - 1, GrayLevel::Black);
+    canvas.fill_rect(x + 14, y + 17, 6, 6, GrayLevel::Black);
+    canvas.fill_rect(x + 31, y + 17, 6, 6, GrayLevel::Black);
+    canvas.fill_rect(x + 48, y + 17, 6, 6, GrayLevel::Black);
+    canvas.draw_text(center_x - text_width("TALK", 3) / 2,
+                     715, "TALK", 3);
+}
+
 }  // namespace
 
 void desktop_pet_page_render_home(Canvas &canvas,
@@ -265,7 +288,7 @@ void desktop_pet_page_render_home(Canvas &canvas,
         canvas.draw_line(320, y, 320, y + 3, GrayLevel::Black);
     }
     draw_action(canvas, 80, DesktopPetAssetId::FeedIcon, "FEED");
-    draw_action(canvas, 240, DesktopPetAssetId::PetIcon, "PET");
+    draw_talk_action(canvas, 240);
     draw_action(canvas, 400, DesktopPetAssetId::PlayIcon, "PLAY");
 
     char day_label[16] = {};
@@ -321,11 +344,14 @@ DesktopPetAction desktop_pet_page_action_at(bool test_open, int x, int y)
             return DesktopPetAction::OpenTest;
         }
 #endif
+        if (kPetBodyRect.contains(x, y)) {
+            return DesktopPetAction::Pet;
+        }
         if (kFeedRect.contains(x, y)) {
             return DesktopPetAction::Feed;
         }
-        if (kPetRect.contains(x, y)) {
-            return DesktopPetAction::Pet;
+        if (kTalkRect.contains(x, y)) {
+            return DesktopPetAction::Talk;
         }
         if (kPlayRect.contains(x, y)) {
             return DesktopPetAction::Play;

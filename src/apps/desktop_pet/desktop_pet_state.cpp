@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include "pet_dialogue.h"
+
 namespace {
 
 const PetCoreProfile &active_profile()
@@ -93,6 +95,29 @@ DesktopPetActionResult apply_care(DesktopPetState &state,
     return result;
 }
 
+// Selects urgent-state dialogue or a bond-matched conversation line.
+// 选择紧急状态对白，或匹配当前亲密度的聊天台词。
+DesktopPetActionResult apply_talk(DesktopPetState &state)
+{
+    PetDialogueContext context =
+        pet_dialogue_context_for_state(state.pet);
+    if (context == PetDialogueContext::Idle) {
+        context = PetDialogueContext::Talk;
+    }
+    const uint32_t random_value =
+        static_cast<uint32_t>(state.pet.day) * 2654435761U +
+        static_cast<uint32_t>(state.pet.bond) * 97U +
+        state.pet.recent_dialogue_ids[0];
+    const PetDialogueEntry *entry = pet_dialogue_pick(
+        state.pet, context, random_value);
+    return {true,
+            false,
+            0U,
+            0U,
+            DesktopPetPose::Idle,
+            entry == nullptr ? "I'M LISTENING." : entry->text};
+}
+
 }  // namespace
 
 DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
@@ -103,6 +128,8 @@ DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
     case DesktopPetAction::Pet:
     case DesktopPetAction::Play:
         return apply_care(state, action);
+    case DesktopPetAction::Talk:
+        return apply_talk(state);
     case DesktopPetAction::NextDay:
         desktop_pet_state_advance_day(state);
         return {true, false, 0U, 0U, DesktopPetPose::Idle,
@@ -198,6 +225,8 @@ const char *desktop_pet_action_name(DesktopPetAction action)
         return "feed";
     case DesktopPetAction::Pet:
         return "pet";
+    case DesktopPetAction::Talk:
+        return "talk";
     case DesktopPetAction::Play:
         return "play";
     case DesktopPetAction::OpenTest:
