@@ -8,6 +8,8 @@ This directory stores the original monochrome visual system for the Sticky deskt
 - `source/`: approved high-resolution source artwork for each life stage and action.
 - `firmware/`: generated one-bit previews that match the packed firmware assets.
 - `qa/`: portrait firmware render and side-by-side reference comparison.
+- `library/`: audited dialogue sources and machine-readable behavior rules with
+  exact upstream provenance.
 
 ## Current Reference
 

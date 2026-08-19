@@ -152,9 +152,11 @@ The accelerated rewards will still pass through the normal daily counters and ca
 
 ### Current Implemented Slice
 
-The current firmware implements the Hatchling home and stops growth at the `30`-point Child boundary. Reaching the boundary emits `I'M READY TO GROW!` once, then the home dialogue returns to its normal message. Feed, pet, and play remain interactive at the boundary and continue to follow their daily affection and personality rules.
+The current visible firmware implements the Hatchling home and stops growth at the `30`-point Child boundary. Reaching the boundary emits `I'M READY TO GROW!` once, then the home dialogue returns to its normal message. Feed, pet, and play remain interactive at the boundary and continue to follow their daily affection and personality rules.
 
-Egg hatching, the Child page, evolution transitions, and later stage artwork are the next independent feature blocks. Their addition will remove the temporary Hatchling boundary cap while retaining the same saved progress and test profile.
+An independent core framework now exists under `src/apps/desktop_pet/core/`. It models six life stages, food, joy, energy, hygiene, seven relationship moods plus urgent need states, sleep, waste, care mistakes, bond, streaks, personality evidence, evolution readiness, dialogue history, bounded offline progression, a fixed animation queue, RTC conversion, and validated two-slot save records.
+
+The new framework is intentionally not connected to the approved Hatchling UI in this slice. Egg hatching, the Child page, evolution transitions, and later stage artwork remain the next visual feature blocks. The following integration slice will adapt the existing home controls and NVS backend to the core one subsystem at a time.
 
 ### Production Profile
 
@@ -248,7 +250,9 @@ The firmware stores dialogue as data, allowing new lines to be added without cha
 
 The pet engine receives time through a clock interface.
 
-Production mode uses the device's trusted local date. A date becomes trusted after the normal product time source has been initialized. The daily rollover is applied once for each newly observed trusted date.
+Production mode uses the device's PCF8563 RTC as the trusted local date source. The hardware adapter validates the calendar fields and passes them to `pet_rtc_time`, which converts the value to a continuous epoch timestamp. The adapter marks the first saved-time catch-up as offline and later running updates as online. The core then performs daily rollover and limits one offline catch-up to fourteen days.
+
+Food is a simulated pet need. Awake time lowers food according to the active balance profile, sleeping lowers it more slowly, and feeding restores it directly. Device battery level remains independent from this loop.
 
 Development mode provides controlled time:
 
@@ -274,19 +278,30 @@ The animation controller redraws only the pet and nearby prop region during an a
 
 The display policy tracks visible partial refreshes and requests a cleanup refresh at a threshold verified on Sticky hardware.
 
-## Planned Software Modules
+## Core Software Modules
 
-The implementation will use these independent modules:
+The independent framework currently contains:
 
-- `desktop_pet_state`: versioned persistent values and state validation
-- `desktop_pet_engine`: rewards, date rollover, stage transitions, affection, and branch selection
-- `desktop_pet_dialogue`: tagged dialogue filtering and recent-line protection
-- `desktop_pet_app`: touch routing and top-level application state
-- `desktop_pet_pages`: home, action, branch-choice, and evolution rendering
-- `desktop_pet_animation`: frame timing and redraw regions
-- `desktop_pet_content`: stage thresholds, dialogue, and branch metadata
+- `pet_core`: needs, actions, mood, elapsed-time simulation, streaks, growth, and stage transitions
+- `pet_dialogue`: tagged filtering, recent-line protection, and compact firmware text
+- `pet_animation_queue`: a fixed 16-node non-blocking action sequence
+- `pet_save_record`: versioned records, checksum validation, sequence ordering, and two-slot selection
+- `pet_rtc_time`: validated PCF8563 calendar conversion
 
-The growth engine and dialogue selector stay independent from the display, touch controller, IMU, and NVS driver. Native tests can therefore validate the complete lifecycle on a computer.
+The existing `desktop_pet_app`, `desktop_pet_pages`, `desktop_pet_state`, and `desktop_pet_storage` modules continue to run the approved Hatchling UI. The next integration slice will connect them to the core without changing the hardware drivers.
+
+The framework stays independent from the display, touch controller, IMU, NVS driver, and RTC driver. Native tests can therefore validate pet behavior on a computer. The NVS and PCF8563 hardware adapters remain explicit integration tasks.
+
+## Open-Source Source Library
+
+The audited source archive lives in `assets/desktop_pet/library/`, while exact commits and license texts live in `third_party/virtual_pet/`.
+
+- TamaPoke contributes needs, sleep, bounded offline progression, care mistakes, bond, streak, and user-present evolution concepts.
+- esp32-artoria-tamagotchi contributes the fixed animation queue, calendar conversion, versioned record, checksum, and rotating save-slot structure.
+- openclaw-tamagotchi contributes three dialogue source books totaling 132 lines; the runtime rabbit subset is normalized into a compact English table.
+- ESP32-TamaPetchi contributes mood vocabulary, personality evidence, action-memory, and rest concepts.
+
+The source archive is not compiled into firmware. Only compact tables and rules selected for Sticky are linked, keeping visual bitmaps as the main Flash consumer.
 
 ## Logging Requirements
 
@@ -337,4 +352,4 @@ The first vertical slice covers the complete Hatchling experience:
 - Two-minute simulated days and visible development controls
 - Native rule tests
 
-Later slices add the Child stage, branch decision, three Youth forms, three Adult forms, and the full dialogue library on top of the same tested engine.
+The rule framework underneath this vertical slice is now implemented and native-tested. Later slices connect the PCF8563 adapter and NVS backend, migrate the visible Hatchling page, then add the Child stage, branch decision, three Youth forms, three Adult forms, and expanded dialogue on top of the same core.

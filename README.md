@@ -20,6 +20,20 @@
 - 每次动作显示约1.3秒的专属姿势和对白，随后自动恢复待机；互动期间的触摸由独立触摸任务继续采集。
 - 上电先对白屏执行一次全刷，主页首次显示使用黑白全刷，动作、数值和测试页面使用黑白局部快刷。
 
+#### 新桌宠核心框架
+
+`src/apps/desktop_pet/core/`已经建立一套与屏幕和触摸分离的宠物规则框架，当前包含：
+
+- `pet_core`：成长阶段、饥饿、快乐、精力、清洁、睡眠、心情、亲密、连续照料和进化条件。
+- `pet_dialogue`：按宠物状态、成长阶段和亲密度筛选台词，并避开最近五条重复内容。
+- `pet_animation_queue`：最多16个节点的非阻塞动画队列，播放动画时仍可继续处理触摸。
+- `pet_save_record`：带版本、校验值和写入序号的双槽存档记录，损坏一个槽时可选择另一个有效槽。
+- `pet_rtc_time`：把Sticky的PCF8563 RTC日期时间转换为宠物系统使用的连续时间。
+
+饥饿值由经过的时间逐步降低，`FEED`会直接补充食物值，形成完整且可独立测试的喂食循环。电池电量不参与宠物饥饿计算。RTC只负责日期、昼夜、连续照料和离线时间推进。
+
+开源素材审计结果、精确版本和许可证保存在`third_party/virtual_pet/`。完整台词源档和规则源档保存在`assets/desktop_pet/library/`；固件只编译筛选后的定长C++数据表，源档不会占用设备Flash或RAM。当前屏幕仍运行已经验收的幼兔主页，下一阶段再把这套新核心逐项接入现有UI。
+
 #### 当前测试版玩法规则
 
 当前版本从`DAY 1`、`GROWTH 10 / 30`和`LOVE 18`开始。成长值达到30表示幼兔已经满足下一阶段条件；儿童期尚未接入，因此当前页面会停在30，并且只在第一次达到30时短暂显示`I'M READY TO GROW!`。
@@ -139,6 +153,23 @@
 /Users/mengdu/.local/bin/pio run -e sticky-release
 ```
 
+桌宠核心规则可以脱离硬件在电脑上验证：
+
+```bash
+clang++ -std=c++17 -Wall -Wextra -Werror \
+  -Isrc/apps/desktop_pet/core \
+  test/desktop_pet_core_test.cpp \
+  src/apps/desktop_pet/core/pet_core.cpp \
+  src/apps/desktop_pet/core/pet_dialogue.cpp \
+  src/apps/desktop_pet/core/pet_animation_queue.cpp \
+  src/apps/desktop_pet/core/pet_save_record.cpp \
+  src/apps/desktop_pet/core/pet_rtc_time.cpp \
+  -o /tmp/desktop_pet_core_test
+/tmp/desktop_pet_core_test
+```
+
+命令正常结束且没有输出表示全部断言通过。当前测试覆盖RTC日期、在线与离线时间推进、饥饿衰减、喂食恢复、睡眠、换日、进化、心情、台词防重复、动画队列和双槽存档校验。
+
 ## 烧录和查看日志
 
 连接Sticky后执行：
@@ -204,9 +235,11 @@ src/apps/pomodoro/         已完成的独立番茄钟页面、触摸映射和�
 src/apps/status_board/     横屏状态牌页面、状态机、自定义键盘和交互任务
 src/apps/book_of_answers/  答案书页面、答案池、触摸映射和动画状态机
 src/apps/desktop_pet/      桌宠主页、成长状态、NVS存档、触摸映射和应用任务
+src/apps/desktop_pet/core/ 独立宠物规则、台词、动画队列、RTC换算和双槽存档格式
 assets/book_of_answers/    答案书设计源图与固件黑白素材预览
 assets/pixel_bunnies/      像素兔子设计源图、状态与宠物动画固件预览
 assets/desktop_pet/        桌宠成长路线、阶段与动作素材
+third_party/virtual_pet/   桌宠开源来源、固定版本和许可证
 docs/                      桌宠养成规则与后续产品设计文档
 src/board/                 电源、引脚和共享SPI准备
 src/core/                  日志基础设施
