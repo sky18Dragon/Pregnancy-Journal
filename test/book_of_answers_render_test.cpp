@@ -61,7 +61,9 @@ int main()
                   buffer.size());
 
     book_of_answers_page_render_home(
-        canvas, BookOfAnswersMode::Message);
+        canvas,
+        BookOfAnswersMode::Message,
+        BookOfAnswersAnimationFrame::Primary);
     assert(canvas.rotation() == CanvasRotation::Deg90CounterClockwise);
     assert(black_pixel_count(buffer) > 10000U);
     assert(book_of_answers_page_action_at(
@@ -72,8 +74,13 @@ int main()
            BookOfAnswersAction::SelectCrystal);
     assert(book_of_answers_page_action_at(
                BookOfAnswersPage::Home, 240, 730) ==
-           BookOfAnswersAction::Start);
+           BookOfAnswersAction::None);
     write_preview(buffer, "/tmp/book_home.ppm");
+    book_of_answers_page_render_home(
+        canvas,
+        BookOfAnswersMode::Message,
+        BookOfAnswersAnimationFrame::Secondary);
+    write_preview(buffer, "/tmp/book_home_alt.ppm");
 
     book_of_answers_page_render_shaking(
         canvas, BookOfAnswersShakeFrame::Left);
@@ -81,15 +88,24 @@ int main()
     book_of_answers_page_render_shaking(
         canvas, BookOfAnswersShakeFrame::Right);
     write_preview(buffer, "/tmp/book_shake_right.ppm");
-    book_of_answers_page_render_thinking(canvas);
+    book_of_answers_page_render_thinking(
+        canvas, BookOfAnswersAnimationFrame::Primary);
     write_preview(buffer, "/tmp/book_thinking.ppm");
-    book_of_answers_page_render_revealing(canvas);
+    book_of_answers_page_render_thinking(
+        canvas, BookOfAnswersAnimationFrame::Secondary);
+    write_preview(buffer, "/tmp/book_thinking_alt.ppm");
+    book_of_answers_page_render_revealing(
+        canvas, BookOfAnswersAnimationFrame::Primary);
     write_preview(buffer, "/tmp/book_revealing.ppm");
+    book_of_answers_page_render_revealing(
+        canvas, BookOfAnswersAnimationFrame::Secondary);
+    write_preview(buffer, "/tmp/book_revealing_alt.ppm");
 
     book_of_answers_page_render_message_result(
         canvas,
         "IT COULD MEAN THAT YOU MAY HAVE TO DO SOMETHING THAT "
-        "YOU'VE NEVER DONE");
+        "YOU'VE NEVER DONE",
+        BookOfAnswersAnimationFrame::Primary);
     assert(book_of_answers_page_action_at(
                BookOfAnswersPage::MessageResult, 240, 710) ==
            BookOfAnswersAction::AskAgain);
@@ -97,9 +113,19 @@ int main()
                BookOfAnswersPage::MessageResult, 240, 770) ==
            BookOfAnswersAction::End);
     write_preview(buffer, "/tmp/book_message_result.ppm");
+    book_of_answers_page_render_message_result(
+        canvas,
+        "IT COULD MEAN THAT YOU MAY HAVE TO DO SOMETHING THAT "
+        "YOU'VE NEVER DONE",
+        BookOfAnswersAnimationFrame::Secondary);
+    write_preview(buffer, "/tmp/book_message_result_alt.ppm");
 
-    book_of_answers_page_render_crystal_result(canvas, "UNCLEAR");
+    book_of_answers_page_render_crystal_result(
+        canvas, "YES", BookOfAnswersAnimationFrame::Primary);
     assert(black_pixel_count(buffer) > 10000U);
     write_preview(buffer, "/tmp/book_crystal_result.ppm");
+    book_of_answers_page_render_crystal_result(
+        canvas, "NO", BookOfAnswersAnimationFrame::Secondary);
+    write_preview(buffer, "/tmp/book_crystal_result_alt.ppm");
     return 0;
 }

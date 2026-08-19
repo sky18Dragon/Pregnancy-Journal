@@ -12,6 +12,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "sticky_display.h"
+#include "sticky_imu.h"
 #include "sticky_touch.h"
 
 namespace {
@@ -21,14 +22,18 @@ constexpr TickType_t kPollInterval = pdMS_TO_TICKS(40);
 constexpr uint32_t kTaskStackSize = 6144;
 constexpr UBaseType_t kTaskPriority = 3;
 constexpr size_t kShakeFrameCount = 4U;
+constexpr size_t kStageFrameCount = 2U;
+constexpr int64_t kHomeFrameHoldUs = 700000LL;
 constexpr int64_t kShakeFrameHoldUs = 180000LL;
-constexpr int64_t kThinkingHoldUs = 650000LL;
-constexpr int64_t kRevealingHoldUs = 650000LL;
+constexpr int64_t kThinkingFrameHoldUs = 450000LL;
+constexpr int64_t kRevealingFrameHoldUs = 450000LL;
+constexpr int64_t kResultFrameHoldUs = 800000LL;
 
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
 BookOfAnswersState s_state = {};
 size_t s_shake_frame_index = 0U;
+size_t s_animation_frame_index = 0U;
 size_t s_message_answer_index = kBookOfAnswersNoIndex;
 size_t s_crystal_answer_index = kBookOfAnswersNoIndex;
 int64_t s_animation_deadline_us = 0;
@@ -75,28 +80,38 @@ void schedule_animation_stage()
 {
     const int64_t now = esp_timer_get_time();
     switch (s_state.page) {
+    case BookOfAnswersPage::Home:
+        s_animation_deadline_us = now + kHomeFrameHoldUs;
+        break;
     case BookOfAnswersPage::Shaking:
         s_animation_deadline_us = now + kShakeFrameHoldUs;
         break;
     case BookOfAnswersPage::Thinking:
-        s_animation_deadline_us = now + kThinkingHoldUs;
+        s_animation_deadline_us = now + kThinkingFrameHoldUs;
         break;
     case BookOfAnswersPage::Revealing:
-        s_animation_deadline_us = now + kRevealingHoldUs;
+        s_animation_deadline_us = now + kRevealingFrameHoldUs;
         break;
-    case BookOfAnswersPage::Home:
     case BookOfAnswersPage::MessageResult:
     case BookOfAnswersPage::CrystalResult:
-        s_animation_deadline_us = 0;
+        s_animation_deadline_us = now + kResultFrameHoldUs;
         break;
     }
+}
+
+BookOfAnswersAnimationFrame current_animation_frame()
+{
+    return (s_animation_frame_index % 2U) == 0U
+               ? BookOfAnswersAnimationFrame::Primary
+               : BookOfAnswersAnimationFrame::Secondary;
 }
 
 void render_current_page(bool partial_refresh, bool timing_log = true)
 {
     switch (s_state.page) {
     case BookOfAnswersPage::Home:
-        book_of_answers_page_render_home(*s_canvas, s_state.mode);
+        book_of_answers_page_render_home(
+            *s_canvas, s_state.mode, current_animation_frame());
         break;
     case BookOfAnswersPage::Shaking:
         book_of_answers_page_render_shaking(
@@ -106,21 +121,25 @@ void render_current_page(bool partial_refresh, bool timing_log = true)
                 : BookOfAnswersShakeFrame::Right);
         break;
     case BookOfAnswersPage::Thinking:
-        book_of_answers_page_render_thinking(*s_canvas);
+        book_of_answers_page_render_thinking(
+            *s_canvas, current_animation_frame());
         break;
     case BookOfAnswersPage::Revealing:
-        book_of_answers_page_render_revealing(*s_canvas);
+        book_of_answers_page_render_revealing(
+            *s_canvas, current_animation_frame());
         break;
     case BookOfAnswersPage::MessageResult: {
         const BookMessageAnswer &answer =
             book_message_answer(s_message_answer_index);
         book_of_answers_page_render_message_result(
-            *s_canvas, answer.text);
+            *s_canvas, answer.text, current_animation_frame());
         break;
     }
     case BookOfAnswersPage::CrystalResult:
         book_of_answers_page_render_crystal_result(
-            *s_canvas, book_crystal_answer(s_crystal_answer_index));
+            *s_canvas,
+            book_crystal_answer(s_crystal_answer_index),
+            current_animation_frame());
         break;
     }
 
@@ -168,7 +187,7 @@ void log_transition(BookOfAnswersPage previous_page,
                 reason);
 }
 
-void handle_action(BookOfAnswersAction action)
+void handle_action(BookOfAnswersAction action, const char *reason)
 {
     const BookOfAnswersPage previous_page = s_state.page;
     const BookOfAnswersMode previous_mode = s_state.mode;
@@ -183,26 +202,52 @@ void handle_action(BookOfAnswersAction action)
 
     const bool page_changed = previous_page != s_state.page;
     if (page_changed) {
+        s_animation_frame_index = 0U;
         sticky_touch_clear_press();
     }
     log_transition(previous_page,
                    action,
                    previous_mode == s_state.mode
-                       ? "touch"
+                       ? reason
                        : "answer_type_changed");
     render_current_page(true);
 }
 
 void advance_animation()
 {
-    if (s_state.page == BookOfAnswersPage::Shaking &&
-        s_shake_frame_index + 1U < kShakeFrameCount) {
-        ++s_shake_frame_index;
+    const bool transition_page =
+        s_state.page == BookOfAnswersPage::Shaking ||
+        s_state.page == BookOfAnswersPage::Thinking ||
+        s_state.page == BookOfAnswersPage::Revealing;
+    const size_t frame_count =
+        s_state.page == BookOfAnswersPage::Shaking
+            ? kShakeFrameCount
+            : kStageFrameCount;
+    size_t &frame_index =
+        s_state.page == BookOfAnswersPage::Shaking
+            ? s_shake_frame_index
+            : s_animation_frame_index;
+
+    if (transition_page && frame_index + 1U < frame_count) {
+        ++frame_index;
 #if STICKY_LOG_BOOK_ANIMATION_ENABLED
         STICKY_LOGD(kTag,
-                    "book=animation page=shaking frame=%u side=%s",
-                    static_cast<unsigned>(s_shake_frame_index),
-                    (s_shake_frame_index % 2U) == 0U ? "left" : "right");
+                    "book=animation page=%s frame=%u",
+                    book_of_answers_page_name(s_state.page),
+                    static_cast<unsigned>(frame_index));
+#endif
+        render_current_page(true, false);
+        return;
+    }
+
+    if (!transition_page) {
+        s_animation_frame_index =
+            (s_animation_frame_index + 1U) % kStageFrameCount;
+#if STICKY_LOG_BOOK_ANIMATION_ENABLED
+        STICKY_LOGD(kTag,
+                    "book=animation page=%s frame=%u",
+                    book_of_answers_page_name(s_state.page),
+                    static_cast<unsigned>(s_animation_frame_index));
 #endif
         render_current_page(true, false);
         return;
@@ -215,6 +260,8 @@ void advance_animation()
     }
 
     sticky_touch_clear_press();
+    s_animation_frame_index = 0U;
+    s_shake_frame_index = 0U;
     log_transition(previous_page,
                    BookOfAnswersAction::None,
                    "animation_complete");
@@ -250,7 +297,7 @@ void app_task(void *)
     sticky_touch_clear_press();
     render_current_page(false);
     STICKY_LOGI(kTag,
-                "book=ready page=home mode=message message_answers=%u crystal_answers=%u shake_frames=%u result=ok",
+                "book=ready page=home mode=message input=imu_shake message_answers=%u crystal_answers=%u shake_frames=%u animated_pages=6 result=ok",
                 static_cast<unsigned>(book_message_answer_count()),
                 static_cast<unsigned>(book_crystal_answer_count()),
                 static_cast<unsigned>(kShakeFrameCount));
@@ -258,7 +305,19 @@ void app_task(void *)
     while (true) {
         StickyTouchPress press = {};
         if (sticky_touch_take_press(press)) {
-            handle_action(action_for_press(press));
+            handle_action(action_for_press(press), "touch");
+        }
+
+        if (sticky_imu_take_shake_event()) {
+            if (s_state.page == BookOfAnswersPage::Home) {
+                handle_action(
+                    BookOfAnswersAction::ShakeDetected, "imu_shake");
+            } else {
+                STICKY_LOGI(
+                    kTag,
+                    "book=shake page=%s action=ignored reason=page_busy",
+                    book_of_answers_page_name(s_state.page));
+            }
         }
 
         // Touch is consumed before any timed animation refresh.

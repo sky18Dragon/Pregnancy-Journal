@@ -27,7 +27,7 @@ struct Rect {
 
 constexpr Rect kMessageModeRect = {35, 620, 195, 56};
 constexpr Rect kCrystalModeRect = {250, 620, 195, 56};
-constexpr Rect kStartRect = {40, 700, 400, 64};
+constexpr Rect kTransitionStatusRect = {40, 700, 400, 64};
 constexpr Rect kAskAgainRect = {40, 680, 400, 64};
 constexpr Rect kEndRect = {120, 748, 240, 52};
 constexpr size_t kAnswerMaximumLines = 4U;
@@ -236,7 +236,7 @@ void draw_transition_footer(Canvas &canvas,
                             const char *status)
 {
     draw_centered_text(canvas, 650, instruction, 2);
-    draw_button(canvas, kStartRect, status, true, 4);
+    draw_button(canvas, kTransitionStatusRect, status, true, 4);
 }
 
 void draw_result_controls(Canvas &canvas)
@@ -248,7 +248,8 @@ void draw_result_controls(Canvas &canvas)
 }  // namespace
 
 void book_of_answers_page_render_home(Canvas &canvas,
-                                      BookOfAnswersMode mode)
+                                      BookOfAnswersMode mode,
+                                      BookOfAnswersAnimationFrame frame)
 {
     begin_page(canvas);
     draw_header(canvas);
@@ -259,7 +260,10 @@ void book_of_answers_page_render_home(Canvas &canvas,
         canvas,
         240,
         390,
-        book_of_answers_asset(BookOfAnswersAssetId::Home));
+        book_of_answers_asset(
+            frame == BookOfAnswersAnimationFrame::Primary
+                ? BookOfAnswersAssetId::Home
+                : BookOfAnswersAssetId::HomeAlt));
 
     draw_centered_text(canvas, 590, "ANSWER TYPE", 2);
     draw_button(canvas,
@@ -272,7 +276,11 @@ void book_of_answers_page_render_home(Canvas &canvas,
                 "YES / NO",
                 mode == BookOfAnswersMode::Crystal,
                 3);
-    draw_button(canvas, kStartRect, "SHAKE TO ASK", true, 4);
+    draw_centered_text(canvas, 716, "SHAKE THE DEVICE", 3);
+    const int sparkle_x =
+        frame == BookOfAnswersAnimationFrame::Primary ? 94 : 386;
+    draw_sparkle(canvas, sparkle_x, 726, 8);
+    canvas.draw_line(145, 760, 335, 760, GrayLevel::Black);
 }
 
 void book_of_answers_page_render_shaking(Canvas &canvas,
@@ -291,7 +299,9 @@ void book_of_answers_page_render_shaking(Canvas &canvas,
     draw_transition_footer(canvas, "THE CRYSTAL IS MOVING", "SHAKING...");
 }
 
-void book_of_answers_page_render_thinking(Canvas &canvas)
+void book_of_answers_page_render_thinking(
+    Canvas &canvas,
+    BookOfAnswersAnimationFrame frame)
 {
     begin_page(canvas);
     draw_header(canvas);
@@ -301,11 +311,16 @@ void book_of_answers_page_render_thinking(Canvas &canvas)
         canvas,
         240,
         390,
-        book_of_answers_asset(BookOfAnswersAssetId::Thinking));
+        book_of_answers_asset(
+            frame == BookOfAnswersAnimationFrame::Primary
+                ? BookOfAnswersAssetId::Thinking
+                : BookOfAnswersAssetId::ThinkingAlt));
     draw_transition_footer(canvas, "KEEP THE DEVICE STEADY", "THINKING...");
 }
 
-void book_of_answers_page_render_revealing(Canvas &canvas)
+void book_of_answers_page_render_revealing(
+    Canvas &canvas,
+    BookOfAnswersAnimationFrame frame)
 {
     begin_page(canvas);
     draw_header(canvas);
@@ -315,12 +330,16 @@ void book_of_answers_page_render_revealing(Canvas &canvas)
         canvas,
         240,
         390,
-        book_of_answers_asset(BookOfAnswersAssetId::Revealing));
+        book_of_answers_asset(
+            frame == BookOfAnswersAnimationFrame::Primary
+                ? BookOfAnswersAssetId::Revealing
+                : BookOfAnswersAssetId::RevealingAlt));
     draw_transition_footer(canvas, "YOUR ANSWER IS READY", "REVEALING...");
 }
 
 void book_of_answers_page_render_message_result(Canvas &canvas,
-                                                const char *answer)
+                                                const char *answer,
+                                                BookOfAnswersAnimationFrame frame)
 {
     begin_page(canvas);
     draw_header(canvas);
@@ -353,7 +372,10 @@ void book_of_answers_page_render_message_result(Canvas &canvas,
         canvas,
         240,
         470,
-        book_of_answers_asset(BookOfAnswersAssetId::MessageResult));
+        book_of_answers_asset(
+            frame == BookOfAnswersAnimationFrame::Primary
+                ? BookOfAnswersAssetId::MessageResult
+                : BookOfAnswersAssetId::MessageResultAlt));
     canvas.fill_rect(32, 648, 190, 2, GrayLevel::Black);
     canvas.fill_rect(258, 648, 190, 2, GrayLevel::Black);
     draw_sparkle(canvas, 240, 649, 10);
@@ -361,41 +383,35 @@ void book_of_answers_page_render_message_result(Canvas &canvas,
 }
 
 void book_of_answers_page_render_crystal_result(Canvas &canvas,
-                                                const char *answer)
+                                                const char *answer,
+                                                BookOfAnswersAnimationFrame frame)
 {
     begin_page(canvas);
     draw_centered_text(canvas, 24, "BOOK OF ANSWERS", 4);
     draw_centered_text(canvas, 70, "THE CRYSTAL HAS DECIDED", 2);
 
-    constexpr int kBallCenterX = 225;
-    constexpr int kBallCenterY = 340;
-    constexpr int kBallRadius = 205;
-    canvas.draw_circle(kBallCenterX,
-                       kBallCenterY,
-                       kBallRadius,
-                       GrayLevel::Black);
-    canvas.draw_circle(kBallCenterX,
-                       kBallCenterY,
-                       kBallRadius - 1,
-                       GrayLevel::Black);
-    draw_sparkle(canvas, 125, 210, 12);
-    draw_sparkle(canvas, 310, 470, 10);
-
-    const int answer_scale = std::max(
-        8, fitted_text_scale(answer, 14, 360));
-    draw_centered_text(canvas, 320, answer, answer_scale);
-
-    canvas.draw_line(135, 548, 315, 548, GrayLevel::Black);
-    canvas.draw_line(150, 566, 300, 566, GrayLevel::Black);
-    canvas.draw_line(135, 548, 150, 566, GrayLevel::Black);
-    canvas.draw_line(315, 548, 300, 566, GrayLevel::Black);
-    canvas.fill_rect(165, 567, 120, 8, GrayLevel::Black);
-
     pixel_asset_draw_centered(
         canvas,
-        415,
-        480,
-        book_of_answers_asset(BookOfAnswersAssetId::CrystalPeek));
+        240,
+        380,
+        book_of_answers_asset(
+            frame == BookOfAnswersAnimationFrame::Primary
+                ? BookOfAnswersAssetId::CrystalResultPrimary
+                : BookOfAnswersAssetId::CrystalResultSecondary));
+
+    constexpr int kBallCenterX = 240;
+    constexpr int kBallCenterY = 330;
+    const int answer_scale = std::max(
+        8, fitted_text_scale(answer, 14, 360));
+    const int answer_x =
+        kBallCenterX - text_width(answer, answer_scale) / 2;
+    const int answer_y =
+        kBallCenterY - (7 * answer_scale) / 2;
+    canvas.draw_text(answer_x,
+                     answer_y,
+                     answer,
+                     static_cast<uint8_t>(answer_scale),
+                     GrayLevel::Black);
     draw_result_controls(canvas);
 }
 
@@ -413,9 +429,6 @@ BookOfAnswersAction book_of_answers_page_action_at(BookOfAnswersPage page,
         }
         if (kCrystalModeRect.contains(x, y)) {
             return BookOfAnswersAction::SelectCrystal;
-        }
-        if (kStartRect.contains(x, y)) {
-            return BookOfAnswersAction::Start;
         }
         return BookOfAnswersAction::None;
     }

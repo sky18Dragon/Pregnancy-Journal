@@ -2,20 +2,23 @@
 
 这是 reTerminal Sticky 的新固件工程。工程使用 PlatformIO 管理构建、烧录和串口监视，底层框架采用 ESP-IDF。`Sticky_dashboard_demo`是硬件驱动的参考来源。
 
-当前`feature/ui-experience`分支将答案书作为一个完整、独立的APP运行。启动入口直接进入竖屏答案书主页，方便验证答案类型选择、页面动画、随机结果与触摸交互；产品主页和IMU入口将在后续整合阶段接入。番茄钟与状态牌APP源码继续保留，等待最终整合。
+当前`feature/ui-experience`分支将答案书作为一个完整、独立的APP运行。启动入口直接进入竖屏答案书主页，使用IMU摇晃开始提问，并独立验证答案类型、全页动画、随机结果与触摸交互。番茄钟与状态牌APP源码继续保留，等待最终整合。
 
 ## 当前功能
 
 ### 答案书
 
 - 主页面可以选择`MESSAGE`或`YES / NO`两种答案类型，返回主页时保留刚才的选择。
-- 当前独立体验通过点击`SHAKE TO ASK`启动摇晃序列；最终整合时，IMU摇晃事件将连接到同一个状态机入口。
+- 默认选中`MESSAGE`；用户可以直接摇晃设备开始提问，也可以先点击`YES / NO`切换答案类型。
+- 摇晃检测要求1.2秒内出现三次明显加速度变化，并带有1.5秒冷却时间，普通缓慢拿起或转向不会进入提问流程。
 - 摇晃页面交替播放左右两个大幅动作，兔子的身体、耳朵、手臂和水晶球位置都会明显变化。
-- 摇晃结束后依次显示`HOLD STILL`、`THINKING...`和`REVEALING...`过渡页面。
+- 主页、摇晃、思考、揭晓、文字答案和水晶球答案六类页面都拥有独立动作帧。
+- 摇晃结束后依次显示`HOLD STILL`、`THINKING...`和`REVEALING...`两帧过渡动画。
 - `MESSAGE`模式使用来源CSV中的前350条英文答案，按原始顺序生成固件答案表；结果页会根据句子长度自动排成一至四行，并且不会连续重复同一条。
-- `YES / NO`模式严格使用`YES`、`NO`和`UNCLEAR`三个结果，同样不会连续重复。
+- `YES / NO`模式严格使用`YES`、`NO`和`UNCLEAR`三个结果；答案按水晶球圆心进行水平和垂直居中。
+- 水晶球结果页使用完整双层玻璃轮廓、内部星光、装饰底座和互动兔子，两帧动画会改变高光、星尘、兔子眼睛与手部动作。
 - 两类结果页都提供`ASK AGAIN`和`END`；再次提问保留答案类型，结束后返回主页面。
-- 页面切换和动画使用黑白局部快刷，首次进入APP使用黑白全屏刷新。
+- 上电后先使用白色全屏波形清除电子纸旧画面，再完整刷新答案书主页；后续页面切换和动画使用黑白局部快刷。
 - 触摸使用现有有序事件队列，动画期间产生的触摸会被当前动画页面消费，结果页不会收到遗留点击。
 - 答案书插画拥有独立素材库，设计源图、固件预览与生成脚本集中存放在`assets/book_of_answers/`。
 
@@ -71,11 +74,12 @@
 
 - SSD1677 800×480电子纸屏幕。
 - GT911触摸控制器。
+- LSM6DS3TR-C加速度计，104Hz、正负2g量程。
 - GPIO48无源蜂鸣器，使用2400Hz、10位LEDC输出。
 - 电子纸与MicroSD共享SPI2，启动时先将MicroSD控制脚设置为确定的空闲状态。
 - GPIO45和GPIO46负责板级供电锁存。
 
-答案书APP位于`src/apps/book_of_answers/`，当前只通过屏幕和触摸接口使用硬件。番茄钟、状态牌、姿态与方向页面源码继续保留，后续由产品入口负责选择并启动APP。
+答案书APP位于`src/apps/book_of_answers/`，当前通过屏幕、触摸和IMU接口使用硬件。番茄钟、状态牌、姿态与方向页面源码继续保留，后续由产品入口负责选择并启动APP。
 
 ## 环境
 
@@ -116,11 +120,16 @@ phase=start
 shared_spi=prepare_done result=ok
 display=panel_ready
 display=framebuffer_ready
+display=clear_begin color=white mode=full
+display=clear_done color=white mode=full
 touch=controller_ready
 touch=polling_ready
 buzzer=ready
+sensor_bus=ready
+imu=ready
+imu=monitoring
 phase=ready result=ok
-book=ready page=home mode=message message_answers=350 crystal_answers=3 shake_frames=4 result=ok
+book=ready page=home mode=message input=imu_shake message_answers=350 crystal_answers=3 shake_frames=4 animated_pages=6 result=ok
 ```
 
 ## 日志设计
@@ -148,7 +157,7 @@ book=ready page=home mode=message message_answers=350 crystal_answers=3 shake_fr
 
 宠物动画默认只记录一次启动信息，不使用通用刷新耗时日志逐帧刷屏。需要查看每帧动作、位置和刷新耗时时，将`STICKY_LOG_PET_ANIMATION_ENABLED`设为`1`。
 子页兔子动画采用同样的安静日志策略，需要逐帧调试时将`STICKY_LOG_STATUS_ANIMATION_ENABLED`设为`1`。
-答案书默认记录页面切换、答案类型、随机结果和有效触摸。需要查看左右摇球帧序号时，将`STICKY_LOG_BOOK_ANIMATION_ENABLED`设为`1`。
+答案书默认记录页面切换、答案类型、随机结果、有效触摸和摇晃检测结果。开发版会记录三次有效摇晃峰值；需要查看所有页面逐帧序号时，将`STICKY_LOG_BOOK_ANIMATION_ENABLED`设为`1`。
 
 ## 工程结构
 
@@ -166,7 +175,7 @@ src/core/                  日志基础设施
 src/devices/               蜂鸣器等独立设备接口
 src/display/               屏幕初始化和刷新
 src/input/                 GT911触摸初始化、坐标转换和采样
-src/sensors/               已保留的姿态检测源码
+src/sensors/               姿态监测与防误触发摇晃检测
 src/ui/                    画布、字体、公共1位像素素材接口和已保留页面源码
 src/main.cpp               当前独立答案书启动入口
 test/                      可在电脑上运行的回归测试
@@ -177,22 +186,26 @@ platformio.ini             开发版与发布版构建配置
 
 以下操作连续执行，方便把画面变化与串口日志对应起来。
 
-1. 烧录`sticky-debug`并打开串口，等待竖屏答案书主页显示。
-2. 确认默认选中`MESSAGE`，主页显示完整的兔子、水晶球、桌面和`SHAKE TO ASK`按钮。
-3. 点击`YES / NO`，确认右侧选项变成黑底，左侧`MESSAGE`恢复白底描边。
-4. 点击`MESSAGE`，确认选择恢复到左侧，并且页面只执行一次局部快刷。
-5. 点击`SHAKE TO ASK`，确认兔子和水晶球先后明显摆向左右两侧，而桌面保持在原位置。
-6. 确认摇晃结束后依次出现`HOLD STILL`、`THINKING...`、水晶球闪光和`REVEALING...`。
-7. 确认最终进入一句话答案页，答案区域为黑底白字，兔子举起答案卡片。
-8. 点击`ASK AGAIN`，确认无需返回主页即可重新播放完整动画并获得新答案。
-9. 确认连续两次一句话答案不同，再点击`END`返回主页，并确认仍选中`MESSAGE`。
-10. 选择`YES / NO`并开始，确认结果只能是`YES`、`NO`或`UNCLEAR`，水晶球与右侧兔子轮廓完整。
-11. 在分类结果页连续点击两次`ASK AGAIN`，确认相邻两次结果不同。
-12. 点击`END`返回主页，确认仍选中`YES / NO`。
-13. 在摇晃、思考或揭晓动画期间点击屏幕，确认动画继续完成，进入结果页后不会自动触发`ASK AGAIN`或`END`。
-14. 快速连续点击一次答案类型和一次`SHAKE TO ASK`，确认触摸按顺序生效，没有卡顿或丢失。
+1. 烧录`sticky-debug`并打开串口，观察屏幕先执行一次完整白屏刷新，再显示答案书主页。
+2. 确认旧页面残影已经清除，主页默认选中`MESSAGE`，并显示完整的兔子、水晶球和桌面。
+3. 在主页停留2秒，确认兔子的耳朵、爪子和周围星光会持续变化，底部显示`SHAKE THE DEVICE`。
+4. 点击`YES / NO`，确认右侧选项变成黑底；再点击`MESSAGE`，确认选择恢复到左侧。
+5. 缓慢拿起设备并旋转90度，确认答案流程不会启动。
+6. 连续、明确地左右摇晃设备，确认日志先记录3次有效峰值，再出现摇晃识别成功日志，并自动进入答案流程。
+7. 确认摇晃页的兔子和水晶球明显左右摆动，然后依次进入`THINKING...`和`REVEALING...`页面。
+8. 在思考页和揭晓页各观察至少一次动作变化，确认所有过渡页面都有动画。
+9. 确认最终进入一句话答案页，兔子的眼睛、爪子和答案卡片会持续变化。
+10. 点击`ASK AGAIN`，确认无需返回主页即可重新播放完整动画并获得新答案。
+11. 确认相邻两次一句话答案不同，再点击`END`返回主页，并确认仍选中`MESSAGE`。
+12. 选择`YES / NO`，直接摇晃设备，确认结果只能是`YES`、`NO`或`UNCLEAR`。
+13. 确认分类结果页使用完整的双层玻璃球轮廓、星尘、带切面的底座和抱球兔子，而不是简单圆形拼接。
+14. 分别获得`YES`、`NO`或`UNCLEAR`时，确认答案在玻璃球内部水平和垂直居中。
+15. 在分类结果页停留2秒，确认兔子的眼睛、耳朵、爪子以及球内高光和星尘会持续变化。
+16. 在分类结果页连续点击两次`ASK AGAIN`，确认相邻两次结果不同。
+17. 点击`END`返回主页，确认仍选中`YES / NO`。
+18. 在摇晃、思考或揭晓动画期间点击屏幕，确认动画继续完成，进入结果页后不会自动触发`ASK AGAIN`或`END`。
 
-主流程成功时，日志会出现`book=touch`、`book=transition`和`book=answer selected`。开发版默认不会逐帧打印摇晃动画；需要逐帧观察时，把`STICKY_LOG_BOOK_ANIMATION_ENABLED`设为`1`重新编译。
+主流程成功时，日志会出现`imu=shake state=peak`、`imu=shake state=detected`、`book=transition`和`book=answer selected`。开发版默认不会逐帧打印动画；需要逐帧观察时，把`STICKY_LOG_BOOK_ANIMATION_ENABLED`设为`1`重新编译。
 
 ## 状态牌真机验收（切换独立入口后使用）
 

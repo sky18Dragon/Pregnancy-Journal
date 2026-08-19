@@ -4,12 +4,17 @@
 
 enum class BookOfAnswersAssetId {
     Home,
+    HomeAlt,
     ShakeLeft,
     ShakeRight,
     Thinking,
+    ThinkingAlt,
     Revealing,
+    RevealingAlt,
     MessageResult,
-    CrystalPeek,
+    MessageResultAlt,
+    CrystalResultPrimary,
+    CrystalResultSecondary,
 };
 
 // Returns one firmware-ready monochrome illustration for the Book of Answers.

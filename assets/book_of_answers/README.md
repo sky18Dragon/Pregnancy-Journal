@@ -1,6 +1,6 @@
 # Book of Answers Assets
 
-这个目录保存答案书APP使用的像素插画素材和答案数据库。
+这个目录保存答案书APP使用的像素插画、双帧动画素材和答案数据库。
 
 ## 目录
 
@@ -8,6 +8,8 @@
 - `firmware/`：经过裁切、缩放和黑白化后的固件预览图。
 - `../../src/ui/assets/book_of_answers_assets.cpp`：生成后的1位位图数组，由固件直接读取。
 - `../../src/apps/book_of_answers/book_of_answers_answers.cpp`：从CSV生成的350条固件答案。
+
+主页、思考、揭晓、文字结果和精细水晶球结果均提供两张动作帧。水晶球素材使用双层玻璃轮廓、星尘、装饰底座和互动兔子，球体中央留给固件动态绘制`YES`、`NO`或`UNCLEAR`。
 
 ## 答案来源
 

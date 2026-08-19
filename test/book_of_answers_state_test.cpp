@@ -17,7 +17,7 @@ int main()
         state, BookOfAnswersAction::SelectCrystal));
 
     assert(book_of_answers_state_handle_action(
-        state, BookOfAnswersAction::Start));
+        state, BookOfAnswersAction::ShakeDetected));
     assert(state.page == BookOfAnswersPage::Shaking);
     assert(!book_of_answers_state_handle_action(
         state, BookOfAnswersAction::End));

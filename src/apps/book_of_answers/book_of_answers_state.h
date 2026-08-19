@@ -21,7 +21,7 @@ enum class BookOfAnswersAction {
     None,
     SelectMessage,
     SelectCrystal,
-    Start,
+    ShakeDetected,
     AskAgain,
     End,
 };

@@ -1,10 +1,12 @@
 #include "app_log.h"
 #include "book_of_answers_app.h"
 #include "board_power.h"
+#include "board_sensor_bus.h"
 #include "board_shared_spi.h"
 #include "canvas.h"
 #include "sticky_buzzer.h"
 #include "sticky_display.h"
+#include "sticky_imu.h"
 #include "sticky_touch.h"
 
 #include <cinttypes>
@@ -177,6 +179,11 @@ extern "C" void app_main()
         halt_after_error("board_shared_spi", shared_spi_result);
     }
 
+    const esp_err_t sensor_bus_result = board_sensor_bus_init();
+    if (sensor_bus_result != ESP_OK) {
+        halt_after_error("board_sensor_bus", sensor_bus_result);
+    }
+
     const esp_err_t display_result = sticky_display_init();
     if (display_result != ESP_OK) {
         halt_after_error("sticky_display_init", display_result);
@@ -185,6 +192,14 @@ extern "C" void app_main()
     Canvas *canvas = sticky_display_canvas();
     if (canvas == nullptr) {
         halt_after_error("sticky_display_canvas", ESP_ERR_INVALID_STATE);
+    }
+
+    // A physical white full refresh removes the image retained by e-paper
+    // before the first Book of Answers frame becomes the new baseline.
+    // 先对白屏执行一次实体全刷，清除电子纸保留的旧画面，再建立答案书首帧基线。
+    const esp_err_t clear_result = sticky_display_clear();
+    if (clear_result != ESP_OK) {
+        halt_after_error("sticky_display_clear", clear_result);
     }
 
     const esp_err_t touch_result = sticky_touch_init();
@@ -197,9 +212,18 @@ extern "C" void app_main()
         halt_after_error("sticky_buzzer_init", buzzer_result);
     }
 
-    // Runs Book of Answers as a complete standalone portrait app. The product
-    // shell and IMU entry rules will connect to this boundary later.
-    // 当前直接运行完整竖屏答案书APP，产品外壳和IMU入口将在后续整合阶段接入。
+    const esp_err_t imu_result =
+        sticky_imu_init(board_sensor_i2c_bus());
+    if (imu_result != ESP_OK) {
+        halt_after_error("sticky_imu_init", imu_result);
+    }
+    const esp_err_t imu_monitor_result = sticky_imu_start_monitoring();
+    if (imu_monitor_result != ESP_OK) {
+        halt_after_error("sticky_imu_monitor", imu_monitor_result);
+    }
+
+    // Runs Book of Answers as a complete portrait app with direct shake input.
+    // 当前直接运行完整竖屏答案书APP，并使用IMU摇晃事件开始提问。
     const esp_err_t app_result = book_of_answers_app_start(*canvas);
     if (app_result != ESP_OK) {
         halt_after_error("book_of_answers_app_start", app_result);

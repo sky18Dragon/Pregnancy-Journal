@@ -8,6 +8,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "pin_config.h"
+#include "sticky_shake_detector.h"
 
 namespace {
 
@@ -39,6 +40,7 @@ i2c_master_dev_handle_t s_device = nullptr;
 TaskHandle_t s_monitor_task = nullptr;
 portMUX_TYPE s_state_lock = portMUX_INITIALIZER_UNLOCKED;
 StickyImuState s_latest_state = {};
+bool s_shake_event_pending = false;
 
 // Holds one complete movement session from the last settled pose to the next.
 // 保存从上一次放稳姿态到下一次放稳姿态的一整段移动过程。
@@ -278,12 +280,35 @@ void store_state(const StickyImuState &state)
 void monitor_task(void *)
 {
     PlacementTracker tracker = {};
+    StickyShakeDetectorState shake_detector = {};
     TickType_t next_read = xTaskGetTickCount();
 
     while (true) {
         StickyImuState sample = {};
         const esp_err_t result = read_acceleration(sample);
         if (result == ESP_OK) {
+            const uint32_t now_ms = static_cast<uint32_t>(
+                pdTICKS_TO_MS(xTaskGetTickCount()));
+            const StickyShakeDetectorResult shake =
+                sticky_shake_detector_update(shake_detector,
+                                             sample.acceleration_x_g,
+                                             sample.acceleration_y_g,
+                                             sample.acceleration_z_g,
+                                             now_ms);
+            if (shake.peak) {
+                STICKY_LOGD(kTag,
+                            "imu=shake state=peak count=%u delta_g=%.3f",
+                            static_cast<unsigned>(shake.peak_count),
+                            static_cast<double>(shake.delta_g));
+            }
+            if (shake.detected) {
+                taskENTER_CRITICAL(&s_state_lock);
+                s_shake_event_pending = true;
+                taskEXIT_CRITICAL(&s_state_lock);
+                STICKY_LOGI(kTag,
+                            "imu=shake state=detected peaks=3 delta_g=%.3f result=ok",
+                            static_cast<double>(shake.delta_g));
+            }
             update_placement(tracker, sample);
             store_state(sample);
         } else {
@@ -384,6 +409,15 @@ esp_err_t sticky_imu_get_state(StickyImuState &state)
     state = s_latest_state;
     taskEXIT_CRITICAL(&s_state_lock);
     return state.valid ? ESP_OK : ESP_ERR_INVALID_STATE;
+}
+
+bool sticky_imu_take_shake_event()
+{
+    taskENTER_CRITICAL(&s_state_lock);
+    const bool pending = s_shake_event_pending;
+    s_shake_event_pending = false;
+    taskEXIT_CRITICAL(&s_state_lock);
+    return pending;
 }
 
 const char *sticky_imu_orientation_name(StickyImuOrientation orientation)

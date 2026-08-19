@@ -288,8 +288,17 @@ esp_err_t sticky_display_clear()
     if (s_panel == nullptr || s_canvas == nullptr) {
         return ESP_ERR_INVALID_STATE;
     }
+    const int64_t clear_started_us = esp_timer_get_time();
+    STICKY_LOGI(kTag, "display=clear_begin color=white mode=full");
     s_canvas->clear();
-    return seeed_epaper_panel_clear(s_panel, true, SEEED_EPAPER_REFRESH_FULL);
+    const esp_err_t result =
+        seeed_epaper_panel_clear(s_panel, true, SEEED_EPAPER_REFRESH_FULL);
+    STICKY_LOGI(kTag,
+                "display=clear_done color=white mode=full elapsed_ms=%lld result=%s",
+                static_cast<long long>(
+                    (esp_timer_get_time() - clear_started_us) / 1000),
+                esp_err_to_name(result));
+    return result;
 }
 
 esp_err_t sticky_display_sleep()

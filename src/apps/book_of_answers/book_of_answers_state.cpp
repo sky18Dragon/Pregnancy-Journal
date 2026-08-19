@@ -14,7 +14,7 @@ bool book_of_answers_state_handle_action(BookOfAnswersState &state,
             state.mode = BookOfAnswersMode::Crystal;
             return true;
         }
-        if (action == BookOfAnswersAction::Start) {
+        if (action == BookOfAnswersAction::ShakeDetected) {
             state.page = BookOfAnswersPage::Shaking;
             return true;
         }
@@ -116,8 +116,8 @@ const char *book_of_answers_action_name(BookOfAnswersAction action)
         return "select_message";
     case BookOfAnswersAction::SelectCrystal:
         return "select_crystal";
-    case BookOfAnswersAction::Start:
-        return "start";
+    case BookOfAnswersAction::ShakeDetected:
+        return "shake_detected";
     case BookOfAnswersAction::AskAgain:
         return "ask_again";
     case BookOfAnswersAction::End:
