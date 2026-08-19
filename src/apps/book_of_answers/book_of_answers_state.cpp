@@ -14,11 +14,26 @@ bool book_of_answers_state_handle_action(BookOfAnswersState &state,
             state.mode = BookOfAnswersMode::Crystal;
             return true;
         }
-        if (action == BookOfAnswersAction::ShakeDetected) {
+        if (action == BookOfAnswersAction::ShakeStarted) {
             state.page = BookOfAnswersPage::Shaking;
             return true;
         }
         return false;
+    }
+
+    const bool animation_page =
+        state.page == BookOfAnswersPage::Shaking ||
+        state.page == BookOfAnswersPage::Thinking ||
+        state.page == BookOfAnswersPage::Revealing;
+    if (animation_page && action == BookOfAnswersAction::ShakeStopped) {
+        state.page = BookOfAnswersPage::ShakeLonger;
+        return true;
+    }
+
+    if (state.page == BookOfAnswersPage::ShakeLonger &&
+        action == BookOfAnswersAction::ShakeStarted) {
+        state.page = BookOfAnswersPage::Shaking;
+        return true;
     }
 
     const bool result_page =
@@ -29,7 +44,7 @@ bool book_of_answers_state_handle_action(BookOfAnswersState &state,
     }
 
     if (action == BookOfAnswersAction::AskAgain) {
-        state.page = BookOfAnswersPage::Shaking;
+        state.page = BookOfAnswersPage::Home;
         return true;
     }
     if (action == BookOfAnswersAction::End) {
@@ -52,6 +67,9 @@ bool book_of_answers_state_advance(BookOfAnswersState &state)
         state.page = state.mode == BookOfAnswersMode::Message
                          ? BookOfAnswersPage::MessageResult
                          : BookOfAnswersPage::CrystalResult;
+        return true;
+    case BookOfAnswersPage::ShakeLonger:
+        state.page = BookOfAnswersPage::Home;
         return true;
     case BookOfAnswersPage::Home:
     case BookOfAnswersPage::MessageResult:
@@ -90,6 +108,8 @@ const char *book_of_answers_page_name(BookOfAnswersPage page)
         return "thinking";
     case BookOfAnswersPage::Revealing:
         return "revealing";
+    case BookOfAnswersPage::ShakeLonger:
+        return "shake_longer";
     case BookOfAnswersPage::MessageResult:
         return "message_result";
     case BookOfAnswersPage::CrystalResult:
@@ -116,8 +136,10 @@ const char *book_of_answers_action_name(BookOfAnswersAction action)
         return "select_message";
     case BookOfAnswersAction::SelectCrystal:
         return "select_crystal";
-    case BookOfAnswersAction::ShakeDetected:
-        return "shake_detected";
+    case BookOfAnswersAction::ShakeStarted:
+        return "shake_started";
+    case BookOfAnswersAction::ShakeStopped:
+        return "shake_stopped";
     case BookOfAnswersAction::AskAgain:
         return "ask_again";
     case BookOfAnswersAction::End:

@@ -6,9 +6,9 @@ namespace {
 
 constexpr float kPeakDeltaG = 0.58F;
 constexpr uint32_t kMinimumPeakSpacingMs = 100U;
-constexpr uint32_t kShakeWindowMs = 1200U;
-constexpr uint32_t kCooldownMs = 1500U;
-constexpr uint8_t kRequiredPeakCount = 3U;
+constexpr uint32_t kCandidateWindowMs = 700U;
+constexpr uint32_t kMaximumActiveGapMs = 650U;
+constexpr uint8_t kRequiredStartPeakCount = 2U;
 
 }  // namespace
 
@@ -38,39 +38,58 @@ StickyShakeDetectorResult sticky_shake_detector_update(
     state.previous_y_g = y_g;
     state.previous_z_g = z_g;
 
-    const bool cooldown_active =
-        state.cooldown_until_ms != 0U &&
-        static_cast<int32_t>(now_ms - state.cooldown_until_ms) < 0;
-    if (cooldown_active) {
-        state.peak_count = 0U;
-        return result;
+    // Ends the active session as soon as movement has been quiet for too long.
+    // 当连续动作的间隔超过上限时，立即结束本次摇晃会话。
+    if (state.session_active &&
+        now_ms - state.last_peak_ms > kMaximumActiveGapMs) {
+        result.active_duration_ms = now_ms - state.session_started_ms;
+        state.session_active = false;
+        state.candidate_peak_count = 0U;
+        result.session_stopped = true;
     }
 
-    if (state.peak_count > 0U &&
-        now_ms - state.window_started_ms > kShakeWindowMs) {
-        state.peak_count = 0U;
+    if (!state.session_active && state.candidate_peak_count > 0U &&
+        now_ms - state.candidate_started_ms > kCandidateWindowMs) {
+        state.candidate_peak_count = 0U;
     }
 
     const bool peak_spacing_ready =
-        state.peak_count == 0U ||
+        (state.session_active || state.candidate_peak_count > 0U) &&
         now_ms - state.last_peak_ms >= kMinimumPeakSpacingMs;
-    if (result.delta_g < kPeakDeltaG || !peak_spacing_ready) {
-        result.peak_count = state.peak_count;
+    const bool first_candidate_peak =
+        !state.session_active && state.candidate_peak_count == 0U;
+    if (result.delta_g < kPeakDeltaG ||
+        (!first_candidate_peak && !peak_spacing_ready)) {
+        result.candidate_peak_count = state.candidate_peak_count;
+        result.session_active = state.session_active;
+        if (state.session_active) {
+            result.active_duration_ms =
+                now_ms - state.session_started_ms;
+        }
         return result;
     }
 
     result.peak = true;
-    if (state.peak_count == 0U) {
-        state.window_started_ms = now_ms;
-    }
     state.last_peak_ms = now_ms;
-    ++state.peak_count;
-    result.peak_count = state.peak_count;
+    if (state.session_active) {
+        result.session_active = true;
+        result.active_duration_ms = now_ms - state.session_started_ms;
+        return result;
+    }
 
-    if (state.peak_count >= kRequiredPeakCount) {
-        result.detected = true;
-        state.peak_count = 0U;
-        state.cooldown_until_ms = now_ms + kCooldownMs;
+    if (state.candidate_peak_count == 0U) {
+        state.candidate_started_ms = now_ms;
+    }
+    ++state.candidate_peak_count;
+    result.candidate_peak_count = state.candidate_peak_count;
+
+    if (state.candidate_peak_count >= kRequiredStartPeakCount) {
+        state.session_active = true;
+        state.session_started_ms = now_ms;
+        state.candidate_peak_count = 0U;
+        result.candidate_peak_count = 0U;
+        result.session_started = true;
+        result.session_active = true;
     }
     return result;
 }

@@ -7,6 +7,8 @@ enum class BookOfAnswersAssetId {
     HomeAlt,
     ShakeLeft,
     ShakeRight,
+    ShakeLongerPrimary,
+    ShakeLongerSecondary,
     Thinking,
     ThinkingAlt,
     Revealing,

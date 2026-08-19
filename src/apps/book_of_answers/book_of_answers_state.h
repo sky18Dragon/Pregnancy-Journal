@@ -8,6 +8,7 @@ enum class BookOfAnswersPage {
     Shaking,
     Thinking,
     Revealing,
+    ShakeLonger,
     MessageResult,
     CrystalResult,
 };
@@ -21,7 +22,8 @@ enum class BookOfAnswersAction {
     None,
     SelectMessage,
     SelectCrystal,
-    ShakeDetected,
+    ShakeStarted,
+    ShakeStopped,
     AskAgain,
     End,
 };

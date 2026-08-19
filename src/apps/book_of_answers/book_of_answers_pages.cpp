@@ -305,8 +305,8 @@ void book_of_answers_page_render_thinking(
 {
     begin_page(canvas);
     draw_header(canvas);
-    draw_centered_text(canvas, 116, "HOLD STILL", 3);
-    draw_centered_text(canvas, 154, "LET THE CRYSTAL SETTLE", 2);
+    draw_centered_text(canvas, 116, "KEEP SHAKING", 3);
+    draw_centered_text(canvas, 154, "KEEP YOUR QUESTION IN MIND", 2);
     pixel_asset_draw_centered(
         canvas,
         240,
@@ -315,7 +315,7 @@ void book_of_answers_page_render_thinking(
             frame == BookOfAnswersAnimationFrame::Primary
                 ? BookOfAnswersAssetId::Thinking
                 : BookOfAnswersAssetId::ThinkingAlt));
-    draw_transition_footer(canvas, "KEEP THE DEVICE STEADY", "THINKING...");
+    draw_transition_footer(canvas, "LET THE CRYSTAL THINK", "THINKING...");
 }
 
 void book_of_answers_page_render_revealing(
@@ -324,8 +324,8 @@ void book_of_answers_page_render_revealing(
 {
     begin_page(canvas);
     draw_header(canvas);
-    draw_centered_text(canvas, 116, "THE CRYSTAL", 3);
-    draw_centered_text(canvas, 154, "HAS DECIDED", 3);
+    draw_centered_text(canvas, 116, "KEEP SHAKING", 3);
+    draw_centered_text(canvas, 154, "THE ANSWER IS NEAR", 3);
     pixel_asset_draw_centered(
         canvas,
         240,
@@ -334,7 +334,28 @@ void book_of_answers_page_render_revealing(
             frame == BookOfAnswersAnimationFrame::Primary
                 ? BookOfAnswersAssetId::Revealing
                 : BookOfAnswersAssetId::RevealingAlt));
-    draw_transition_footer(canvas, "YOUR ANSWER IS READY", "REVEALING...");
+    draw_transition_footer(canvas, "ONE LAST MOMENT", "REVEALING...");
+}
+
+void book_of_answers_page_render_shake_longer(
+    Canvas &canvas,
+    BookOfAnswersAnimationFrame frame)
+{
+    begin_page(canvas);
+    draw_header(canvas);
+    draw_centered_text(canvas, 110, "SHAKE A LITTLE LONGER", 3);
+    draw_centered_text(canvas, 151, "KEEP YOUR QUESTION", 2);
+    draw_centered_text(canvas, 178, "IN YOUR HEART", 2);
+    pixel_asset_draw_centered(
+        canvas,
+        240,
+        410,
+        book_of_answers_asset(
+            frame == BookOfAnswersAnimationFrame::Primary
+                ? BookOfAnswersAssetId::ShakeLongerPrimary
+                : BookOfAnswersAssetId::ShakeLongerSecondary));
+    draw_transition_footer(
+        canvas, "THE CRYSTAL NEEDS MORE TIME", "TRY AGAIN...");
 }
 
 void book_of_answers_page_render_message_result(Canvas &canvas,

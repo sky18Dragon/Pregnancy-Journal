@@ -100,6 +100,13 @@ int main()
     book_of_answers_page_render_revealing(
         canvas, BookOfAnswersAnimationFrame::Secondary);
     write_preview(buffer, "/tmp/book_revealing_alt.ppm");
+    book_of_answers_page_render_shake_longer(
+        canvas, BookOfAnswersAnimationFrame::Primary);
+    assert(black_pixel_count(buffer) > 10000U);
+    write_preview(buffer, "/tmp/book_shake_longer.ppm");
+    book_of_answers_page_render_shake_longer(
+        canvas, BookOfAnswersAnimationFrame::Secondary);
+    write_preview(buffer, "/tmp/book_shake_longer_alt.ppm");
 
     book_of_answers_page_render_message_result(
         canvas,

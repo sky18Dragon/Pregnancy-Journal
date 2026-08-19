@@ -58,6 +58,22 @@ ASSETS = (
         (320, 380),
     ),
     AssetSpec(
+        "shake_longer_a.png",
+        "shake_longer_a.png",
+        "kShakeLongerPrimaryData",
+        "ShakeLongerPrimary",
+        (100, 320, 770, 980),
+        (310, 394),
+    ),
+    AssetSpec(
+        "shake_longer_b.png",
+        "shake_longer_b.png",
+        "kShakeLongerSecondaryData",
+        "ShakeLongerSecondary",
+        (100, 320, 770, 980),
+        (310, 394),
+    ),
+    AssetSpec(
         "thinking.png",
         "thinking.png",
         "kThinkingData",

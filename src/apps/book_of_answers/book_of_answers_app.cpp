@@ -23,11 +23,13 @@ constexpr uint32_t kTaskStackSize = 6144;
 constexpr UBaseType_t kTaskPriority = 3;
 constexpr size_t kShakeFrameCount = 4U;
 constexpr size_t kStageFrameCount = 2U;
+constexpr size_t kShakeLongerFrameCount = 4U;
 constexpr int64_t kHomeFrameHoldUs = 700000LL;
 constexpr int64_t kShakeFrameHoldUs = 180000LL;
 constexpr int64_t kThinkingFrameHoldUs = 450000LL;
 constexpr int64_t kRevealingFrameHoldUs = 450000LL;
 constexpr int64_t kResultFrameHoldUs = 800000LL;
+constexpr int64_t kShakeLongerFrameHoldUs = 600000LL;
 
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
@@ -37,6 +39,7 @@ size_t s_animation_frame_index = 0U;
 size_t s_message_answer_index = kBookOfAnswersNoIndex;
 size_t s_crystal_answer_index = kBookOfAnswersNoIndex;
 int64_t s_animation_deadline_us = 0;
+int64_t s_ritual_started_us = 0;
 
 esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
 {
@@ -92,6 +95,9 @@ void schedule_animation_stage()
     case BookOfAnswersPage::Revealing:
         s_animation_deadline_us = now + kRevealingFrameHoldUs;
         break;
+    case BookOfAnswersPage::ShakeLonger:
+        s_animation_deadline_us = now + kShakeLongerFrameHoldUs;
+        break;
     case BookOfAnswersPage::MessageResult:
     case BookOfAnswersPage::CrystalResult:
         s_animation_deadline_us = now + kResultFrameHoldUs;
@@ -126,6 +132,10 @@ void render_current_page(bool partial_refresh, bool timing_log = true)
         break;
     case BookOfAnswersPage::Revealing:
         book_of_answers_page_render_revealing(
+            *s_canvas, current_animation_frame());
+        break;
+    case BookOfAnswersPage::ShakeLonger:
+        book_of_answers_page_render_shake_longer(
             *s_canvas, current_animation_frame());
         break;
     case BookOfAnswersPage::MessageResult: {
@@ -196,8 +206,8 @@ void handle_action(BookOfAnswersAction action, const char *reason)
     }
 
     if (s_state.page == BookOfAnswersPage::Shaking) {
-        choose_answer_for_round();
         s_shake_frame_index = 0U;
+        s_ritual_started_us = esp_timer_get_time();
     }
 
     const bool page_changed = previous_page != s_state.page;
@@ -215,20 +225,40 @@ void handle_action(BookOfAnswersAction action, const char *reason)
 
 void advance_animation()
 {
-    const bool transition_page =
+    const bool answer_animation_page =
         s_state.page == BookOfAnswersPage::Shaking ||
         s_state.page == BookOfAnswersPage::Thinking ||
         s_state.page == BookOfAnswersPage::Revealing;
+    const bool finite_animation_page =
+        answer_animation_page ||
+        s_state.page == BookOfAnswersPage::ShakeLonger;
+
+    // The complete animation is the ritual timer. Releasing the shake before
+    // any stage finishes redirects to the guidance page instead of an answer.
+    // 完整动画就是仪式计时器；任一阶段提前停下都会进入引导页，不会显示答案。
+    if (answer_animation_page && !sticky_imu_is_shaking()) {
+        const int64_t elapsed_ms =
+            (esp_timer_get_time() - s_ritual_started_us) / 1000LL;
+        STICKY_LOGI(kTag,
+                    "book=shake qualification=insufficient animation_ms=%lld reason=stopped_early",
+                    static_cast<long long>(elapsed_ms));
+        handle_action(
+            BookOfAnswersAction::ShakeStopped, "imu_shake_stopped");
+        return;
+    }
+
     const size_t frame_count =
         s_state.page == BookOfAnswersPage::Shaking
             ? kShakeFrameCount
-            : kStageFrameCount;
+            : (s_state.page == BookOfAnswersPage::ShakeLonger
+                   ? kShakeLongerFrameCount
+                   : kStageFrameCount);
     size_t &frame_index =
         s_state.page == BookOfAnswersPage::Shaking
             ? s_shake_frame_index
             : s_animation_frame_index;
 
-    if (transition_page && frame_index + 1U < frame_count) {
+    if (finite_animation_page && frame_index + 1U < frame_count) {
         ++frame_index;
 #if STICKY_LOG_BOOK_ANIMATION_ENABLED
         STICKY_LOGD(kTag,
@@ -240,7 +270,7 @@ void advance_animation()
         return;
     }
 
-    if (!transition_page) {
+    if (!finite_animation_page) {
         s_animation_frame_index =
             (s_animation_frame_index + 1U) % kStageFrameCount;
 #if STICKY_LOG_BOOK_ANIMATION_ENABLED
@@ -254,6 +284,14 @@ void advance_animation()
     }
 
     const BookOfAnswersPage previous_page = s_state.page;
+    if (previous_page == BookOfAnswersPage::Revealing) {
+        const int64_t elapsed_ms =
+            (esp_timer_get_time() - s_ritual_started_us) / 1000LL;
+        STICKY_LOGI(kTag,
+                    "book=shake qualification=passed animation_ms=%lld result=ok",
+                    static_cast<long long>(elapsed_ms));
+        choose_answer_for_round();
+    }
     if (!book_of_answers_state_advance(s_state)) {
         s_animation_deadline_us = 0;
         return;
@@ -297,7 +335,7 @@ void app_task(void *)
     sticky_touch_clear_press();
     render_current_page(false);
     STICKY_LOGI(kTag,
-                "book=ready page=home mode=message input=imu_shake message_answers=%u crystal_answers=%u shake_frames=%u animated_pages=6 result=ok",
+                "book=ready page=home mode=message input=continuous_imu_shake message_answers=%u crystal_answers=%u shake_frames=%u animated_pages=7 result=ok",
                 static_cast<unsigned>(book_message_answer_count()),
                 static_cast<unsigned>(book_crystal_answer_count()),
                 static_cast<unsigned>(kShakeFrameCount));
@@ -308,15 +346,34 @@ void app_task(void *)
             handle_action(action_for_press(press), "touch");
         }
 
-        if (sticky_imu_take_shake_event()) {
-            if (s_state.page == BookOfAnswersPage::Home) {
+        if (sticky_imu_take_shake_started_event()) {
+            if (s_state.page == BookOfAnswersPage::Home ||
+                s_state.page == BookOfAnswersPage::ShakeLonger) {
                 handle_action(
-                    BookOfAnswersAction::ShakeDetected, "imu_shake");
+                    BookOfAnswersAction::ShakeStarted,
+                    "imu_shake_started");
             } else {
                 STICKY_LOGI(
                     kTag,
                     "book=shake page=%s action=ignored reason=page_busy",
                     book_of_answers_page_name(s_state.page));
+            }
+        }
+
+        if (sticky_imu_take_shake_stopped_event()) {
+            const bool answer_animation_page =
+                s_state.page == BookOfAnswersPage::Shaking ||
+                s_state.page == BookOfAnswersPage::Thinking ||
+                s_state.page == BookOfAnswersPage::Revealing;
+            if (answer_animation_page) {
+                const int64_t elapsed_ms =
+                    (esp_timer_get_time() - s_ritual_started_us) / 1000LL;
+                STICKY_LOGI(
+                    kTag,
+                    "book=shake qualification=insufficient animation_ms=%lld reason=stopped_early",
+                    static_cast<long long>(elapsed_ms));
+                handle_action(BookOfAnswersAction::ShakeStopped,
+                              "imu_shake_stopped");
             }
         }
 

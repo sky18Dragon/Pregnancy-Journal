@@ -25,6 +25,9 @@ void book_of_answers_page_render_thinking(
 void book_of_answers_page_render_revealing(
     Canvas &canvas,
     BookOfAnswersAnimationFrame frame);
+void book_of_answers_page_render_shake_longer(
+    Canvas &canvas,
+    BookOfAnswersAnimationFrame frame);
 void book_of_answers_page_render_message_result(Canvas &canvas,
                                                 const char *answer,
                                                 BookOfAnswersAnimationFrame frame);

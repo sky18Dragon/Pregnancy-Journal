@@ -1,5 +1,6 @@
 #include <cassert>
 #include <cstring>
+#include <initializer_list>
 
 #include "book_of_answers_answers.h"
 #include "book_of_answers_state.h"
@@ -17,10 +18,33 @@ int main()
         state, BookOfAnswersAction::SelectCrystal));
 
     assert(book_of_answers_state_handle_action(
-        state, BookOfAnswersAction::ShakeDetected));
+        state, BookOfAnswersAction::ShakeStarted));
     assert(state.page == BookOfAnswersPage::Shaking);
+
+    // Stopping during any answer-animation stage routes to guidance.
+    // 在答案动画的任一阶段停下，都会进入继续摇晃引导页。
+    for (const BookOfAnswersPage page : {
+             BookOfAnswersPage::Shaking,
+             BookOfAnswersPage::Thinking,
+             BookOfAnswersPage::Revealing}) {
+        BookOfAnswersState stopped = state;
+        stopped.page = page;
+        assert(book_of_answers_state_handle_action(
+            stopped, BookOfAnswersAction::ShakeStopped));
+        assert(stopped.page == BookOfAnswersPage::ShakeLonger);
+    }
     assert(!book_of_answers_state_handle_action(
         state, BookOfAnswersAction::End));
+
+    assert(book_of_answers_state_handle_action(
+        state, BookOfAnswersAction::ShakeStopped));
+    assert(state.page == BookOfAnswersPage::ShakeLonger);
+    BookOfAnswersState automatic_return = state;
+    assert(book_of_answers_state_advance(automatic_return));
+    assert(automatic_return.page == BookOfAnswersPage::Home);
+    assert(book_of_answers_state_handle_action(
+        state, BookOfAnswersAction::ShakeStarted));
+    assert(state.page == BookOfAnswersPage::Shaking);
 
     assert(book_of_answers_state_advance(state));
     assert(state.page == BookOfAnswersPage::Thinking);
@@ -32,8 +56,10 @@ int main()
 
     assert(book_of_answers_state_handle_action(
         state, BookOfAnswersAction::AskAgain));
-    assert(state.page == BookOfAnswersPage::Shaking);
+    assert(state.page == BookOfAnswersPage::Home);
     assert(state.mode == BookOfAnswersMode::Crystal);
+    assert(book_of_answers_state_handle_action(
+        state, BookOfAnswersAction::ShakeStarted));
     assert(book_of_answers_state_advance(state));
     assert(book_of_answers_state_advance(state));
     assert(book_of_answers_state_advance(state));

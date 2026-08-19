@@ -34,9 +34,17 @@ esp_err_t sticky_imu_start_monitoring();
 // 复制最近一次加速度、移动标记和最终放稳姿态。
 esp_err_t sticky_imu_get_state(StickyImuState &state);
 
-// Returns and clears one pending deliberate-shake event.
-// 读取并清除一次待处理的主动摇晃事件。
-bool sticky_imu_take_shake_event();
+// Returns and clears one pending shake-session start event.
+// 读取并清除一次待处理的摇晃会话开始事件。
+bool sticky_imu_take_shake_started_event();
+
+// Returns and clears one pending shake-session stop event.
+// 读取并清除一次待处理的摇晃会话停止事件。
+bool sticky_imu_take_shake_stopped_event();
+
+// Reports whether effective shake peaks are still arriving continuously.
+// 返回当前是否仍在持续收到有效摇晃峰值。
+bool sticky_imu_is_shaking();
 
 // Returns the stable log and UI name for one orientation value.
 // 返回姿态对应的稳定日志与界面名称。

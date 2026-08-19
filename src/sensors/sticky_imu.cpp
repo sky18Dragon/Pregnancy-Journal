@@ -40,7 +40,9 @@ i2c_master_dev_handle_t s_device = nullptr;
 TaskHandle_t s_monitor_task = nullptr;
 portMUX_TYPE s_state_lock = portMUX_INITIALIZER_UNLOCKED;
 StickyImuState s_latest_state = {};
-bool s_shake_event_pending = false;
+bool s_shake_started_event_pending = false;
+bool s_shake_stopped_event_pending = false;
+bool s_shake_session_active = false;
 
 // Holds one complete movement session from the last settled pose to the next.
 // 保存从上一次放稳姿态到下一次放稳姿态的一整段移动过程。
@@ -297,17 +299,32 @@ void monitor_task(void *)
                                              now_ms);
             if (shake.peak) {
                 STICKY_LOGD(kTag,
-                            "imu=shake state=peak count=%u delta_g=%.3f",
-                            static_cast<unsigned>(shake.peak_count),
+                            "imu=shake state=peak active=%d candidate_count=%u duration_ms=%u delta_g=%.3f",
+                            shake.session_active,
+                            static_cast<unsigned>(
+                                shake.candidate_peak_count),
+                            static_cast<unsigned>(
+                                shake.active_duration_ms),
                             static_cast<double>(shake.delta_g));
             }
-            if (shake.detected) {
+            if (shake.session_started) {
                 taskENTER_CRITICAL(&s_state_lock);
-                s_shake_event_pending = true;
+                s_shake_started_event_pending = true;
+                s_shake_session_active = true;
                 taskEXIT_CRITICAL(&s_state_lock);
                 STICKY_LOGI(kTag,
-                            "imu=shake state=detected peaks=3 delta_g=%.3f result=ok",
+                            "imu=shake state=started delta_g=%.3f result=ok",
                             static_cast<double>(shake.delta_g));
+            }
+            if (shake.session_stopped) {
+                taskENTER_CRITICAL(&s_state_lock);
+                s_shake_stopped_event_pending = true;
+                s_shake_session_active = false;
+                taskEXIT_CRITICAL(&s_state_lock);
+                STICKY_LOGI(kTag,
+                            "imu=shake state=stopped duration_ms=%u reason=quiet result=ok",
+                            static_cast<unsigned>(
+                                shake.active_duration_ms));
             }
             update_placement(tracker, sample);
             store_state(sample);
@@ -395,7 +412,7 @@ esp_err_t sticky_imu_start_monitoring()
         return ESP_ERR_NO_MEM;
     }
     STICKY_LOGI(kTag,
-                "imu=monitoring interval_ms=100 settle_samples=%d motion_delta_g=%.2f quiet_delta_g=%.2f raw_samples=%d result=ok",
+                "imu=monitoring interval_ms=100 settle_samples=%d motion_delta_g=%.2f quiet_delta_g=%.2f shake_mode=continuous raw_samples=%d result=ok",
                 kSettleSampleCount,
                 static_cast<double>(kMotionStartDeltaG),
                 static_cast<double>(kQuietVectorDeltaG),
@@ -411,13 +428,30 @@ esp_err_t sticky_imu_get_state(StickyImuState &state)
     return state.valid ? ESP_OK : ESP_ERR_INVALID_STATE;
 }
 
-bool sticky_imu_take_shake_event()
+bool sticky_imu_take_shake_started_event()
 {
     taskENTER_CRITICAL(&s_state_lock);
-    const bool pending = s_shake_event_pending;
-    s_shake_event_pending = false;
+    const bool pending = s_shake_started_event_pending;
+    s_shake_started_event_pending = false;
     taskEXIT_CRITICAL(&s_state_lock);
     return pending;
+}
+
+bool sticky_imu_take_shake_stopped_event()
+{
+    taskENTER_CRITICAL(&s_state_lock);
+    const bool pending = s_shake_stopped_event_pending;
+    s_shake_stopped_event_pending = false;
+    taskEXIT_CRITICAL(&s_state_lock);
+    return pending;
+}
+
+bool sticky_imu_is_shaking()
+{
+    taskENTER_CRITICAL(&s_state_lock);
+    const bool active = s_shake_session_active;
+    taskEXIT_CRITICAL(&s_state_lock);
+    return active;
 }
 
 const char *sticky_imu_orientation_name(StickyImuOrientation orientation)
