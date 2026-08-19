@@ -152,13 +152,13 @@ The accelerated rewards will still pass through the normal daily counters and ca
 
 ### Current Implemented Slice
 
-The current visible firmware implements the Hatchling home and stops growth at the `30`-point Child boundary. Reaching the boundary emits `I'M READY TO GROW!` once, then the home dialogue returns to its normal message. Feed, pet, and play remain interactive at the boundary and continue to follow their daily affection and personality rules.
+The current visible firmware implements both Hatchling and Child. A Hatchling with `30` growth and all four care needs at or above `40` automatically plays a three-frame full-page evolution scene, saves the Child stage, and opens the Child home. Child progress continues from `30` toward `120`, where it remains ready for the later Youth slice.
 
 An independent core framework now exists under `src/apps/desktop_pet/core/`. It models six life stages, food, joy, energy, hygiene, seven relationship moods plus urgent need states, sleep, waste, care mistakes, bond, streaks, personality evidence, evolution readiness, dialogue history, bounded offline progression, a fixed animation queue, RTC conversion, and validated two-slot save records.
 
 The approved Hatchling UI now stores its growth, bond, daily counters, personality evidence, food, and mood in `PetCoreState`. The home page displays food and the current mood, test-day rollover advances the need simulation, feeding restores food even after its daily growth reward has been collected, and state-aware dialogue is selected from the compact runtime table. Version-2 Hatchling saves migrate into the shared core record.
 
-Sleep, cleaning, PCF8563 hardware time, the validated two-slot save backend, Egg hatching, the Child page, evolution transitions, and later stage artwork remain independent integration blocks.
+Sleep, cleaning, PCF8563 hardware time, the validated two-slot save backend, Egg hatching, Youth branching, and later stage artwork remain independent integration blocks.
 
 ### Production Profile
 
@@ -290,11 +290,13 @@ The independent framework currently contains:
 - `pet_save_record`: versioned records, checksum validation, sequence ordering, and two-slot selection
 - `pet_rtc_time`: validated PCF8563 calendar conversion
 
-The existing `desktop_pet_app`, `desktop_pet_pages`, `desktop_pet_state`, and `desktop_pet_storage` modules run the approved Hatchling UI and now use `PetCoreState` for visible care values. The state wrapper keeps UI actions separate from the reusable rule engine, while storage migrates version-2 Hatchling values into version 3.
+The existing `desktop_pet_app`, `desktop_pet_pages`, `desktop_pet_state`, and `desktop_pet_storage` modules run the approved Hatchling and Child UI and use `PetCoreState` for visible care values. The state wrapper keeps UI actions separate from the reusable rule engine, while storage migrates version-2 Hatchling values into version 3.
 
 The Hatchling home screen maps direct taps on the rabbit body to petting. The bottom action row contains `FEED`, `TALK`, and `PLAY`. `TALK` selects urgent need dialogue first, then uses bond ranges `0-34`, `35-69`, and `70-100` for increasingly familiar lines. Talking does not award growth or bond points, and its selected line remains visible for four seconds.
 
 The Hatchling also runs a non-blocking autonomous behavior loop. Common actions include blinking, a two-step ear twitch, looking around, and a full-body stretch. Hungry and tired moods add dedicated belly-holding and resting poses. Each action uses the shared fixed animation queue, avoids the two most recent selections, synchronizes its dialogue with the visible pose, and yields immediately when a touch action arrives. Development timing is 4-8 seconds between sequences; production timing is 12-28 seconds.
+
+The Child stage uses a taller long-eared rabbit with a neckerchief and its own complete set of idle, blink, ear-twitch, look-around, stretch, hungry, tired, feed, pet, and play bitmaps. Child idle and interaction dialogue is selected ahead of shared lines, so the visible personality changes together with the artwork.
 
 The framework stays independent from the display, touch controller, IMU, NVS driver, and RTC driver. Native tests can therefore validate pet behavior on a computer. The NVS and PCF8563 hardware adapters remain explicit integration tasks.
 
@@ -347,7 +349,7 @@ The first implementation keeps regression tests for:
 
 ## First Implementation Boundary
 
-The first vertical slice covers the complete Hatchling experience:
+The implemented vertical slices cover the complete Hatchling experience and the first Child experience:
 
 - New pet state and egg hatching
 - Hatchling home page
@@ -357,5 +359,8 @@ The first vertical slice covers the complete Hatchling experience:
 - Persistent save and reload
 - Two-minute simulated days and visible development controls
 - Native rule tests
+- Automatic care-gated Hatchling-to-Child evolution
+- Three-frame full-page evolution scene
+- Child home, progress target, interactions, autonomous actions, and dialogue
 
-The rule framework underneath this vertical slice is now implemented and native-tested. Later slices connect the PCF8563 adapter and NVS backend, migrate the visible Hatchling page, then add the Child stage, branch decision, three Youth forms, three Adult forms, and expanded dialogue on top of the same core.
+The rule framework underneath these slices is implemented and native-tested. Later slices connect the PCF8563 adapter and validated two-slot NVS backend, then add the branch decision, three Youth forms, three Adult forms, and expanded dialogue on top of the same core.

@@ -23,7 +23,8 @@ PetIdleAction pet_idle_select(const PetCoreState &state,
 
 // Returns the dialogue shown while one idle action is visible.
 // 返回待机动作显示期间使用的对白。
-const char *pet_idle_message(PetIdleAction action);
+const char *pet_idle_message(PetIdleAction action,
+                             PetLifeStage stage);
 
 // Returns the delay before the next autonomous action.
 // 返回下一次自主动作开始前的等待时间。

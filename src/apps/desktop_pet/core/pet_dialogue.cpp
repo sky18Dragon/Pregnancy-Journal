@@ -115,6 +115,38 @@ constexpr PetDialogueEntry kEntries[] = {
      PetLifeStage::Youth, 0U, 100U, "I'M READY TO GROW!"},
     {1071U, PetDialogueContext::EvolutionComplete, PetLifeStage::Child,
      PetLifeStage::Adult, 0U, 100U, "LOOK! I GREW!"},
+    {1200U, PetDialogueContext::Idle, PetLifeStage::Child,
+     PetLifeStage::Child, 0U, 100U, "I'M READY FOR AN ADVENTURE."},
+    {1201U, PetDialogueContext::Idle, PetLifeStage::Child,
+     PetLifeStage::Child, 0U, 100U, "MY LEGS FEEL SO SPRINGY!"},
+    {1202U, PetDialogueContext::Idle, PetLifeStage::Child,
+     PetLifeStage::Child, 0U, 100U, "I CAN REACH HIGHER NOW."},
+    {1203U, PetDialogueContext::Idle, PetLifeStage::Child,
+     PetLifeStage::Child, 0U, 100U, "WHERE SHOULD WE EXPLORE?"},
+    {1210U, PetDialogueContext::Feed, PetLifeStage::Child,
+     PetLifeStage::Child, 0U, 100U, "ENERGY FOR ADVENTURES!"},
+    {1211U, PetDialogueContext::Pet, PetLifeStage::Child,
+     PetLifeStage::Child, 0U, 100U, "MY FUR GREW EXTRA SOFT!"},
+    {1212U, PetDialogueContext::Play, PetLifeStage::Child,
+     PetLifeStage::Child, 0U, 100U, "CATCH ME IF YOU CAN!"},
+    {1220U, PetDialogueContext::Talk, PetLifeStage::Child,
+     PetLifeStage::Child, 0U, 34U, "I'M LEARNING NEW THINGS."},
+    {1221U, PetDialogueContext::Talk, PetLifeStage::Child,
+     PetLifeStage::Child, 0U, 34U, "WILL YOU SHOW ME AROUND?"},
+    {1222U, PetDialogueContext::Talk, PetLifeStage::Child,
+     PetLifeStage::Child, 0U, 34U, "MY LEGS ARE STILL WOBBLY."},
+    {1230U, PetDialogueContext::Talk, PetLifeStage::Child,
+     PetLifeStage::Child, 35U, 69U, "LET'S GO SOMEWHERE TOGETHER."},
+    {1231U, PetDialogueContext::Talk, PetLifeStage::Child,
+     PetLifeStage::Child, 35U, 69U, "I SAVED MY BEST HOP FOR YOU."},
+    {1232U, PetDialogueContext::Talk, PetLifeStage::Child,
+     PetLifeStage::Child, 35U, 69U, "YOU MAKE ME FEEL BRAVE."},
+    {1240U, PetDialogueContext::Talk, PetLifeStage::Child,
+     PetLifeStage::Child, 70U, 100U, "WE'RE THE BEST ADVENTURE TEAM."},
+    {1241U, PetDialogueContext::Talk, PetLifeStage::Child,
+     PetLifeStage::Child, 70U, 100U, "I'LL ALWAYS HOP BACK TO YOU."},
+    {1242U, PetDialogueContext::Talk, PetLifeStage::Child,
+     PetLifeStage::Child, 70U, 100U, "YOU HELPED ME GROW THIS STRONG."},
 };
 
 bool stage_in_range(PetLifeStage value,
@@ -166,17 +198,25 @@ const PetDialogueEntry *pet_dialogue_pick(PetCoreState &state,
 {
     constexpr size_t count = sizeof(kEntries) / sizeof(kEntries[0]);
     for (bool allow_recent : {false, true}) {
-        std::array<size_t, count> matches = {};
-        size_t match_count = 0U;
-        for (size_t index = 0U; index < count; ++index) {
-            if (eligible(kEntries[index], state, context, allow_recent)) {
-                matches[match_count++] = index;
+        for (bool stage_specific : {true, false}) {
+            std::array<size_t, count> matches = {};
+            size_t match_count = 0U;
+            for (size_t index = 0U; index < count; ++index) {
+                const bool exact_stage =
+                    kEntries[index].minimum_stage == state.stage &&
+                    kEntries[index].maximum_stage == state.stage;
+                if (exact_stage != stage_specific) {
+                    continue;
+                }
+                if (eligible(kEntries[index], state, context, allow_recent)) {
+                    matches[match_count++] = index;
+                }
             }
-        }
-        if (match_count > 0U) {
-            const size_t selected = matches[random_value % match_count];
-            remember(state, kEntries[selected].id);
-            return &kEntries[selected];
+            if (match_count > 0U) {
+                const size_t selected = matches[random_value % match_count];
+                remember(state, kEntries[selected].id);
+                return &kEntries[selected];
+            }
         }
     }
     if (context != PetDialogueContext::Idle) {

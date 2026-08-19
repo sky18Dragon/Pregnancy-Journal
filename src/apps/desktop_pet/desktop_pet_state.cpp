@@ -71,6 +71,33 @@ const char *companion_message(DesktopPetAction action)
     }
 }
 
+const char *child_care_message(DesktopPetState &state,
+                               DesktopPetAction action)
+{
+    if (state.pet.stage != PetLifeStage::Child) {
+        return nullptr;
+    }
+    PetDialogueContext context = PetDialogueContext::Pet;
+    switch (action) {
+    case DesktopPetAction::Feed:
+        context = PetDialogueContext::Feed;
+        break;
+    case DesktopPetAction::Play:
+        context = PetDialogueContext::Play;
+        break;
+    case DesktopPetAction::Pet:
+    default:
+        break;
+    }
+    const uint32_t random_value =
+        static_cast<uint32_t>(state.pet.day) * 2654435761U +
+        static_cast<uint32_t>(state.pet.growth) * 97U +
+        static_cast<uint32_t>(action);
+    const PetDialogueEntry *entry =
+        pet_dialogue_pick(state.pet, context, random_value);
+    return entry == nullptr ? nullptr : entry->text;
+}
+
 DesktopPetActionResult apply_care(DesktopPetState &state,
                                   DesktopPetAction action)
 {
@@ -87,10 +114,15 @@ DesktopPetActionResult apply_care(DesktopPetState &state,
     result.love_delta = static_cast<uint8_t>(
         std::max<int8_t>(core_result.bond_delta, 0));
     result.pose = action_pose(action);
-    result.message = result.rewarded ? rewarded_message(action)
-                                     : companion_message(action);
+    const char *stage_message = child_care_message(state, action);
+    result.message = stage_message != nullptr
+                         ? stage_message
+                         : (result.rewarded ? rewarded_message(action)
+                                            : companion_message(action));
     if (core_result.evolution_became_ready) {
-        result.message = "I'M READY TO GROW!";
+        result.message = state.pet.stage == PetLifeStage::Hatchling
+                             ? "I'M READY TO GROW!"
+                             : "NEXT STAGE IS READY!";
     }
     return result;
 }
@@ -138,19 +170,21 @@ DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
         DesktopPetActionResult result = {};
         result.changed = true;
         const uint16_t growth_before = state.pet.growth;
+        const uint16_t growth_limit = desktop_pet_state_growth_limit(state);
         const uint16_t growth_remaining =
-            state.pet.growth >= kDesktopPetHatchlingGrowthLimit
+            state.pet.growth >= growth_limit
                 ? 0U
-                : static_cast<uint16_t>(kDesktopPetHatchlingGrowthLimit -
-                                        state.pet.growth);
+                : static_cast<uint16_t>(growth_limit - state.pet.growth);
         result.growth_delta = static_cast<uint16_t>(std::min<uint16_t>(
             30U, growth_remaining));
         state.pet.growth = static_cast<uint16_t>(
             state.pet.growth + result.growth_delta);
         pet_core_sanitize(state.pet, active_profile());
-        if (growth_before < kDesktopPetHatchlingGrowthLimit &&
-            state.pet.growth >= kDesktopPetHatchlingGrowthLimit) {
-            result.message = "I'M READY TO GROW!";
+        if (growth_before < growth_limit &&
+            state.pet.growth >= growth_limit) {
+            result.message = state.pet.stage == PetLifeStage::Hatchling
+                                 ? "I'M READY TO GROW!"
+                                 : "NEXT STAGE IS READY!";
         } else if (result.growth_delta > 0U) {
             result.message = "I FEEL A LITTLE BIGGER!";
         } else {
@@ -189,6 +223,38 @@ void desktop_pet_state_advance_day(DesktopPetState &state)
                              false);
 #endif
     pet_core_advance_day(state.pet);
+}
+
+bool desktop_pet_state_evolve_if_ready(DesktopPetState &state)
+{
+    if (state.pet.stage != PetLifeStage::Hatchling ||
+        !pet_core_evolve(state.pet, active_profile())) {
+        return false;
+    }
+    state.pet.activity = PetActivity::Idle;
+    return true;
+}
+
+uint16_t desktop_pet_state_growth_limit(const DesktopPetState &state)
+{
+    switch (state.pet.stage) {
+    case PetLifeStage::Child:
+        return kDesktopPetChildGrowthLimit;
+    case PetLifeStage::Hatchling:
+    default:
+        return kDesktopPetHatchlingGrowthLimit;
+    }
+}
+
+const char *desktop_pet_state_stage_label(const DesktopPetState &state)
+{
+    switch (state.pet.stage) {
+    case PetLifeStage::Child:
+        return "CHILD";
+    case PetLifeStage::Hatchling:
+    default:
+        return "HATCHLING";
+    }
 }
 
 const char *desktop_pet_state_mood_label(const DesktopPetState &state)

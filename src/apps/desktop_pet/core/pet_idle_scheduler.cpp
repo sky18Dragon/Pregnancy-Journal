@@ -47,8 +47,28 @@ PetIdleAction pet_idle_select(const PetCoreState &state,
     return common[start];
 }
 
-const char *pet_idle_message(PetIdleAction action)
+const char *pet_idle_message(PetIdleAction action,
+                             PetLifeStage stage)
 {
+    if (stage == PetLifeStage::Child) {
+        switch (action) {
+        case PetIdleAction::Blink:
+            return "STILL QUICK ON MY FEET.";
+        case PetIdleAction::EarTwitch:
+            return "MY EARS ARE GETTING LONGER!";
+        case PetIdleAction::LookAround:
+            return "I CAN SEE MUCH FARTHER NOW.";
+        case PetIdleAction::Stretch:
+            return "LOOK HOW TALL I AM!";
+        case PetIdleAction::Hungry:
+            return "A GROWING BUN NEEDS SNACKS.";
+        case PetIdleAction::Tired:
+            return "BIG ADVENTURES NEED NAPS.";
+        case PetIdleAction::None:
+        default:
+            return "I'M READY FOR AN ADVENTURE.";
+        }
+    }
     switch (action) {
     case PetIdleAction::Blink:
         return "JUST A HAPPY LITTLE BLINK.";

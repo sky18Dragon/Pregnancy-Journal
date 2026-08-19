@@ -21,6 +21,23 @@ int main()
         desktop_pet_state_apply(state, DesktopPetAction::AddGrowth);
     assert(std::strcmp(add_growth_again.message,
                        "GROWTH LIMIT REACHED.") == 0);
+    assert(desktop_pet_state_evolve_if_ready(state));
+    assert(state.pet.stage == PetLifeStage::Child);
+    assert(desktop_pet_state_growth_limit(state) ==
+           kDesktopPetChildGrowthLimit);
+    assert(std::strcmp(desktop_pet_state_stage_label(state), "CHILD") == 0);
+    const DesktopPetActionResult child_growth =
+        desktop_pet_state_apply(state, DesktopPetAction::AddGrowth);
+    assert(child_growth.growth_delta == 30U);
+    assert(state.pet.growth == 60U);
+
+    DesktopPetState waiting_to_grow = {};
+    waiting_to_grow.pet.needs.food = 20U;
+    desktop_pet_state_apply(waiting_to_grow, DesktopPetAction::AddGrowth);
+    assert(!desktop_pet_state_evolve_if_ready(waiting_to_grow));
+    desktop_pet_state_apply(waiting_to_grow, DesktopPetAction::Feed);
+    assert(desktop_pet_state_evolve_if_ready(waiting_to_grow));
+    assert(waiting_to_grow.pet.stage == PetLifeStage::Child);
     state = {};
 
     const DesktopPetActionResult feed =
@@ -35,6 +52,14 @@ int main()
     assert(state.pet.needs.food == 100U);
     assert(state.pet.foodie_score == 3U);
     assert(std::strcmp(feed.message, "I'M READY TO GROW!") == 0);
+
+    DesktopPetState child_state = {};
+    child_state.pet.stage = PetLifeStage::Child;
+    child_state.pet.growth = kDesktopPetHatchlingGrowthLimit;
+    const DesktopPetActionResult child_feed =
+        desktop_pet_state_apply(child_state, DesktopPetAction::Feed);
+    assert(std::strcmp(child_feed.message,
+                       "ENERGY FOR ADVENTURES!") == 0);
 
     const DesktopPetActionResult second_feed =
         desktop_pet_state_apply(state, DesktopPetAction::Feed);

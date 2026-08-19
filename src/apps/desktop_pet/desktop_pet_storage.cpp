@@ -39,7 +39,7 @@ void sanitize(DesktopPetState &state)
     state.version = kDesktopPetStateVersion;
     pet_core_sanitize(state.pet, storage_profile());
     state.pet.growth = std::min<uint16_t>(
-        state.pet.growth, kDesktopPetHatchlingGrowthLimit);
+        state.pet.growth, desktop_pet_state_growth_limit(state));
 }
 
 // Converts the accepted version-2 Hatchling record into the shared core.

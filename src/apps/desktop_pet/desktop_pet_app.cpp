@@ -28,6 +28,9 @@ constexpr uint32_t kTaskStackSize = 6144;
 constexpr UBaseType_t kTaskPriority = 3;
 constexpr int64_t kActionPoseHoldUs = 1300000LL;
 constexpr int64_t kTalkMessageHoldUs = 4000000LL;
+constexpr int64_t kEvolutionStartingHoldUs = 1300000LL;
+constexpr int64_t kEvolutionSilhouetteHoldUs = 1400000LL;
+constexpr int64_t kEvolutionRevealHoldUs = 2600000LL;
 constexpr char kHomeMessage[] = "LET'S SPEND TODAY TOGETHER.";
 
 Canvas *s_canvas = nullptr;
@@ -44,12 +47,21 @@ int64_t s_idle_next_us = 0;
 PetAnimationQueue s_idle_animation;
 PetIdleAction s_previous_idle_action = PetIdleAction::None;
 PetIdleAction s_second_previous_idle_action = PetIdleAction::None;
+bool s_evolution_active = false;
+DesktopPetEvolutionFrame s_evolution_frame =
+    DesktopPetEvolutionFrame::Starting;
+int64_t s_evolution_deadline_us = 0;
 #if STICKY_DESKTOP_PET_TEST_MODE
 int64_t s_day_deadline_us = 0;
 #endif
 
 const char *select_home_message()
 {
+    if (s_state.pet.stage == PetLifeStage::Hatchling &&
+        s_state.pet.growth >= kDesktopPetHatchlingGrowthLimit &&
+        !s_state.pet.evolution_ready) {
+        return "CARE FOR ME TO HELP ME GROW.";
+    }
     const PetDialogueContext context =
         pet_dialogue_context_for_state(s_state.pet);
     const PetDialogueEntry *entry = pet_dialogue_pick(
@@ -93,7 +105,10 @@ esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
 
 void render_current_page(bool partial_refresh, bool timing_log = true)
 {
-    if (s_test_open) {
+    if (s_evolution_active) {
+        desktop_pet_page_render_evolution(
+            *s_canvas, s_state, s_evolution_frame);
+    } else if (s_test_open) {
         desktop_pet_page_render_test(
             *s_canvas, s_state, s_reset_confirmation);
     } else {
@@ -161,6 +176,57 @@ void cancel_idle_animation(bool schedule_next)
     }
 }
 
+// Starts a non-blocking three-frame stage transition.
+// 启动一个不阻塞触摸任务的三帧成长过场。
+void start_evolution()
+{
+    cancel_idle_animation(false);
+    s_test_open = false;
+    s_reset_confirmation = false;
+    s_pose = DesktopPetPose::Idle;
+    s_idle_frame = DesktopPetIdleFrame::Normal;
+    s_pose_deadline_us = 0;
+    s_evolution_active = true;
+    s_evolution_frame = DesktopPetEvolutionFrame::Starting;
+    sticky_touch_clear_press();
+    render_current_page(false);
+    s_evolution_deadline_us =
+        esp_timer_get_time() + kEvolutionStartingHoldUs;
+}
+
+// Advances the evolution scene and returns to the live Child home page.
+// 推进成长过场，并在结束后回到可交互的儿童期主页。
+void update_evolution(int64_t now_us)
+{
+    if (!s_evolution_active || now_us < s_evolution_deadline_us) {
+        return;
+    }
+
+    if (s_evolution_frame == DesktopPetEvolutionFrame::Starting) {
+        s_evolution_frame = DesktopPetEvolutionFrame::Silhouette;
+        render_current_page(true, false);
+        s_evolution_deadline_us =
+            esp_timer_get_time() + kEvolutionSilhouetteHoldUs;
+        return;
+    }
+    if (s_evolution_frame == DesktopPetEvolutionFrame::Silhouette) {
+        s_evolution_frame = DesktopPetEvolutionFrame::Revealed;
+        render_current_page(true, false);
+        s_evolution_deadline_us =
+            esp_timer_get_time() + kEvolutionRevealHoldUs;
+        return;
+    }
+
+    s_evolution_active = false;
+    s_evolution_deadline_us = 0;
+    s_state.pet.activity = PetActivity::Idle;
+    s_home_message = select_home_message();
+    s_message = s_home_message;
+    sticky_touch_clear_press();
+    render_current_page(false);
+    schedule_next_idle(esp_timer_get_time());
+}
+
 // Builds one non-blocking frame sequence for the selected idle action.
 // 为选中的待机动作建立一段非阻塞帧序列。
 void start_idle_animation(int64_t now_us)
@@ -211,7 +277,7 @@ void start_idle_animation(int64_t now_us)
 
     s_idle_next_us = 0;
     s_idle_frame = action_frame;
-    s_message = pet_idle_message(action);
+    s_message = pet_idle_message(action, s_state.pet.stage);
 #if STICKY_LOG_PET_ANIMATION_ENABLED
     STICKY_LOGD(kTag,
                 "pet=idle action=%s queue_size=%u result=start",
@@ -225,7 +291,8 @@ void start_idle_animation(int64_t now_us)
 // 推进自主动作帧，同时保持触摸处理不被阻塞。
 void update_idle_animation(int64_t now_us)
 {
-    if (s_test_open || s_pose != DesktopPetPose::Idle ||
+    if (s_evolution_active || s_test_open ||
+        s_pose != DesktopPetPose::Idle ||
         s_pose_deadline_us > 0) {
         return;
     }
@@ -270,8 +337,9 @@ void save_state(const char *reason)
     if (result == ESP_OK) {
 #if STICKY_LOG_DESKTOP_PET_ENABLED
         STICKY_LOGD(kTag,
-                    "pet=save reason=%s day=%u growth=%u love=%u food=%u mood=%s result=ok",
+                    "pet=save reason=%s stage=%s day=%u growth=%u love=%u food=%u mood=%s result=ok",
                     reason,
+                    pet_core_stage_name(s_state.pet.stage),
                     static_cast<unsigned>(s_state.pet.day),
                     static_cast<unsigned>(s_state.pet.growth),
                     static_cast<unsigned>(s_state.pet.bond),
@@ -326,15 +394,21 @@ void handle_test_action(DesktopPetAction action)
     s_reset_confirmation = false;
     s_message = result.message;
     s_home_message = select_home_message();
+    const bool evolved = desktop_pet_state_evolve_if_ready(s_state);
     save_state(desktop_pet_action_name(action));
     STICKY_LOGI(kTag,
-                "pet=test action=%s day=%u growth=%u love=%u food=%u mood=%s result=ok",
+                "pet=test action=%s stage=%s day=%u growth=%u love=%u food=%u mood=%s result=ok",
                 desktop_pet_action_name(action),
+                pet_core_stage_name(s_state.pet.stage),
                 static_cast<unsigned>(s_state.pet.day),
                 static_cast<unsigned>(s_state.pet.growth),
                 static_cast<unsigned>(s_state.pet.bond),
                 static_cast<unsigned>(s_state.pet.needs.food),
                 desktop_pet_state_mood_label(s_state));
+    if (evolved) {
+        start_evolution();
+        return;
+    }
     render_current_page(true);
 }
 
@@ -365,10 +439,12 @@ void handle_action(DesktopPetAction action)
     s_idle_frame = DesktopPetIdleFrame::Normal;
     s_message = result.message;
     s_home_message = select_home_message();
+    const bool evolved = desktop_pet_state_evolve_if_ready(s_state);
     save_state(desktop_pet_action_name(action));
     STICKY_LOGI(kTag,
-                "pet=care action=%s pose=%s rewarded=%d growth_delta=%u love_delta=%u growth=%u love=%u food=%u mood=%s result=ok",
+                "pet=care action=%s stage=%s pose=%s rewarded=%d growth_delta=%u love_delta=%u growth=%u love=%u food=%u mood=%s result=ok",
                 desktop_pet_action_name(action),
+                pet_core_stage_name(s_state.pet.stage),
                 desktop_pet_pose_name(result.pose),
                 result.rewarded ? 1 : 0,
                 static_cast<unsigned>(result.growth_delta),
@@ -377,6 +453,10 @@ void handle_action(DesktopPetAction action)
                 static_cast<unsigned>(s_state.pet.bond),
                 static_cast<unsigned>(s_state.pet.needs.food),
                 desktop_pet_state_mood_label(s_state));
+    if (evolved) {
+        start_evolution();
+        return;
+    }
     render_current_page(true);
     // Hold time begins after the e-paper refresh finishes so the complete
     // pose remains visible for the requested duration.
@@ -389,6 +469,9 @@ void handle_action(DesktopPetAction action)
 
 DesktopPetAction action_for_press(const StickyTouchPress &press)
 {
+    if (s_evolution_active) {
+        return DesktopPetAction::None;
+    }
     int logical_x = 0;
     int logical_y = 0;
     s_canvas->physical_to_logical(
@@ -425,23 +508,31 @@ void app_task(void *)
     sticky_touch_clear_press();
     s_idle_animation.reset();
     s_idle_frame = DesktopPetIdleFrame::Normal;
+    const bool evolved_on_load =
+        desktop_pet_state_evolve_if_ready(s_state);
     s_home_message = select_home_message();
     s_message = s_home_message;
-    render_current_page(false);
-    schedule_next_idle(esp_timer_get_time());
+    if (evolved_on_load) {
+        save_state("evolution_on_load");
+        start_evolution();
+    } else {
+        render_current_page(false);
+        schedule_next_idle(esp_timer_get_time());
+    }
 #if STICKY_DESKTOP_PET_TEST_MODE
     s_day_deadline_us = esp_timer_get_time() +
                         static_cast<int64_t>(kDesktopPetTestDayLengthMs) *
                             1000LL;
 #endif
     STICKY_LOGI(kTag,
-                "pet=ready page=home profile=%s save=%s day=%u growth=%u love=%u food=%u mood=%s result=ok",
+                "pet=ready page=home profile=%s save=%s stage=%s day=%u growth=%u love=%u food=%u mood=%s result=ok",
 #if STICKY_DESKTOP_PET_TEST_MODE
                 "test",
 #else
                 "production",
 #endif
                 found ? "loaded" : "new",
+                pet_core_stage_name(s_state.pet.stage),
                 static_cast<unsigned>(s_state.pet.day),
                 static_cast<unsigned>(s_state.pet.growth),
                 static_cast<unsigned>(s_state.pet.bond),
@@ -455,6 +546,11 @@ void app_task(void *)
         }
 
         const int64_t now_us = esp_timer_get_time();
+        if (s_evolution_active) {
+            update_evolution(now_us);
+            vTaskDelay(kPollInterval);
+            continue;
+        }
         if (!s_test_open && s_pose_deadline_us > 0 &&
             now_us >= s_pose_deadline_us) {
             s_pose = DesktopPetPose::Idle;

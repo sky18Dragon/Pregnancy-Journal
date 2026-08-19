@@ -29,7 +29,7 @@ constexpr Rect kTestBadgeRect = {390, 12, 90, 72};
 constexpr Rect kFeedRect = {0, 600, 160, 170};
 constexpr Rect kTalkRect = {160, 600, 160, 170};
 constexpr Rect kPlayRect = {320, 600, 160, 170};
-constexpr Rect kPetBodyRect = {125, 380, 230, 210};
+constexpr Rect kPetBodyRect = {110, 270, 260, 320};
 
 constexpr Rect kCloseTestRect = {360, 20, 100, 55};
 constexpr Rect kNextDayRect = {35, 255, 410, 70};
@@ -189,9 +189,65 @@ DesktopPetAssetId idle_frame_mask_asset(DesktopPetIdleFrame frame)
     }
 }
 
-DesktopPetAssetId pose_asset(DesktopPetPose pose,
+DesktopPetAssetId child_idle_frame_asset(DesktopPetIdleFrame frame)
+{
+    switch (frame) {
+    case DesktopPetIdleFrame::Blink:
+        return DesktopPetAssetId::ChildIdleBlink;
+    case DesktopPetIdleFrame::EarTwitch:
+        return DesktopPetAssetId::ChildIdleEarTwitch;
+    case DesktopPetIdleFrame::LookAround:
+        return DesktopPetAssetId::ChildIdleLookAround;
+    case DesktopPetIdleFrame::Stretch:
+        return DesktopPetAssetId::ChildIdleStretch;
+    case DesktopPetIdleFrame::Hungry:
+        return DesktopPetAssetId::ChildIdleHungry;
+    case DesktopPetIdleFrame::Tired:
+        return DesktopPetAssetId::ChildIdleTired;
+    case DesktopPetIdleFrame::Normal:
+    default:
+        return DesktopPetAssetId::ChildIdle;
+    }
+}
+
+DesktopPetAssetId child_idle_frame_mask_asset(DesktopPetIdleFrame frame)
+{
+    switch (frame) {
+    case DesktopPetIdleFrame::Blink:
+        return DesktopPetAssetId::ChildIdleBlinkMask;
+    case DesktopPetIdleFrame::EarTwitch:
+        return DesktopPetAssetId::ChildIdleEarTwitchMask;
+    case DesktopPetIdleFrame::LookAround:
+        return DesktopPetAssetId::ChildIdleLookAroundMask;
+    case DesktopPetIdleFrame::Stretch:
+        return DesktopPetAssetId::ChildIdleStretchMask;
+    case DesktopPetIdleFrame::Hungry:
+        return DesktopPetAssetId::ChildIdleHungryMask;
+    case DesktopPetIdleFrame::Tired:
+        return DesktopPetAssetId::ChildIdleTiredMask;
+    case DesktopPetIdleFrame::Normal:
+    default:
+        return DesktopPetAssetId::ChildIdleMask;
+    }
+}
+
+DesktopPetAssetId pose_asset(PetLifeStage stage,
+                             DesktopPetPose pose,
                              DesktopPetIdleFrame idle_frame)
 {
+    if (stage == PetLifeStage::Child) {
+        switch (pose) {
+        case DesktopPetPose::Feed:
+            return DesktopPetAssetId::ChildFeed;
+        case DesktopPetPose::Pet:
+            return DesktopPetAssetId::ChildPet;
+        case DesktopPetPose::Play:
+            return DesktopPetAssetId::ChildPlay;
+        case DesktopPetPose::Idle:
+        default:
+            return child_idle_frame_asset(idle_frame);
+        }
+    }
     switch (pose) {
     case DesktopPetPose::Feed:
         return DesktopPetAssetId::Feed;
@@ -205,9 +261,23 @@ DesktopPetAssetId pose_asset(DesktopPetPose pose,
     }
 }
 
-DesktopPetAssetId pose_mask_asset(DesktopPetPose pose,
+DesktopPetAssetId pose_mask_asset(PetLifeStage stage,
+                                  DesktopPetPose pose,
                                   DesktopPetIdleFrame idle_frame)
 {
+    if (stage == PetLifeStage::Child) {
+        switch (pose) {
+        case DesktopPetPose::Feed:
+            return DesktopPetAssetId::ChildFeedMask;
+        case DesktopPetPose::Pet:
+            return DesktopPetAssetId::ChildPetMask;
+        case DesktopPetPose::Play:
+            return DesktopPetAssetId::ChildPlayMask;
+        case DesktopPetPose::Idle:
+        default:
+            return child_idle_frame_mask_asset(idle_frame);
+        }
+    }
     switch (pose) {
     case DesktopPetPose::Feed:
         return DesktopPetAssetId::FeedMask;
@@ -221,7 +291,7 @@ DesktopPetAssetId pose_mask_asset(DesktopPetPose pose,
     }
 }
 
-void draw_progress(Canvas &canvas, uint16_t growth)
+void draw_progress(Canvas &canvas, uint16_t growth, uint16_t limit)
 {
     constexpr int segment_count = 6;
     constexpr int segment_width = 39;
@@ -230,9 +300,7 @@ void draw_progress(Canvas &canvas, uint16_t growth)
     constexpr int y = 105;
     const int filled = std::min(
         segment_count,
-        static_cast<int>((growth * segment_count +
-                          kDesktopPetHatchlingGrowthLimit - 1U) /
-                         kDesktopPetHatchlingGrowthLimit));
+        static_cast<int>((growth * segment_count + limit - 1U) / limit));
     for (int index = 0; index < segment_count; ++index) {
         const int segment_x = x + index * (segment_width + gap);
         if (index < filled) {
@@ -256,6 +324,13 @@ void draw_action(Canvas &canvas,
                      715, label, 3);
 }
 
+void draw_sparkle(Canvas &canvas, int x, int y, int radius)
+{
+    canvas.draw_line(x - radius, y, x + radius, y, GrayLevel::Black);
+    canvas.draw_line(x, y - radius, x, y + radius, GrayLevel::Black);
+    canvas.fill_rect(x - 1, y - 1, 3, 3, GrayLevel::Black);
+}
+
 }  // namespace
 
 void desktop_pet_page_render_home(Canvas &canvas,
@@ -267,7 +342,7 @@ void desktop_pet_page_render_home(Canvas &canvas,
     canvas.set_rotation(CanvasRotation::Deg90CounterClockwise);
     canvas.clear(GrayLevel::White);
 
-    canvas.draw_text(22, 24, "HATCHLING", 3);
+    canvas.draw_text(22, 24, desktop_pet_state_stage_label(state), 3);
 #if STICKY_DESKTOP_PET_TEST_MODE
     canvas.draw_rect(411, 18, 53, 35, GrayLevel::Black);
     canvas.draw_rect(413, 20, 49, 31, GrayLevel::Black);
@@ -275,11 +350,12 @@ void desktop_pet_page_render_home(Canvas &canvas,
 #endif
 
     char growth_label[24] = {};
+    const uint16_t growth_limit = desktop_pet_state_growth_limit(state);
     std::snprintf(growth_label, sizeof(growth_label), "GROWTH %u / %u",
                   static_cast<unsigned>(state.pet.growth),
-                  static_cast<unsigned>(kDesktopPetHatchlingGrowthLimit));
+                  static_cast<unsigned>(growth_limit));
     canvas.draw_text(24, 72, growth_label, 2);
-    draw_progress(canvas, state.pet.growth);
+    draw_progress(canvas, state.pet.growth, growth_limit);
 
     pixel_asset_draw(canvas, 310, 67,
                      desktop_pet_asset(DesktopPetAssetId::LoveIcon));
@@ -300,11 +376,15 @@ void desktop_pet_page_render_home(Canvas &canvas,
                      desktop_pet_asset(DesktopPetAssetId::Room));
     pixel_asset_draw_centered(canvas, 240, 411,
                               desktop_pet_asset(
-                                  pose_mask_asset(pose, idle_frame)),
+                                  pose_mask_asset(state.pet.stage,
+                                                  pose,
+                                                  idle_frame)),
                               1, GrayLevel::White);
     pixel_asset_draw_centered(canvas, 240, 411,
                               desktop_pet_asset(
-                                  pose_asset(pose, idle_frame)));
+                                  pose_asset(state.pet.stage,
+                                             pose,
+                                             idle_frame)));
     draw_speech_bubble(canvas, message);
 
     canvas.fill_rect(14, 599, 452, 3, GrayLevel::Black);
@@ -333,7 +413,8 @@ void desktop_pet_page_render_test(Canvas &canvas,
 
     char scores[64] = {};
     std::snprintf(scores, sizeof(scores),
-                  "DAY %u  GROWTH %u  LOVE %u",
+                  "%s  DAY %u  GROWTH %u  LOVE %u",
+                  desktop_pet_state_stage_label(state),
                   static_cast<unsigned>(state.pet.day),
                   static_cast<unsigned>(state.pet.growth),
                   static_cast<unsigned>(state.pet.bond));
@@ -359,6 +440,69 @@ void desktop_pet_page_render_test(Canvas &canvas,
                       ? "TAP RESET AGAIN TO CONFIRM"
                       : "TEST CHANGES SAVE TO THE PET RECORD",
                   2);
+}
+
+void desktop_pet_page_render_evolution(
+    Canvas &canvas,
+    const DesktopPetState &state,
+    DesktopPetEvolutionFrame frame)
+{
+    canvas.set_rotation(CanvasRotation::Deg90CounterClockwise);
+    canvas.clear(GrayLevel::White);
+
+    const DesktopPetAssetId asset =
+        frame == DesktopPetEvolutionFrame::Starting
+            ? DesktopPetAssetId::Idle
+            : DesktopPetAssetId::ChildIdle;
+    const DesktopPetAssetId mask =
+        frame == DesktopPetEvolutionFrame::Starting
+            ? DesktopPetAssetId::IdleMask
+            : DesktopPetAssetId::ChildIdleMask;
+
+    const char *title = "SOMETHING IS HAPPENING...";
+    if (frame == DesktopPetEvolutionFrame::Silhouette) {
+        title = "GROWING...";
+    } else if (frame == DesktopPetEvolutionFrame::Revealed) {
+        title = "LOOK! I GREW!";
+    }
+    draw_centered(canvas, 82, title,
+                  frame == DesktopPetEvolutionFrame::Starting ? 2 : 3);
+
+    draw_sparkle(canvas, 72, 215, 14);
+    draw_sparkle(canvas, 401, 248, 10);
+    draw_sparkle(canvas, 91, 552, 9);
+    draw_sparkle(canvas, 389, 581, 15);
+    draw_sparkle(canvas, 405, 151, 6);
+
+    if (frame == DesktopPetEvolutionFrame::Silhouette) {
+        pixel_asset_draw_centered(canvas, 240, 398,
+                                  desktop_pet_asset(mask),
+                                  2, GrayLevel::Black);
+        canvas.draw_line(25, 398, 92, 398, GrayLevel::Black);
+        canvas.draw_line(388, 398, 455, 398, GrayLevel::Black);
+        canvas.draw_line(73, 288, 121, 318, GrayLevel::Black);
+        canvas.draw_line(359, 318, 407, 288, GrayLevel::Black);
+        canvas.draw_line(70, 518, 123, 481, GrayLevel::Black);
+        canvas.draw_line(357, 481, 410, 518, GrayLevel::Black);
+    } else {
+        pixel_asset_draw_centered(canvas, 240, 398,
+                                  desktop_pet_asset(mask),
+                                  2, GrayLevel::White);
+        pixel_asset_draw_centered(canvas, 240, 398,
+                                  desktop_pet_asset(asset), 2);
+    }
+
+    if (frame == DesktopPetEvolutionFrame::Starting) {
+        draw_centered(canvas, 650, "A WARM LIGHT SURROUNDS ME.", 2);
+    } else if (frame == DesktopPetEvolutionFrame::Silhouette) {
+        draw_centered(canvas, 650, "MY EARS ARE GETTING LONGER!", 2);
+    } else {
+        char stage_line[32] = {};
+        std::snprintf(stage_line, sizeof(stage_line),
+                      "WELCOME TO THE %s STAGE!",
+                      desktop_pet_state_stage_label(state));
+        draw_centered(canvas, 650, stage_line, 2);
+    }
 }
 
 DesktopPetAction desktop_pet_page_action_at(bool test_open, int x, int y)

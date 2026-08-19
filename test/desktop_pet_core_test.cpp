@@ -162,6 +162,10 @@ int main()
     assert(tired_idle == PetIdleAction::Tired);
     assert(pet_idle_next_delay_ms(0U, true) == 4000U);
     assert(pet_idle_next_delay_ms(0U, false) == 12000U);
+    assert(std::strcmp(
+               pet_idle_message(PetIdleAction::Stretch,
+                                PetLifeStage::Child),
+               "LOOK HOW TALL I AM!") == 0);
 
     PetAnimationQueue queue;
     queue.reset();

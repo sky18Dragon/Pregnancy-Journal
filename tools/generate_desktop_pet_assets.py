@@ -194,6 +194,16 @@ def main() -> None:
         AssetSpec("feed", source_dir / "hatchling_feed.png", 220, 220, "crop=920:920:167:167", True),
         AssetSpec("pet", source_dir / "hatchling_pet.png", 220, 220, "crop=920:920:167:167", True),
         AssetSpec("play", source_dir / "hatchling_play.png", 220, 220, "crop=1000:1000:127:127", True),
+        AssetSpec("child_idle", source_dir / "child_idle.png", 240, 240, "crop=1150:1150:52:52", True),
+        AssetSpec("child_idle_blink", source_dir / "child_blink.png", 240, 240, "crop=1150:1150:52:52", True),
+        AssetSpec("child_idle_ear_twitch", source_dir / "child_ear_twitch.png", 240, 240, "crop=1150:1150:52:52", True),
+        AssetSpec("child_idle_look_around", source_dir / "child_look.png", 240, 240, "crop=1150:1150:52:52", True),
+        AssetSpec("child_idle_stretch", source_dir / "child_stretch.png", 240, 240, "crop=1150:1150:52:52", True),
+        AssetSpec("child_idle_hungry", source_dir / "child_hungry.png", 240, 240, "crop=1150:1150:52:52", True),
+        AssetSpec("child_idle_tired", source_dir / "child_tired.png", 240, 240, "crop=1150:1150:52:52", True),
+        AssetSpec("child_feed", source_dir / "child_feed.png", 240, 240, "crop=1150:1150:52:52", True),
+        AssetSpec("child_pet", source_dir / "child_pet_v2.png", 240, 240, "crop=1150:1150:52:52", True),
+        AssetSpec("child_play", source_dir / "child_play.png", 240, 240, "crop=1150:1150:52:52", True),
         AssetSpec("feed_icon", concept_dir / "home_selected_480x800.png", 82, 72, "crop=110:95:25:620"),
         AssetSpec("pet_icon", concept_dir / "home_selected_480x800.png", 82, 72, "crop=100:95:195:620"),
         AssetSpec("talk_icon", source_dir / "talk_icon_v1.png", 82, 72, "crop=1000:880:127:180"),
@@ -211,7 +221,7 @@ def main() -> None:
     header_path = args.root / "src" / "ui" / "assets" / "desktop_pet_assets.h"
     source_path = args.root / "src" / "ui" / "assets" / "desktop_pet_assets.cpp"
     header_path.write_text(
-        """#pragma once\n\n#include \"pixel_asset.h\"\n\nenum class DesktopPetAssetId : uint8_t {\n    Room,\n    Idle,\n    IdleMask,\n    IdleBlink,\n    IdleBlinkMask,\n    IdleEarTwitch,\n    IdleEarTwitchMask,\n    IdleLookAround,\n    IdleLookAroundMask,\n    IdleStretch,\n    IdleStretchMask,\n    IdleHungry,\n    IdleHungryMask,\n    IdleTired,\n    IdleTiredMask,\n    Feed,\n    FeedMask,\n    Pet,\n    PetMask,\n    Play,\n    PlayMask,\n    FeedIcon,\n    PetIcon,\n    TalkIcon,\n    PlayIcon,\n    LoveIcon,\n};\n\n// Returns one generated desktop-pet bitmap.\n// 返回一张已生成的桌宠位图。\nconst PixelAsset &desktop_pet_asset(DesktopPetAssetId id);\n""",
+        """#pragma once\n\n#include \"pixel_asset.h\"\n\nenum class DesktopPetAssetId : uint8_t {\n    Room,\n    Idle,\n    IdleMask,\n    IdleBlink,\n    IdleBlinkMask,\n    IdleEarTwitch,\n    IdleEarTwitchMask,\n    IdleLookAround,\n    IdleLookAroundMask,\n    IdleStretch,\n    IdleStretchMask,\n    IdleHungry,\n    IdleHungryMask,\n    IdleTired,\n    IdleTiredMask,\n    Feed,\n    FeedMask,\n    Pet,\n    PetMask,\n    Play,\n    PlayMask,\n    ChildIdle,\n    ChildIdleMask,\n    ChildIdleBlink,\n    ChildIdleBlinkMask,\n    ChildIdleEarTwitch,\n    ChildIdleEarTwitchMask,\n    ChildIdleLookAround,\n    ChildIdleLookAroundMask,\n    ChildIdleStretch,\n    ChildIdleStretchMask,\n    ChildIdleHungry,\n    ChildIdleHungryMask,\n    ChildIdleTired,\n    ChildIdleTiredMask,\n    ChildFeed,\n    ChildFeedMask,\n    ChildPet,\n    ChildPetMask,\n    ChildPlay,\n    ChildPlayMask,\n    FeedIcon,\n    PetIcon,\n    TalkIcon,\n    PlayIcon,\n    LoveIcon,\n};\n\n// Returns one generated desktop-pet bitmap.\n// 返回一张已生成的桌宠位图。\nconst PixelAsset &desktop_pet_asset(DesktopPetAssetId id);\n""",
         encoding="utf-8",
     )
 

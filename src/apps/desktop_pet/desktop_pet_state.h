@@ -39,6 +39,12 @@ enum class DesktopPetIdleFrame : uint8_t {
     Tired,
 };
 
+enum class DesktopPetEvolutionFrame : uint8_t {
+    Starting,
+    Silhouette,
+    Revealed,
+};
+
 constexpr uint32_t kDesktopPetStateVersion = 3U;
 
 struct DesktopPetState {
@@ -56,6 +62,7 @@ struct DesktopPetActionResult {
 };
 
 constexpr uint16_t kDesktopPetHatchlingGrowthLimit = 30U;
+constexpr uint16_t kDesktopPetChildGrowthLimit = 120U;
 constexpr uint32_t kDesktopPetTestDayLengthMs = 120000U;
 constexpr uint32_t kDesktopPetTestNeedMinutesPerDay = 10U;
 
@@ -67,6 +74,13 @@ DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
 // Starts a new simulated day and resets only the daily reward counters.
 // 开始新的模拟日期，并只重置当天奖励计数。
 void desktop_pet_state_advance_day(DesktopPetState &state);
+
+// Evolves the visible Hatchling stage when growth and care are ready.
+// 当成长值和照料状态满足条件时，将可见幼兔阶段进化为儿童期。
+bool desktop_pet_state_evolve_if_ready(DesktopPetState &state);
+
+uint16_t desktop_pet_state_growth_limit(const DesktopPetState &state);
+const char *desktop_pet_state_stage_label(const DesktopPetState &state);
 
 const char *desktop_pet_state_mood_label(const DesktopPetState &state);
 const char *desktop_pet_action_name(DesktopPetAction action);

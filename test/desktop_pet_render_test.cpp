@@ -116,6 +116,36 @@ int main()
         "RESTING MY EYES A MOMENT.");
     write_preview(buffer, "/tmp/desktop_pet_idle_tired.ppm");
 
+    state.pet.stage = PetLifeStage::Child;
+    state.pet.growth = kDesktopPetHatchlingGrowthLimit;
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::Normal,
+        "I'M READY FOR AN ADVENTURE.");
+    assert(black_pixel_count(buffer) > 18000U);
+    write_preview(buffer, "/tmp/desktop_pet_child_home.ppm");
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Feed, DesktopPetIdleFrame::Normal,
+        "ENERGY FOR ADVENTURES!");
+    write_preview(buffer, "/tmp/desktop_pet_child_feed.ppm");
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Pet, DesktopPetIdleFrame::Normal,
+        "MY FUR GREW EXTRA SOFT!");
+    write_preview(buffer, "/tmp/desktop_pet_child_pet.ppm");
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Play, DesktopPetIdleFrame::Normal,
+        "CATCH ME IF YOU CAN!");
+    write_preview(buffer, "/tmp/desktop_pet_child_play.ppm");
+
+    desktop_pet_page_render_evolution(
+        canvas, state, DesktopPetEvolutionFrame::Starting);
+    write_preview(buffer, "/tmp/desktop_pet_evolution_start.ppm");
+    desktop_pet_page_render_evolution(
+        canvas, state, DesktopPetEvolutionFrame::Silhouette);
+    write_preview(buffer, "/tmp/desktop_pet_evolution_silhouette.ppm");
+    desktop_pet_page_render_evolution(
+        canvas, state, DesktopPetEvolutionFrame::Revealed);
+    write_preview(buffer, "/tmp/desktop_pet_evolution_reveal.ppm");
+
     desktop_pet_page_render_test(canvas, state, false);
     assert(desktop_pet_page_action_at(true, 240, 290) ==
            DesktopPetAction::NextDay);
