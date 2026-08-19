@@ -1,6 +1,9 @@
 #include "desktop_pet_storage.h"
 
 #include <algorithm>
+#include <array>
+#include <cstring>
+#include <iterator>
 
 #include "nvs.h"
 
@@ -9,6 +12,8 @@ namespace {
 constexpr char kNamespace[] = "sticky_pet";
 constexpr char kStateKey[] = "state";
 constexpr uint32_t kLegacyStateVersion = 2U;
+constexpr uint32_t kLegacyCoreStateVersion = 1U;
+constexpr uint32_t kLegacyDesktopStateVersion = 3U;
 
 struct LegacyDesktopPetStateV2 {
     uint32_t version = kLegacyStateVersion;
@@ -23,6 +28,41 @@ struct LegacyDesktopPetStateV2 {
     uint16_t foodie_score = 0U;
     uint16_t affectionate_score = 0U;
     uint16_t active_score = 0U;
+};
+
+struct LegacyPetCoreStateV1 {
+    uint32_t version = kLegacyCoreStateVersion;
+    PetLifeStage stage = PetLifeStage::Hatchling;
+    PetActivity activity = PetActivity::Idle;
+    PetNeeds needs = {};
+    uint16_t growth = 10U;
+    uint8_t bond = 18U;
+    uint16_t day = 1U;
+    uint32_t age_minutes = 0U;
+    uint32_t last_rtc_epoch_seconds = 0U;
+    uint32_t current_day_key = 0U;
+    uint32_t last_care_day_key = 0U;
+    uint16_t care_streak = 0U;
+    uint16_t best_care_streak = 0U;
+    uint16_t care_mistakes = 0U;
+    uint8_t mistake_cooldown_minutes = 0U;
+    uint8_t waste_count = 0U;
+    uint16_t waste_minute_accumulator = 0U;
+    uint16_t growth_earned_today = 0U;
+    uint8_t bond_earned_today = 0U;
+    uint8_t feed_count_today = 0U;
+    uint8_t pet_count_today = 0U;
+    uint8_t play_count_today = 0U;
+    uint16_t foodie_score = 0U;
+    uint16_t affectionate_score = 0U;
+    uint16_t active_score = 0U;
+    bool evolution_ready = false;
+    uint16_t recent_dialogue_ids[kPetRecentDialogueCount] = {};
+};
+
+struct LegacyDesktopPetStateV3 {
+    uint32_t version = kLegacyDesktopStateVersion;
+    LegacyPetCoreStateV1 pet = {};
 };
 
 const PetCoreProfile &storage_profile()
@@ -62,6 +102,45 @@ void migrate_v2(const LegacyDesktopPetStateV2 &legacy,
     sanitize(state);
 }
 
+// Copies the complete version-3 Child record into the version-4 core.
+// 将完整的版本3儿童期存档复制到版本4核心结构。
+void migrate_v3(const LegacyDesktopPetStateV3 &legacy,
+                DesktopPetState &state)
+{
+    state = {};
+    state.pet.stage = legacy.pet.stage;
+    state.pet.activity = legacy.pet.activity;
+    state.pet.needs = legacy.pet.needs;
+    state.pet.growth = legacy.pet.growth;
+    state.pet.bond = legacy.pet.bond;
+    state.pet.day = legacy.pet.day;
+    state.pet.age_minutes = legacy.pet.age_minutes;
+    state.pet.last_rtc_epoch_seconds = legacy.pet.last_rtc_epoch_seconds;
+    state.pet.current_day_key = legacy.pet.current_day_key;
+    state.pet.last_care_day_key = legacy.pet.last_care_day_key;
+    state.pet.care_streak = legacy.pet.care_streak;
+    state.pet.best_care_streak = legacy.pet.best_care_streak;
+    state.pet.care_mistakes = legacy.pet.care_mistakes;
+    state.pet.mistake_cooldown_minutes =
+        legacy.pet.mistake_cooldown_minutes;
+    state.pet.waste_count = legacy.pet.waste_count;
+    state.pet.waste_minute_accumulator =
+        legacy.pet.waste_minute_accumulator;
+    state.pet.growth_earned_today = legacy.pet.growth_earned_today;
+    state.pet.bond_earned_today = legacy.pet.bond_earned_today;
+    state.pet.feed_count_today = legacy.pet.feed_count_today;
+    state.pet.pet_count_today = legacy.pet.pet_count_today;
+    state.pet.play_count_today = legacy.pet.play_count_today;
+    state.pet.foodie_score = legacy.pet.foodie_score;
+    state.pet.affectionate_score = legacy.pet.affectionate_score;
+    state.pet.active_score = legacy.pet.active_score;
+    state.pet.evolution_ready = legacy.pet.evolution_ready;
+    std::copy(std::begin(legacy.pet.recent_dialogue_ids),
+              std::end(legacy.pet.recent_dialogue_ids),
+              std::begin(state.pet.recent_dialogue_ids));
+    sanitize(state);
+}
+
 }  // namespace
 
 esp_err_t desktop_pet_storage_load(DesktopPetState &state, bool &found)
@@ -89,32 +168,47 @@ esp_err_t desktop_pet_storage_load(DesktopPetState &state, bool &found)
         return result;
     }
 
-    if (size == sizeof(state)) {
-        result = nvs_get_blob(handle, kStateKey, &state, &size);
+    constexpr size_t kMaximumRecordSize =
+        std::max(sizeof(DesktopPetState), sizeof(LegacyDesktopPetStateV3));
+    std::array<uint8_t, kMaximumRecordSize> bytes = {};
+    if (size > bytes.size()) {
         nvs_close(handle);
-        if (result != ESP_OK || state.version != kDesktopPetStateVersion) {
-            state = {};
-            return result == ESP_OK ? ESP_OK : result;
-        }
+        state = {};
+        return ESP_OK;
+    }
+    result = nvs_get_blob(handle, kStateKey, bytes.data(), &size);
+    nvs_close(handle);
+    if (result != ESP_OK || size < sizeof(uint32_t)) {
+        state = {};
+        return result == ESP_OK ? ESP_OK : result;
+    }
+
+    uint32_t stored_version = 0U;
+    std::memcpy(&stored_version, bytes.data(), sizeof(stored_version));
+    if (stored_version == kDesktopPetStateVersion &&
+        size == sizeof(DesktopPetState)) {
+        std::memcpy(&state, bytes.data(), sizeof(state));
         sanitize(state);
         found = true;
         return ESP_OK;
     }
-
-    if (size == sizeof(LegacyDesktopPetStateV2)) {
+    if (stored_version == kLegacyDesktopStateVersion &&
+        size == sizeof(LegacyDesktopPetStateV3)) {
+        LegacyDesktopPetStateV3 legacy = {};
+        std::memcpy(&legacy, bytes.data(), sizeof(legacy));
+        migrate_v3(legacy, state);
+        found = true;
+        return ESP_OK;
+    }
+    if (stored_version == kLegacyStateVersion &&
+        size == sizeof(LegacyDesktopPetStateV2)) {
         LegacyDesktopPetStateV2 legacy = {};
-        result = nvs_get_blob(handle, kStateKey, &legacy, &size);
-        nvs_close(handle);
-        if (result != ESP_OK || legacy.version != kLegacyStateVersion) {
-            state = {};
-            return result == ESP_OK ? ESP_OK : result;
-        }
+        std::memcpy(&legacy, bytes.data(), sizeof(legacy));
         migrate_v2(legacy, state);
         found = true;
         return ESP_OK;
     }
 
-    nvs_close(handle);
     state = {};
     return ESP_OK;
 }

@@ -17,7 +17,7 @@ This directory stores the original monochrome visual system for the Sticky deskt
 
 `concepts/home_selected_v1.png` is the approved portrait home-screen reference. `concepts/home_selected_480x800.png` is its normalized comparison copy.
 
-The current `source/` set contains the approved room, Hatchling and Child identity art, three direct-interaction poses per visible stage, six autonomous frames per visible stage, and the rabbit speech-bubble source used by `TALK`. The `firmware/` directory contains their generated 1-bit previews plus the four action icons and love icon.
+The current `source/` set contains the approved room, Hatchling and Child identity art, plus three distinct Youth personality forms. Every Youth form has its own idle, signature movement, feed, pet, and play poses. The `firmware/` directory contains the generated 1-bit previews, subject masks, four action icons, and love icon.
 
 Run the asset generator from the project root:
 

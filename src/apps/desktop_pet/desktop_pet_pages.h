@@ -25,4 +25,11 @@ void desktop_pet_page_render_evolution(
     const DesktopPetState &state,
     DesktopPetEvolutionFrame frame);
 
+// Draws the final three-way care choice before the Youth evolution.
+// 在进入青年期前绘制最终的三选一照料页。
+void desktop_pet_page_render_personality_choice(
+    Canvas &canvas,
+    const DesktopPetState &state);
+
 DesktopPetAction desktop_pet_page_action_at(bool test_open, int x, int y);
+DesktopPetAction desktop_pet_page_personality_action_at(int x, int y);

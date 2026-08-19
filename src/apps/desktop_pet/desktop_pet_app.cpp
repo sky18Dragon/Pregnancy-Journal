@@ -41,6 +41,7 @@ DesktopPetIdleFrame s_idle_frame = DesktopPetIdleFrame::Normal;
 const char *s_message = kHomeMessage;
 const char *s_home_message = kHomeMessage;
 bool s_test_open = false;
+bool s_personality_choice_open = false;
 bool s_reset_confirmation = false;
 int64_t s_pose_deadline_us = 0;
 int64_t s_idle_next_us = 0;
@@ -55,12 +56,57 @@ int64_t s_evolution_deadline_us = 0;
 int64_t s_day_deadline_us = 0;
 #endif
 
+const char *select_youth_home_message(uint32_t value)
+{
+    switch (s_state.pet.branch) {
+    case PetPersonalityBranch::Foodie: {
+        constexpr const char *kLines[] = {
+            "I PACKED A SNACK FOR US.",
+            "I CAN SMELL A CARROT NEARBY.",
+            "SHALL WE TRY A NEW TREAT?",
+        };
+        return kLines[value % 3U];
+    }
+    case PetPersonalityBranch::Affectionate: {
+        constexpr const char *kLines[] = {
+            "I'M ALWAYS CLOSE BY.",
+            "THIS FEELS LIKE HOME.",
+            "I SAVED YOU A WARM HUG.",
+        };
+        return kLines[value % 3U];
+    }
+    case PetPersonalityBranch::Active: {
+        constexpr const char *kLines[] = {
+            "LET'S RACE TOGETHER!",
+            "A NEW ADVENTURE AWAITS!",
+            "I'M READY TO MOVE!",
+        };
+        return kLines[value % 3U];
+    }
+    case PetPersonalityBranch::Undecided:
+    default:
+        return nullptr;
+    }
+}
+
 const char *select_home_message()
 {
     if (s_state.pet.stage == PetLifeStage::Hatchling &&
         s_state.pet.growth >= kDesktopPetHatchlingGrowthLimit &&
         !s_state.pet.evolution_ready) {
         return "CARE FOR ME TO HELP ME GROW.";
+    }
+    if (s_state.pet.stage == PetLifeStage::Child &&
+        s_state.pet.growth >= kDesktopPetChildGrowthLimit &&
+        !s_state.pet.evolution_ready) {
+        return "CARE FOR ME TO FIND MY PATH.";
+    }
+    if (s_state.pet.stage == PetLifeStage::Youth) {
+        const char *message = select_youth_home_message(
+            static_cast<uint32_t>(esp_timer_get_time()));
+        if (message != nullptr) {
+            return message;
+        }
     }
     const PetDialogueContext context =
         pet_dialogue_context_for_state(s_state.pet);
@@ -108,6 +154,8 @@ void render_current_page(bool partial_refresh, bool timing_log = true)
     if (s_evolution_active) {
         desktop_pet_page_render_evolution(
             *s_canvas, s_state, s_evolution_frame);
+    } else if (s_personality_choice_open) {
+        desktop_pet_page_render_personality_choice(*s_canvas, s_state);
     } else if (s_test_open) {
         desktop_pet_page_render_test(
             *s_canvas, s_state, s_reset_confirmation);
@@ -182,6 +230,7 @@ void start_evolution()
 {
     cancel_idle_animation(false);
     s_test_open = false;
+    s_personality_choice_open = false;
     s_reset_confirmation = false;
     s_pose = DesktopPetPose::Idle;
     s_idle_frame = DesktopPetIdleFrame::Normal;
@@ -194,8 +243,34 @@ void start_evolution()
         esp_timer_get_time() + kEvolutionStartingHoldUs;
 }
 
-// Advances the evolution scene and returns to the live Child home page.
-// 推进成长过场，并在结束后回到可交互的儿童期主页。
+void open_personality_choice()
+{
+    cancel_idle_animation(false);
+    s_test_open = false;
+    s_personality_choice_open = true;
+    s_reset_confirmation = false;
+    s_pose = DesktopPetPose::Idle;
+    s_pose_deadline_us = 0;
+    sticky_touch_clear_press();
+    render_current_page(false);
+}
+
+void apply_evolution_outcome(DesktopPetEvolutionOutcome outcome)
+{
+    if (outcome == DesktopPetEvolutionOutcome::Evolved) {
+        if (s_state.pet.stage == PetLifeStage::Youth) {
+            STICKY_LOGI(kTag,
+                        "pet=personality branch=%s source=automatic result=ok",
+                        pet_core_personality_name(s_state.pet.branch));
+        }
+        start_evolution();
+    } else if (outcome == DesktopPetEvolutionOutcome::ChoiceRequired) {
+        open_personality_choice();
+    }
+}
+
+// Advances the evolution scene and returns to the new live stage home page.
+// 推进成长过场，并在结束后回到新阶段的可交互主页。
 void update_evolution(int64_t now_us)
 {
     if (!s_evolution_active || now_us < s_evolution_deadline_us) {
@@ -291,7 +366,7 @@ void start_idle_animation(int64_t now_us)
 // 推进自主动作帧，同时保持触摸处理不被阻塞。
 void update_idle_animation(int64_t now_us)
 {
-    if (s_evolution_active || s_test_open ||
+    if (s_evolution_active || s_test_open || s_personality_choice_open ||
         s_pose != DesktopPetPose::Idle ||
         s_pose_deadline_us > 0) {
         return;
@@ -394,7 +469,8 @@ void handle_test_action(DesktopPetAction action)
     s_reset_confirmation = false;
     s_message = result.message;
     s_home_message = select_home_message();
-    const bool evolved = desktop_pet_state_evolve_if_ready(s_state);
+    const DesktopPetEvolutionOutcome evolution =
+        desktop_pet_state_evolve_if_ready(s_state);
     save_state(desktop_pet_action_name(action));
     STICKY_LOGI(kTag,
                 "pet=test action=%s stage=%s day=%u growth=%u love=%u food=%u mood=%s result=ok",
@@ -405,8 +481,8 @@ void handle_test_action(DesktopPetAction action)
                 static_cast<unsigned>(s_state.pet.bond),
                 static_cast<unsigned>(s_state.pet.needs.food),
                 desktop_pet_state_mood_label(s_state));
-    if (evolved) {
-        start_evolution();
+    if (evolution != DesktopPetEvolutionOutcome::None) {
+        apply_evolution_outcome(evolution);
         return;
     }
     render_current_page(true);
@@ -415,6 +491,25 @@ void handle_test_action(DesktopPetAction action)
 void handle_action(DesktopPetAction action)
 {
     if (action == DesktopPetAction::None) {
+        return;
+    }
+    if (s_personality_choice_open) {
+        PetPersonalityBranch branch = PetPersonalityBranch::Undecided;
+        if (action == DesktopPetAction::ChooseFoodie) {
+            branch = PetPersonalityBranch::Foodie;
+        } else if (action == DesktopPetAction::ChooseAffectionate) {
+            branch = PetPersonalityBranch::Affectionate;
+        } else if (action == DesktopPetAction::ChooseActive) {
+            branch = PetPersonalityBranch::Active;
+        }
+        if (!desktop_pet_state_choose_youth_branch(s_state, branch)) {
+            return;
+        }
+        save_state(desktop_pet_action_name(action));
+        STICKY_LOGI(kTag,
+                    "pet=personality branch=%s source=choice result=ok",
+                    pet_core_personality_name(s_state.pet.branch));
+        start_evolution();
         return;
     }
     if (s_test_open) {
@@ -439,7 +534,8 @@ void handle_action(DesktopPetAction action)
     s_idle_frame = DesktopPetIdleFrame::Normal;
     s_message = result.message;
     s_home_message = select_home_message();
-    const bool evolved = desktop_pet_state_evolve_if_ready(s_state);
+    const DesktopPetEvolutionOutcome evolution =
+        desktop_pet_state_evolve_if_ready(s_state);
     save_state(desktop_pet_action_name(action));
     STICKY_LOGI(kTag,
                 "pet=care action=%s stage=%s pose=%s rewarded=%d growth_delta=%u love_delta=%u growth=%u love=%u food=%u mood=%s result=ok",
@@ -453,8 +549,8 @@ void handle_action(DesktopPetAction action)
                 static_cast<unsigned>(s_state.pet.bond),
                 static_cast<unsigned>(s_state.pet.needs.food),
                 desktop_pet_state_mood_label(s_state));
-    if (evolved) {
-        start_evolution();
+    if (evolution != DesktopPetEvolutionOutcome::None) {
+        apply_evolution_outcome(evolution);
         return;
     }
     render_current_page(true);
@@ -476,8 +572,13 @@ DesktopPetAction action_for_press(const StickyTouchPress &press)
     int logical_y = 0;
     s_canvas->physical_to_logical(
         press.x, press.y, logical_x, logical_y);
-    const DesktopPetAction action =
-        desktop_pet_page_action_at(s_test_open, logical_x, logical_y);
+    const DesktopPetAction action = s_personality_choice_open
+                                        ? desktop_pet_page_personality_action_at(
+                                              logical_x, logical_y)
+                                        : desktop_pet_page_action_at(
+                                              s_test_open,
+                                              logical_x,
+                                              logical_y);
 #if STICKY_LOG_DESKTOP_PET_ENABLED
     const uint32_t now_ms =
         static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
@@ -508,13 +609,16 @@ void app_task(void *)
     sticky_touch_clear_press();
     s_idle_animation.reset();
     s_idle_frame = DesktopPetIdleFrame::Normal;
-    const bool evolved_on_load =
+    const DesktopPetEvolutionOutcome evolution_on_load =
         desktop_pet_state_evolve_if_ready(s_state);
     s_home_message = select_home_message();
     s_message = s_home_message;
-    if (evolved_on_load) {
+    if (evolution_on_load == DesktopPetEvolutionOutcome::Evolved) {
         save_state("evolution_on_load");
         start_evolution();
+    } else if (evolution_on_load ==
+               DesktopPetEvolutionOutcome::ChoiceRequired) {
+        open_personality_choice();
     } else {
         render_current_page(false);
         schedule_next_idle(esp_timer_get_time());
@@ -551,7 +655,8 @@ void app_task(void *)
             vTaskDelay(kPollInterval);
             continue;
         }
-        if (!s_test_open && s_pose_deadline_us > 0 &&
+        if (!s_test_open && !s_personality_choice_open &&
+            s_pose_deadline_us > 0 &&
             now_us >= s_pose_deadline_us) {
             s_pose = DesktopPetPose::Idle;
             s_idle_frame = DesktopPetIdleFrame::Normal;
@@ -564,7 +669,8 @@ void app_task(void *)
         update_idle_animation(now_us);
 
 #if STICKY_DESKTOP_PET_TEST_MODE
-        if (s_day_deadline_us > 0 && now_us >= s_day_deadline_us) {
+        if (!s_personality_choice_open && s_day_deadline_us > 0 &&
+            now_us >= s_day_deadline_us) {
             cancel_idle_animation(false);
             desktop_pet_state_advance_day(s_state);
             s_day_deadline_us +=

@@ -36,6 +36,9 @@ constexpr Rect kNextDayRect = {35, 255, 410, 70};
 constexpr Rect kAddGrowthRect = {35, 345, 410, 70};
 constexpr Rect kAddLoveRect = {35, 435, 410, 70};
 constexpr Rect kResetRect = {35, 555, 410, 80};
+constexpr Rect kFoodieChoiceRect = {45, 220, 390, 125};
+constexpr Rect kAffectionateChoiceRect = {45, 365, 390, 125};
+constexpr Rect kActiveChoiceRect = {45, 510, 390, 125};
 
 int text_width(const char *text, int scale)
 {
@@ -231,11 +234,113 @@ DesktopPetAssetId child_idle_frame_mask_asset(DesktopPetIdleFrame frame)
     }
 }
 
-DesktopPetAssetId pose_asset(PetLifeStage stage,
+DesktopPetAssetId youth_idle_asset(PetPersonalityBranch branch,
+                                   DesktopPetIdleFrame frame)
+{
+    const bool signature = frame != DesktopPetIdleFrame::Normal &&
+                           frame != DesktopPetIdleFrame::Tired;
+    switch (branch) {
+    case PetPersonalityBranch::Foodie:
+        if (frame == DesktopPetIdleFrame::Hungry) {
+            return DesktopPetAssetId::YouthFoodieFeed;
+        }
+        return signature ? DesktopPetAssetId::YouthFoodieSignature
+                         : DesktopPetAssetId::YouthFoodieIdle;
+    case PetPersonalityBranch::Affectionate:
+        if (frame == DesktopPetIdleFrame::Hungry) {
+            return DesktopPetAssetId::YouthAffectionateFeed;
+        }
+        return signature ? DesktopPetAssetId::YouthAffectionateSignature
+                         : DesktopPetAssetId::YouthAffectionateIdle;
+    case PetPersonalityBranch::Active:
+        if (frame == DesktopPetIdleFrame::Hungry) {
+            return DesktopPetAssetId::YouthActiveFeed;
+        }
+        return signature ? DesktopPetAssetId::YouthActiveSignature
+                         : DesktopPetAssetId::YouthActiveIdle;
+    case PetPersonalityBranch::Undecided:
+    default:
+        return DesktopPetAssetId::ChildIdle;
+    }
+}
+
+DesktopPetAssetId youth_idle_mask_asset(PetPersonalityBranch branch,
+                                        DesktopPetIdleFrame frame)
+{
+    const bool signature = frame != DesktopPetIdleFrame::Normal &&
+                           frame != DesktopPetIdleFrame::Tired;
+    switch (branch) {
+    case PetPersonalityBranch::Foodie:
+        if (frame == DesktopPetIdleFrame::Hungry) {
+            return DesktopPetAssetId::YouthFoodieFeedMask;
+        }
+        return signature ? DesktopPetAssetId::YouthFoodieSignatureMask
+                         : DesktopPetAssetId::YouthFoodieIdleMask;
+    case PetPersonalityBranch::Affectionate:
+        if (frame == DesktopPetIdleFrame::Hungry) {
+            return DesktopPetAssetId::YouthAffectionateFeedMask;
+        }
+        return signature
+                   ? DesktopPetAssetId::YouthAffectionateSignatureMask
+                   : DesktopPetAssetId::YouthAffectionateIdleMask;
+    case PetPersonalityBranch::Active:
+        if (frame == DesktopPetIdleFrame::Hungry) {
+            return DesktopPetAssetId::YouthActiveFeedMask;
+        }
+        return signature ? DesktopPetAssetId::YouthActiveSignatureMask
+                         : DesktopPetAssetId::YouthActiveIdleMask;
+    case PetPersonalityBranch::Undecided:
+    default:
+        return DesktopPetAssetId::ChildIdleMask;
+    }
+}
+
+DesktopPetAssetId pose_asset(const PetCoreState &pet,
                              DesktopPetPose pose,
                              DesktopPetIdleFrame idle_frame)
 {
-    if (stage == PetLifeStage::Child) {
+    if (pet.stage == PetLifeStage::Youth) {
+        switch (pet.branch) {
+        case PetPersonalityBranch::Foodie:
+            if (pose == DesktopPetPose::Feed) {
+                return DesktopPetAssetId::YouthFoodieFeed;
+            }
+            if (pose == DesktopPetPose::Pet) {
+                return DesktopPetAssetId::YouthFoodiePet;
+            }
+            if (pose == DesktopPetPose::Play) {
+                return DesktopPetAssetId::YouthFoodiePlay;
+            }
+            break;
+        case PetPersonalityBranch::Affectionate:
+            if (pose == DesktopPetPose::Feed) {
+                return DesktopPetAssetId::YouthAffectionateFeed;
+            }
+            if (pose == DesktopPetPose::Pet) {
+                return DesktopPetAssetId::YouthAffectionatePet;
+            }
+            if (pose == DesktopPetPose::Play) {
+                return DesktopPetAssetId::YouthAffectionatePlay;
+            }
+            break;
+        case PetPersonalityBranch::Active:
+            if (pose == DesktopPetPose::Feed) {
+                return DesktopPetAssetId::YouthActiveFeed;
+            }
+            if (pose == DesktopPetPose::Pet) {
+                return DesktopPetAssetId::YouthActivePet;
+            }
+            if (pose == DesktopPetPose::Play) {
+                return DesktopPetAssetId::YouthActivePlay;
+            }
+            break;
+        case PetPersonalityBranch::Undecided:
+        default:
+            break;
+        }
+        return youth_idle_asset(pet.branch, idle_frame);
+    }
+    if (pet.stage == PetLifeStage::Child) {
         switch (pose) {
         case DesktopPetPose::Feed:
             return DesktopPetAssetId::ChildFeed;
@@ -261,11 +366,52 @@ DesktopPetAssetId pose_asset(PetLifeStage stage,
     }
 }
 
-DesktopPetAssetId pose_mask_asset(PetLifeStage stage,
+DesktopPetAssetId pose_mask_asset(const PetCoreState &pet,
                                   DesktopPetPose pose,
                                   DesktopPetIdleFrame idle_frame)
 {
-    if (stage == PetLifeStage::Child) {
+    if (pet.stage == PetLifeStage::Youth) {
+        switch (pet.branch) {
+        case PetPersonalityBranch::Foodie:
+            if (pose == DesktopPetPose::Feed) {
+                return DesktopPetAssetId::YouthFoodieFeedMask;
+            }
+            if (pose == DesktopPetPose::Pet) {
+                return DesktopPetAssetId::YouthFoodiePetMask;
+            }
+            if (pose == DesktopPetPose::Play) {
+                return DesktopPetAssetId::YouthFoodiePlayMask;
+            }
+            break;
+        case PetPersonalityBranch::Affectionate:
+            if (pose == DesktopPetPose::Feed) {
+                return DesktopPetAssetId::YouthAffectionateFeedMask;
+            }
+            if (pose == DesktopPetPose::Pet) {
+                return DesktopPetAssetId::YouthAffectionatePetMask;
+            }
+            if (pose == DesktopPetPose::Play) {
+                return DesktopPetAssetId::YouthAffectionatePlayMask;
+            }
+            break;
+        case PetPersonalityBranch::Active:
+            if (pose == DesktopPetPose::Feed) {
+                return DesktopPetAssetId::YouthActiveFeedMask;
+            }
+            if (pose == DesktopPetPose::Pet) {
+                return DesktopPetAssetId::YouthActivePetMask;
+            }
+            if (pose == DesktopPetPose::Play) {
+                return DesktopPetAssetId::YouthActivePlayMask;
+            }
+            break;
+        case PetPersonalityBranch::Undecided:
+        default:
+            break;
+        }
+        return youth_idle_mask_asset(pet.branch, idle_frame);
+    }
+    if (pet.stage == PetLifeStage::Child) {
         switch (pose) {
         case DesktopPetPose::Feed:
             return DesktopPetAssetId::ChildFeedMask;
@@ -376,13 +522,13 @@ void desktop_pet_page_render_home(Canvas &canvas,
                      desktop_pet_asset(DesktopPetAssetId::Room));
     pixel_asset_draw_centered(canvas, 240, 411,
                               desktop_pet_asset(
-                                  pose_mask_asset(state.pet.stage,
+                                  pose_mask_asset(state.pet,
                                                   pose,
                                                   idle_frame)),
                               1, GrayLevel::White);
     pixel_asset_draw_centered(canvas, 240, 411,
                               desktop_pet_asset(
-                                  pose_asset(state.pet.stage,
+                                  pose_asset(state.pet,
                                              pose,
                                              idle_frame)));
     draw_speech_bubble(canvas, message);
@@ -450,20 +596,35 @@ void desktop_pet_page_render_evolution(
     canvas.set_rotation(CanvasRotation::Deg90CounterClockwise);
     canvas.clear(GrayLevel::White);
 
+    const bool youth_evolution = state.pet.stage == PetLifeStage::Youth;
+    const DesktopPetAssetId target_asset = youth_evolution
+                                                ? youth_idle_asset(
+                                                      state.pet.branch,
+                                                      DesktopPetIdleFrame::Normal)
+                                                : DesktopPetAssetId::ChildIdle;
+    const DesktopPetAssetId target_mask = youth_evolution
+                                               ? youth_idle_mask_asset(
+                                                     state.pet.branch,
+                                                     DesktopPetIdleFrame::Normal)
+                                               : DesktopPetAssetId::ChildIdleMask;
     const DesktopPetAssetId asset =
         frame == DesktopPetEvolutionFrame::Starting
-            ? DesktopPetAssetId::Idle
-            : DesktopPetAssetId::ChildIdle;
+            ? (youth_evolution ? DesktopPetAssetId::ChildIdle
+                               : DesktopPetAssetId::Idle)
+            : target_asset;
     const DesktopPetAssetId mask =
         frame == DesktopPetEvolutionFrame::Starting
-            ? DesktopPetAssetId::IdleMask
-            : DesktopPetAssetId::ChildIdleMask;
+            ? (youth_evolution ? DesktopPetAssetId::ChildIdleMask
+                               : DesktopPetAssetId::IdleMask)
+            : target_mask;
 
-    const char *title = "SOMETHING IS HAPPENING...";
+    const char *title = youth_evolution
+                            ? "MY PERSONALITY IS BLOOMING..."
+                            : "SOMETHING IS HAPPENING...";
     if (frame == DesktopPetEvolutionFrame::Silhouette) {
-        title = "GROWING...";
+        title = youth_evolution ? "FINDING MY PATH..." : "GROWING...";
     } else if (frame == DesktopPetEvolutionFrame::Revealed) {
-        title = "LOOK! I GREW!";
+        title = youth_evolution ? "I FOUND MY PATH!" : "LOOK! I GREW!";
     }
     draw_centered(canvas, 82, title,
                   frame == DesktopPetEvolutionFrame::Starting ? 2 : 3);
@@ -493,16 +654,61 @@ void desktop_pet_page_render_evolution(
     }
 
     if (frame == DesktopPetEvolutionFrame::Starting) {
-        draw_centered(canvas, 650, "A WARM LIGHT SURROUNDS ME.", 2);
+        draw_centered(canvas, 650,
+                      youth_evolution
+                          ? "ALL OUR DAYS SHAPED WHO I AM."
+                          : "A WARM LIGHT SURROUNDS ME.",
+                      2);
     } else if (frame == DesktopPetEvolutionFrame::Silhouette) {
-        draw_centered(canvas, 650, "MY EARS ARE GETTING LONGER!", 2);
+        draw_centered(canvas, 650,
+                      youth_evolution
+                          ? "ONE MORE MOMENT..."
+                          : "MY EARS ARE GETTING LONGER!",
+                      2);
     } else {
-        char stage_line[32] = {};
-        std::snprintf(stage_line, sizeof(stage_line),
-                      "WELCOME TO THE %s STAGE!",
-                      desktop_pet_state_stage_label(state));
-        draw_centered(canvas, 650, stage_line, 2);
+        if (youth_evolution) {
+            const char *path_line = "MY YOUTH PATH BEGINS!";
+            if (state.pet.branch == PetPersonalityBranch::Foodie) {
+                path_line = "MY FOODIE PATH BEGINS!";
+            } else if (state.pet.branch ==
+                       PetPersonalityBranch::Affectionate) {
+                path_line = "MY HEART PATH BEGINS!";
+            } else if (state.pet.branch == PetPersonalityBranch::Active) {
+                path_line = "MY ACTIVE PATH BEGINS!";
+            }
+            draw_centered(canvas, 650, path_line, 2);
+        } else {
+            char stage_line[32] = {};
+            std::snprintf(stage_line, sizeof(stage_line),
+                          "WELCOME TO THE %s STAGE!",
+                          desktop_pet_state_stage_label(state));
+            draw_centered(canvas, 650, stage_line, 2);
+        }
     }
+}
+
+void desktop_pet_page_render_personality_choice(
+    Canvas &canvas,
+    const DesktopPetState &state)
+{
+    (void)state;
+    canvas.set_rotation(CanvasRotation::Deg90CounterClockwise);
+    canvas.clear(GrayLevel::White);
+
+    draw_centered(canvas, 55, "CHOOSE OUR NEXT", 4);
+    draw_centered(canvas, 100, "ADVENTURE", 4);
+    draw_centered(canvas, 165, "ONE LAST MOMENT TOGETHER", 2);
+
+    draw_button(canvas, kFoodieChoiceRect, "SHARE A SNACK", false);
+    draw_centered(canvas, kFoodieChoiceRect.y + 87, "FOODIE PATH", 2);
+    draw_button(canvas, kAffectionateChoiceRect, "STAY CLOSE", false);
+    draw_centered(canvas, kAffectionateChoiceRect.y + 87,
+                  "AFFECTIONATE PATH", 2);
+    draw_button(canvas, kActiveChoiceRect, "RACE OUTSIDE", false);
+    draw_centered(canvas, kActiveChoiceRect.y + 87, "ACTIVE PATH", 2);
+
+    draw_centered(canvas, 690, "THIS CHOICE SHAPES THE YOUTH STAGE", 2);
+    draw_centered(canvas, 735, "TAP THE MOMENT THAT FEELS LIKE US", 2);
 }
 
 DesktopPetAction desktop_pet_page_action_at(bool test_open, int x, int y)
@@ -542,6 +748,20 @@ DesktopPetAction desktop_pet_page_action_at(bool test_open, int x, int y)
     }
     if (kResetRect.contains(x, y)) {
         return DesktopPetAction::Reset;
+    }
+    return DesktopPetAction::None;
+}
+
+DesktopPetAction desktop_pet_page_personality_action_at(int x, int y)
+{
+    if (kFoodieChoiceRect.contains(x, y)) {
+        return DesktopPetAction::ChooseFoodie;
+    }
+    if (kAffectionateChoiceRect.contains(x, y)) {
+        return DesktopPetAction::ChooseAffectionate;
+    }
+    if (kActiveChoiceRect.contains(x, y)) {
+        return DesktopPetAction::ChooseActive;
     }
     return DesktopPetAction::None;
 }

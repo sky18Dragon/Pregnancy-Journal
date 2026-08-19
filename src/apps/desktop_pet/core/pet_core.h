@@ -7,7 +7,7 @@
 // ESP32-TamaPetchi projects. Hardware access stays outside this module.
 // 核心模型改编自MIT许可的TamaPoke和ESP32-TamaPetchi项目，硬件访问保留在模块外。
 
-constexpr uint32_t kPetCoreStateVersion = 1U;
+constexpr uint32_t kPetCoreStateVersion = 2U;
 constexpr size_t kPetRecentDialogueCount = 5U;
 
 enum class PetLifeStage : uint8_t {
@@ -48,6 +48,19 @@ enum class PetCoreAction : uint8_t {
     Play,
     Rest,
     Clean,
+};
+
+enum class PetPersonalityBranch : uint8_t {
+    Undecided,
+    Foodie,
+    Affectionate,
+    Active,
+};
+
+struct PetPersonalityDecision {
+    PetPersonalityBranch automatic_branch =
+        PetPersonalityBranch::Undecided;
+    bool choice_required = false;
 };
 
 struct PetNeeds {
@@ -108,6 +121,7 @@ struct PetCoreState {
     uint16_t foodie_score = 0U;
     uint16_t affectionate_score = 0U;
     uint16_t active_score = 0U;
+    PetPersonalityBranch branch = PetPersonalityBranch::Undecided;
     bool evolution_ready = false;
     uint16_t recent_dialogue_ids[kPetRecentDialogueCount] = {};
 };
@@ -151,8 +165,17 @@ bool pet_core_can_evolve(const PetCoreState &state,
                          const PetCoreProfile &profile);
 bool pet_core_evolve(PetCoreState &state,
                      const PetCoreProfile &profile);
+
+// Compares the three accumulated scores using the six-point route margin.
+// 使用六分领先线比较三项累计分数，返回自动路线或需要选择的结果。
+PetPersonalityDecision pet_core_personality_decision(
+    const PetCoreState &state);
+
+bool pet_core_choose_personality(PetCoreState &state,
+                                 PetPersonalityBranch branch);
 void pet_core_sanitize(PetCoreState &state,
                        const PetCoreProfile &profile);
 const char *pet_core_stage_name(PetLifeStage stage);
 const char *pet_core_activity_name(PetActivity activity);
 const char *pet_core_mood_name(PetMood mood);
+const char *pet_core_personality_name(PetPersonalityBranch branch);

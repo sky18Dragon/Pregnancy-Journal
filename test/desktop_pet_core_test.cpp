@@ -103,6 +103,37 @@ int main()
     assert(pet_core_evolve(ready, profile));
     assert(ready.stage == PetLifeStage::Child);
 
+    PetCoreState automatic_path = {};
+    automatic_path.stage = PetLifeStage::Child;
+    automatic_path.growth = profile.child_growth_limit;
+    automatic_path.needs = {80U, 80U, 80U, 80U};
+    automatic_path.foodie_score = 12U;
+    automatic_path.affectionate_score = 6U;
+    automatic_path.active_score = 3U;
+    const PetPersonalityDecision automatic_decision =
+        pet_core_personality_decision(automatic_path);
+    assert(!automatic_decision.choice_required);
+    assert(automatic_decision.automatic_branch ==
+           PetPersonalityBranch::Foodie);
+    assert(pet_core_choose_personality(
+        automatic_path, automatic_decision.automatic_branch));
+    assert(pet_core_evolve(automatic_path, profile));
+    assert(automatic_path.stage == PetLifeStage::Youth);
+
+    PetCoreState close_paths = {};
+    close_paths.stage = PetLifeStage::Child;
+    close_paths.foodie_score = 6U;
+    close_paths.affectionate_score = 6U;
+    const PetPersonalityDecision close_decision =
+        pet_core_personality_decision(close_paths);
+    assert(close_decision.choice_required);
+    assert(close_decision.automatic_branch ==
+           PetPersonalityBranch::Undecided);
+    assert(pet_core_choose_personality(
+        close_paths, PetPersonalityBranch::Active));
+    assert(!pet_core_choose_personality(
+        close_paths, PetPersonalityBranch::Foodie));
+
     PetCoreState hungry = {};
     hungry.needs.food = 20U;
     assert(pet_core_mood(hungry) == PetMood::Hungry);

@@ -20,6 +20,9 @@ enum class DesktopPetAction : uint8_t {
     AddGrowth,
     AddLove,
     Reset,
+    ChooseFoodie,
+    ChooseAffectionate,
+    ChooseActive,
 };
 
 enum class DesktopPetPose : uint8_t {
@@ -45,7 +48,13 @@ enum class DesktopPetEvolutionFrame : uint8_t {
     Revealed,
 };
 
-constexpr uint32_t kDesktopPetStateVersion = 3U;
+enum class DesktopPetEvolutionOutcome : uint8_t {
+    None,
+    Evolved,
+    ChoiceRequired,
+};
+
+constexpr uint32_t kDesktopPetStateVersion = 4U;
 
 struct DesktopPetState {
     uint32_t version = kDesktopPetStateVersion;
@@ -63,6 +72,7 @@ struct DesktopPetActionResult {
 
 constexpr uint16_t kDesktopPetHatchlingGrowthLimit = 30U;
 constexpr uint16_t kDesktopPetChildGrowthLimit = 120U;
+constexpr uint16_t kDesktopPetYouthGrowthLimit = 280U;
 constexpr uint32_t kDesktopPetTestDayLengthMs = 120000U;
 constexpr uint32_t kDesktopPetTestNeedMinutesPerDay = 10U;
 
@@ -75,9 +85,16 @@ DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
 // 开始新的模拟日期，并只重置当天奖励计数。
 void desktop_pet_state_advance_day(DesktopPetState &state);
 
-// Evolves the visible Hatchling stage when growth and care are ready.
-// 当成长值和照料状态满足条件时，将可见幼兔阶段进化为儿童期。
-bool desktop_pet_state_evolve_if_ready(DesktopPetState &state);
+// Resolves an automatic evolution or requests the Youth branch choice page.
+// 处理自动进化，或返回需要显示青年分支选择页。
+DesktopPetEvolutionOutcome desktop_pet_state_evolve_if_ready(
+    DesktopPetState &state);
+
+// Saves one final Youth personality choice and immediately evolves the pet.
+// 保存用户最终选择的青年性格路线，并立即完成进化。
+bool desktop_pet_state_choose_youth_branch(
+    DesktopPetState &state,
+    PetPersonalityBranch branch);
 
 uint16_t desktop_pet_state_growth_limit(const DesktopPetState &state);
 const char *desktop_pet_state_stage_label(const DesktopPetState &state);

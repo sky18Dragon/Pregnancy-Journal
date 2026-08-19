@@ -1,6 +1,7 @@
 #include "pet_core.h"
 
 #include <algorithm>
+#include <iterator>
 #include <limits>
 
 namespace {
@@ -8,6 +9,7 @@ namespace {
 constexpr uint32_t kSecondsPerMinute = 60U;
 constexpr uint32_t kSecondsPerDay = 24U * 60U * 60U;
 constexpr uint16_t kWasteIntervalMinutes = 240U;
+constexpr uint16_t kAutomaticBranchMargin = 6U;
 
 const PetCoreProfile kProductionProfile = {};
 
@@ -439,6 +441,9 @@ bool pet_core_evolve(PetCoreState &state,
         state.stage = PetLifeStage::Child;
         break;
     case PetLifeStage::Child:
+        if (state.branch == PetPersonalityBranch::Undecided) {
+            return false;
+        }
         state.stage = PetLifeStage::Youth;
         break;
     case PetLifeStage::Youth:
@@ -455,6 +460,44 @@ bool pet_core_evolve(PetCoreState &state,
     return true;
 }
 
+PetPersonalityDecision pet_core_personality_decision(
+    const PetCoreState &state)
+{
+    struct Score {
+        PetPersonalityBranch branch;
+        uint16_t value;
+    };
+    Score scores[] = {
+        {PetPersonalityBranch::Foodie, state.foodie_score},
+        {PetPersonalityBranch::Affectionate, state.affectionate_score},
+        {PetPersonalityBranch::Active, state.active_score},
+    };
+    std::sort(std::begin(scores), std::end(scores),
+              [](const Score &left, const Score &right) {
+                  return left.value > right.value;
+              });
+
+    PetPersonalityDecision decision = {};
+    if (scores[0].value >=
+        static_cast<uint32_t>(scores[1].value) + kAutomaticBranchMargin) {
+        decision.automatic_branch = scores[0].branch;
+    } else {
+        decision.choice_required = true;
+    }
+    return decision;
+}
+
+bool pet_core_choose_personality(PetCoreState &state,
+                                 PetPersonalityBranch branch)
+{
+    if (branch == PetPersonalityBranch::Undecided ||
+        state.branch != PetPersonalityBranch::Undecided) {
+        return false;
+    }
+    state.branch = branch;
+    return true;
+}
+
 void pet_core_sanitize(PetCoreState &state,
                        const PetCoreProfile &profile)
 {
@@ -466,6 +509,10 @@ void pet_core_sanitize(PetCoreState &state,
     state.bond = clamp_percent(state.bond);
     state.waste_count = std::min<uint8_t>(state.waste_count, 3U);
     state.day = std::max<uint16_t>(state.day, 1U);
+    if (static_cast<uint8_t>(state.branch) >
+        static_cast<uint8_t>(PetPersonalityBranch::Active)) {
+        state.branch = PetPersonalityBranch::Undecided;
+    }
     update_evolution_ready(state, profile);
 }
 
@@ -534,4 +581,19 @@ const char *pet_core_mood_name(PetMood mood)
         return "dirty";
     }
     return "unknown";
+}
+
+const char *pet_core_personality_name(PetPersonalityBranch branch)
+{
+    switch (branch) {
+    case PetPersonalityBranch::Foodie:
+        return "foodie";
+    case PetPersonalityBranch::Affectionate:
+        return "affectionate";
+    case PetPersonalityBranch::Active:
+        return "active";
+    case PetPersonalityBranch::Undecided:
+    default:
+        return "undecided";
+    }
 }

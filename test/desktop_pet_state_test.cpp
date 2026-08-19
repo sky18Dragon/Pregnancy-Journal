@@ -7,7 +7,7 @@ int main()
 {
     DesktopPetState state = {};
     assert(state.version == kDesktopPetStateVersion);
-    assert(state.version == 3U);
+    assert(state.version == 4U);
     assert(state.pet.growth == 10U);
     assert(state.pet.bond == 18U);
     assert(state.pet.day == 1U);
@@ -21,7 +21,8 @@ int main()
         desktop_pet_state_apply(state, DesktopPetAction::AddGrowth);
     assert(std::strcmp(add_growth_again.message,
                        "GROWTH LIMIT REACHED.") == 0);
-    assert(desktop_pet_state_evolve_if_ready(state));
+    assert(desktop_pet_state_evolve_if_ready(state) ==
+           DesktopPetEvolutionOutcome::Evolved);
     assert(state.pet.stage == PetLifeStage::Child);
     assert(desktop_pet_state_growth_limit(state) ==
            kDesktopPetChildGrowthLimit);
@@ -34,10 +35,49 @@ int main()
     DesktopPetState waiting_to_grow = {};
     waiting_to_grow.pet.needs.food = 20U;
     desktop_pet_state_apply(waiting_to_grow, DesktopPetAction::AddGrowth);
-    assert(!desktop_pet_state_evolve_if_ready(waiting_to_grow));
+    assert(desktop_pet_state_evolve_if_ready(waiting_to_grow) ==
+           DesktopPetEvolutionOutcome::None);
     desktop_pet_state_apply(waiting_to_grow, DesktopPetAction::Feed);
-    assert(desktop_pet_state_evolve_if_ready(waiting_to_grow));
+    assert(desktop_pet_state_evolve_if_ready(waiting_to_grow) ==
+           DesktopPetEvolutionOutcome::Evolved);
     assert(waiting_to_grow.pet.stage == PetLifeStage::Child);
+
+    DesktopPetState automatic_youth = {};
+    automatic_youth.pet.stage = PetLifeStage::Child;
+    automatic_youth.pet.growth = kDesktopPetChildGrowthLimit;
+    automatic_youth.pet.needs = {80U, 80U, 80U, 80U};
+    automatic_youth.pet.foodie_score = 12U;
+    automatic_youth.pet.affectionate_score = 6U;
+    automatic_youth.pet.active_score = 3U;
+    assert(desktop_pet_state_evolve_if_ready(automatic_youth) ==
+           DesktopPetEvolutionOutcome::Evolved);
+    assert(automatic_youth.pet.stage == PetLifeStage::Youth);
+    assert(automatic_youth.pet.branch == PetPersonalityBranch::Foodie);
+    assert(desktop_pet_state_growth_limit(automatic_youth) ==
+           kDesktopPetYouthGrowthLimit);
+    assert(std::strcmp(desktop_pet_state_stage_label(automatic_youth),
+                       "FOODIE YOUTH") == 0);
+    automatic_youth.pet.growth = kDesktopPetYouthGrowthLimit;
+    assert(desktop_pet_state_evolve_if_ready(automatic_youth) ==
+           DesktopPetEvolutionOutcome::None);
+    assert(automatic_youth.pet.stage == PetLifeStage::Youth);
+
+    DesktopPetState chosen_youth = {};
+    chosen_youth.pet.stage = PetLifeStage::Child;
+    chosen_youth.pet.growth = kDesktopPetChildGrowthLimit;
+    chosen_youth.pet.needs = {80U, 80U, 80U, 80U};
+    chosen_youth.pet.foodie_score = 6U;
+    chosen_youth.pet.affectionate_score = 6U;
+    assert(desktop_pet_state_evolve_if_ready(chosen_youth) ==
+           DesktopPetEvolutionOutcome::ChoiceRequired);
+    assert(chosen_youth.pet.stage == PetLifeStage::Child);
+    assert(desktop_pet_state_choose_youth_branch(
+        chosen_youth, PetPersonalityBranch::Affectionate));
+    assert(chosen_youth.pet.stage == PetLifeStage::Youth);
+    assert(std::strcmp(desktop_pet_state_stage_label(chosen_youth),
+                       "HEART YOUTH") == 0);
+    assert(!desktop_pet_state_choose_youth_branch(
+        chosen_youth, PetPersonalityBranch::Active));
     state = {};
 
     const DesktopPetActionResult feed =

@@ -146,6 +146,39 @@ int main()
         canvas, state, DesktopPetEvolutionFrame::Revealed);
     write_preview(buffer, "/tmp/desktop_pet_evolution_reveal.ppm");
 
+    desktop_pet_page_render_personality_choice(canvas, state);
+    assert(desktop_pet_page_personality_action_at(240, 280) ==
+           DesktopPetAction::ChooseFoodie);
+    assert(desktop_pet_page_personality_action_at(240, 425) ==
+           DesktopPetAction::ChooseAffectionate);
+    assert(desktop_pet_page_personality_action_at(240, 570) ==
+           DesktopPetAction::ChooseActive);
+    assert(desktop_pet_page_personality_action_at(20, 700) ==
+           DesktopPetAction::None);
+    write_preview(buffer, "/tmp/desktop_pet_personality_choice.ppm");
+
+    state.pet.stage = PetLifeStage::Youth;
+    state.pet.growth = kDesktopPetChildGrowthLimit;
+    state.pet.branch = PetPersonalityBranch::Foodie;
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::Normal,
+        "I PACKED A SNACK FOR US.");
+    assert(black_pixel_count(buffer) > 18000U);
+    write_preview(buffer, "/tmp/desktop_pet_youth_foodie.ppm");
+    state.pet.branch = PetPersonalityBranch::Affectionate;
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Pet, DesktopPetIdleFrame::Normal,
+        "I'M ALWAYS CLOSE BY.");
+    write_preview(buffer, "/tmp/desktop_pet_youth_affectionate.ppm");
+    state.pet.branch = PetPersonalityBranch::Active;
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Play, DesktopPetIdleFrame::Normal,
+        "LET'S RACE TOGETHER!");
+    write_preview(buffer, "/tmp/desktop_pet_youth_active.ppm");
+    desktop_pet_page_render_evolution(
+        canvas, state, DesktopPetEvolutionFrame::Revealed);
+    write_preview(buffer, "/tmp/desktop_pet_youth_evolution.ppm");
+
     desktop_pet_page_render_test(canvas, state, false);
     assert(desktop_pet_page_action_at(true, 240, 290) ==
            DesktopPetAction::NextDay);
