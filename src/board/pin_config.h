@@ -4,6 +4,10 @@
 #define PIN_POWER_HOLD 45
 #define PIN_POWER_LOCK 46
 
+// BQ25616 charger and USB-power detection / BQ25616充电和USB电源检测
+#define PIN_BAT_CHG_EN 39
+#define PIN_EXTERNAL_POWER 9
+
 // Shared sensor bus on I2C1 / I2C1上的共享传感器总线
 #define PIN_SENSOR_SCL 0
 #define PIN_SENSOR_SDA 1

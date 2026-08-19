@@ -1,4 +1,5 @@
 #include "app_log.h"
+#include "board_charger.h"
 #include "board_power.h"
 #include "board_sensor_bus.h"
 #include "board_shared_spi.h"
@@ -170,6 +171,13 @@ extern "C" void app_main()
     const esp_err_t power_result = board_power_init();
     if (power_result != ESP_OK) {
         halt_after_error("board_power", power_result);
+    }
+
+    // Enable the same active-low battery charging path as the hardware demo.
+    // 启用与硬件示例相同的低电平有效电池充电路径。
+    const esp_err_t charger_result = board_charger_init();
+    if (charger_result != ESP_OK) {
+        halt_after_error("board_charger", charger_result);
     }
 
     // Isolate the other SPI2 device before the e-paper driver owns the bus.

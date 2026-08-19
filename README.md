@@ -6,7 +6,7 @@
 
 ## 当前功能
 
-### 桌宠养成系统（幼兔与儿童期实现阶段）
+### 桌宠养成系统（幼兔、儿童与青年期）
 
 - 桌宠采用一条共同童年和三条性格成长路线：贪吃型、亲密型和活力型。
 - 用户每天通过喂饭、直接触摸兔子和陪玩积累成长值与亲密度，日奖励上限让完整成长过程保持稳定节奏。
@@ -22,6 +22,7 @@
 - 幼兔和儿童期兔子都有独立的眨眼、连续抖耳、转头观察、伸懒腰、饥饿和疲劳素材。儿童期还会更换喂食、抚摸、陪玩姿势以及按阶段筛选的对白。
 - 测试版每4～8秒尝试一次自主动作，发布版间隔为12～28秒；选择时避开最近两个动作。用户触摸会立即中断自主动作并执行对应交互。
 - 上电先对白屏执行一次全刷，主页首次显示使用黑白全刷，动作、数值和测试页面使用黑白局部快刷。
+- 启动时先保持GPIO45和GPIO46的板级电源锁存，再将GPIO39拉低启用BQ25616充电路径，让设备可以充电并在拔掉USB后继续使用内置电池。
 
 #### 新桌宠核心框架
 
@@ -194,6 +195,7 @@ clang++ -std=c++17 -Wall -Wextra -Werror \
 
 ```text
 phase=start
+charger=ready enable_pin=39 enable_level=0 external_power_pin=9 external_power=1 result=ok
 shared_spi=prepare_done result=ok
 display=panel_ready
 display=framebuffer_ready
@@ -220,6 +222,7 @@ pet=ready page=home profile=test save=new stage=hatchling day=1 growth=10 love=1
 `platformio.ini`负责选择开发版和发布版的整体日志级别。高频类别继续由独立宏控制：
 
 - `STICKY_LOG_BOOT_DETAILS_ENABLED`
+- `STICKY_LOG_POWER_DETAILS_ENABLED`
 - `STICKY_LOG_HEARTBEAT_ENABLED`
 - `STICKY_LOG_DISPLAY_TIMING_ENABLED`
 - `STICKY_LOG_TOUCH_SAMPLES_ENABLED`
@@ -235,6 +238,7 @@ pet=ready page=home profile=test save=new stage=hatchling day=1 growth=10 love=1
 子页兔子动画采用同样的安静日志策略，需要逐帧调试时将`STICKY_LOG_STATUS_ANIMATION_ENABLED`设为`1`。
 答案书默认记录页面切换、答案类型、随机结果、有效触摸和摇晃检测结果。开发版会记录三次有效摇晃峰值；需要查看所有页面逐帧序号时，将`STICKY_LOG_BOOK_ANIMATION_ENABLED`设为`1`。
 桌宠开发版记录有效触摸、操作、奖励变化和存档。刷新时序通过`STICKY_LOG_DISPLAY_TIMING_ENABLED`单独控制，默认关闭以保持串口安静；发布版通过`STICKY_LOG_DESKTOP_PET_ENABLED=0`关闭详细触摸与存档日志。
+电源详细日志由`STICKY_LOG_POWER_DETAILS_ENABLED`控制；开发版记录初始化参数，发布版仅保留一次充电路径就绪或错误结果。
 
 ## 工程结构
 
@@ -263,6 +267,14 @@ src/main.cpp               当前独立桌宠启动入口
 test/                      可在电脑上运行的回归测试
 platformio.ini             开发版与发布版构建配置
 ```
+
+## 电池供电真机验收
+
+1. 连接USB并烧录`sticky-debug`，打开串口后确认出现`charger=ready enable_pin=39 enable_level=0`。
+2. 保持USB连接一段时间，让已经耗尽的内置电池恢复基本电量。
+3. 在桌宠主页拔掉USB，确认电子纸画面保留，触摸兔子或底部按钮后仍会刷新动作。
+4. 无USB时继续操作约1分钟，确认触摸、屏幕和自主动作持续正常。
+5. 再次连接USB并查看串口，确认设备继续运行，并可在下次重启时再次读到充电路径就绪日志。
 
 ## 桌宠真机验收
 

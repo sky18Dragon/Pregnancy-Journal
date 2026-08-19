@@ -21,6 +21,7 @@ idf_component_register(
         "apps/status_board/status_board_pages.cpp"
         "apps/status_board/status_pet_animation.cpp"
         "apps/status_board/status_board_state.cpp"
+        "board/board_charger.cpp"
         "board/board_power.cpp"
         "board/board_sensor_bus.cpp"
         "board/board_shared_spi.cpp"
