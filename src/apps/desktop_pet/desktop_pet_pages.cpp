@@ -893,25 +893,67 @@ void draw_outing_souvenir(Canvas &canvas,
     draw_sparkle(canvas, x + 9, y + 45, 5);
 }
 
+// Draws a centered pixel asset with its horizontal direction reversed.
+// 将像素素材以中心点定位，并水平翻转其朝向。
+void draw_centered_mirrored_asset(Canvas &canvas,
+                                  int center_x,
+                                  int center_y,
+                                  const PixelAsset &asset,
+                                  GrayLevel color)
+{
+    if (asset.data == nullptr || asset.width == 0U || asset.height == 0U) {
+        return;
+    }
+
+    const size_t row_stride =
+        (static_cast<size_t>(asset.width) + 7U) / 8U;
+    const int left = center_x - static_cast<int>(asset.width) / 2;
+    const int top = center_y - static_cast<int>(asset.height) / 2;
+    for (uint16_t source_y = 0U; source_y < asset.height; ++source_y) {
+        for (uint16_t source_x = 0U; source_x < asset.width; ++source_x) {
+            const size_t index = static_cast<size_t>(source_y) * row_stride +
+                                 source_x / 8U;
+            const uint8_t mask = static_cast<uint8_t>(
+                1U << (7U - source_x % 8U));
+            if ((asset.data[index] & mask) == 0U) {
+                continue;
+            }
+            const int mirrored_x =
+                static_cast<int>(asset.width - 1U - source_x);
+            canvas.fill_rect(left + mirrored_x, top + source_y,
+                             1, 1, color);
+        }
+    }
+}
+
 void draw_outing_character(Canvas &canvas,
                            const DesktopPetState &state,
                            int center_x,
                            DesktopPetPose pose,
                            DesktopPetIdleFrame idle_frame,
                            bool bag,
-                           bool souvenir)
+                           bool souvenir,
+                           bool face_right = false)
 {
     constexpr int center_y = 425;
     if (bag) {
-        draw_outing_bag(canvas, center_x + 47, center_y - 80);
+        const int bag_x = face_right ? center_x - 105 : center_x + 47;
+        draw_outing_bag(canvas, bag_x, center_y - 80);
     }
-    pixel_asset_draw_centered(
-        canvas, center_x, center_y,
-        desktop_pet_asset(pose_mask_asset(state.pet, pose, idle_frame)),
-        1, GrayLevel::White);
-    pixel_asset_draw_centered(
-        canvas, center_x, center_y,
-        desktop_pet_asset(pose_asset(state.pet, pose, idle_frame)));
+    const PixelAsset &mask = desktop_pet_asset(
+        pose_mask_asset(state.pet, pose, idle_frame));
+    const PixelAsset &body = desktop_pet_asset(
+        pose_asset(state.pet, pose, idle_frame));
+    if (face_right) {
+        draw_centered_mirrored_asset(canvas, center_x, center_y,
+                                     mask, GrayLevel::White);
+        draw_centered_mirrored_asset(canvas, center_x, center_y,
+                                     body, GrayLevel::Black);
+    } else {
+        pixel_asset_draw_centered(canvas, center_x, center_y,
+                                  mask, 1, GrayLevel::White);
+        pixel_asset_draw_centered(canvas, center_x, center_y, body);
+    }
     if (souvenir) {
         draw_outing_souvenir(canvas, state.pet.branch,
                              center_x + 72, center_y + 20);
@@ -1187,7 +1229,7 @@ void desktop_pet_page_render_outing(
         draw_outing_character(canvas, state, 392,
                               DesktopPetPose::Idle,
                               DesktopPetIdleFrame::Normal,
-                              true, false);
+                              true, false, true);
         canvas.draw_line(282, 384, 264, 377, GrayLevel::Black);
         canvas.draw_line(286, 370, 273, 357, GrayLevel::Black);
         canvas.draw_line(292, 357, 286, 340, GrayLevel::Black);
