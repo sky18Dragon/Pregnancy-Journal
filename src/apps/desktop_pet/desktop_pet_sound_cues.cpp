@@ -104,8 +104,6 @@ DesktopPetSoundCue desktop_pet_sound_for_idle(
         return {StickyBuzzerPattern::VoiceHungry,
                 static_cast<uint8_t>(state.pet.day % 3U)};
     case DesktopPetIdleFrame::Tired:
-        return {StickyBuzzerPattern::VoiceTired,
-                static_cast<uint8_t>(state.pet.day % 3U)};
     case DesktopPetIdleFrame::Normal:
     case DesktopPetIdleFrame::Blink:
     case DesktopPetIdleFrame::EarTwitch:
@@ -114,4 +112,45 @@ DesktopPetSoundCue desktop_pet_sound_for_idle(
     default:
         return {};
     }
+}
+
+void desktop_pet_sound_rearm_need_alerts(
+    const DesktopPetState &state,
+    DesktopPetNeedSoundState &sound_state)
+{
+    if (state.pet.needs.food > 30U) {
+        sound_state.hunger_announced = false;
+    }
+    if (state.pet.needs.energy > 0U) {
+        sound_state.empty_energy_announced = false;
+    }
+}
+
+DesktopPetSoundCue desktop_pet_sound_for_hunger_once(
+    const DesktopPetState &state,
+    DesktopPetNeedSoundState &sound_state)
+{
+    desktop_pet_sound_rearm_need_alerts(state, sound_state);
+    if (state.pet.needs.food > 30U || sound_state.hunger_announced) {
+        return {};
+    }
+    sound_state.hunger_announced = true;
+    return {StickyBuzzerPattern::VoiceHungry,
+            static_cast<uint8_t>(state.pet.day % 3U)};
+}
+
+DesktopPetSoundCue desktop_pet_sound_for_empty_energy_once(
+    const DesktopPetState &state,
+    DesktopPetNeedSoundState &sound_state)
+{
+    desktop_pet_sound_rearm_need_alerts(state, sound_state);
+    if (state.pet.stage == PetLifeStage::Egg ||
+        state.pet.activity == PetActivity::Sleeping ||
+        state.pet.needs.energy > 0U ||
+        sound_state.empty_energy_announced) {
+        return {};
+    }
+    sound_state.empty_energy_announced = true;
+    return {StickyBuzzerPattern::VoiceTired,
+            static_cast<uint8_t>(state.pet.day % 3U)};
 }

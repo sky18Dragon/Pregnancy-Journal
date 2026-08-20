@@ -85,6 +85,32 @@ int main()
     assert(cue.pattern == StickyBuzzerPattern::VoiceHungry);
     cue = desktop_pet_sound_for_idle(
         state, DesktopPetIdleFrame::Tired);
+    assert(!cue.audible());
+
+    DesktopPetNeedSoundState need_sound_state = {};
+    state.pet.needs.food = 30U;
+    cue = desktop_pet_sound_for_hunger_once(state, need_sound_state);
+    assert(cue.pattern == StickyBuzzerPattern::VoiceHungry);
+    cue = desktop_pet_sound_for_hunger_once(state, need_sound_state);
+    assert(!cue.audible());
+    state.pet.needs.food = 31U;
+    desktop_pet_sound_rearm_need_alerts(state, need_sound_state);
+    state.pet.needs.food = 30U;
+    cue = desktop_pet_sound_for_hunger_once(state, need_sound_state);
+    assert(cue.pattern == StickyBuzzerPattern::VoiceHungry);
+
+    state.pet.needs.energy = 0U;
+    cue = desktop_pet_sound_for_empty_energy_once(
+        state, need_sound_state);
+    assert(cue.pattern == StickyBuzzerPattern::VoiceTired);
+    cue = desktop_pet_sound_for_empty_energy_once(
+        state, need_sound_state);
+    assert(!cue.audible());
+    state.pet.needs.energy = 1U;
+    desktop_pet_sound_rearm_need_alerts(state, need_sound_state);
+    state.pet.needs.energy = 0U;
+    cue = desktop_pet_sound_for_empty_energy_once(
+        state, need_sound_state);
     assert(cue.pattern == StickyBuzzerPattern::VoiceTired);
 
     cue = desktop_pet_sound_for_performance(

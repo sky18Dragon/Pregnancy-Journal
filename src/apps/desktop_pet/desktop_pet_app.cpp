@@ -79,6 +79,7 @@ int64_t s_idle_next_us = 0;
 PetAnimationQueue s_idle_animation;
 PetIdleAction s_previous_idle_action = PetIdleAction::None;
 PetIdleAction s_second_previous_idle_action = PetIdleAction::None;
+DesktopPetNeedSoundState s_need_sound_state = {};
 bool s_evolution_active = false;
 DesktopPetEvolutionFrame s_evolution_frame =
     DesktopPetEvolutionFrame::Starting;
@@ -119,6 +120,14 @@ void play_visible_pet_sound(const DesktopPetSoundCue &cue,
                     event,
                     esp_err_to_name(result));
     }
+}
+
+void play_empty_energy_sound_once()
+{
+    play_visible_pet_sound(
+        desktop_pet_sound_for_empty_energy_once(
+            s_state, s_need_sound_state),
+        "energy_empty_once");
 }
 
 const char *select_youth_home_message(uint32_t value)
@@ -624,9 +633,16 @@ void start_idle_animation(int64_t now_us)
                 static_cast<unsigned>(s_idle_animation.size()));
 #endif
     render_current_page(true, false);
-    play_visible_pet_sound(
-        desktop_pet_sound_for_idle(s_state, action_frame),
-        "idle_frame");
+    if (action_frame == DesktopPetIdleFrame::Hungry) {
+        play_visible_pet_sound(
+            desktop_pet_sound_for_hunger_once(
+                s_state, s_need_sound_state),
+            "hunger_once");
+    } else {
+        play_visible_pet_sound(
+            desktop_pet_sound_for_idle(s_state, action_frame),
+            "idle_frame");
+    }
 }
 
 // Advances autonomous frames without blocking touch processing.
@@ -900,6 +916,7 @@ void handle_test_action(DesktopPetAction action)
         }
         sticky_touch_clear_press();
         render_current_page(true);
+        play_empty_energy_sound_once();
         return;
     }
 
@@ -1180,10 +1197,14 @@ void handle_action(DesktopPetAction action)
         return;
     }
     render_current_page(true);
-    play_visible_pet_sound(
-        desktop_pet_sound_for_performance(
-            s_state, result.performance, s_message),
-        "care_pose");
+    if (requires_sleep) {
+        play_empty_energy_sound_once();
+    } else {
+        play_visible_pet_sound(
+            desktop_pet_sound_for_performance(
+                s_state, result.performance, s_message),
+            "care_pose");
+    }
     if (requires_sleep) {
         s_pose_deadline_us = 0;
         return;
@@ -1304,6 +1325,7 @@ void app_task(void *)
             s_state.pet.activity != PetActivity::Sleeping) {
             schedule_next_idle(esp_timer_get_time());
         }
+        play_empty_energy_sound_once();
     }
 #if STICKY_DESKTOP_PET_TEST_MODE
     s_day_deadline_us = esp_timer_get_time() +
@@ -1387,6 +1409,8 @@ void app_task(void *)
         }
 
         const int64_t now_us = esp_timer_get_time();
+        desktop_pet_sound_rearm_need_alerts(
+            s_state, s_need_sound_state);
         if (s_hatch_active) {
             update_hatch_animation(now_us);
             vTaskDelay(kPollInterval);
@@ -1439,6 +1463,9 @@ void app_task(void *)
                         static_cast<unsigned>(s_state.pet.needs.food),
                         desktop_pet_state_mood_label(s_state));
             render_current_page(true);
+            if (!s_test_open) {
+                play_empty_energy_sound_once();
+            }
             s_pose_deadline_us = esp_timer_get_time() + kActionPoseHoldUs;
         }
 #endif
