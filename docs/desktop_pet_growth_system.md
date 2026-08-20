@@ -166,7 +166,9 @@ The interaction state now emits a semantic pet performance such as eating, recei
 
 The runtime creates one persistent outing decision for each trusted RTC calendar date. The production profile schedules a trip on 40 percent of dates, selects a departure between 09:00 and 16:00, and selects a duration from one through seven hours. A staying-home decision is also persisted, so restarting the device keeps the same decision for that date. The test profile always schedules the first plan 15 through 30 seconds after it is created and keeps the existing 20 through 40 second trip duration. Its `NEXT DAY` action re-arms this accelerated daily decision for repeatable hardware testing. The stored day key, departure timestamp, and return timestamp restore an active away page after a restart or resolve an already completed trip directly to home. An early `CALL HER HOME` completes the stored plan for that date.
 
-The PCF8563 hardware adapter now reads and validates the shared-bus calendar at startup and once per minute. A clock carrying the voltage-low flag is seeded once from the firmware build timestamp using one complete seconds-through-years I2C write; later boots preserve the running calendar. Startup applies a bounded offline catch-up, while runtime reads advance the same pet rules online. The current test build retains accelerated sleep recovery; production sleep uses trusted RTC elapsed time and falls back to the app timer only while no valid RTC reading is available. The validated two-slot save backend remains an independent integration block.
+The first normal home visit on a new trusted RTC date now displays one absence-aware greeting. The first accepted feed, pet, or play action on each care day advances the streak once. Milestones at 3, 7, 14, and 30 days wait for the visible care action to finish, then play a two-frame full-screen celebration before returning home. The test profile derives its care-day identity from the accelerated `DAY` value, so `NEXT DAY` can validate the complete milestone flow without changing the RTC calendar.
+
+The PCF8563 hardware adapter now reads and validates the shared-bus calendar at startup and once per minute. A clock carrying the voltage-low flag is seeded once from the firmware build timestamp using one complete seconds-through-years I2C write; later boots preserve the running calendar. Startup applies a bounded offline catch-up, while runtime reads advance the same pet rules online. The current test build retains accelerated sleep recovery; production sleep uses trusted RTC elapsed time and falls back to the app timer only while no valid RTC reading is available. The runtime stores the complete pet state in two rotating, checksummed NVS records.
 
 ### Production Profile
 
@@ -224,6 +226,8 @@ The first rewarded interaction of a calendar day records one active care day.
 - Milestones at 3, 7, 14, and 30 days unlock one-time dialogue and small celebratory poses.
 
 The streak supports positive recognition. Growth and core interactions remain available at every streak value.
+
+This recognition is connected to the visible application. The test panel shows the current and best streaks, and milestone celebrations use the current life-stage rabbit artwork rather than a generic placeholder.
 
 ## Dialogue System
 
@@ -356,6 +360,9 @@ The first implementation keeps regression tests for:
 18. `NEXT DAY` applies one rollover and remains idempotent across an immediate reboot.
 19. A corrupted newest save slot falls back to the previous valid sequence.
 20. Sequence rollover still identifies the newest valid slot.
+21. One calendar date advances the care streak at most once.
+22. Milestones trigger only at 3, 7, 14, and 30 care days.
+23. A new RTC date selects one greeting based on the absence length.
 
 ## First Implementation Boundary
 
@@ -375,4 +382,4 @@ The implemented vertical slices cover Hatchling, Child, and Youth entry:
 - Six-point automatic personality decision and final choice page for close scores
 - Foodie, Affectionate, and Active Youth homes, progress targets, actions, and dialogue
 
-The rule framework underneath these slices is implemented and native-tested. The PCF8563 adapter, three Adult forms, expanded need-specific Youth animation sets, automatic outings, and checksummed two-slot NVS persistence are connected to the runtime.
+The rule framework underneath these slices is implemented and native-tested. The PCF8563 adapter, three Adult forms, expanded need-specific Youth animation sets, automatic outings, daily return greetings, care-streak celebrations, and checksummed two-slot NVS persistence are connected to the runtime.

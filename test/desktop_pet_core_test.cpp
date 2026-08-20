@@ -64,6 +64,22 @@ int main()
     assert(feed.growth_delta == 4);
     assert(state.care_streak == 1U);
 
+    // An explicit accelerated-day key advances the same streak rules.
+    // 明确的加速日期编号沿用相同的连续照料规则。
+    PetCoreState accelerated_streak = {};
+    pet_core_apply_action_for_day(
+        accelerated_streak, PetCoreAction::Pet, profile, 100U);
+    assert(accelerated_streak.care_streak == 1U);
+    pet_core_apply_action_for_day(
+        accelerated_streak, PetCoreAction::Feed, profile, 100U);
+    assert(accelerated_streak.care_streak == 1U);
+    pet_core_apply_action_for_day(
+        accelerated_streak, PetCoreAction::Play, profile, 101U);
+    assert(accelerated_streak.care_streak == 2U);
+    pet_core_apply_action_for_day(
+        accelerated_streak, PetCoreAction::Pet, profile, 103U);
+    assert(accelerated_streak.care_streak == 1U);
+
     state.needs.joy = 50U;
     const PetCoreActionResult pet =
         pet_core_apply_action(state, PetCoreAction::Pet, profile);

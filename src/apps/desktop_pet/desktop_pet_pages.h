@@ -56,6 +56,11 @@ enum class DesktopPetNameAction : uint8_t {
     Apply,
 };
 
+enum class DesktopPetCelebrationFrame : uint8_t {
+    Proud,
+    Jump,
+};
+
 // Draws the full-screen egg and one frame of its tap-to-hatch sequence.
 // 绘制全屏宠物蛋，以及轻触孵化过程中的一帧。
 void desktop_pet_page_render_egg(Canvas &canvas,
@@ -96,6 +101,14 @@ void desktop_pet_page_render_evolution(
     Canvas &canvas,
     const DesktopPetState &state,
     DesktopPetEvolutionFrame frame);
+
+// Draws one full-screen care-streak celebration frame.
+// 绘制一帧全屏连续照料庆祝画面。
+void desktop_pet_page_render_care_celebration(
+    Canvas &canvas,
+    const DesktopPetState &state,
+    uint16_t milestone_days,
+    DesktopPetCelebrationFrame frame);
 
 // Draws the final three-way care choice before the Youth evolution.
 // 在进入青年期前绘制最终的三选一照料页。

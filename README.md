@@ -28,6 +28,8 @@
 - 喂食、抚摸和陪玩显示约1.3秒的专属姿势；`TALK`对白显示约4秒。互动期间的触摸由独立触摸任务继续采集。
 - 宠物声音跟随已经显示在屏幕上的表演：进食、被抚摸、玩耍、说话、入睡和醒来分别使用独立音型。进入一次连续饥饿状态时自主提醒一次，能量降到0时提醒一次；对应数值恢复前保持安静。说话音型会继续结合饥饿、疲劳、低落、亲密度和成长后的性格路线变化；伸懒腰、眨眼、抖耳、转头和自主疲劳动作保持安静。
 - 桌宠每天按照RTC自然日期生成一次外出决定。发布版有40%的日期安排外出，出发时间随机分布在09:00～16:00，单次持续1～7小时；测试版会在首次生成当天计划后的15～30秒出发，并在20～40秒后回家。计划、出发时间和回家时间随宠物存档保存，重启后继续原来的行程。
+- RTC进入新的自然日期后，宠物会在当天第一次回到普通主页时给出一次问候；问候会根据离开1天、2～3天或更长时间调整语气。同一天重启不会重复显示。
+- 每个日期的第一次有效照料会推进连续陪伴天数。达到3、7、14和30天时，当前互动播放完成后进入两帧全屏庆祝页；测试面板会显示`STREAK`和`BEST`，可以配合`NEXT DAY`快速验证。
 - 兔子外出时会收拾小包、朝右走出画面并留下脚印，再带着纪念品回家。外出页面沿用主页的名字、成长和照料状态，底部交互栏切换为`CALL HER HOME`；提前召回会完成本次行程，当天保持在家。测试面板继续提供`GO OUT`入口，用于随时重复检查整套视觉流程。
 - 幼兔和儿童期兔子都有独立的眨眼、连续抖耳、转头观察、伸懒腰、饥饿和疲劳素材。青年与成年期按照贪吃、亲密和活力路线使用独立形象、招牌待机、喂食、抚摸、陪玩姿势和专属对白。
 - 测试版每4～8秒尝试一次自主动作，发布版间隔为12～28秒；选择时避开最近两个动作。用户触摸会立即中断自主动作并执行对应交互。
@@ -46,6 +48,7 @@
 - `desktop_pet_storage_record`：把名字、成长、照料状态、性格、RTC时间和外出计划一起封装进A/B双槽记录；每次保存写入较旧的槽位。
 - `pet_rtc_time`：把Sticky的PCF8563 RTC日期时间转换为宠物系统使用的连续时间。
 - `desktop_pet_outing`：管理每日外出决定、RTC出发与回家时间、断电恢复，以及准备、离开、外出、返回和团聚阶段。
+- `desktop_pet_daily`：生成每天一次的回归问候，并识别3、7、14和30天连续照料里程碑。
 
 `desktop_pet_sound_cues`把状态机输出的宠物表演转换为声音提示。应用先刷新对应的兔子姿势，再在后台播放声音，触摸采集和电子纸刷新不会等待整段声音结束。
 
@@ -214,6 +217,19 @@ clang++ -std=c++17 -Wall -Wextra -Werror \
 
 命令正常结束且没有输出，表示完整存档校验、最新槽位选择、损坏槽位回退、下一写入槽位和序号回绕均正确。
 
+每日问候和连续照料里程碑可以独立验证：
+
+```bash
+clang++ -std=c++17 -Wall -Wextra -Werror \
+  -Isrc/apps/desktop_pet \
+  test/desktop_pet_daily_test.cpp \
+  src/apps/desktop_pet/desktop_pet_daily.cpp \
+  -o /tmp/desktop_pet_daily_test
+/tmp/desktop_pet_daily_test
+```
+
+命令正常结束且没有输出，表示同日不重复问候、不同离开时长和四个里程碑判断均正确。
+
 桌宠的动作与声音选择可以单独验证：
 
 ```bash
@@ -224,6 +240,7 @@ clang++ -std=c++17 -Wall -Wextra -Werror \
   test/desktop_pet_sound_cues_test.cpp \
   src/apps/desktop_pet/desktop_pet_sound_cues.cpp \
   src/apps/desktop_pet/desktop_pet_state.cpp \
+  src/apps/desktop_pet/desktop_pet_daily.cpp \
   src/apps/desktop_pet/core/pet_core.cpp \
   src/apps/desktop_pet/core/pet_dialogue.cpp \
   -o /tmp/desktop_pet_sound_cues_test
@@ -404,8 +421,13 @@ platformio.ini             开发版与发布版构建配置
 46. 保持`sticky-debug`串口打开，连续完成两次会改变数值的互动，例如点击`FEED`后再抚摸兔子；确认日志中的`pet_storage=save`先后写入`slot_a`和`slot_b`，且`sequence`逐次增加。
 47. 记下当前名字、成长值、亲密值和食物值，然后重新启动设备；确认日志出现`pet_storage=load source=slot_a`或`source=slot_b`，并带有`peer_valid=1`。
 48. 确认重启后的名字、阶段和各项数值与重启前一致，再执行一次互动；确认系统继续写入较旧的另一个槽位，而不是覆盖刚刚读出的最新槽位。
+49. 进入`TEST`面板查看当前`STREAK`，点击一次`NEXT DAY`并关闭面板，然后抚摸兔子；确认日志中的`care_day_started=1`，同一天再次喂食时变为`care_day_started=0`且连续天数不再增加。
+50. 再连续完成两轮“`NEXT DAY`→关闭面板→抚摸兔子”；当`STREAK`到达3时，先完整显示抚摸动作，再进入`3 DAYS TOGETHER`全屏庆祝页。
+51. 确认庆祝页先显示兔子接受亲近的姿势，随后切换为明显离地的陪玩姿势，最后自动返回主页；播放期间的触摸不会遗留到主页。
+52. 在同一个模拟日再次互动并重启设备，确认3天庆祝不会重复。继续完成四轮“`NEXT DAY`→抚摸”，确认第7天只庆祝一次。
+53. 在下一个真实RTC自然日期首次进入普通主页时，确认出现一次回归问候和`pet=daily_greeting absence_days=... result=shown`；当天再次重启不再重复问候。
 
-新存档启动时会出现`pet=ready page=egg profile=test save=new stage=egg`。三次有效轻触依次记录`pet=hatch tap=1`、`tap=2`和`tap=3`，破壳完成记录`pet=hatch state=complete stage=hatchling`；之后每次照料会出现带`stage`、`food`和`mood`的`pet=care`，测试操作会出现`pet=test`，自动换日会出现带新食物值的`pet=day source=timer`。RTC生成外出计划时记录`pet=outing schedule=... source=rtc`，自动出发和重启恢复分别记录对应的`phase=packing`或`phase=away`。双槽存档会记录`pet_storage=save target=slot_a|slot_b sequence=...`；重启读取时记录`pet_storage=load source=slot_a|slot_b sequence=... peer_valid=... result=ok`。
+新存档启动时会出现`pet=ready page=egg profile=test save=new stage=egg`。三次有效轻触依次记录`pet=hatch tap=1`、`tap=2`和`tap=3`，破壳完成记录`pet=hatch state=complete stage=hatchling`；之后每次照料会出现带`stage`、`food`、`mood`、`streak`和`milestone`的`pet=care`，测试操作会出现`pet=test`，自动换日会出现带新食物值的`pet=day source=timer`。RTC生成外出计划时记录`pet=outing schedule=... source=rtc`，自动出发和重启恢复分别记录对应的`phase=packing`或`phase=away`。双槽存档会记录`pet_storage=save target=slot_a|slot_b sequence=...`；重启读取时记录`pet_storage=load source=slot_a|slot_b sequence=... peer_valid=... result=ok`。连续照料庆祝记录`pet=care_milestone days=...`，每日回归问候记录`pet=daily_greeting absence_days=... result=shown`。
 
 ## 答案书真机验收
 

@@ -47,6 +47,26 @@ int main()
     assert(state.pet.stage == PetLifeStage::Hatchling);
     assert(!desktop_pet_state_tap_egg(state).changed);
 
+    DesktopPetState streak_state = {};
+    streak_state.pet.stage = PetLifeStage::Hatchling;
+    for (uint16_t expected_day = 1U; expected_day <= 3U;
+         ++expected_day) {
+        const DesktopPetActionResult care = desktop_pet_state_apply(
+            streak_state, DesktopPetAction::Pet);
+        assert(care.care_day_started);
+        assert(care.care_streak == expected_day);
+        assert(care.care_milestone_days ==
+               (expected_day == 3U ? 3U : 0U));
+        const DesktopPetActionResult same_day_care =
+            desktop_pet_state_apply(
+                streak_state, DesktopPetAction::Feed);
+        assert(!same_day_care.care_day_started);
+        assert(same_day_care.care_streak == expected_day);
+        if (expected_day < 3U) {
+            desktop_pet_state_advance_day(streak_state);
+        }
+    }
+
     DesktopPetState sleep_state = {};
     sleep_state.pet.stage = PetLifeStage::Hatchling;
     sleep_state.pet.needs.energy = 20U;

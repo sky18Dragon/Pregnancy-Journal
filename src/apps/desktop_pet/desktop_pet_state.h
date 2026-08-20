@@ -114,6 +114,9 @@ struct DesktopPetActionResult {
     DesktopPetPose pose = DesktopPetPose::Idle;
     const char *message = "LET'S SPEND TODAY TOGETHER.";
     DesktopPetPerformance performance = DesktopPetPerformance::None;
+    bool care_day_started = false;
+    uint16_t care_streak = 0U;
+    uint16_t care_milestone_days = 0U;
 };
 
 constexpr uint16_t kDesktopPetHatchlingGrowthLimit = 30U;

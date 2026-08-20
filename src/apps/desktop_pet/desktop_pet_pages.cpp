@@ -1296,15 +1296,19 @@ void desktop_pet_page_render_test(Canvas &canvas,
                       static_cast<unsigned>(state.hatch_taps),
                       static_cast<unsigned>(kDesktopPetRequiredHatchTaps));
     } else {
-        std::snprintf(scores, sizeof(scores), "PATH F%u  P%u  A%u",
+        std::snprintf(scores, sizeof(scores),
+                      "PATH F%u  P%u  A%u  BEST %u",
                       static_cast<unsigned>(state.pet.foodie_score),
                       static_cast<unsigned>(state.pet.affectionate_score),
-                      static_cast<unsigned>(state.pet.active_score));
+                      static_cast<unsigned>(state.pet.active_score),
+                      static_cast<unsigned>(state.pet.best_care_streak));
     }
     draw_centered(canvas, 155, scores, 2);
-    std::snprintf(scores, sizeof(scores), "FOOD %u  ENERGY %u",
+    std::snprintf(scores, sizeof(scores),
+                  "FOOD %u  ENERGY %u  STREAK %u",
                   static_cast<unsigned>(state.pet.needs.food),
-                  static_cast<unsigned>(state.pet.needs.energy));
+                  static_cast<unsigned>(state.pet.needs.energy),
+                  static_cast<unsigned>(state.pet.care_streak));
     draw_centered(canvas, 195, scores, 2);
 
     if (state.pet.stage == PetLifeStage::Egg) {
@@ -1460,6 +1464,68 @@ void desktop_pet_page_render_evolution(
             draw_centered(canvas, 650, stage_line, 2);
         }
     }
+}
+
+void desktop_pet_page_render_care_celebration(
+    Canvas &canvas,
+    const DesktopPetState &state,
+    uint16_t milestone_days,
+    DesktopPetCelebrationFrame frame)
+{
+    canvas.set_rotation(CanvasRotation::Deg90CounterClockwise);
+    canvas.clear(GrayLevel::White);
+
+    draw_centered(canvas, 34, "A LITTLE CELEBRATION", 2);
+
+    char day_count[8] = {};
+    std::snprintf(day_count, sizeof(day_count), "%u",
+                  static_cast<unsigned>(milestone_days));
+    draw_centered(canvas, 70, day_count, 8);
+    draw_centered(canvas, 145, "DAYS TOGETHER", 4);
+
+    const DesktopPetPose pose =
+        frame == DesktopPetCelebrationFrame::Proud
+            ? DesktopPetPose::Pet
+            : DesktopPetPose::Play;
+    const int rabbit_y =
+        frame == DesktopPetCelebrationFrame::Proud ? 445 : 440;
+    pixel_asset_draw_centered(
+        canvas,
+        240,
+        rabbit_y,
+        desktop_pet_asset(pose_mask_asset(
+            state.pet, pose, DesktopPetIdleFrame::Normal)),
+        2,
+        GrayLevel::White);
+    pixel_asset_draw_centered(
+        canvas,
+        240,
+        rabbit_y,
+        desktop_pet_asset(pose_asset(
+            state.pet, pose, DesktopPetIdleFrame::Normal)),
+        2);
+
+    const PixelAsset &heart = desktop_pet_asset(DesktopPetAssetId::LoveIcon);
+    pixel_asset_draw_centered(canvas, 78, 332, heart, 1);
+    pixel_asset_draw_centered(canvas, 402, 318, heart, 1);
+    pixel_asset_draw_centered(canvas, 111, 513, heart, 1);
+    pixel_asset_draw_centered(canvas, 382, 525, heart, 1);
+    draw_sparkle(canvas, 66, 232, 9);
+    draw_sparkle(canvas, 415, 244, 12);
+    draw_sparkle(canvas, 68, 586, 7);
+    draw_sparkle(canvas, 414, 590, 9);
+
+    canvas.fill_rect(30, 650, 420, 72, GrayLevel::Black);
+    draw_centered(
+        canvas,
+        672,
+        frame == DesktopPetCelebrationFrame::Proud
+            ? "LOOK HOW FAR WE'VE COME!"
+            : "THANK YOU FOR CARING FOR ME!",
+        2,
+        GrayLevel::White);
+    draw_centered(canvas, 754,
+                  "EVERY DAY TOGETHER MATTERS.", 2);
 }
 
 void desktop_pet_page_render_personality_choice(

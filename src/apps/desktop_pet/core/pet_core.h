@@ -147,6 +147,14 @@ PetCoreActionResult pet_core_apply_action(PetCoreState &state,
                                           PetCoreAction action,
                                           const PetCoreProfile &profile);
 
+// Applies one interaction against an explicit care-day identifier.
+// 使用明确的照料日编号执行一次互动，供加速测试时间线复用。
+PetCoreActionResult pet_core_apply_action_for_day(
+    PetCoreState &state,
+    PetCoreAction action,
+    const PetCoreProfile &profile,
+    uint32_t care_day_key);
+
 // Advances a known number of virtual minutes without reading hardware.
 // 在不读取硬件的情况下推进指定的虚拟分钟数。
 void pet_core_advance_minutes(PetCoreState &state,

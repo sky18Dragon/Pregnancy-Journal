@@ -4,6 +4,7 @@
 #include <cctype>
 #include <cstring>
 
+#include "desktop_pet_daily.h"
 #include "pet_dialogue.h"
 
 namespace {
@@ -14,6 +15,17 @@ const PetCoreProfile &active_profile()
     return pet_core_test_profile();
 #else
     return pet_core_production_profile();
+#endif
+}
+
+uint32_t active_care_day_key(const DesktopPetState &state)
+{
+#if STICKY_DESKTOP_PET_TEST_MODE
+    // Encodes accelerated test days in a distinct care-day key range.
+    // 将加速测试日期编码到独立的照料日编号区间。
+    return 0x80000000U | static_cast<uint32_t>(state.pet.day);
+#else
+    return state.pet.current_day_key;
 #endif
 }
 
@@ -169,8 +181,12 @@ const char *stage_care_message(DesktopPetState &state,
 DesktopPetActionResult apply_care(DesktopPetState &state,
                                   DesktopPetAction action)
 {
-    const PetCoreActionResult core_result = pet_core_apply_action(
-        state.pet, core_action(action), active_profile());
+    const uint16_t previous_streak = state.pet.care_streak;
+    const PetCoreActionResult core_result = pet_core_apply_action_for_day(
+        state.pet,
+        core_action(action),
+        active_profile(),
+        active_care_day_key(state));
     state.pet.activity = PetActivity::Idle;
 
     DesktopPetActionResult result = {};
@@ -183,6 +199,12 @@ DesktopPetActionResult apply_care(DesktopPetState &state,
         std::max<int8_t>(core_result.bond_delta, 0));
     result.pose = action_pose(action);
     result.performance = action_performance(action);
+    result.care_day_started = state.pet.care_streak != previous_streak;
+    result.care_streak = state.pet.care_streak;
+    result.care_milestone_days = result.care_day_started
+                                     ? desktop_pet_daily_milestone(
+                                           state.pet.care_streak)
+                                     : 0U;
     const char *stage_message = stage_care_message(state, action);
     result.message = stage_message != nullptr
                          ? stage_message

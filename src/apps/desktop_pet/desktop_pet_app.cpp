@@ -7,6 +7,7 @@
 
 #include "app_log.h"
 #include "canvas.h"
+#include "desktop_pet_daily.h"
 #include "desktop_pet_outing.h"
 #include "desktop_pet_pages.h"
 #include "desktop_pet_sound_cues.h"
@@ -40,6 +41,8 @@ constexpr int64_t kTalkMessageHoldUs = 4000000LL;
 constexpr int64_t kEvolutionStartingHoldUs = 1300000LL;
 constexpr int64_t kEvolutionSilhouetteHoldUs = 1400000LL;
 constexpr int64_t kEvolutionRevealHoldUs = 2600000LL;
+constexpr int64_t kCareCelebrationProudHoldUs = 1500000LL;
+constexpr int64_t kCareCelebrationJumpHoldUs = 1900000LL;
 constexpr int64_t kHatchWobbleHoldUs = 420000LL;
 constexpr int64_t kHatchCrackHoldUs = 900000LL;
 constexpr int64_t kHatchWelcomeHoldUs = 2400000LL;
@@ -86,6 +89,14 @@ bool s_evolution_active = false;
 DesktopPetEvolutionFrame s_evolution_frame =
     DesktopPetEvolutionFrame::Starting;
 int64_t s_evolution_deadline_us = 0;
+bool s_care_celebration_active = false;
+uint16_t s_care_celebration_days = 0U;
+uint16_t s_pending_care_milestone_days = 0U;
+DesktopPetCelebrationFrame s_care_celebration_frame =
+    DesktopPetCelebrationFrame::Proud;
+int64_t s_care_celebration_deadline_us = 0;
+const char *s_pending_daily_greeting = nullptr;
+uint32_t s_pending_daily_absence_days = 0U;
 bool s_hatch_active = false;
 bool s_hatch_final = false;
 DesktopPetHatchFrame s_hatch_frame = DesktopPetHatchFrame::Resting;
@@ -271,6 +282,7 @@ esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
                     : desktop_pet_outing_active(s_outing) ? "outing"
                     : s_state.pet.activity == PetActivity::Sleeping ? "sleep"
                     : s_hatch_active ? "hatch"
+                    : s_care_celebration_active ? "care_celebration"
                     : s_test_open ? "test"
                     : s_state.pet.stage == PetLifeStage::Egg ? "egg"
                                                               : "home",
@@ -287,6 +299,7 @@ esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
                     : desktop_pet_outing_active(s_outing) ? "outing"
                     : s_state.pet.activity == PetActivity::Sleeping ? "sleep"
                     : s_hatch_active ? "hatch"
+                    : s_care_celebration_active ? "care_celebration"
                     : s_test_open ? "test"
                     : s_state.pet.stage == PetLifeStage::Egg ? "egg"
                                                               : "home",
@@ -313,6 +326,12 @@ void render_current_page(bool partial_refresh, bool timing_log = true)
     } else if (s_evolution_active) {
         desktop_pet_page_render_evolution(
             *s_canvas, s_state, s_evolution_frame);
+    } else if (s_care_celebration_active) {
+        desktop_pet_page_render_care_celebration(
+            *s_canvas,
+            s_state,
+            s_care_celebration_days,
+            s_care_celebration_frame);
     } else if (s_personality_choice_open) {
         desktop_pet_page_render_personality_choice(*s_canvas, s_state);
     } else if (s_test_open) {
@@ -550,6 +569,65 @@ void apply_evolution_outcome(DesktopPetEvolutionOutcome outcome)
     }
 }
 
+// Starts a two-frame, non-interactive care-streak celebration.
+// 启动两帧、播放期间不接收互动的连续照料庆祝页面。
+void start_care_celebration(uint16_t milestone_days)
+{
+    if (milestone_days == 0U) {
+        return;
+    }
+    cancel_idle_animation(false);
+    s_test_open = false;
+    s_personality_choice_open = false;
+    s_reset_confirmation = false;
+    s_pose = DesktopPetPose::Idle;
+    s_idle_frame = DesktopPetIdleFrame::Normal;
+    s_pose_deadline_us = 0;
+    s_pending_care_milestone_days = 0U;
+    s_care_celebration_active = true;
+    s_care_celebration_days = milestone_days;
+    s_care_celebration_frame = DesktopPetCelebrationFrame::Proud;
+    sticky_touch_clear_press();
+    render_current_page(false);
+    s_care_celebration_deadline_us =
+        esp_timer_get_time() + kCareCelebrationProudHoldUs;
+    STICKY_LOGI(kTag,
+                "pet=care_milestone days=%u frame=proud result=started",
+                static_cast<unsigned>(milestone_days));
+}
+
+// Advances the jump frame and then returns to the live home page.
+// 推进跳跃帧，并在结束后返回可交互主页。
+void update_care_celebration(int64_t now_us)
+{
+    if (!s_care_celebration_active ||
+        now_us < s_care_celebration_deadline_us) {
+        return;
+    }
+    if (s_care_celebration_frame == DesktopPetCelebrationFrame::Proud) {
+        s_care_celebration_frame = DesktopPetCelebrationFrame::Jump;
+        render_current_page(true, false);
+        s_care_celebration_deadline_us =
+            esp_timer_get_time() + kCareCelebrationJumpHoldUs;
+        return;
+    }
+
+    const uint16_t completed_days = s_care_celebration_days;
+    s_care_celebration_active = false;
+    s_care_celebration_days = 0U;
+    s_care_celebration_deadline_us = 0;
+    s_pose = DesktopPetPose::Idle;
+    s_idle_frame = DesktopPetIdleFrame::Normal;
+    s_home_message = select_home_message();
+    s_message = s_home_message;
+    sticky_touch_clear_press();
+    render_current_page(false);
+    schedule_next_idle(esp_timer_get_time());
+    STICKY_LOGI(kTag,
+                "pet=care_milestone days=%u result=finished",
+                static_cast<unsigned>(completed_days));
+}
+
 // Advances the evolution scene and returns to the new live stage home page.
 // 推进成长过场，并在结束后回到新阶段的可交互主页。
 void update_evolution(int64_t now_us)
@@ -579,6 +657,10 @@ void update_evolution(int64_t now_us)
     s_home_message = select_home_message();
     s_message = s_home_message;
     sticky_touch_clear_press();
+    if (s_pending_care_milestone_days != 0U) {
+        start_care_celebration(s_pending_care_milestone_days);
+        return;
+    }
     render_current_page(false);
     schedule_next_idle(esp_timer_get_time());
 }
@@ -658,7 +740,8 @@ void start_idle_animation(int64_t now_us)
 void update_idle_animation(int64_t now_us)
 {
     if (s_hatch_active || s_state.pet.stage == PetLifeStage::Egg ||
-        s_evolution_active || s_test_open || s_personality_choice_open ||
+        s_evolution_active || s_care_celebration_active ||
+        s_test_open || s_personality_choice_open ||
         s_name_editor_open ||
         s_state.pet.activity == PetActivity::Sleeping ||
         desktop_pet_state_requires_sleep(s_state) ||
@@ -775,10 +858,48 @@ void finish_sleep(const char *message, const char *reason)
 bool rtc_page_can_refresh()
 {
     return !s_hatch_active && !s_evolution_active &&
+           !s_care_celebration_active &&
            !desktop_pet_outing_active(s_outing) && !s_test_open &&
            !s_personality_choice_open && !s_name_editor_open &&
            s_state.pet.activity != PetActivity::Sleeping &&
            s_pose == DesktopPetPose::Idle && s_pose_deadline_us == 0;
+}
+
+void queue_daily_greeting(uint32_t previous_day_key,
+                          uint32_t current_day_key)
+{
+    if (s_state.pet.stage == PetLifeStage::Egg) {
+        return;
+    }
+    const DesktopPetDailyGreeting greeting =
+        desktop_pet_daily_greeting(previous_day_key, current_day_key);
+    if (!greeting.visible) {
+        return;
+    }
+    s_pending_daily_greeting = greeting.message;
+    s_pending_daily_absence_days = greeting.absence_days;
+}
+
+// Displays a queued greeting only when the normal home page is available.
+// 仅在普通主页可用时显示已经排队的每日问候。
+bool show_pending_daily_greeting(bool partial_refresh)
+{
+    if (s_pending_daily_greeting == nullptr ||
+        !rtc_page_can_refresh()) {
+        return false;
+    }
+    cancel_idle_animation(false);
+    s_home_message = select_home_message();
+    s_message = s_pending_daily_greeting;
+    const uint32_t absence_days = s_pending_daily_absence_days;
+    s_pending_daily_greeting = nullptr;
+    s_pending_daily_absence_days = 0U;
+    render_current_page(partial_refresh);
+    s_pose_deadline_us = esp_timer_get_time() + kTalkMessageHoldUs;
+    STICKY_LOGI(kTag,
+                "pet=daily_greeting absence_days=%u result=shown",
+                static_cast<unsigned>(absence_days));
+    return true;
 }
 
 uint32_t current_rtc_epoch(int64_t now_us)
@@ -796,6 +917,7 @@ bool automatic_outing_can_start()
     return s_state.pet.stage != PetLifeStage::Egg &&
            s_state.pet.activity != PetActivity::Sleeping &&
            !s_hatch_active && !s_evolution_active &&
+           !s_care_celebration_active &&
            !s_personality_choice_open && !s_name_editor_open &&
            !s_test_open && !desktop_pet_outing_active(s_outing);
 }
@@ -962,6 +1084,7 @@ bool apply_rtc_time(bool offline_catch_up, bool initial_read)
     }
 
     const uint32_t previous_epoch = s_state.pet.last_rtc_epoch_seconds;
+    const uint32_t previous_day_key = s_state.pet.current_day_key;
     const uint16_t previous_day = s_state.pet.day;
     const uint8_t previous_food = s_state.pet.needs.food;
     const uint8_t previous_joy = s_state.pet.needs.joy;
@@ -973,6 +1096,7 @@ bool apply_rtc_time(bool offline_catch_up, bool initial_read)
     snapshot.elapsed_time_is_offline = offline_catch_up;
     snapshot.rtc_epoch_seconds = epoch_seconds;
     pet_core_apply_environment(s_state.pet, snapshot, sleep_profile());
+    queue_daily_greeting(previous_day_key, s_state.pet.current_day_key);
 
     if (s_state.pet.last_rtc_epoch_seconds != epoch_seconds) {
         s_rtc_next_poll_us = now_us + kRtcRetryIntervalUs;
@@ -1050,6 +1174,9 @@ bool apply_rtc_time(bool offline_catch_up, bool initial_read)
     if (woke_automatically &&
         previous_activity == PetActivity::Sleeping) {
         finish_sleep(wake_result.message, "rtc_rested");
+        return true;
+    }
+    if (day_changed && show_pending_daily_greeting(true)) {
         return true;
     }
     if ((day_changed || visible_needs_changed) && rtc_page_can_refresh()) {
@@ -1260,6 +1387,9 @@ void handle_test_action(DesktopPetAction action)
                         esp_err_to_name(erase_result));
             return;
         }
+        s_pending_care_milestone_days = 0U;
+        s_pending_daily_greeting = nullptr;
+        s_pending_daily_absence_days = 0U;
     }
 
 #if STICKY_DESKTOP_PET_TEST_MODE
@@ -1492,15 +1622,21 @@ void handle_action(DesktopPetAction action)
                                   : DesktopPetIdleFrame::Normal;
     s_home_message = select_home_message();
     s_message = requires_sleep ? s_home_message : result.message;
+    if (result.care_milestone_days != 0U) {
+        s_pending_care_milestone_days = result.care_milestone_days;
+    }
     const DesktopPetEvolutionOutcome evolution =
         desktop_pet_state_evolve_if_ready(s_state);
     save_state(desktop_pet_action_name(action));
     STICKY_LOGI(kTag,
-                "pet=care action=%s stage=%s pose=%s rewarded=%d growth_delta=%u love_delta=%u growth=%u love=%u food=%u mood=%s result=ok",
+                "pet=care action=%s stage=%s pose=%s rewarded=%d care_day_started=%d streak=%u milestone=%u growth_delta=%u love_delta=%u growth=%u love=%u food=%u mood=%s result=ok",
                 desktop_pet_action_name(action),
                 pet_core_stage_name(s_state.pet.stage),
                 desktop_pet_pose_name(result.pose),
                 result.rewarded ? 1 : 0,
+                result.care_day_started ? 1 : 0,
+                static_cast<unsigned>(s_state.pet.care_streak),
+                static_cast<unsigned>(result.care_milestone_days),
                 static_cast<unsigned>(result.growth_delta),
                 static_cast<unsigned>(result.love_delta),
                 static_cast<unsigned>(s_state.pet.growth),
@@ -1543,7 +1679,8 @@ void handle_action(DesktopPetAction action)
 
 DesktopPetAction action_for_press(const StickyTouchPress &press)
 {
-    if (s_hatch_active || s_evolution_active) {
+    if (s_hatch_active || s_evolution_active ||
+        s_care_celebration_active) {
         return DesktopPetAction::None;
     }
     int logical_x = 0;
@@ -1646,7 +1783,9 @@ void app_task(void *)
             s_sleep_deadline_us =
                 esp_timer_get_time() + kSleepFrameHoldUs;
         }
-        render_current_page(false);
+        if (!show_pending_daily_greeting(false)) {
+            render_current_page(false);
+        }
         if (s_state.pet.stage != PetLifeStage::Egg &&
             s_state.pet.activity != PetActivity::Sleeping &&
             !desktop_pet_outing_active(s_outing)) {
@@ -1763,6 +1902,11 @@ void app_task(void *)
             vTaskDelay(kPollInterval);
             continue;
         }
+        if (s_care_celebration_active) {
+            update_care_celebration(now_us);
+            vTaskDelay(kPollInterval);
+            continue;
+        }
         if (desktop_pet_outing_active(s_outing)) {
             update_outing(now_us);
             vTaskDelay(kPollInterval);
@@ -1781,8 +1925,30 @@ void app_task(void *)
             s_idle_frame = DesktopPetIdleFrame::Normal;
             s_message = s_home_message;
             s_pose_deadline_us = 0;
-            render_current_page(true, false);
-            schedule_next_idle(esp_timer_get_time());
+            if (s_pending_care_milestone_days != 0U) {
+                start_care_celebration(
+                    s_pending_care_milestone_days);
+                vTaskDelay(kPollInterval);
+                continue;
+            }
+            if (!show_pending_daily_greeting(true)) {
+                render_current_page(true, false);
+                schedule_next_idle(esp_timer_get_time());
+            }
+        }
+
+        if (!s_test_open && !s_personality_choice_open &&
+            !s_name_editor_open && s_pose_deadline_us == 0) {
+            if (s_pending_care_milestone_days != 0U) {
+                start_care_celebration(
+                    s_pending_care_milestone_days);
+                vTaskDelay(kPollInterval);
+                continue;
+            }
+            if (show_pending_daily_greeting(true)) {
+                vTaskDelay(kPollInterval);
+                continue;
+            }
         }
 
         update_idle_animation(now_us);

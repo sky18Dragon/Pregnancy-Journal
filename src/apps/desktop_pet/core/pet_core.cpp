@@ -139,9 +139,8 @@ void start_new_day(PetCoreState &state, uint32_t day_key)
     state.play_count_today = 0U;
 }
 
-void register_care_day(PetCoreState &state)
+void register_care_day(PetCoreState &state, uint32_t day_key)
 {
-    const uint32_t day_key = state.current_day_key;
     if (day_key == 0U || day_key == state.last_care_day_key) {
         return;
     }
@@ -272,10 +271,20 @@ PetCoreActionResult pet_core_apply_action(PetCoreState &state,
                                           PetCoreAction action,
                                           const PetCoreProfile &profile)
 {
+    return pet_core_apply_action_for_day(
+        state, action, profile, state.current_day_key);
+}
+
+PetCoreActionResult pet_core_apply_action_for_day(
+    PetCoreState &state,
+    PetCoreAction action,
+    const PetCoreProfile &profile,
+    uint32_t care_day_key)
+{
     PetCoreActionResult result = {};
     result.changed = true;
     const bool was_ready = state.evolution_ready;
-    register_care_day(state);
+    register_care_day(state, care_day_key);
 
     switch (action) {
     case PetCoreAction::Feed:

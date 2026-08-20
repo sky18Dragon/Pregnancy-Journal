@@ -325,6 +325,17 @@ int main()
         canvas, state, DesktopPetEvolutionFrame::Revealed);
     write_preview(buffer, "/tmp/desktop_pet_adult_evolution.ppm");
 
+    desktop_pet_page_render_care_celebration(
+        canvas, state, 3U, DesktopPetCelebrationFrame::Proud);
+    assert(black_pixel_count(buffer) > 12000U);
+    const std::vector<uint8_t> proud_celebration = buffer;
+    write_preview(buffer, "/tmp/desktop_pet_streak_3_proud.ppm");
+    desktop_pet_page_render_care_celebration(
+        canvas, state, 3U, DesktopPetCelebrationFrame::Jump);
+    assert(black_pixel_count(buffer) > 12000U);
+    assert(buffer != proud_celebration);
+    write_preview(buffer, "/tmp/desktop_pet_streak_3_jump.ppm");
+
     desktop_pet_page_render_test(canvas, state, false);
     assert(desktop_pet_page_action_at(true, 240, 250) ==
            DesktopPetAction::NextDay);
