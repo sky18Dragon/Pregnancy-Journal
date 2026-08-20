@@ -8,7 +8,6 @@ namespace {
 
 constexpr uint32_t kSecondsPerMinute = 60U;
 constexpr uint32_t kSecondsPerDay = 24U * 60U * 60U;
-constexpr uint16_t kWasteIntervalMinutes = 240U;
 constexpr uint16_t kAutomaticBranchMargin = 6U;
 
 const PetCoreProfile kProductionProfile = {};
@@ -171,33 +170,13 @@ void advance_awake_minute(PetCoreState &state,
         static_cast<int>(state.needs.energy) -
         static_cast<int>(profile.energy_decay_per_minute));
 
-    const int hygiene_loss =
-        static_cast<int>(profile.hygiene_decay_per_minute) +
-        static_cast<int>(state.waste_count) * 4;
-    const int hygiene_floor = offline ? 15 : 0;
-    state.needs.hygiene = static_cast<uint8_t>(std::max(
-        hygiene_floor,
-        static_cast<int>(state.needs.hygiene) - hygiene_loss));
-
     int joy_loss = profile.joy_decay_per_minute;
     if (state.needs.food < 30U) {
-        joy_loss += 2;
-    }
-    if (state.needs.hygiene < 30U) {
         joy_loss += 2;
     }
     const int joy_floor = offline ? 15 : 0;
     state.needs.joy = static_cast<uint8_t>(std::max(
         joy_floor, static_cast<int>(state.needs.joy) - joy_loss));
-
-    if (state.needs.food > 40U && state.waste_count < 3U) {
-        state.waste_minute_accumulator = saturating_add_u16(
-            state.waste_minute_accumulator, 1U);
-        if (state.waste_minute_accumulator >= kWasteIntervalMinutes) {
-            state.waste_minute_accumulator = 0U;
-            ++state.waste_count;
-        }
-    }
 }
 
 void advance_sleeping_minute(PetCoreState &state,
@@ -215,10 +194,6 @@ void advance_sleeping_minute(PetCoreState &state,
             --state.needs.joy;
         }
     }
-    if ((state.age_minutes % 3U) == 0U &&
-        state.needs.hygiene > profile.sleeping_hygiene_floor) {
-        --state.needs.hygiene;
-    }
 }
 
 void update_care_mistake(PetCoreState &state)
@@ -227,8 +202,8 @@ void update_care_mistake(PetCoreState &state)
         --state.mistake_cooldown_minutes;
     }
     const uint8_t lowest = std::min(
-        std::min(state.needs.food, state.needs.joy),
-        std::min(state.needs.energy, state.needs.hygiene));
+        state.needs.food,
+        std::min(state.needs.joy, state.needs.energy));
     if (lowest <= 10U && state.mistake_cooldown_minutes == 0U) {
         state.care_mistakes = saturating_add_u16(state.care_mistakes, 1U);
         state.mistake_cooldown_minutes = 60U;
@@ -339,14 +314,6 @@ PetCoreActionResult pet_core_apply_action(PetCoreState &state,
                              : PetActivity::Sleeping;
         result.activity = state.activity;
         break;
-    case PetCoreAction::Clean:
-        result.activity = PetActivity::Cleaning;
-        state.activity = result.activity;
-        state.needs.hygiene = 100U;
-        state.waste_count = 0U;
-        state.waste_minute_accumulator = 0U;
-        apply_bond(state, 1U, profile, result);
-        break;
     }
 
     update_evolution_ready(state, profile);
@@ -391,9 +358,6 @@ PetMood pet_core_mood(const PetCoreState &state)
     if (state.activity != PetActivity::Sleeping && state.needs.energy <= 35U) {
         return PetMood::Tired;
     }
-    if (state.needs.hygiene <= 30U) {
-        return PetMood::Dirty;
-    }
     if (state.needs.joy >= 90U) {
         return PetMood::Ecstatic;
     }
@@ -428,8 +392,8 @@ bool pet_core_can_evolve(const PetCoreState &state,
         return false;
     }
     const uint8_t lowest = std::min(
-        std::min(state.needs.food, state.needs.joy),
-        std::min(state.needs.energy, state.needs.hygiene));
+        state.needs.food,
+        std::min(state.needs.joy, state.needs.energy));
     return state.growth >= growth_limit(state, profile) &&
            lowest >= profile.care_need_floor;
 }
@@ -509,9 +473,13 @@ void pet_core_sanitize(PetCoreState &state,
     state.needs.food = clamp_percent(state.needs.food);
     state.needs.joy = clamp_percent(state.needs.joy);
     state.needs.energy = clamp_percent(state.needs.energy);
-    state.needs.hygiene = clamp_percent(state.needs.hygiene);
+    state.needs.hygiene = 100U;
     state.bond = clamp_percent(state.bond);
-    state.waste_count = std::min<uint8_t>(state.waste_count, 3U);
+    state.waste_count = 0U;
+    state.waste_minute_accumulator = 0U;
+    if (state.activity == PetActivity::Reserved) {
+        state.activity = PetActivity::Idle;
+    }
     state.day = std::max<uint16_t>(state.day, 1U);
     if (static_cast<uint8_t>(state.branch) >
         static_cast<uint8_t>(PetPersonalityBranch::Active)) {
@@ -550,8 +518,8 @@ const char *pet_core_activity_name(PetActivity activity)
         return "playing";
     case PetActivity::Sleeping:
         return "sleeping";
-    case PetActivity::Cleaning:
-        return "cleaning";
+    case PetActivity::Reserved:
+        return "idle";
     case PetActivity::Petting:
         return "petting";
     case PetActivity::Evolving:
@@ -581,8 +549,6 @@ const char *pet_core_mood_name(PetMood mood)
         return "hungry";
     case PetMood::Tired:
         return "tired";
-    case PetMood::Dirty:
-        return "dirty";
     }
     return "unknown";
 }

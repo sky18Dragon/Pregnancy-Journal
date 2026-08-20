@@ -24,7 +24,7 @@ enum class PetActivity : uint8_t {
     Eating,
     Playing,
     Sleeping,
-    Cleaning,
+    Reserved,
     Petting,
     Evolving,
 };
@@ -39,7 +39,6 @@ enum class PetMood : uint8_t {
     Miserable,
     Hungry,
     Tired,
-    Dirty,
 };
 
 enum class PetCoreAction : uint8_t {
@@ -47,7 +46,6 @@ enum class PetCoreAction : uint8_t {
     Pet,
     Play,
     Rest,
-    Clean,
 };
 
 enum class PetPersonalityBranch : uint8_t {

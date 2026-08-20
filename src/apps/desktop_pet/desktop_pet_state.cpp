@@ -599,8 +599,6 @@ const char *desktop_pet_state_mood_label(const DesktopPetState &state)
         return "HUNGRY";
     case PetMood::Tired:
         return "TIRED";
-    case PetMood::Dirty:
-        return "DIRTY";
     }
     return "NEUTRAL";
 }

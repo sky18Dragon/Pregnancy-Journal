@@ -243,7 +243,6 @@ PetDialogueContext pet_dialogue_context_for_state(const PetCoreState &state)
     case PetMood::Happy:
     case PetMood::Content:
     case PetMood::Neutral:
-    case PetMood::Dirty:
     default:
         return PetDialogueContext::Idle;
     }

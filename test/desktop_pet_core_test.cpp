@@ -103,6 +103,27 @@ int main()
     assert(pet_core_evolve(ready, profile));
     assert(ready.stage == PetLifeStage::Child);
 
+    // Evolution depends only on the three care needs visible to the user.
+    // 成长只取决于用户可见的食物、心情和精力三项照料值。
+    PetCoreState legacy_dirty_state = {};
+    legacy_dirty_state.growth = profile.hatchling_growth_limit;
+    legacy_dirty_state.needs.food = 80U;
+    legacy_dirty_state.needs.joy = 80U;
+    legacy_dirty_state.needs.energy = 80U;
+    legacy_dirty_state.needs.hygiene = 0U;
+    legacy_dirty_state.waste_count = 3U;
+    assert(pet_core_can_evolve(legacy_dirty_state, profile));
+    assert(pet_core_mood(legacy_dirty_state) == PetMood::Happy);
+    pet_core_advance_minutes(legacy_dirty_state, 1U, profile, false);
+    assert(legacy_dirty_state.needs.hygiene == 0U);
+    assert(legacy_dirty_state.care_mistakes == 0U);
+    assert(pet_core_can_evolve(legacy_dirty_state, profile));
+    legacy_dirty_state.activity = PetActivity::Reserved;
+    pet_core_sanitize(legacy_dirty_state, profile);
+    assert(legacy_dirty_state.activity == PetActivity::Idle);
+    assert(legacy_dirty_state.needs.hygiene == 100U);
+    assert(legacy_dirty_state.waste_count == 0U);
+
     PetCoreState automatic_path = {};
     automatic_path.stage = PetLifeStage::Child;
     automatic_path.growth = profile.child_growth_limit;
