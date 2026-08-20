@@ -154,7 +154,7 @@ The accelerated rewards will still pass through the normal daily counters and ca
 
 ### Current Implemented Slice
 
-The current visible firmware implements Egg, Hatchling, Child, all three Youth personality forms, and all three matching Adult forms. A new record opens on a full-screen Egg page. Three completed taps are saved independently: the first tap rocks and cracks the Egg, the second reveals two ears, and the third opens the shell, plays a gentle three-note chime, and creates the Hatchling baseline at growth `10`, affection `18`, and food `80`. A Hatchling with `30` growth and all four care needs at or above `40` automatically plays a three-frame full-page evolution scene and opens the Child home. At `120` growth, the pet either follows a clear score leader or opens the final three-way care choice before saving and revealing the selected Youth form. At `280` growth, a well-cared-for Youth keeps its selected branch and plays a second three-frame transition into the corresponding Adult form.
+The current visible firmware implements Egg, Hatchling, Child, all three Youth personality forms, and all three matching Adult forms. A new record opens on a full-screen Egg page. Three completed taps are saved independently: the first tap rocks and cracks the Egg, the second reveals two ears, and the third opens the shell, plays a gentle three-note chime, and creates the Hatchling baseline at growth `10`, affection `18`, and food `80`. A Hatchling with `30` growth and food, joy, and energy at or above `40` automatically plays a three-frame full-page evolution scene and opens the Child home. At `120` growth, the pet either follows a clear score leader or opens the final three-way care choice before saving and revealing the selected Youth form. At `280` growth, a well-cared-for Youth keeps its selected branch and plays a second three-frame transition into the corresponding Adult form.
 
 An independent core framework now exists under `src/apps/desktop_pet/core/`. It models six life stages, food, joy, energy, seven relationship moods plus urgent need states, sleep, care mistakes, bond, streaks, personality evidence, evolution readiness, dialogue history, bounded offline progression, a fixed animation queue, RTC conversion, and validated two-slot save records.
 
@@ -164,7 +164,7 @@ The interaction state now emits a semantic pet performance such as eating, recei
 
 The first outing slice is available from the accelerated test panel. `desktop_pet_outing` advances the rabbit through packing, leaving, away, returning, reunion, and home without blocking touch polling. Every outing frame preserves the home page's name, stage, growth, affection, food, energy, date, furnished room, and visual proportions. The rabbit walks directly toward the screen edge, leaving a fading footprint trail. While the rabbit is away, the standard care actions become one centered `CALL HER HOME` action. Calling her home enters the same return sequence as a completed outing. Personality routes return with distinct berry, flower, or leaf souvenirs. The test duration is uniformly selected from 20 through 40 seconds, while the approved production duration range is one through seven hours. Automatic daytime scheduling and restart-safe elapsed time will use the validated RTC adapter in the runtime integration slice.
 
-PCF8563 hardware time and the validated two-slot save backend remain independent integration blocks. The current test build accelerates sleep recovery from the app timer; the later PCF8563 adapter will provide real elapsed time without changing the sleep-state rules.
+The PCF8563 hardware adapter now reads and validates the shared-bus calendar at startup and once per minute. A clock carrying the voltage-low flag is seeded once from the firmware build timestamp using one complete seconds-through-years I2C write; later boots preserve the running calendar. Startup applies a bounded offline catch-up, while runtime reads advance the same pet rules online. The current test build retains accelerated sleep recovery; production sleep uses trusted RTC elapsed time and falls back to the app timer only while no valid RTC reading is available. The validated two-slot save backend remains an independent integration block.
 
 ### Production Profile
 
@@ -304,7 +304,7 @@ The Hatchling also runs a non-blocking autonomous behavior loop. Common actions 
 
 The Child stage uses a taller long-eared rabbit with a neckerchief and its own complete set of idle, blink, ear-twitch, look-around, stretch, hungry, tired, feed, pet, and play bitmaps. The Youth stage then separates into Foodie, Affectionate, and Active silhouettes, accessories, signature movements, interactions, home titles, and route-specific dialogue.
 
-The framework stays independent from the display, touch controller, IMU, NVS driver, and RTC driver. Native tests can therefore validate pet behavior on a computer. The NVS and PCF8563 hardware adapters remain explicit integration tasks.
+The framework stays independent from the display, touch controller, IMU, NVS driver, and RTC driver. Native tests can therefore validate pet behavior on a computer. The runtime now connects the PCF8563 adapter to this framework; the validated two-slot NVS backend remains an explicit integration task.
 
 ## Open-Source Source Library
 
@@ -371,4 +371,4 @@ The implemented vertical slices cover Hatchling, Child, and Youth entry:
 - Six-point automatic personality decision and final choice page for close scores
 - Foodie, Affectionate, and Active Youth homes, progress targets, actions, and dialogue
 
-The rule framework underneath these slices is implemented and native-tested. Later slices connect the PCF8563 adapter and validated two-slot NVS backend, then add three Adult forms and expanded need-specific Youth animation sets on top of the same core.
+The rule framework underneath these slices is implemented and native-tested. The PCF8563 adapter, three Adult forms, and expanded need-specific Youth animation sets are connected; the validated two-slot NVS backend remains a later persistence slice.

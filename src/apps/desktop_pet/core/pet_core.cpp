@@ -234,6 +234,22 @@ void pet_core_apply_environment(PetCoreState &state,
         return;
     }
 
+    // A clock moving backwards cannot describe elapsed pet time.
+    // 向后跳变的时钟不能用于计算宠物经过时间。
+    if (state.last_rtc_epoch_seconds != 0U &&
+        snapshot.rtc_epoch_seconds < state.last_rtc_epoch_seconds) {
+        update_evolution_ready(state, profile);
+        return;
+    }
+
+    const uint32_t day_key = snapshot.rtc_epoch_seconds / kSecondsPerDay;
+    if (state.stage == PetLifeStage::Egg) {
+        state.current_day_key = day_key;
+        state.last_rtc_epoch_seconds = snapshot.rtc_epoch_seconds;
+        update_evolution_ready(state, profile);
+        return;
+    }
+
     if (state.last_rtc_epoch_seconds != 0U &&
         snapshot.rtc_epoch_seconds > state.last_rtc_epoch_seconds) {
         const uint32_t elapsed_seconds =
@@ -245,8 +261,7 @@ void pet_core_apply_environment(PetCoreState &state,
             snapshot.elapsed_time_is_offline);
     }
 
-    const uint32_t day_key = snapshot.rtc_epoch_seconds / kSecondsPerDay;
-    if (state.current_day_key == 0U || day_key != state.current_day_key) {
+    if (state.current_day_key == 0U || day_key > state.current_day_key) {
         start_new_day(state, day_key);
     }
     state.last_rtc_epoch_seconds = snapshot.rtc_epoch_seconds;

@@ -96,6 +96,30 @@ int main()
     assert(long_offline.age_minutes == profile.maximum_offline_minutes);
     assert(long_offline.needs.food >= 15U);
 
+    // An unhatched egg records the RTC baseline without consuming care needs.
+    // 未孵化的蛋只记录RTC基线，不消耗任何照料值。
+    PetCoreState egg = {};
+    egg.stage = PetLifeStage::Egg;
+    const PetNeeds egg_needs = egg.needs;
+    pet_core_apply_environment(egg, first_time, profile);
+    assert(egg.last_rtc_epoch_seconds == first_time.rtc_epoch_seconds);
+    assert(egg.current_day_key == 10U);
+    assert(egg.needs.food == egg_needs.food);
+    assert(egg.needs.joy == egg_needs.joy);
+    assert(egg.needs.energy == egg_needs.energy);
+
+    // A backward RTC correction preserves the last trusted timestamp.
+    // RTC向后校正时保留上一次可信时间戳。
+    PetCoreState backward_clock = {};
+    backward_clock.last_rtc_epoch_seconds = 20U * 86400U;
+    backward_clock.current_day_key = 20U;
+    PetEnvironmentSnapshot earlier_time = {};
+    earlier_time.rtc_valid = true;
+    earlier_time.rtc_epoch_seconds = 19U * 86400U;
+    pet_core_apply_environment(backward_clock, earlier_time, profile);
+    assert(backward_clock.last_rtc_epoch_seconds == 20U * 86400U);
+    assert(backward_clock.current_day_key == 20U);
+
     PetCoreState ready = {};
     ready.growth = profile.hatchling_growth_limit;
     ready.needs = {80U, 80U, 80U, 80U};

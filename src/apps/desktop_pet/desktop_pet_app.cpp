@@ -15,11 +15,13 @@
 #include "pet_animation_queue.h"
 #include "pet_dialogue.h"
 #include "pet_idle_scheduler.h"
+#include "pet_rtc_time.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "sticky_buzzer.h"
 #include "sticky_display.h"
+#include "sticky_rtc.h"
 #include "sticky_touch.h"
 
 #ifndef STICKY_LOG_DESKTOP_PET_ENABLED
@@ -40,13 +42,16 @@ constexpr int64_t kEvolutionRevealHoldUs = 2600000LL;
 constexpr int64_t kHatchWobbleHoldUs = 420000LL;
 constexpr int64_t kHatchCrackHoldUs = 900000LL;
 constexpr int64_t kHatchWelcomeHoldUs = 2400000LL;
+constexpr int64_t kRtcPollIntervalUs = 60LL * 1000000LL;
+constexpr int64_t kRtcRetryIntervalUs = 5LL * 60LL * 1000000LL;
+constexpr uint32_t kRtcSaveIntervalSeconds = 5U * 60U;
 #if STICKY_DESKTOP_PET_TEST_MODE
 constexpr int64_t kSleepFrameHoldUs = 2400000LL;
 constexpr uint32_t kSleepMinutesPerFrame = 2U;
 constexpr int64_t kOutingAwaySceneHoldUs = 2400000LL;
 #else
-// TODO(rtc): Replace fixed sleep ticks with validated PCF8563 elapsed time.
-// TODO(rtc): 使用校验后的PCF8563经过时间替换固定睡眠节拍。
+// The app timer remains the sleep fallback while no valid RTC is available.
+// 有效RTC不可用时，应用定时器继续作为睡眠时间后备来源。
 constexpr int64_t kSleepFrameHoldUs = 60000000LL;
 constexpr uint32_t kSleepMinutesPerFrame = 1U;
 constexpr int64_t kOutingAwaySceneHoldUs = 300000000LL;
@@ -93,6 +98,9 @@ int64_t s_sleep_deadline_us = 0;
 DesktopPetOutingSession s_outing = {};
 bool s_outing_secondary_frame = false;
 int64_t s_outing_scene_deadline_us = 0;
+int64_t s_rtc_next_poll_us = 0;
+uint32_t s_rtc_last_saved_epoch = 0U;
+bool s_rtc_has_valid_time = false;
 #if STICKY_DESKTOP_PET_TEST_MODE
 int64_t s_day_deadline_us = 0;
 #endif
@@ -764,6 +772,157 @@ void finish_sleep(const char *message, const char *reason)
                 static_cast<unsigned>(s_state.pet.needs.energy));
 }
 
+bool rtc_page_can_refresh()
+{
+    return !s_hatch_active && !s_evolution_active &&
+           !desktop_pet_outing_active(s_outing) && !s_test_open &&
+           !s_personality_choice_open && !s_name_editor_open &&
+           s_state.pet.activity != PetActivity::Sleeping &&
+           s_pose == DesktopPetPose::Idle && s_pose_deadline_us == 0;
+}
+
+// Applies one trusted PCF8563 snapshot to the persistent pet timeline.
+// 将一份可信的PCF8563快照应用到宠物的持久时间线。
+bool apply_rtc_time(bool offline_catch_up, bool initial_read)
+{
+    const int64_t now_us = esp_timer_get_time();
+    if (!sticky_rtc_is_ready()) {
+        s_rtc_next_poll_us = now_us + kRtcRetryIntervalUs;
+        if (initial_read) {
+            STICKY_LOGW(kTag,
+                        "pet=rtc source=boot result=unavailable fallback=app_timer");
+        }
+        return false;
+    }
+
+    StickyRtcDateTime rtc = {};
+    esp_err_t read_result = sticky_rtc_read(rtc);
+    if (read_result == ESP_ERR_INVALID_STATE) {
+        StickyRtcDateTime seeded_time = {};
+        const esp_err_t seed_result =
+            sticky_rtc_seed_from_build_time(seeded_time);
+        if (seed_result == ESP_OK) {
+            read_result = sticky_rtc_read(rtc);
+        }
+    }
+    if (read_result != ESP_OK) {
+        s_rtc_next_poll_us = now_us + kRtcRetryIntervalUs;
+        STICKY_LOGW(kTag,
+                    "pet=rtc source=%s result=%s retry_s=300",
+                    initial_read ? "boot" : "periodic",
+                    esp_err_to_name(read_result));
+        return false;
+    }
+
+    PetRtcDateTime calendar = {};
+    calendar.year = rtc.year;
+    calendar.month = rtc.month;
+    calendar.day = rtc.day;
+    calendar.hour = rtc.hour;
+    calendar.minute = rtc.minute;
+    calendar.second = rtc.second;
+    uint32_t epoch_seconds = 0U;
+    if (!pet_rtc_time_to_epoch(calendar, epoch_seconds)) {
+        s_rtc_next_poll_us = now_us + kRtcRetryIntervalUs;
+        STICKY_LOGW(kTag,
+                    "pet=rtc source=%s result=invalid_calendar retry_s=300",
+                    initial_read ? "boot" : "periodic");
+        return false;
+    }
+
+    const uint32_t previous_epoch = s_state.pet.last_rtc_epoch_seconds;
+    const uint16_t previous_day = s_state.pet.day;
+    const uint8_t previous_food = s_state.pet.needs.food;
+    const uint8_t previous_joy = s_state.pet.needs.joy;
+    const uint8_t previous_energy = s_state.pet.needs.energy;
+    const PetActivity previous_activity = s_state.pet.activity;
+
+    PetEnvironmentSnapshot snapshot = {};
+    snapshot.rtc_valid = true;
+    snapshot.elapsed_time_is_offline = offline_catch_up;
+    snapshot.rtc_epoch_seconds = epoch_seconds;
+    pet_core_apply_environment(s_state.pet, snapshot, sleep_profile());
+
+    if (s_state.pet.last_rtc_epoch_seconds != epoch_seconds) {
+        s_rtc_next_poll_us = now_us + kRtcRetryIntervalUs;
+        STICKY_LOGW(kTag,
+                    "pet=rtc source=%s current=%u saved=%u result=backward_ignored",
+                    initial_read ? "boot" : "periodic",
+                    static_cast<unsigned>(epoch_seconds),
+                    static_cast<unsigned>(previous_epoch));
+        return false;
+    }
+
+    s_rtc_has_valid_time = true;
+    s_rtc_next_poll_us = now_us + kRtcPollIntervalUs;
+    const bool day_changed = s_state.pet.day != previous_day;
+    const bool visible_needs_changed =
+        s_state.pet.needs.food != previous_food ||
+        s_state.pet.needs.joy != previous_joy ||
+        s_state.pet.needs.energy != previous_energy;
+
+    DesktopPetActionResult wake_result = {};
+    bool woke_automatically = false;
+    if (s_state.pet.activity == PetActivity::Sleeping &&
+        s_state.pet.needs.energy >= 100U) {
+        wake_result = desktop_pet_state_apply(
+            s_state, DesktopPetAction::Wake);
+        woke_automatically = wake_result.changed;
+    }
+
+    const bool save_interval_reached =
+        s_rtc_last_saved_epoch == 0U ||
+        epoch_seconds - s_rtc_last_saved_epoch >= kRtcSaveIntervalSeconds;
+    if (initial_read || day_changed || woke_automatically ||
+        save_interval_reached) {
+        save_state(initial_read ? "rtc_boot" : "rtc_periodic");
+        s_rtc_last_saved_epoch = epoch_seconds;
+    }
+
+    const uint32_t elapsed_minutes =
+        previous_epoch != 0U && epoch_seconds > previous_epoch
+            ? (epoch_seconds - previous_epoch) / 60U
+            : 0U;
+    if (initial_read || day_changed || woke_automatically) {
+        STICKY_LOGI(kTag,
+                    "pet=rtc source=%s time=%04u-%02u-%02uT%02u:%02u:%02u elapsed_min=%u offline=%u day=%u result=ok",
+                    initial_read ? "boot" : "periodic",
+                    static_cast<unsigned>(rtc.year),
+                    static_cast<unsigned>(rtc.month),
+                    static_cast<unsigned>(rtc.day),
+                    static_cast<unsigned>(rtc.hour),
+                    static_cast<unsigned>(rtc.minute),
+                    static_cast<unsigned>(rtc.second),
+                    static_cast<unsigned>(elapsed_minutes),
+                    offline_catch_up ? 1U : 0U,
+                    static_cast<unsigned>(s_state.pet.day));
+    }
+#if STICKY_LOG_RTC_READS_ENABLED
+    else {
+        STICKY_LOGD(kTag,
+                    "pet=rtc source=periodic elapsed_min=%u food=%u energy=%u result=ok",
+                    static_cast<unsigned>(elapsed_minutes),
+                    static_cast<unsigned>(s_state.pet.needs.food),
+                    static_cast<unsigned>(s_state.pet.needs.energy));
+    }
+#endif
+
+    if (initial_read) {
+        return true;
+    }
+    if (woke_automatically &&
+        previous_activity == PetActivity::Sleeping) {
+        finish_sleep(wake_result.message, "rtc_rested");
+        return true;
+    }
+    if ((day_changed || visible_needs_changed) && rtc_page_can_refresh()) {
+        s_home_message = select_home_message();
+        s_message = s_home_message;
+        render_current_page(true, false);
+    }
+    return true;
+}
+
 const char *outing_return_message()
 {
     switch (s_state.pet.branch) {
@@ -878,10 +1037,19 @@ void update_sleep(int64_t now_us)
         return;
     }
 
+#if STICKY_DESKTOP_PET_TEST_MODE
     pet_core_advance_minutes(s_state.pet,
                              kSleepMinutesPerFrame,
                              sleep_profile(),
                              false);
+#else
+    if (!s_rtc_has_valid_time) {
+        pet_core_advance_minutes(s_state.pet,
+                                 kSleepMinutesPerFrame,
+                                 sleep_profile(),
+                                 false);
+    }
+#endif
     if (s_state.pet.needs.energy >= 100U) {
         const DesktopPetActionResult wake_result =
             desktop_pet_state_apply(s_state, DesktopPetAction::Wake);
@@ -1301,6 +1469,9 @@ void app_task(void *)
         s_state = {};
     }
 
+    s_rtc_last_saved_epoch = s_state.pet.last_rtc_epoch_seconds;
+    apply_rtc_time(true, true);
+
     sticky_touch_clear_press();
     s_idle_animation.reset();
     s_idle_frame = DesktopPetIdleFrame::Normal;
@@ -1409,6 +1580,9 @@ void app_task(void *)
         }
 
         const int64_t now_us = esp_timer_get_time();
+        if (s_rtc_next_poll_us == 0 || now_us >= s_rtc_next_poll_us) {
+            apply_rtc_time(false, false);
+        }
         desktop_pet_sound_rearm_need_alerts(
             s_state, s_need_sound_state);
         if (s_hatch_active) {

@@ -11,6 +11,7 @@
 // Shared sensor bus on I2C1 / I2C1上的共享传感器总线
 #define PIN_SENSOR_SCL 0
 #define PIN_SENSOR_SDA 1
+#define PCF8563_I2C_ADDR 0x51
 #define LSM6DS3_I2C_ADDR 0x6A
 
 // SSD1677 e-paper panel on SPI2 / SPI2总线上的SSD1677电子纸屏幕

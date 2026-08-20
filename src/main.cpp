@@ -7,6 +7,7 @@
 #include "desktop_pet_app.h"
 #include "sticky_buzzer.h"
 #include "sticky_display.h"
+#include "sticky_rtc.h"
 #include "sticky_touch.h"
 
 #include <cinttypes>
@@ -190,6 +191,16 @@ extern "C" void app_main()
     const esp_err_t sensor_bus_result = board_sensor_bus_init();
     if (sensor_bus_result != ESP_OK) {
         halt_after_error("board_sensor_bus", sensor_bus_result);
+    }
+
+    // Attach the read-only clock before the desktop pet reads its saved time.
+    // 在桌宠读取存档时间前，先挂载只读RTC设备。
+    const esp_err_t rtc_result =
+        sticky_rtc_init(board_sensor_i2c_bus());
+    if (rtc_result != ESP_OK) {
+        STICKY_LOGW(kTag,
+                    "component=sticky_rtc result=%s fallback=app_timer",
+                    esp_err_to_name(rtc_result));
     }
 
     const esp_err_t display_result = sticky_display_init();

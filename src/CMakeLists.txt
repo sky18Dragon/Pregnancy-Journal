@@ -29,6 +29,7 @@ idf_component_register(
         "board/board_shared_spi.cpp"
         "core/app_log.cpp"
         "devices/sticky_buzzer.cpp"
+        "devices/sticky_rtc.cpp"
         "display/sticky_display.cpp"
         "input/sticky_touch.cpp"
         "sensors/sticky_imu.cpp"
