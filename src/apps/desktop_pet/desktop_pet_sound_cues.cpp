@@ -100,8 +100,6 @@ DesktopPetSoundCue desktop_pet_sound_for_idle(
     DesktopPetIdleFrame frame)
 {
     switch (frame) {
-    case DesktopPetIdleFrame::Stretch:
-        return {StickyBuzzerPattern::Stretch, 0U};
     case DesktopPetIdleFrame::Hungry:
         return {StickyBuzzerPattern::VoiceHungry,
                 static_cast<uint8_t>(state.pet.day % 3U)};
@@ -112,6 +110,7 @@ DesktopPetSoundCue desktop_pet_sound_for_idle(
     case DesktopPetIdleFrame::Blink:
     case DesktopPetIdleFrame::EarTwitch:
     case DesktopPetIdleFrame::LookAround:
+    case DesktopPetIdleFrame::Stretch:
     default:
         return {};
     }

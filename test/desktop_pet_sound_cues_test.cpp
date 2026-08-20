@@ -79,7 +79,7 @@ int main()
     assert(!cue.audible());
     cue = desktop_pet_sound_for_idle(
         state, DesktopPetIdleFrame::Stretch);
-    assert(cue.pattern == StickyBuzzerPattern::Stretch);
+    assert(!cue.audible());
     cue = desktop_pet_sound_for_idle(
         state, DesktopPetIdleFrame::Hungry);
     assert(cue.pattern == StickyBuzzerPattern::VoiceHungry);

@@ -20,7 +20,6 @@ enum class StickyBuzzerPattern : uint8_t {
     VoiceFoodie,
     VoiceAffectionate,
     VoiceActive,
-    Stretch,
     Sleep,
     Wake,
 };

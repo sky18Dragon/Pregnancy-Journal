@@ -131,11 +131,6 @@ constexpr BuzzerNote kVoiceActiveNotes[] = {
     {1568U, 75U, 0U, 105U},
 };
 
-constexpr BuzzerNote kStretchNotes[] = {
-    {659U, 100U, 45U, 70U},
-    {784U, 150U, 0U, 75U},
-};
-
 constexpr BuzzerNote kSleepNotes[] = {
     {988U, 100U, 55U, 85U},
     {784U, 120U, 55U, 80U},
@@ -194,8 +189,6 @@ BuzzerSequence sequence_for_pattern(StickyBuzzerPattern pattern)
         return sequence(kVoiceAffectionateNotes, "voice_affectionate");
     case StickyBuzzerPattern::VoiceActive:
         return sequence(kVoiceActiveNotes, "voice_active");
-    case StickyBuzzerPattern::Stretch:
-        return sequence(kStretchNotes, "stretch");
     case StickyBuzzerPattern::Sleep:
         return sequence(kSleepNotes, "sleep");
     case StickyBuzzerPattern::Wake:
