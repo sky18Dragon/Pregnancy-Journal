@@ -1,12 +1,13 @@
 #include "app_log.h"
+#include "book_of_answers_app.h"
 #include "board_charger.h"
 #include "board_power.h"
 #include "board_sensor_bus.h"
 #include "board_shared_spi.h"
 #include "canvas.h"
-#include "pomodoro_app.h"
 #include "sticky_buzzer.h"
 #include "sticky_display.h"
+#include "sticky_imu.h"
 #include "sticky_touch.h"
 
 #include <cinttypes>
@@ -203,8 +204,8 @@ extern "C" void app_main()
     }
 
     // A physical white full refresh removes the image retained by e-paper
-    // before the first Pomodoro frame becomes the new baseline.
-    // 先对白屏执行一次实体全刷，清除电子纸保留的旧画面，再建立番茄钟首帧基线。
+    // before the first Book of Answers frame becomes the new baseline.
+    // 先对白屏执行一次实体全刷，清除电子纸保留的旧画面，再建立答案书首帧基线。
     const esp_err_t clear_result = sticky_display_clear();
     if (clear_result != ESP_OK) {
         halt_after_error("sticky_display_clear", clear_result);
@@ -220,16 +221,27 @@ extern "C" void app_main()
         halt_after_error("sticky_buzzer_init", buzzer_result);
     }
 
+    const esp_err_t imu_result =
+        sticky_imu_init(board_sensor_i2c_bus());
+    if (imu_result != ESP_OK) {
+        halt_after_error("sticky_imu_init", imu_result);
+    }
+
+    const esp_err_t imu_monitor_result = sticky_imu_start_monitoring();
+    if (imu_monitor_result != ESP_OK) {
+        halt_after_error("sticky_imu_monitor", imu_monitor_result);
+    }
+
     const esp_err_t nvs_result = nvs_flash_init();
     if (nvs_result != ESP_OK) {
         halt_after_error("nvs_flash_init", nvs_result);
     }
 
-    // Runs the portrait Pomodoro experience as an independent app.
-    // 当前把竖屏番茄钟体验作为独立APP直接运行。
-    const esp_err_t app_result = pomodoro_app_start(*canvas);
+    // Runs Book of Answers as a complete portrait app with shake input.
+    // 当前直接运行完整竖屏答案书APP，并使用IMU摇晃事件开始提问。
+    const esp_err_t app_result = book_of_answers_app_start(*canvas);
     if (app_result != ESP_OK) {
-        halt_after_error("pomodoro_app_start", app_result);
+        halt_after_error("book_of_answers_app_start", app_result);
     }
 
 #if STICKY_LOG_BOOT_DETAILS_ENABLED
