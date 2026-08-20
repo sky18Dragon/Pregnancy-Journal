@@ -18,8 +18,8 @@ void desktop_pet_page_render_test(Canvas &canvas,
                                   const DesktopPetState &state,
                                   bool reset_confirmation);
 
-// Renders one full-page frame of the Hatchling-to-Child transition.
-// 渲染幼兔成长为儿童期的一帧全屏过场。
+// Renders one full-page frame for the active life-stage transition.
+// 渲染当前成长阶段切换的一帧全屏过场。
 void desktop_pet_page_render_evolution(
     Canvas &canvas,
     const DesktopPetState &state,

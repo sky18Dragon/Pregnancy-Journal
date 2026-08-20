@@ -71,37 +71,48 @@ const char *companion_message(DesktopPetAction action)
     }
 }
 
-const char *youth_care_message(const DesktopPetState &state,
-                               DesktopPetAction action)
+const char *personality_care_message(const DesktopPetState &state,
+                                     DesktopPetAction action)
 {
-    if (state.pet.stage != PetLifeStage::Youth) {
+    if (state.pet.stage != PetLifeStage::Youth &&
+        state.pet.stage != PetLifeStage::Adult) {
         return nullptr;
     }
+    const bool adult = state.pet.stage == PetLifeStage::Adult;
     switch (state.pet.branch) {
     case PetPersonalityBranch::Foodie:
         if (action == DesktopPetAction::Feed) {
-            return "I SAVED THE BEST BITE!";
+            return adult ? "I KNOW ALL THE BEST FLAVORS!"
+                         : "I SAVED THE BEST BITE!";
         }
         if (action == DesktopPetAction::Pet) {
-            return "PATS MAKE SNACKS BETTER!";
+            return adult ? "A PAT AFTER DINNER IS PERFECT."
+                         : "PATS MAKE SNACKS BETTER!";
         }
-        return "RACE YOU TO THE KITCHEN!";
+        return adult ? "LET'S ROLL OFF THAT SNACK!"
+                     : "RACE YOU TO THE KITCHEN!";
     case PetPersonalityBranch::Affectionate:
         if (action == DesktopPetAction::Feed) {
-            return "SHARING MAKES IT TASTIER!";
+            return adult ? "EVERY MEAL IS WARMER WITH YOU."
+                         : "SHARING MAKES IT TASTIER!";
         }
         if (action == DesktopPetAction::Pet) {
-            return "STAY RIGHT HERE WITH ME.";
+            return adult ? "I'LL ALWAYS SAVE YOU A HUG."
+                         : "STAY RIGHT HERE WITH ME.";
         }
-        return "I LOVE PLAYING TOGETHER!";
+        return adult ? "OUR PLAYTIME IS MY FAVORITE."
+                     : "I LOVE PLAYING TOGETHER!";
     case PetPersonalityBranch::Active:
         if (action == DesktopPetAction::Feed) {
-            return "FUEL FOR OUR NEXT RACE!";
+            return adult ? "TRAIL FUEL, THEN WE EXPLORE!"
+                         : "FUEL FOR OUR NEXT RACE!";
         }
         if (action == DesktopPetAction::Pet) {
-            return "A QUICK PAT, THEN WE RUN!";
+            return adult ? "EVEN EXPLORERS NEED A SOFT PAT."
+                         : "A QUICK PAT, THEN WE RUN!";
         }
-        return "TRY TO KEEP UP!";
+        return adult ? "THE NEXT TRAIL IS OURS!"
+                     : "TRY TO KEEP UP!";
     case PetPersonalityBranch::Undecided:
     default:
         return nullptr;
@@ -111,9 +122,9 @@ const char *youth_care_message(const DesktopPetState &state,
 const char *stage_care_message(DesktopPetState &state,
                                DesktopPetAction action)
 {
-    const char *youth_message = youth_care_message(state, action);
-    if (youth_message != nullptr) {
-        return youth_message;
+    const char *personality_message = personality_care_message(state, action);
+    if (personality_message != nullptr) {
+        return personality_message;
     }
     if (state.pet.stage != PetLifeStage::Child) {
         return nullptr;
@@ -161,9 +172,13 @@ DesktopPetActionResult apply_care(DesktopPetState &state,
                          : (result.rewarded ? rewarded_message(action)
                                             : companion_message(action));
     if (core_result.evolution_became_ready) {
-        result.message = state.pet.stage == PetLifeStage::Hatchling
-                             ? "I'M READY TO GROW!"
-                             : "NEXT STAGE IS READY!";
+        if (state.pet.stage == PetLifeStage::Hatchling) {
+            result.message = "I'M READY TO GROW!";
+        } else if (state.pet.stage == PetLifeStage::Youth) {
+            result.message = "I'M READY TO GROW UP!";
+        } else {
+            result.message = "NEXT STAGE IS READY!";
+        }
     }
     return result;
 }
@@ -172,21 +187,34 @@ DesktopPetActionResult apply_care(DesktopPetState &state,
 // 选择紧急状态对白，或匹配当前亲密度的聊天台词。
 DesktopPetActionResult apply_talk(DesktopPetState &state)
 {
-    if (state.pet.stage == PetLifeStage::Youth) {
+    if (state.pet.stage == PetLifeStage::Youth ||
+        state.pet.stage == PetLifeStage::Adult) {
+        const bool adult = state.pet.stage == PetLifeStage::Adult;
         const bool close_bond = state.pet.bond >= 70U;
         switch (state.pet.branch) {
         case PetPersonalityBranch::Foodie:
             return {true, false, 0U, 0U, DesktopPetPose::Idle,
-                    close_bond ? "I SAVED MY FAVORITE SNACK FOR YOU."
-                               : "WANT TO SHARE A SNACK?"};
+                    adult ? (close_bond
+                                 ? "YOU MADE EVERY SHARED MEAL SPECIAL."
+                                 : "I LEARNED A NEW RECIPE FOR US.")
+                          : (close_bond
+                                 ? "I SAVED MY FAVORITE SNACK FOR YOU."
+                                 : "WANT TO SHARE A SNACK?")};
         case PetPersonalityBranch::Affectionate:
             return {true, false, 0U, 0U, DesktopPetPose::Idle,
-                    close_bond ? "YOU'RE MY SAFEST PLACE."
-                               : "CAN I STAY CLOSE?"};
+                    adult ? (close_bond
+                                 ? "WE GREW UP SIDE BY SIDE."
+                                 : "THIS HOME FEELS WARM WITH YOU.")
+                          : (close_bond ? "YOU'RE MY SAFEST PLACE."
+                                        : "CAN I STAY CLOSE?")};
         case PetPersonalityBranch::Active:
             return {true, false, 0U, 0U, DesktopPetPose::Idle,
-                    close_bond ? "EVERY ADVENTURE IS BETTER WITH YOU."
-                               : "READY FOR OUR NEXT ADVENTURE?"};
+                    adult ? (close_bond
+                                 ? "YOU'RE MY FAVORITE ADVENTURE PARTNER."
+                                 : "I FOUND A NEW TRAIL FOR US.")
+                          : (close_bond
+                                 ? "EVERY ADVENTURE IS BETTER WITH YOU."
+                                 : "READY FOR OUR NEXT ADVENTURE?")};
         case PetPersonalityBranch::Undecided:
         default:
             break;
@@ -243,9 +271,13 @@ DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
         pet_core_sanitize(state.pet, active_profile());
         if (growth_before < growth_limit &&
             state.pet.growth >= growth_limit) {
-            result.message = state.pet.stage == PetLifeStage::Hatchling
-                                 ? "I'M READY TO GROW!"
-                                 : "NEXT STAGE IS READY!";
+            if (state.pet.stage == PetLifeStage::Hatchling) {
+                result.message = "I'M READY TO GROW!";
+            } else if (state.pet.stage == PetLifeStage::Youth) {
+                result.message = "I'M READY TO GROW UP!";
+            } else {
+                result.message = "NEXT STAGE IS READY!";
+            }
         } else if (result.growth_delta > 0U) {
             result.message = "I FEEL A LITTLE BIGGER!";
         } else {
@@ -293,7 +325,8 @@ DesktopPetEvolutionOutcome desktop_pet_state_evolve_if_ready(
     DesktopPetState &state)
 {
     if (state.pet.stage != PetLifeStage::Hatchling &&
-        state.pet.stage != PetLifeStage::Child) {
+        state.pet.stage != PetLifeStage::Child &&
+        state.pet.stage != PetLifeStage::Youth) {
         return DesktopPetEvolutionOutcome::None;
     }
     if (!pet_core_can_evolve(state.pet, active_profile())) {
@@ -337,6 +370,7 @@ bool desktop_pet_state_choose_youth_branch(
 uint16_t desktop_pet_state_growth_limit(const DesktopPetState &state)
 {
     switch (state.pet.stage) {
+    case PetLifeStage::Adult:
     case PetLifeStage::Youth:
         return kDesktopPetYouthGrowthLimit;
     case PetLifeStage::Child:
@@ -350,6 +384,18 @@ uint16_t desktop_pet_state_growth_limit(const DesktopPetState &state)
 const char *desktop_pet_state_stage_label(const DesktopPetState &state)
 {
     switch (state.pet.stage) {
+    case PetLifeStage::Adult:
+        switch (state.pet.branch) {
+        case PetPersonalityBranch::Foodie:
+            return "FOODIE ADULT";
+        case PetPersonalityBranch::Affectionate:
+            return "HEART ADULT";
+        case PetPersonalityBranch::Active:
+            return "ACTIVE ADULT";
+        case PetPersonalityBranch::Undecided:
+        default:
+            return "ADULT";
+        }
     case PetLifeStage::Youth:
         switch (state.pet.branch) {
         case PetPersonalityBranch::Foodie:

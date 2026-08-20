@@ -59,8 +59,42 @@ int main()
                        "FOODIE YOUTH") == 0);
     automatic_youth.pet.growth = kDesktopPetYouthGrowthLimit;
     assert(desktop_pet_state_evolve_if_ready(automatic_youth) ==
+           DesktopPetEvolutionOutcome::Evolved);
+    assert(automatic_youth.pet.stage == PetLifeStage::Adult);
+    assert(automatic_youth.pet.branch == PetPersonalityBranch::Foodie);
+    assert(desktop_pet_state_growth_limit(automatic_youth) ==
+           kDesktopPetYouthGrowthLimit);
+    assert(std::strcmp(desktop_pet_state_stage_label(automatic_youth),
+                       "FOODIE ADULT") == 0);
+    assert(desktop_pet_state_evolve_if_ready(automatic_youth) ==
            DesktopPetEvolutionOutcome::None);
-    assert(automatic_youth.pet.stage == PetLifeStage::Youth);
+
+    const uint16_t adult_growth = automatic_youth.pet.growth;
+    const DesktopPetActionResult adult_feed = desktop_pet_state_apply(
+        automatic_youth, DesktopPetAction::Feed);
+    assert(adult_feed.changed);
+    assert(adult_feed.growth_delta == 0U);
+    assert(automatic_youth.pet.growth == adult_growth);
+    assert(std::strcmp(adult_feed.message,
+                       "I KNOW ALL THE BEST FLAVORS!") == 0);
+    const DesktopPetActionResult adult_talk = desktop_pet_state_apply(
+        automatic_youth, DesktopPetAction::Talk);
+    assert(std::strcmp(adult_talk.message,
+                       "I LEARNED A NEW RECIPE FOR US.") == 0);
+
+    DesktopPetState waiting_youth = {};
+    waiting_youth.pet.stage = PetLifeStage::Youth;
+    waiting_youth.pet.branch = PetPersonalityBranch::Active;
+    waiting_youth.pet.growth = kDesktopPetYouthGrowthLimit;
+    waiting_youth.pet.needs = {20U, 80U, 80U, 80U};
+    assert(desktop_pet_state_evolve_if_ready(waiting_youth) ==
+           DesktopPetEvolutionOutcome::None);
+    desktop_pet_state_apply(waiting_youth, DesktopPetAction::Feed);
+    assert(desktop_pet_state_evolve_if_ready(waiting_youth) ==
+           DesktopPetEvolutionOutcome::Evolved);
+    assert(waiting_youth.pet.stage == PetLifeStage::Adult);
+    assert(std::strcmp(desktop_pet_state_stage_label(waiting_youth),
+                       "ACTIVE ADULT") == 0);
 
     DesktopPetState chosen_youth = {};
     chosen_youth.pet.stage = PetLifeStage::Child;

@@ -219,6 +219,21 @@ def main() -> None:
         AssetSpec("youth_active_feed", source_dir / "youth_active_actions.png", 250, 250, "crop=627:627:627:0", True),
         AssetSpec("youth_active_pet", source_dir / "youth_active_actions.png", 250, 250, "crop=627:627:0:627", True),
         AssetSpec("youth_active_play", source_dir / "youth_active_actions.png", 250, 250, "crop=627:627:627:627", True),
+        AssetSpec("adult_foodie_idle", source_dir / "adult_foodie_idle.png", 270, 270, "crop=1150:1150:52:52", True),
+        AssetSpec("adult_foodie_signature", source_dir / "adult_foodie_actions.png", 270, 270, "crop=627:600:0:0,pad=627:627:0:0:color=white", True),
+        AssetSpec("adult_foodie_feed", source_dir / "adult_foodie_actions.png", 270, 270, "crop=627:627:627:0", True),
+        AssetSpec("adult_foodie_pet", source_dir / "adult_foodie_actions.png", 270, 270, "crop=627:627:0:627", True),
+        AssetSpec("adult_foodie_play", source_dir / "adult_foodie_actions.png", 270, 270, "crop=627:627:627:627", True),
+        AssetSpec("adult_affectionate_idle", source_dir / "adult_affectionate_idle.png", 270, 270, "crop=1150:1150:52:52", True),
+        AssetSpec("adult_affectionate_signature", source_dir / "adult_affectionate_actions.png", 270, 270, "crop=627:600:0:0,pad=627:627:0:0:color=white", True),
+        AssetSpec("adult_affectionate_feed", source_dir / "adult_affectionate_actions.png", 270, 270, "crop=627:627:627:0", True),
+        AssetSpec("adult_affectionate_pet", source_dir / "adult_affectionate_actions.png", 270, 270, "crop=627:627:0:627", True),
+        AssetSpec("adult_affectionate_play", source_dir / "adult_affectionate_actions.png", 270, 270, "crop=627:627:627:627", True),
+        AssetSpec("adult_active_idle", source_dir / "adult_active_idle.png", 270, 270, "crop=1150:1150:52:52", True),
+        AssetSpec("adult_active_signature", source_dir / "adult_active_actions.png", 270, 270, "crop=627:600:0:0,pad=627:627:0:0:color=white", True),
+        AssetSpec("adult_active_feed", source_dir / "adult_active_actions.png", 270, 270, "crop=627:627:627:0", True),
+        AssetSpec("adult_active_pet", source_dir / "adult_active_actions.png", 270, 270, "crop=627:627:0:627", True),
+        AssetSpec("adult_active_play", source_dir / "adult_active_actions.png", 270, 270, "crop=627:627:627:627", True),
         AssetSpec("feed_icon", concept_dir / "home_selected_480x800.png", 82, 72, "crop=110:95:25:620"),
         AssetSpec("pet_icon", concept_dir / "home_selected_480x800.png", 82, 72, "crop=100:95:195:620"),
         AssetSpec("talk_icon", source_dir / "talk_icon_v1.png", 82, 72, "crop=1000:880:127:180"),
@@ -239,18 +254,18 @@ def main() -> None:
         """#pragma once\n\n#include \"pixel_asset.h\"\n\nenum class DesktopPetAssetId : uint8_t {\n    Room,\n    Idle,\n    IdleMask,\n    IdleBlink,\n    IdleBlinkMask,\n    IdleEarTwitch,\n    IdleEarTwitchMask,\n    IdleLookAround,\n    IdleLookAroundMask,\n    IdleStretch,\n    IdleStretchMask,\n    IdleHungry,\n    IdleHungryMask,\n    IdleTired,\n    IdleTiredMask,\n    Feed,\n    FeedMask,\n    Pet,\n    PetMask,\n    Play,\n    PlayMask,\n    ChildIdle,\n    ChildIdleMask,\n    ChildIdleBlink,\n    ChildIdleBlinkMask,\n    ChildIdleEarTwitch,\n    ChildIdleEarTwitchMask,\n    ChildIdleLookAround,\n    ChildIdleLookAroundMask,\n    ChildIdleStretch,\n    ChildIdleStretchMask,\n    ChildIdleHungry,\n    ChildIdleHungryMask,\n    ChildIdleTired,\n    ChildIdleTiredMask,\n    ChildFeed,\n    ChildFeedMask,\n    ChildPet,\n    ChildPetMask,\n    ChildPlay,\n    ChildPlayMask,\n    FeedIcon,\n    PetIcon,\n    TalkIcon,\n    PlayIcon,\n    LoveIcon,\n};\n\n// Returns one generated desktop-pet bitmap.\n// 返回一张已生成的桌宠位图。\nconst PixelAsset &desktop_pet_asset(DesktopPetAssetId id);\n""",
         encoding="utf-8",
     )
-    youth_enum_lines: list[str] = []
+    personality_enum_lines: list[str] = []
     for spec in specs:
-        if not spec.name.startswith("youth_"):
+        if not spec.name.startswith(("youth_", "adult_")):
             continue
         enum_name = "".join(part.capitalize() for part in spec.name.split("_"))
-        youth_enum_lines.append(f"    {enum_name},")
+        personality_enum_lines.append(f"    {enum_name},")
         if spec.subject_mask:
-            youth_enum_lines.append(f"    {enum_name}Mask,")
+            personality_enum_lines.append(f"    {enum_name}Mask,")
     header_path.write_text(
         header_path.read_text(encoding="utf-8").replace(
             "    FeedIcon,",
-            "\n".join(youth_enum_lines) + "\n    FeedIcon,",
+            "\n".join(personality_enum_lines) + "\n    FeedIcon,",
         ),
         encoding="utf-8",
     )

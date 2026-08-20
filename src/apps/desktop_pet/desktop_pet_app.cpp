@@ -89,6 +89,41 @@ const char *select_youth_home_message(uint32_t value)
     }
 }
 
+// Selects one persistent home line for the current Adult personality.
+// 为当前成年性格选择一条主页常驻对白。
+const char *select_adult_home_message(uint32_t value)
+{
+    switch (s_state.pet.branch) {
+    case PetPersonalityBranch::Foodie: {
+        constexpr const char *kLines[] = {
+            "I PERFECTED A RECIPE FOR US.",
+            "GOOD FOOD MAKES A WARM HOME.",
+            "I SAVED THE CRUNCHIEST CARROT.",
+        };
+        return kLines[value % 3U];
+    }
+    case PetPersonalityBranch::Affectionate: {
+        constexpr const char *kLines[] = {
+            "WE GREW UP SIDE BY SIDE.",
+            "MY HEART IS ALWAYS WITH YOU.",
+            "THERE'S ALWAYS ROOM FOR A HUG.",
+        };
+        return kLines[value % 3U];
+    }
+    case PetPersonalityBranch::Active: {
+        constexpr const char *kLines[] = {
+            "I MAPPED A NEW TRAIL FOR US.",
+            "BIG ADVENTURES START AT HOME.",
+            "MY BACKPACK IS ALWAYS READY.",
+        };
+        return kLines[value % 3U];
+    }
+    case PetPersonalityBranch::Undecided:
+    default:
+        return nullptr;
+    }
+}
+
 const char *select_home_message()
 {
     if (s_state.pet.stage == PetLifeStage::Hatchling &&
@@ -100,6 +135,18 @@ const char *select_home_message()
         s_state.pet.growth >= kDesktopPetChildGrowthLimit &&
         !s_state.pet.evolution_ready) {
         return "CARE FOR ME TO FIND MY PATH.";
+    }
+    if (s_state.pet.stage == PetLifeStage::Youth &&
+        s_state.pet.growth >= kDesktopPetYouthGrowthLimit &&
+        !s_state.pet.evolution_ready) {
+        return "CARE FOR ME TO HELP ME GROW UP.";
+    }
+    if (s_state.pet.stage == PetLifeStage::Adult) {
+        const char *message = select_adult_home_message(
+            static_cast<uint32_t>(esp_timer_get_time()));
+        if (message != nullptr) {
+            return message;
+        }
     }
     if (s_state.pet.stage == PetLifeStage::Youth) {
         const char *message = select_youth_home_message(
@@ -261,6 +308,10 @@ void apply_evolution_outcome(DesktopPetEvolutionOutcome outcome)
         if (s_state.pet.stage == PetLifeStage::Youth) {
             STICKY_LOGI(kTag,
                         "pet=personality branch=%s source=automatic result=ok",
+                        pet_core_personality_name(s_state.pet.branch));
+        } else if (s_state.pet.stage == PetLifeStage::Adult) {
+            STICKY_LOGI(kTag,
+                        "pet=evolution stage=adult branch=%s result=ok",
                         pet_core_personality_name(s_state.pet.branch));
         }
         start_evolution();

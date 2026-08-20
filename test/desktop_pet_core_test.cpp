@@ -119,6 +119,19 @@ int main()
         automatic_path, automatic_decision.automatic_branch));
     assert(pet_core_evolve(automatic_path, profile));
     assert(automatic_path.stage == PetLifeStage::Youth);
+    automatic_path.growth = profile.youth_growth_limit;
+    assert(pet_core_can_evolve(automatic_path, profile));
+    assert(pet_core_evolve(automatic_path, profile));
+    assert(automatic_path.stage == PetLifeStage::Adult);
+    assert(automatic_path.branch == PetPersonalityBranch::Foodie);
+    assert(!pet_core_can_evolve(automatic_path, profile));
+    assert(!pet_core_evolve(automatic_path, profile));
+
+    PetCoreState youth_without_path = {};
+    youth_without_path.stage = PetLifeStage::Youth;
+    youth_without_path.growth = profile.youth_growth_limit;
+    youth_without_path.needs = {80U, 80U, 80U, 80U};
+    assert(!pet_core_can_evolve(youth_without_path, profile));
 
     PetCoreState close_paths = {};
     close_paths.stage = PetLifeStage::Child;
@@ -197,6 +210,10 @@ int main()
                pet_idle_message(PetIdleAction::Stretch,
                                 PetLifeStage::Child),
                "LOOK HOW TALL I AM!") == 0);
+    assert(std::strcmp(
+               pet_idle_message(PetIdleAction::Stretch,
+                                PetLifeStage::Adult),
+               "ALL GROWN AND READY FOR TODAY!") == 0);
 
     PetAnimationQueue queue;
     queue.reset();

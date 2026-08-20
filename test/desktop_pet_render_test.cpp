@@ -179,6 +179,28 @@ int main()
         canvas, state, DesktopPetEvolutionFrame::Revealed);
     write_preview(buffer, "/tmp/desktop_pet_youth_evolution.ppm");
 
+    state.pet.stage = PetLifeStage::Adult;
+    state.pet.growth = kDesktopPetYouthGrowthLimit;
+    state.pet.branch = PetPersonalityBranch::Foodie;
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::Normal,
+        "I PERFECTED A RECIPE FOR US.");
+    assert(black_pixel_count(buffer) > 18000U);
+    write_preview(buffer, "/tmp/desktop_pet_adult_foodie.ppm");
+    state.pet.branch = PetPersonalityBranch::Affectionate;
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Pet, DesktopPetIdleFrame::Normal,
+        "WE GREW UP SIDE BY SIDE.");
+    write_preview(buffer, "/tmp/desktop_pet_adult_affectionate.ppm");
+    state.pet.branch = PetPersonalityBranch::Active;
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Play, DesktopPetIdleFrame::Normal,
+        "I MAPPED A NEW TRAIL FOR US.");
+    write_preview(buffer, "/tmp/desktop_pet_adult_active.ppm");
+    desktop_pet_page_render_evolution(
+        canvas, state, DesktopPetEvolutionFrame::Revealed);
+    write_preview(buffer, "/tmp/desktop_pet_adult_evolution.ppm");
+
     desktop_pet_page_render_test(canvas, state, false);
     assert(desktop_pet_page_action_at(true, 240, 290) ==
            DesktopPetAction::NextDay);

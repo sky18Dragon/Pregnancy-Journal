@@ -50,6 +50,25 @@ PetIdleAction pet_idle_select(const PetCoreState &state,
 const char *pet_idle_message(PetIdleAction action,
                              PetLifeStage stage)
 {
+    if (stage == PetLifeStage::Adult) {
+        switch (action) {
+        case PetIdleAction::Blink:
+            return "I'VE GROWN, BUT I'M STILL ME.";
+        case PetIdleAction::EarTwitch:
+            return "THESE EARS KNOW YOUR FOOTSTEPS.";
+        case PetIdleAction::LookAround:
+            return "OUR HOME HOLDS MANY MEMORIES.";
+        case PetIdleAction::Stretch:
+            return "ALL GROWN AND READY FOR TODAY!";
+        case PetIdleAction::Hungry:
+            return "GROWN RABBITS NEED SNACKS TOO.";
+        case PetIdleAction::Tired:
+            return "A QUIET REST BESIDE YOU SOUNDS NICE.";
+        case PetIdleAction::None:
+        default:
+            return "WE GREW UP TOGETHER.";
+        }
+    }
     if (stage == PetLifeStage::Child) {
         switch (action) {
         case PetIdleAction::Blink:

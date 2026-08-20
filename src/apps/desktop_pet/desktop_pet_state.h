@@ -85,8 +85,8 @@ DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
 // 开始新的模拟日期，并只重置当天奖励计数。
 void desktop_pet_state_advance_day(DesktopPetState &state);
 
-// Resolves an automatic evolution or requests the Youth branch choice page.
-// 处理自动进化，或返回需要显示青年分支选择页。
+// Resolves a ready stage transition or requests the Youth branch choice page.
+// 处理已满足条件的阶段成长，或返回需要显示青年分支选择页。
 DesktopPetEvolutionOutcome desktop_pet_state_evolve_if_ready(
     DesktopPetState &state);
 

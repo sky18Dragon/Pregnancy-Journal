@@ -423,6 +423,10 @@ bool pet_core_can_evolve(const PetCoreState &state,
         state.stage == PetLifeStage::Elder) {
         return false;
     }
+    if (state.stage == PetLifeStage::Youth &&
+        state.branch == PetPersonalityBranch::Undecided) {
+        return false;
+    }
     const uint8_t lowest = std::min(
         std::min(state.needs.food, state.needs.joy),
         std::min(state.needs.energy, state.needs.hygiene));
