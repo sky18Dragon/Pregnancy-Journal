@@ -1,5 +1,6 @@
 #pragma once
 
+#include "desktop_pet_outing.h"
 #include "desktop_pet_state.h"
 
 class Canvas;
@@ -75,6 +76,14 @@ void desktop_pet_page_render_sleep(Canvas &canvas,
                                    const DesktopPetState &state,
                                    bool secondary_frame);
 
+// Draws one complete scene from the rabbit's outing sequence.
+// 绘制兔子外出流程中的一幅完整场景。
+void desktop_pet_page_render_outing(
+    Canvas &canvas,
+    const DesktopPetState &state,
+    const DesktopPetOutingSession &outing,
+    bool secondary_frame);
+
 // Draws the accelerated-build control panel.
 // 绘制加速测试固件的控制面板。
 void desktop_pet_page_render_test(Canvas &canvas,
@@ -107,6 +116,10 @@ DesktopPetAction desktop_pet_page_action_at(bool test_open, int x, int y);
 DesktopPetAction desktop_pet_page_egg_action_at(int x, int y);
 DesktopPetAction desktop_pet_page_personality_action_at(int x, int y);
 DesktopPetAction desktop_pet_page_sleep_action_at(int x, int y);
+DesktopPetAction desktop_pet_page_outing_action_at(
+    DesktopPetOutingPhase phase,
+    int x,
+    int y);
 
 // Maps one portrait keyboard touch coordinate into a name-editor action.
 // 将竖屏键盘触摸坐标映射为命名编辑操作。

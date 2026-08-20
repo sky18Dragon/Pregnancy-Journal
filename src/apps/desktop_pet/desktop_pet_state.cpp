@@ -433,6 +433,8 @@ DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
     case DesktopPetAction::OpenTest:
     case DesktopPetAction::OpenNameEditor:
     case DesktopPetAction::CloseTest:
+    case DesktopPetAction::StartOuting:
+    case DesktopPetAction::CallHome:
     case DesktopPetAction::ChooseFoodie:
     case DesktopPetAction::ChooseAffectionate:
     case DesktopPetAction::ChooseActive:
@@ -634,6 +636,10 @@ const char *desktop_pet_action_name(DesktopPetAction action)
         return "add_love";
     case DesktopPetAction::ReduceEnergy:
         return "reduce_energy";
+    case DesktopPetAction::StartOuting:
+        return "start_outing";
+    case DesktopPetAction::CallHome:
+        return "call_home";
     case DesktopPetAction::Reset:
         return "reset";
     case DesktopPetAction::ChooseFoodie:

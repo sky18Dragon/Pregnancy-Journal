@@ -25,6 +25,8 @@ enum class DesktopPetAction : uint8_t {
     AddGrowth,
     AddLove,
     ReduceEnergy,
+    StartOuting,
+    CallHome,
     Reset,
     ChooseFoodie,
     ChooseAffectionate,

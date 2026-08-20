@@ -7,6 +7,7 @@
 
 #include "app_log.h"
 #include "canvas.h"
+#include "desktop_pet_outing.h"
 #include "desktop_pet_pages.h"
 #include "desktop_pet_sound_cues.h"
 #include "desktop_pet_state.h"
@@ -42,13 +43,19 @@ constexpr int64_t kHatchWelcomeHoldUs = 2400000LL;
 #if STICKY_DESKTOP_PET_TEST_MODE
 constexpr int64_t kSleepFrameHoldUs = 2400000LL;
 constexpr uint32_t kSleepMinutesPerFrame = 2U;
+constexpr int64_t kOutingAwaySceneHoldUs = 2400000LL;
 #else
 // TODO(rtc): Replace fixed sleep ticks with validated PCF8563 elapsed time.
 // TODO(rtc): 使用校验后的PCF8563经过时间替换固定睡眠节拍。
 constexpr int64_t kSleepFrameHoldUs = 60000000LL;
 constexpr uint32_t kSleepMinutesPerFrame = 1U;
+constexpr int64_t kOutingAwaySceneHoldUs = 300000000LL;
 #endif
 constexpr char kHomeMessage[] = "LET'S SPEND TODAY TOGETHER.";
+
+// TODO(outing-runtime): Persist scheduled outings and arm automatic daytime
+// departures after the validated RTC adapter supplies trusted elapsed time.
+// TODO(outing-runtime): 接入已校验的RTC时间后，保存外出计划并启用白天自动外出。
 
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
@@ -82,6 +89,9 @@ DesktopPetHatchFrame s_hatch_frame = DesktopPetHatchFrame::Resting;
 int64_t s_hatch_deadline_us = 0;
 bool s_sleep_secondary_frame = false;
 int64_t s_sleep_deadline_us = 0;
+DesktopPetOutingSession s_outing = {};
+bool s_outing_secondary_frame = false;
+int64_t s_outing_scene_deadline_us = 0;
 #if STICKY_DESKTOP_PET_TEST_MODE
 int64_t s_day_deadline_us = 0;
 #endif
@@ -241,6 +251,7 @@ esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
         STICKY_LOGD(kTag,
                     "pet=refresh page=%s mode=%s elapsed_ms=%lld result=%s",
                     s_name_editor_open ? "name_editor"
+                    : desktop_pet_outing_active(s_outing) ? "outing"
                     : s_state.pet.activity == PetActivity::Sleeping ? "sleep"
                     : s_hatch_active ? "hatch"
                     : s_test_open ? "test"
@@ -256,6 +267,7 @@ esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
         STICKY_LOGE(kTag,
                     "pet=refresh page=%s mode=%s result=%s",
                     s_name_editor_open ? "name_editor"
+                    : desktop_pet_outing_active(s_outing) ? "outing"
                     : s_state.pet.activity == PetActivity::Sleeping ? "sleep"
                     : s_hatch_active ? "hatch"
                     : s_test_open ? "test"
@@ -276,6 +288,9 @@ void render_current_page(bool partial_refresh, bool timing_log = true)
             s_name_keyboard_mode,
             s_name_input_error,
             !s_name_required);
+    } else if (desktop_pet_outing_active(s_outing)) {
+        desktop_pet_page_render_outing(
+            *s_canvas, s_state, s_outing, s_outing_secondary_frame);
     } else if (s_hatch_active) {
         desktop_pet_page_render_egg(*s_canvas, s_state, s_hatch_frame);
     } else if (s_evolution_active) {
@@ -733,6 +748,111 @@ void finish_sleep(const char *message, const char *reason)
                 static_cast<unsigned>(s_state.pet.needs.energy));
 }
 
+const char *outing_return_message()
+{
+    switch (s_state.pet.branch) {
+    case PetPersonalityBranch::Foodie:
+        return "I FOUND A SWEET-SMELLING BERRY!";
+    case PetPersonalityBranch::Affectionate:
+        return "I BROUGHT THIS LITTLE FLOWER FOR YOU!";
+    case PetPersonalityBranch::Active:
+        return "I HAVE A BRAND-NEW ADVENTURE TO TELL!";
+    case PetPersonalityBranch::Undecided:
+    default:
+        return "I BROUGHT HOME A LITTLE TREASURE!";
+    }
+}
+
+void start_test_outing()
+{
+    if (s_state.pet.stage == PetLifeStage::Egg ||
+        s_state.pet.activity == PetActivity::Sleeping ||
+        desktop_pet_outing_active(s_outing)) {
+        return;
+    }
+
+    const int64_t now_us = esp_timer_get_time();
+    const uint32_t now_ms = static_cast<uint32_t>(now_us / 1000LL);
+    cancel_idle_animation(false);
+    s_test_open = false;
+    s_reset_confirmation = false;
+    s_pose = DesktopPetPose::Idle;
+    s_idle_frame = DesktopPetIdleFrame::Normal;
+    s_pose_deadline_us = 0;
+    s_outing_secondary_frame = false;
+    s_outing_scene_deadline_us = 0;
+#if STICKY_DESKTOP_PET_TEST_MODE
+    constexpr bool kAccelerated = true;
+#else
+    constexpr bool kAccelerated = false;
+#endif
+    if (!desktop_pet_outing_start(
+            s_outing, now_ms, now_ms ^ 0x6D2B79F5U, kAccelerated)) {
+        return;
+    }
+    sticky_touch_clear_press();
+    render_current_page(false);
+    STICKY_LOGI(kTag,
+                "pet=outing phase=packing source=test duration_ms=%u result=ok",
+                static_cast<unsigned>(s_outing.away_duration_ms));
+}
+
+void call_outing_home()
+{
+    const uint32_t now_ms = static_cast<uint32_t>(
+        esp_timer_get_time() / 1000LL);
+    if (!desktop_pet_outing_call_home(s_outing, now_ms)) {
+        return;
+    }
+    s_outing_secondary_frame = false;
+    s_outing_scene_deadline_us = 0;
+    sticky_touch_clear_press();
+    render_current_page(true);
+    STICKY_LOGI(kTag,
+                "pet=outing phase=returning source=call_home result=ok");
+}
+
+// Advances outing scenes and the low-frequency away-room animation.
+// 推进外出场景，以及外出页面中的低频房间动画。
+void update_outing(int64_t now_us)
+{
+    if (!desktop_pet_outing_active(s_outing)) {
+        return;
+    }
+
+    const uint32_t now_ms = static_cast<uint32_t>(now_us / 1000LL);
+    if (desktop_pet_outing_update(s_outing, now_ms)) {
+        s_outing_secondary_frame = false;
+        s_outing_scene_deadline_us =
+            s_outing.phase == DesktopPetOutingPhase::Away
+                ? now_us + kOutingAwaySceneHoldUs
+                : 0;
+        if (s_outing.phase == DesktopPetOutingPhase::Home) {
+            s_home_message = select_home_message();
+            s_message = outing_return_message();
+            render_current_page(false);
+            s_pose_deadline_us = esp_timer_get_time() + kTalkMessageHoldUs;
+            schedule_next_idle(esp_timer_get_time());
+        } else {
+            render_current_page(true, false);
+        }
+        STICKY_LOGI(kTag,
+                    "pet=outing phase=%s duration_ms=%u result=ok",
+                    desktop_pet_outing_phase_name(s_outing.phase),
+                    static_cast<unsigned>(s_outing.away_duration_ms));
+        return;
+    }
+
+    if (s_outing.phase == DesktopPetOutingPhase::Away &&
+        s_outing_scene_deadline_us > 0 &&
+        now_us >= s_outing_scene_deadline_us) {
+        s_outing_secondary_frame = !s_outing_secondary_frame;
+        render_current_page(true, false);
+        s_outing_scene_deadline_us =
+            esp_timer_get_time() + kOutingAwaySceneHoldUs;
+    }
+}
+
 // Advances the e-paper breathing frame and accelerated test recovery together.
 // 同时推进电子纸呼吸帧与测试版加速精力恢复。
 void update_sleep(int64_t now_us)
@@ -791,6 +911,11 @@ void handle_test_action(DesktopPetAction action)
 
     if (s_state.pet.stage == PetLifeStage::Egg &&
         action != DesktopPetAction::Reset) {
+        return;
+    }
+
+    if (action == DesktopPetAction::StartOuting) {
+        start_test_outing();
         return;
     }
 
@@ -943,6 +1068,12 @@ void handle_action(DesktopPetAction action)
     if (action == DesktopPetAction::None) {
         return;
     }
+    if (desktop_pet_outing_active(s_outing)) {
+        if (action == DesktopPetAction::CallHome) {
+            call_outing_home();
+        }
+        return;
+    }
     if (s_personality_choice_open) {
         PetPersonalityBranch branch = PetPersonalityBranch::Undecided;
         if (action == DesktopPetAction::ChooseFoodie) {
@@ -1076,7 +1207,10 @@ DesktopPetAction action_for_press(const StickyTouchPress &press)
     s_canvas->physical_to_logical(
         press.x, press.y, logical_x, logical_y);
     DesktopPetAction action = DesktopPetAction::None;
-    if (s_state.pet.activity == PetActivity::Sleeping) {
+    if (desktop_pet_outing_active(s_outing)) {
+        action = desktop_pet_page_outing_action_at(
+            s_outing.phase, logical_x, logical_y);
+    } else if (s_state.pet.activity == PetActivity::Sleeping) {
         action = desktop_pet_page_sleep_action_at(logical_x, logical_y);
     } else if (s_personality_choice_open) {
         action = desktop_pet_page_personality_action_at(logical_x,
@@ -1093,7 +1227,8 @@ DesktopPetAction action_for_press(const StickyTouchPress &press)
         static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
     STICKY_LOGD(kTag,
                 "pet=touch page=%s action=%s physical_x=%u physical_y=%u logical_x=%d logical_y=%d queue_latency_ms=%u",
-                s_state.pet.activity == PetActivity::Sleeping ? "sleep"
+                desktop_pet_outing_active(s_outing) ? "outing"
+                : s_state.pet.activity == PetActivity::Sleeping ? "sleep"
                 : s_test_open ? "test"
                 : s_state.pet.stage == PetLifeStage::Egg ? "egg" : "home",
                 desktop_pet_action_name(action),
@@ -1259,6 +1394,11 @@ void app_task(void *)
         }
         if (s_evolution_active) {
             update_evolution(now_us);
+            vTaskDelay(kPollInterval);
+            continue;
+        }
+        if (desktop_pet_outing_active(s_outing)) {
+            update_outing(now_us);
             vTaskDelay(kPollInterval);
             continue;
         }

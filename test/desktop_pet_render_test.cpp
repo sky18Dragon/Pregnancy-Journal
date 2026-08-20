@@ -328,16 +328,47 @@ int main()
     desktop_pet_page_render_test(canvas, state, false);
     assert(desktop_pet_page_action_at(true, 240, 250) ==
            DesktopPetAction::NextDay);
-    assert(desktop_pet_page_action_at(true, 240, 320) ==
+    assert(desktop_pet_page_action_at(true, 240, 300) ==
            DesktopPetAction::AddGrowth);
-    assert(desktop_pet_page_action_at(true, 240, 390) ==
+    assert(desktop_pet_page_action_at(true, 240, 360) ==
            DesktopPetAction::AddLove);
-    assert(desktop_pet_page_action_at(true, 240, 460) ==
+    assert(desktop_pet_page_action_at(true, 240, 420) ==
            DesktopPetAction::ReduceEnergy);
-    assert(desktop_pet_page_action_at(true, 240, 530) ==
+    assert(desktop_pet_page_action_at(true, 240, 480) ==
            DesktopPetAction::Sleep);
-    assert(desktop_pet_page_action_at(true, 240, 620) ==
+    assert(desktop_pet_page_action_at(true, 240, 545) ==
+           DesktopPetAction::StartOuting);
+    assert(desktop_pet_page_action_at(true, 240, 625) ==
            DesktopPetAction::Reset);
     write_preview(buffer, "/tmp/desktop_pet_test.ppm");
+
+    DesktopPetOutingSession outing = {};
+    outing.away_duration_ms = 27000U;
+    outing.phase = DesktopPetOutingPhase::Packing;
+    desktop_pet_page_render_outing(canvas, state, outing, false);
+    assert(black_pixel_count(buffer) > 18000U);
+    assert(desktop_pet_page_outing_action_at(
+               outing.phase, 240, 640) == DesktopPetAction::None);
+    write_preview(buffer, "/tmp/desktop_pet_outing_pack.ppm");
+
+    outing.phase = DesktopPetOutingPhase::Leaving;
+    desktop_pet_page_render_outing(canvas, state, outing, false);
+    write_preview(buffer, "/tmp/desktop_pet_outing_leave.ppm");
+
+    outing.phase = DesktopPetOutingPhase::Away;
+    desktop_pet_page_render_outing(canvas, state, outing, true);
+    assert(desktop_pet_page_outing_action_at(
+               outing.phase, 240, 640) == DesktopPetAction::CallHome);
+    assert(desktop_pet_page_outing_action_at(
+               outing.phase, 20, 760) == DesktopPetAction::None);
+    write_preview(buffer, "/tmp/desktop_pet_outing_away.ppm");
+
+    outing.phase = DesktopPetOutingPhase::Returning;
+    desktop_pet_page_render_outing(canvas, state, outing, false);
+    write_preview(buffer, "/tmp/desktop_pet_outing_return.ppm");
+
+    outing.phase = DesktopPetOutingPhase::Reunion;
+    desktop_pet_page_render_outing(canvas, state, outing, false);
+    write_preview(buffer, "/tmp/desktop_pet_outing_reunion.ppm");
     return 0;
 }

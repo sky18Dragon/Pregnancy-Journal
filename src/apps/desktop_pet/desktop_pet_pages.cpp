@@ -34,12 +34,14 @@ constexpr Rect kPetBodyRect = {110, 270, 260, 320};
 constexpr Rect kNameRect = {0, 0, 350, 70};
 
 constexpr Rect kCloseTestRect = {360, 20, 100, 55};
-constexpr Rect kNextDayRect = {35, 220, 410, 58};
-constexpr Rect kAddGrowthRect = {35, 290, 410, 58};
-constexpr Rect kAddLoveRect = {35, 360, 410, 58};
-constexpr Rect kReduceEnergyRect = {35, 430, 410, 58};
-constexpr Rect kSleepNowRect = {35, 500, 410, 58};
-constexpr Rect kResetRect = {35, 590, 410, 72};
+constexpr Rect kNextDayRect = {35, 215, 410, 52};
+constexpr Rect kAddGrowthRect = {35, 277, 410, 52};
+constexpr Rect kAddLoveRect = {35, 339, 410, 52};
+constexpr Rect kReduceEnergyRect = {35, 401, 410, 52};
+constexpr Rect kSleepNowRect = {35, 463, 410, 52};
+constexpr Rect kGoOutRect = {35, 525, 410, 52};
+constexpr Rect kResetRect = {35, 597, 410, 62};
+constexpr Rect kOutingNoteRect = {45, 590, 390, 108};
 constexpr Rect kFoodieChoiceRect = {45, 220, 390, 125};
 constexpr Rect kAffectionateChoiceRect = {45, 365, 390, 125};
 constexpr Rect kActiveChoiceRect = {45, 510, 390, 125};
@@ -807,6 +809,171 @@ DesktopPetAssetId egg_nest_asset(const DesktopPetState &state,
     return DesktopPetAssetId::EggNestIntact;
 }
 
+void draw_outing_door(Canvas &canvas, bool open, bool secondary_frame)
+{
+    // Replaces the room shelf with a complete doorway for outing scenes.
+    // 在外出场景中用完整门廊替换房间右侧书架。
+    canvas.fill_rect(330, 220, 136, 348, GrayLevel::White);
+    canvas.draw_line(330, 548, 466, 548, GrayLevel::Black);
+    canvas.draw_rect(345, 246, 111, 292, GrayLevel::Black);
+    canvas.draw_rect(349, 250, 103, 288, GrayLevel::Black);
+
+    if (open) {
+        canvas.fill_rect(354, 255, 93, 278, GrayLevel::Black);
+        canvas.draw_line(357, 529, 444, 529, GrayLevel::White);
+        canvas.draw_line(360, 525, 441, 525, GrayLevel::White);
+        canvas.fill_rect(391, 263, 58, 262, GrayLevel::White);
+        canvas.draw_rect(391, 263, 58, 262, GrayLevel::Black);
+        canvas.draw_rect(400, 281, 40, 91, GrayLevel::Black);
+        canvas.draw_rect(400, 391, 40, 103, GrayLevel::Black);
+        canvas.fill_circle(399, 382, 4, GrayLevel::Black);
+        if (secondary_frame) {
+            draw_sparkle(canvas, 371, 304, 7);
+            draw_sparkle(canvas, 379, 447, 5);
+        }
+        return;
+    }
+
+    canvas.draw_rect(356, 257, 89, 274, GrayLevel::Black);
+    canvas.draw_rect(366, 273, 69, 96, GrayLevel::Black);
+    canvas.draw_rect(366, 389, 69, 111, GrayLevel::Black);
+    canvas.fill_circle(424, 380, 5, GrayLevel::Black);
+    canvas.draw_line(343, 239, 458, 239, GrayLevel::Black);
+    canvas.draw_line(350, 232, 451, 232, GrayLevel::Black);
+}
+
+void draw_outing_bag(Canvas &canvas, int x, int y)
+{
+    canvas.draw_rect(x, y + 13, 58, 66, GrayLevel::Black);
+    canvas.draw_rect(x + 3, y + 16, 52, 60, GrayLevel::Black);
+    canvas.draw_line(x + 4, y + 36, x + 54, y + 36,
+                     GrayLevel::Black);
+    canvas.draw_line(x + 7, y + 36, x + 17, y + 47,
+                     GrayLevel::Black);
+    canvas.draw_line(x + 51, y + 36, x + 41, y + 47,
+                     GrayLevel::Black);
+    canvas.draw_rect(x + 24, y + 38, 10, 9, GrayLevel::Black);
+    canvas.draw_line(x + 13, y + 13, x + 18, y + 3,
+                     GrayLevel::Black);
+    canvas.draw_line(x + 18, y + 3, x + 40, y + 3,
+                     GrayLevel::Black);
+    canvas.draw_line(x + 40, y + 3, x + 45, y + 13,
+                     GrayLevel::Black);
+    for (int stitch_y = y + 52; stitch_y < y + 72; stitch_y += 7) {
+        canvas.draw_line(x + 11, stitch_y, x + 14, stitch_y,
+                         GrayLevel::Black);
+        canvas.draw_line(x + 44, stitch_y, x + 47, stitch_y,
+                         GrayLevel::Black);
+    }
+}
+
+void draw_outing_footprints(Canvas &canvas, bool returning)
+{
+    for (int index = 0; index < 5; ++index) {
+        const int step = returning ? 4 - index : index;
+        const int x = 240 + step * 31;
+        const int y = 548 - (index % 2) * 12;
+        canvas.fill_circle(x, y, 4, GrayLevel::Black);
+        canvas.fill_circle(x - 5, y - 7, 2, GrayLevel::Black);
+        canvas.fill_circle(x + 4, y - 8, 2, GrayLevel::Black);
+    }
+}
+
+void draw_outing_souvenir(Canvas &canvas,
+                          PetPersonalityBranch branch,
+                          int x,
+                          int y)
+{
+    if (branch == PetPersonalityBranch::Foodie) {
+        canvas.draw_line(x + 9, y + 4, x + 9, y + 30,
+                         GrayLevel::Black);
+        canvas.draw_line(x + 9, y + 8, x + 20, y + 1,
+                         GrayLevel::Black);
+        canvas.fill_circle(x + 2, y + 27, 7, GrayLevel::Black);
+        canvas.fill_circle(x + 15, y + 27, 7, GrayLevel::Black);
+        canvas.fill_circle(x + 8, y + 39, 7, GrayLevel::Black);
+        draw_sparkle(canvas, x + 9, y + 52, 5);
+        return;
+    }
+    if (branch == PetPersonalityBranch::Affectionate) {
+        canvas.draw_line(x + 10, y + 18, x + 10, y + 49,
+                         GrayLevel::Black);
+        canvas.draw_line(x + 10, y + 35, x + 21, y + 28,
+                         GrayLevel::Black);
+        canvas.draw_circle(x + 10, y + 12, 5, GrayLevel::Black);
+        canvas.draw_circle(x + 10, y + 1, 6, GrayLevel::Black);
+        canvas.draw_circle(x + 20, y + 8, 6, GrayLevel::Black);
+        canvas.draw_circle(x + 17, y + 19, 6, GrayLevel::Black);
+        canvas.draw_circle(x + 3, y + 19, 6, GrayLevel::Black);
+        canvas.draw_circle(x, y + 8, 6, GrayLevel::Black);
+        draw_sparkle(canvas, x + 10, y + 57, 5);
+        return;
+    }
+
+    canvas.draw_line(x, y + 34, x + 8, y, GrayLevel::Black);
+    canvas.draw_line(x + 8, y, x + 17, y + 34, GrayLevel::Black);
+    canvas.draw_line(x + 3, y + 16, x + 13, y + 16,
+                     GrayLevel::Black);
+    canvas.draw_line(x + 8, y + 3, x + 8, y + 30,
+                     GrayLevel::Black);
+    canvas.draw_line(x + 8, y + 11, x - 2, y + 5,
+                     GrayLevel::Black);
+    canvas.draw_line(x + 8, y + 20, x + 20, y + 12,
+                     GrayLevel::Black);
+    draw_sparkle(canvas, x + 9, y + 45, 5);
+}
+
+void draw_outing_character(Canvas &canvas,
+                           const DesktopPetState &state,
+                           int center_x,
+                           DesktopPetPose pose,
+                           DesktopPetIdleFrame idle_frame,
+                           bool bag,
+                           bool souvenir)
+{
+    constexpr int center_y = 425;
+    if (bag) {
+        draw_outing_bag(canvas, center_x + 47, center_y - 80);
+    }
+    pixel_asset_draw_centered(
+        canvas, center_x, center_y,
+        desktop_pet_asset(pose_mask_asset(state.pet, pose, idle_frame)),
+        1, GrayLevel::White);
+    pixel_asset_draw_centered(
+        canvas, center_x, center_y,
+        desktop_pet_asset(pose_asset(state.pet, pose, idle_frame)));
+    if (souvenir) {
+        draw_outing_souvenir(canvas, state.pet.branch,
+                             center_x + 72, center_y + 20);
+    }
+}
+
+void draw_outing_note(Canvas &canvas, uint32_t duration_ms)
+{
+    canvas.draw_rect(kOutingNoteRect.x, kOutingNoteRect.y,
+                     kOutingNoteRect.width, kOutingNoteRect.height,
+                     GrayLevel::Black);
+    canvas.draw_rect(kOutingNoteRect.x + 3, kOutingNoteRect.y + 3,
+                     kOutingNoteRect.width - 6,
+                     kOutingNoteRect.height - 6,
+                     GrayLevel::Black);
+    canvas.draw_line(394, 593, 432, 631, GrayLevel::Black);
+    canvas.draw_line(394, 593, 394, 631, GrayLevel::Black);
+    canvas.draw_line(394, 631, 432, 631, GrayLevel::Black);
+    draw_centered(canvas, 606, "I WENT TO FIND", 2);
+    draw_centered(canvas, 633, "A LITTLE ADVENTURE", 2);
+    if (duration_ms <= kDesktopPetOutingTestMaximumMs) {
+        char duration_label[28] = {};
+        std::snprintf(duration_label, sizeof(duration_label),
+                      "TEST TRIP  %u SECONDS",
+                      static_cast<unsigned>((duration_ms + 999U) / 1000U));
+        draw_centered(canvas, 660, duration_label, 2);
+    } else {
+        draw_centered(canvas, 660, "I'LL BE BACK LATER TODAY", 2);
+    }
+    draw_centered(canvas, 684, "TAP THIS NOTE TO CALL ME HOME", 1);
+}
+
 }  // namespace
 
 void desktop_pet_page_render_egg(Canvas &canvas,
@@ -1026,6 +1193,113 @@ void desktop_pet_page_render_sleep(Canvas &canvas,
     draw_centered(canvas, 745, "TAP ANYWHERE TO WAKE", 2);
 }
 
+void desktop_pet_page_render_outing(
+    Canvas &canvas,
+    const DesktopPetState &state,
+    const DesktopPetOutingSession &outing,
+    bool secondary_frame)
+{
+    canvas.set_rotation(CanvasRotation::Deg90CounterClockwise);
+    canvas.clear(GrayLevel::White);
+
+    const char *name = desktop_pet_state_has_name(state)
+                           ? state.name
+                           : desktop_pet_state_stage_label(state);
+    draw_centered(canvas, 24, name, 3);
+
+    const char *title = "A LITTLE DAY OUT";
+    switch (outing.phase) {
+    case DesktopPetOutingPhase::Packing:
+        title = "PACKING FOR AN ADVENTURE";
+        break;
+    case DesktopPetOutingPhase::Leaving:
+        title = "SEE YOU SOON!";
+        break;
+    case DesktopPetOutingPhase::Away:
+        title = "OUT EXPLORING";
+        break;
+    case DesktopPetOutingPhase::Returning:
+        title = "TINY PAWS ARE COMING HOME";
+        break;
+    case DesktopPetOutingPhase::Reunion:
+        title = "I'M HOME!";
+        break;
+    case DesktopPetOutingPhase::Home:
+    default:
+        break;
+    }
+    draw_centered(canvas, 71, title, 3);
+
+    pixel_asset_draw(canvas, 20, 226,
+                     desktop_pet_asset(DesktopPetAssetId::Room));
+    const bool open_door = outing.phase == DesktopPetOutingPhase::Leaving ||
+                           outing.phase == DesktopPetOutingPhase::Away ||
+                           outing.phase == DesktopPetOutingPhase::Returning;
+    draw_outing_door(canvas, open_door, secondary_frame);
+
+    switch (outing.phase) {
+    case DesktopPetOutingPhase::Packing:
+        draw_outing_character(canvas, state, 230,
+                              DesktopPetPose::Idle,
+                              DesktopPetIdleFrame::Normal,
+                              true, false);
+        draw_speech_bubble(canvas, "I'M PACKING A TINY BAG!");
+        draw_centered(canvas, 708, "A LITTLE BAG FOR A BIG DAY", 2);
+        draw_centered(canvas, 748, "THE WORLD IS WAITING OUTSIDE", 2);
+        break;
+    case DesktopPetOutingPhase::Leaving:
+        draw_outing_footprints(canvas, false);
+        draw_outing_character(canvas, state, 302,
+                              DesktopPetPose::Idle,
+                              DesktopPetIdleFrame::Normal,
+                              true, false);
+        canvas.draw_line(221, 384, 207, 377, GrayLevel::Black);
+        canvas.draw_line(224, 372, 214, 359, GrayLevel::Black);
+        canvas.draw_line(229, 361, 225, 345, GrayLevel::Black);
+        draw_speech_bubble(canvas, "I'LL BRING BACK A STORY!");
+        draw_centered(canvas, 723, "OFF TO SEE THE WORLD", 2);
+        break;
+    case DesktopPetOutingPhase::Away:
+        draw_outing_footprints(canvas, false);
+        if (secondary_frame) {
+            canvas.draw_line(90, 290, 101, 282, GrayLevel::Black);
+            canvas.draw_line(101, 282, 112, 290, GrayLevel::Black);
+            canvas.draw_line(116, 302, 128, 294, GrayLevel::Black);
+            canvas.draw_line(128, 294, 140, 302, GrayLevel::Black);
+        } else {
+            canvas.draw_line(102, 302, 113, 294, GrayLevel::Black);
+            canvas.draw_line(113, 294, 124, 302, GrayLevel::Black);
+        }
+        draw_outing_note(canvas, outing.away_duration_ms);
+        draw_centered(canvas, 738, "THE ROOM IS QUIET, BUT NOT LONELY", 2);
+        break;
+    case DesktopPetOutingPhase::Returning:
+        draw_outing_footprints(canvas, true);
+        draw_outing_character(canvas, state, 325,
+                              DesktopPetPose::Idle,
+                              DesktopPetIdleFrame::Normal,
+                              true, true);
+        draw_speech_bubble(canvas, "I FOUND SOMETHING FOR YOU!");
+        draw_centered(canvas, 723, "AN ADVENTURE IS COMING HOME", 2);
+        break;
+    case DesktopPetOutingPhase::Reunion:
+        draw_outing_character(canvas, state, 235,
+                              DesktopPetPose::Idle,
+                              DesktopPetIdleFrame::Normal,
+                              false, true);
+        draw_speech_bubble(canvas, "I'M BACK! DID YOU MISS ME?");
+        draw_sparkle(canvas, 75, 345, 8);
+        draw_sparkle(canvas, 402, 324, 7);
+        draw_centered(canvas, 708, "ONE LITTLE TREASURE", 2);
+        draw_centered(canvas, 748, "AND A BRAND-NEW STORY", 2);
+        break;
+    case DesktopPetOutingPhase::Home:
+    default:
+        draw_centered(canvas, 723, "HOME TOGETHER", 2);
+        break;
+    }
+}
+
 void desktop_pet_page_render_test(Canvas &canvas,
                                   const DesktopPetState &state,
                                   bool reset_confirmation)
@@ -1069,11 +1343,12 @@ void desktop_pet_page_render_test(Canvas &canvas,
         draw_button(canvas, kAddLoveRect, "+20 LOVE", false);
         draw_button(canvas, kReduceEnergyRect, "-30 ENERGY", false);
         draw_button(canvas, kSleepNowRect, "SLEEP NOW", false);
+        draw_button(canvas, kGoOutRect, "GO OUT", false);
     }
     draw_button(canvas, kResetRect,
                 reset_confirmation ? "CONFIRM RESET" : "RESET PET",
                 reset_confirmation);
-    draw_centered(canvas, 690,
+    draw_centered(canvas, 681,
                   reset_confirmation
                       ? "TAP RESET AGAIN TO CONFIRM"
                       : "TEST CHANGES SAVE TO THE PET RECORD",
@@ -1377,6 +1652,9 @@ DesktopPetAction desktop_pet_page_action_at(bool test_open, int x, int y)
     if (kSleepNowRect.contains(x, y)) {
         return DesktopPetAction::Sleep;
     }
+    if (kGoOutRect.contains(x, y)) {
+        return DesktopPetAction::StartOuting;
+    }
     if (kResetRect.contains(x, y)) {
         return DesktopPetAction::Reset;
     }
@@ -1413,6 +1691,17 @@ DesktopPetAction desktop_pet_page_sleep_action_at(int x, int y)
 {
     return kSleepWakeRect.contains(x, y)
                ? DesktopPetAction::Wake
+               : DesktopPetAction::None;
+}
+
+DesktopPetAction desktop_pet_page_outing_action_at(
+    DesktopPetOutingPhase phase,
+    int x,
+    int y)
+{
+    return phase == DesktopPetOutingPhase::Away &&
+                   kOutingNoteRect.contains(x, y)
+               ? DesktopPetAction::CallHome
                : DesktopPetAction::None;
 }
 
