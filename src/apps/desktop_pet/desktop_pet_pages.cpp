@@ -809,39 +809,6 @@ DesktopPetAssetId egg_nest_asset(const DesktopPetState &state,
     return DesktopPetAssetId::EggNestIntact;
 }
 
-void draw_outing_door(Canvas &canvas, bool open, bool secondary_frame)
-{
-    // Replaces the room shelf with a complete doorway for outing scenes.
-    // 在外出场景中用完整门廊替换房间右侧书架。
-    canvas.fill_rect(330, 220, 136, 348, GrayLevel::White);
-    canvas.draw_line(330, 548, 466, 548, GrayLevel::Black);
-    canvas.draw_rect(345, 246, 111, 292, GrayLevel::Black);
-    canvas.draw_rect(349, 250, 103, 288, GrayLevel::Black);
-
-    if (open) {
-        canvas.fill_rect(354, 255, 93, 278, GrayLevel::Black);
-        canvas.draw_line(357, 529, 444, 529, GrayLevel::White);
-        canvas.draw_line(360, 525, 441, 525, GrayLevel::White);
-        canvas.fill_rect(391, 263, 58, 262, GrayLevel::White);
-        canvas.draw_rect(391, 263, 58, 262, GrayLevel::Black);
-        canvas.draw_rect(400, 281, 40, 91, GrayLevel::Black);
-        canvas.draw_rect(400, 391, 40, 103, GrayLevel::Black);
-        canvas.fill_circle(399, 382, 4, GrayLevel::Black);
-        if (secondary_frame) {
-            draw_sparkle(canvas, 371, 304, 7);
-            draw_sparkle(canvas, 379, 447, 5);
-        }
-        return;
-    }
-
-    canvas.draw_rect(356, 257, 89, 274, GrayLevel::Black);
-    canvas.draw_rect(366, 273, 69, 96, GrayLevel::Black);
-    canvas.draw_rect(366, 389, 69, 111, GrayLevel::Black);
-    canvas.fill_circle(424, 380, 5, GrayLevel::Black);
-    canvas.draw_line(343, 239, 458, 239, GrayLevel::Black);
-    canvas.draw_line(350, 232, 451, 232, GrayLevel::Black);
-}
-
 void draw_outing_bag(Canvas &canvas, int x, int y)
 {
     canvas.draw_rect(x, y + 13, 58, 66, GrayLevel::Black);
@@ -869,11 +836,14 @@ void draw_outing_bag(Canvas &canvas, int x, int y)
 
 void draw_outing_footprints(Canvas &canvas, bool returning)
 {
+    // Draws a fading paw trail between the rabbit and the screen edge.
+    // 绘制从兔子位置延伸到屏幕边缘、逐渐变小的脚印轨迹。
     for (int index = 0; index < 5; ++index) {
         const int step = returning ? 4 - index : index;
-        const int x = 240 + step * 31;
+        const int x = 226 + step * 49;
         const int y = 548 - (index % 2) * 12;
-        canvas.fill_circle(x, y, 4, GrayLevel::Black);
+        const int pad_radius = step < 3 ? 4 : 3;
+        canvas.fill_circle(x, y, pad_radius, GrayLevel::Black);
         canvas.fill_circle(x - 5, y - 7, 2, GrayLevel::Black);
         canvas.fill_circle(x + 4, y - 8, 2, GrayLevel::Black);
     }
@@ -1232,10 +1202,6 @@ void desktop_pet_page_render_outing(
 
     pixel_asset_draw(canvas, 20, 226,
                      desktop_pet_asset(DesktopPetAssetId::Room));
-    const bool open_door = outing.phase == DesktopPetOutingPhase::Leaving ||
-                           outing.phase == DesktopPetOutingPhase::Away ||
-                           outing.phase == DesktopPetOutingPhase::Returning;
-    draw_outing_door(canvas, open_door, secondary_frame);
 
     switch (outing.phase) {
     case DesktopPetOutingPhase::Packing:
@@ -1249,13 +1215,13 @@ void desktop_pet_page_render_outing(
         break;
     case DesktopPetOutingPhase::Leaving:
         draw_outing_footprints(canvas, false);
-        draw_outing_character(canvas, state, 302,
+        draw_outing_character(canvas, state, 392,
                               DesktopPetPose::Idle,
                               DesktopPetIdleFrame::Normal,
                               true, false);
-        canvas.draw_line(221, 384, 207, 377, GrayLevel::Black);
-        canvas.draw_line(224, 372, 214, 359, GrayLevel::Black);
-        canvas.draw_line(229, 361, 225, 345, GrayLevel::Black);
+        canvas.draw_line(282, 384, 264, 377, GrayLevel::Black);
+        canvas.draw_line(286, 370, 273, 357, GrayLevel::Black);
+        canvas.draw_line(292, 357, 286, 340, GrayLevel::Black);
         draw_speech_bubble(canvas, "I'LL BRING BACK A STORY!");
         draw_centered(canvas, 723, "OFF TO SEE THE WORLD", 2);
         break;
@@ -1275,7 +1241,7 @@ void desktop_pet_page_render_outing(
         break;
     case DesktopPetOutingPhase::Returning:
         draw_outing_footprints(canvas, true);
-        draw_outing_character(canvas, state, 325,
+        draw_outing_character(canvas, state, 385,
                               DesktopPetPose::Idle,
                               DesktopPetIdleFrame::Normal,
                               true, true);
