@@ -45,6 +45,20 @@ DesktopPetPose action_pose(DesktopPetAction action)
     }
 }
 
+DesktopPetPerformance action_performance(DesktopPetAction action)
+{
+    switch (action) {
+    case DesktopPetAction::Feed:
+        return DesktopPetPerformance::Eating;
+    case DesktopPetAction::Pet:
+        return DesktopPetPerformance::ReceivingPet;
+    case DesktopPetAction::Play:
+        return DesktopPetPerformance::Playing;
+    default:
+        return DesktopPetPerformance::None;
+    }
+}
+
 const char *rewarded_message(DesktopPetAction action)
 {
     switch (action) {
@@ -168,6 +182,7 @@ DesktopPetActionResult apply_care(DesktopPetState &state,
     result.love_delta = static_cast<uint8_t>(
         std::max<int8_t>(core_result.bond_delta, 0));
     result.pose = action_pose(action);
+    result.performance = action_performance(action);
     const char *stage_message = stage_care_message(state, action);
     result.message = stage_message != nullptr
                          ? stage_message
@@ -185,60 +200,72 @@ DesktopPetActionResult apply_care(DesktopPetState &state,
     return result;
 }
 
+DesktopPetActionResult spoken_result(const char *message)
+{
+    DesktopPetActionResult result = {};
+    result.changed = true;
+    result.message = message;
+    result.performance = DesktopPetPerformance::Speaking;
+    return result;
+}
+
 // Selects urgent-state dialogue or a bond-matched conversation line.
 // 选择紧急状态对白，或匹配当前亲密度的聊天台词。
 DesktopPetActionResult apply_talk(DesktopPetState &state)
 {
+    const PetDialogueContext current_context =
+        pet_dialogue_context_for_state(state.pet);
+    const uint32_t random_value =
+        static_cast<uint32_t>(state.pet.day) * 2654435761U +
+        static_cast<uint32_t>(state.pet.bond) * 97U +
+        state.pet.recent_dialogue_ids[0];
+
+    // Let the rabbit express an immediate need before its normal personality.
+    // 兔子会先表达当下需求，再进入日常性格对白。
+    if (current_context != PetDialogueContext::Idle) {
+        const PetDialogueEntry *entry = pet_dialogue_pick(
+            state.pet, current_context, random_value);
+        return spoken_result(entry == nullptr ? "I'M LISTENING."
+                                              : entry->text);
+    }
+
     if (state.pet.stage == PetLifeStage::Youth ||
         state.pet.stage == PetLifeStage::Adult) {
         const bool adult = state.pet.stage == PetLifeStage::Adult;
         const bool close_bond = state.pet.bond >= 70U;
         switch (state.pet.branch) {
         case PetPersonalityBranch::Foodie:
-            return {true, false, 0U, 0U, DesktopPetPose::Idle,
-                    adult ? (close_bond
-                                 ? "YOU MADE EVERY SHARED MEAL SPECIAL."
-                                 : "I LEARNED A NEW RECIPE FOR US.")
-                          : (close_bond
-                                 ? "I SAVED MY FAVORITE SNACK FOR YOU."
-                                 : "WANT TO SHARE A SNACK?")};
+            return spoken_result(
+                adult ? (close_bond
+                             ? "YOU MADE EVERY SHARED MEAL SPECIAL."
+                             : "I LEARNED A NEW RECIPE FOR US.")
+                      : (close_bond
+                             ? "I SAVED MY FAVORITE SNACK FOR YOU."
+                             : "WANT TO SHARE A SNACK?"));
         case PetPersonalityBranch::Affectionate:
-            return {true, false, 0U, 0U, DesktopPetPose::Idle,
-                    adult ? (close_bond
-                                 ? "WE GREW UP SIDE BY SIDE."
-                                 : "THIS HOME FEELS WARM WITH YOU.")
-                          : (close_bond ? "YOU'RE MY SAFEST PLACE."
-                                        : "CAN I STAY CLOSE?")};
+            return spoken_result(
+                adult ? (close_bond
+                             ? "WE GREW UP SIDE BY SIDE."
+                             : "THIS HOME FEELS WARM WITH YOU.")
+                      : (close_bond ? "YOU'RE MY SAFEST PLACE."
+                                    : "CAN I STAY CLOSE?"));
         case PetPersonalityBranch::Active:
-            return {true, false, 0U, 0U, DesktopPetPose::Idle,
-                    adult ? (close_bond
-                                 ? "YOU'RE MY FAVORITE ADVENTURE PARTNER."
-                                 : "I FOUND A NEW TRAIL FOR US.")
-                          : (close_bond
-                                 ? "EVERY ADVENTURE IS BETTER WITH YOU."
-                                 : "READY FOR OUR NEXT ADVENTURE?")};
+            return spoken_result(
+                adult ? (close_bond
+                             ? "YOU'RE MY FAVORITE ADVENTURE PARTNER."
+                             : "I FOUND A NEW TRAIL FOR US.")
+                      : (close_bond
+                             ? "EVERY ADVENTURE IS BETTER WITH YOU."
+                             : "READY FOR OUR NEXT ADVENTURE?"));
         case PetPersonalityBranch::Undecided:
         default:
             break;
         }
     }
-    PetDialogueContext context =
-        pet_dialogue_context_for_state(state.pet);
-    if (context == PetDialogueContext::Idle) {
-        context = PetDialogueContext::Talk;
-    }
-    const uint32_t random_value =
-        static_cast<uint32_t>(state.pet.day) * 2654435761U +
-        static_cast<uint32_t>(state.pet.bond) * 97U +
-        state.pet.recent_dialogue_ids[0];
     const PetDialogueEntry *entry = pet_dialogue_pick(
-        state.pet, context, random_value);
-    return {true,
-            false,
-            0U,
-            0U,
-            DesktopPetPose::Idle,
-            entry == nullptr ? "I'M LISTENING." : entry->text};
+        state.pet, PetDialogueContext::Talk, random_value);
+    return spoken_result(entry == nullptr ? "I'M LISTENING."
+                                          : entry->text);
 }
 
 DesktopPetActionResult apply_sleep_toggle(DesktopPetState &state,
@@ -256,7 +283,9 @@ DesktopPetActionResult apply_sleep_toggle(DesktopPetState &state,
             0U,
             DesktopPetPose::Idle,
             should_sleep ? "GOOD NIGHT. STAY CLOSE."
-                         : "GOOD MORNING! I FEEL RESTED."};
+                         : "GOOD MORNING! I FEEL RESTED.",
+            should_sleep ? DesktopPetPerformance::FallingAsleep
+                         : DesktopPetPerformance::Waking};
 }
 
 }  // namespace

@@ -1,6 +1,9 @@
 #pragma once
 
+#include <cstdint>
+
 #include "esp_err.h"
+#include "sticky_buzzer_pattern.h"
 
 // Initializes the onboard buzzer in a silent state.
 // 初始化板载蜂鸣器，并保持静音状态。
@@ -14,6 +17,11 @@ esp_err_t sticky_buzzer_start_alarm();
 // 在后台播放一次轻柔的三音上行孵化提示。
 esp_err_t sticky_buzzer_play_hatch_chime();
 
-// Stops the active alarm tone immediately.
-// 立即停止当前响铃。
+// Plays one state-selected pet pattern in the background.
+// 在后台播放一个由宠物状态选出的声音模式。
+esp_err_t sticky_buzzer_play_pattern(StickyBuzzerPattern pattern,
+                                     uint8_t variant = 0U);
+
+// Stops the active alarm or pet sound immediately.
+// 立即停止当前响铃或宠物声音。
 esp_err_t sticky_buzzer_stop();

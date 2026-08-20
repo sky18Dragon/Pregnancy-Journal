@@ -203,6 +203,7 @@ int main()
     assert(feed.changed);
     assert(feed.rewarded);
     assert(feed.pose == DesktopPetPose::Feed);
+    assert(feed.performance == DesktopPetPerformance::Eating);
     assert(feed.growth_delta == 20U);
     assert(feed.love_delta == 5U);
     assert(state.pet.growth == kDesktopPetHatchlingGrowthLimit);
@@ -238,6 +239,7 @@ int main()
         desktop_pet_state_apply(state, DesktopPetAction::Pet);
     assert(pet.rewarded);
     assert(pet.pose == DesktopPetPose::Pet);
+    assert(pet.performance == DesktopPetPerformance::ReceivingPet);
     assert(pet.love_delta == 10U);
     assert(state.pet.affectionate_score == 2U);
     assert(std::strcmp(pet.message, "THAT FEELS SO NICE!") == 0);
@@ -246,6 +248,7 @@ int main()
         desktop_pet_state_apply(state, DesktopPetAction::Play);
     assert(play.rewarded);
     assert(play.pose == DesktopPetPose::Play);
+    assert(play.performance == DesktopPetPerformance::Playing);
     assert(state.pet.active_score == 6U);
 
     DesktopPetState talk_state = {};
@@ -259,6 +262,7 @@ int main()
         assert(talk.changed);
         assert(!talk.rewarded);
         assert(talk.pose == DesktopPetPose::Idle);
+        assert(talk.performance == DesktopPetPerformance::Speaking);
         assert(talk.message != nullptr);
         talk_lines[index] = talk.message;
         for (size_t earlier = 0U; earlier < index; ++earlier) {
@@ -305,6 +309,29 @@ int main()
                        "LET'S STAY TOGETHER A WHILE.") == 0 ||
            std::strcmp(close_talk.message,
                        "HOME IS WHERE YOU ARE.") == 0);
+
+    DesktopPetState urgent_talk_state = {};
+    urgent_talk_state.pet.stage = PetLifeStage::Youth;
+    urgent_talk_state.pet.branch = PetPersonalityBranch::Foodie;
+    urgent_talk_state.pet.needs.food = 20U;
+    const DesktopPetActionResult hungry_talk = desktop_pet_state_apply(
+        urgent_talk_state, DesktopPetAction::Talk);
+    assert(std::strcmp(hungry_talk.message, "CARROT. NOW. PLEASE.") == 0 ||
+           std::strcmp(hungry_talk.message, "I REQUIRE PRODUCE.") == 0 ||
+           std::strcmp(hungry_talk.message,
+                       "MY STOMACH HAS OPINIONS.") == 0 ||
+           std::strcmp(hungry_talk.message,
+                       "EMPTY RABBIT, SAD RABBIT.") == 0);
+
+    urgent_talk_state.pet.needs.food = 80U;
+    urgent_talk_state.pet.needs.energy = 20U;
+    const DesktopPetActionResult tired_talk = desktop_pet_state_apply(
+        urgent_talk_state, DesktopPetAction::Talk);
+    assert(std::strcmp(tired_talk.message, "NEED... BURROW...") == 0 ||
+           std::strcmp(tired_talk.message,
+                       "HOPPING IS EXHAUSTING.") == 0 ||
+           std::strcmp(tired_talk.message,
+                       "JUST FIVE MORE MINUTES.") == 0);
 
     desktop_pet_state_advance_day(state);
     assert(state.pet.day == 2U);

@@ -7,6 +7,7 @@ idf_component_register(
         "apps/book_of_answers/book_of_answers_state.cpp"
         "apps/desktop_pet/desktop_pet_app.cpp"
         "apps/desktop_pet/desktop_pet_pages.cpp"
+        "apps/desktop_pet/desktop_pet_sound_cues.cpp"
         "apps/desktop_pet/desktop_pet_state.cpp"
         "apps/desktop_pet/desktop_pet_storage.cpp"
         "apps/desktop_pet/core/pet_animation_queue.cpp"

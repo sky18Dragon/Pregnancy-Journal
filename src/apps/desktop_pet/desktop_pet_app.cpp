@@ -8,6 +8,7 @@
 #include "app_log.h"
 #include "canvas.h"
 #include "desktop_pet_pages.h"
+#include "desktop_pet_sound_cues.h"
 #include "desktop_pet_state.h"
 #include "desktop_pet_storage.h"
 #include "pet_animation_queue.h"
@@ -92,6 +93,22 @@ const PetCoreProfile &sleep_profile()
 #else
     return pet_core_production_profile();
 #endif
+}
+
+void play_visible_pet_sound(const DesktopPetSoundCue &cue,
+                            const char *event)
+{
+    if (!cue.audible()) {
+        return;
+    }
+    const esp_err_t result = sticky_buzzer_play_pattern(
+        cue.pattern, cue.variant);
+    if (result != ESP_OK) {
+        STICKY_LOGW(kTag,
+                    "pet=sound event=%s state=failed result=%s",
+                    event,
+                    esp_err_to_name(result));
+    }
 }
 
 const char *select_youth_home_message(uint32_t value)
@@ -413,13 +430,13 @@ void update_hatch_animation(int64_t now_us)
     }
     if (s_hatch_frame == DesktopPetHatchFrame::Cracked && s_hatch_final) {
         s_hatch_frame = DesktopPetHatchFrame::Opened;
+        render_current_page(true, false);
         const esp_err_t buzzer_result = sticky_buzzer_play_hatch_chime();
         if (buzzer_result != ESP_OK) {
             STICKY_LOGW(kTag,
                         "pet=hatch sound=failed result=%s",
                         esp_err_to_name(buzzer_result));
         }
-        render_current_page(true, false);
         s_hatch_deadline_us = esp_timer_get_time() + kHatchWelcomeHoldUs;
         return;
     }
@@ -592,6 +609,9 @@ void start_idle_animation(int64_t now_us)
                 static_cast<unsigned>(s_idle_animation.size()));
 #endif
     render_current_page(true, false);
+    play_visible_pet_sound(
+        desktop_pet_sound_for_idle(s_state, action_frame),
+        "idle_frame");
 }
 
 // Advances autonomous frames without blocking touch processing.
@@ -678,6 +698,12 @@ void start_sleep_page()
     s_sleep_deadline_us = esp_timer_get_time() + kSleepFrameHoldUs;
     sticky_touch_clear_press();
     render_current_page(false);
+    play_visible_pet_sound(
+        desktop_pet_sound_for_performance(
+            s_state,
+            DesktopPetPerformance::FallingAsleep,
+            s_message),
+        "sleep_scene");
     STICKY_LOGI(kTag,
                 "pet=sleep state=started energy=%u result=ok",
                 static_cast<unsigned>(s_state.pet.needs.energy));
@@ -693,6 +719,12 @@ void finish_sleep(const char *message, const char *reason)
     s_message = message;
     sticky_touch_clear_press();
     render_current_page(false);
+    play_visible_pet_sound(
+        desktop_pet_sound_for_performance(
+            s_state,
+            DesktopPetPerformance::Waking,
+            s_message),
+        "wake_scene");
     s_pose_deadline_us = esp_timer_get_time() + kTalkMessageHoldUs;
     schedule_next_idle(esp_timer_get_time());
     STICKY_LOGI(kTag,
@@ -1017,6 +1049,10 @@ void handle_action(DesktopPetAction action)
         return;
     }
     render_current_page(true);
+    play_visible_pet_sound(
+        desktop_pet_sound_for_performance(
+            s_state, result.performance, s_message),
+        "care_pose");
     if (requires_sleep) {
         s_pose_deadline_us = 0;
         return;

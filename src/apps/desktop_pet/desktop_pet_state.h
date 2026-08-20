@@ -38,6 +38,18 @@ enum class DesktopPetPose : uint8_t {
     Play,
 };
 
+// Describes the character performance that accompanies an accepted action.
+// 描述一次有效互动正在呈现的角色表演。
+enum class DesktopPetPerformance : uint8_t {
+    None,
+    Eating,
+    ReceivingPet,
+    Playing,
+    Speaking,
+    FallingAsleep,
+    Waking,
+};
+
 enum class DesktopPetIdleFrame : uint8_t {
     Normal,
     Blink,
@@ -97,6 +109,7 @@ struct DesktopPetActionResult {
     uint8_t love_delta = 0U;
     DesktopPetPose pose = DesktopPetPose::Idle;
     const char *message = "LET'S SPEND TODAY TOGETHER.";
+    DesktopPetPerformance performance = DesktopPetPerformance::None;
 };
 
 constexpr uint16_t kDesktopPetHatchlingGrowthLimit = 30U;

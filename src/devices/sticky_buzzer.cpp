@@ -1,6 +1,7 @@
 #include "sticky_buzzer.h"
 
 #include <atomic>
+#include <cstddef>
 
 #include "app_log.h"
 #include "driver/ledc.h"
@@ -15,39 +16,195 @@ constexpr char kTag[] = "sticky_buzzer";
 constexpr ledc_mode_t kSpeedMode = LEDC_LOW_SPEED_MODE;
 constexpr ledc_timer_t kTimer = LEDC_TIMER_0;
 constexpr ledc_channel_t kChannel = LEDC_CHANNEL_0;
-constexpr uint32_t kAlarmDuty = 256;
-constexpr uint32_t kDefaultFrequencyHz = 1047;
+constexpr uint32_t kAlarmDuty = 256U;
+constexpr uint32_t kDefaultFrequencyHz = 1047U;
 constexpr TickType_t kCheckInterval = pdMS_TO_TICKS(20);
-constexpr uint32_t kTaskStackSize = 3072;
-constexpr UBaseType_t kTaskPriority = 4;
+constexpr uint32_t kTaskStackSize = 3072U;
+constexpr UBaseType_t kTaskPriority = 4U;
 
-struct AlarmNote {
+struct BuzzerNote {
     uint32_t frequency_hz;
     uint32_t duration_ms;
     uint32_t gap_ms;
     uint32_t duty;
 };
 
-constexpr AlarmNote kAlarmNotes[] = {
-    {1047, 140, 60, kAlarmDuty},
-    {1319, 140, 60, kAlarmDuty},
-    {1568, 220, 1200, kAlarmDuty},
+struct BuzzerSequence {
+    const BuzzerNote *notes;
+    size_t count;
+    const char *name;
 };
 
-constexpr AlarmNote kHatchNotes[] = {
-    {784, 110, 70, 140},
-    {988, 130, 70, 140},
-    {1319, 260, 0, 160},
+constexpr BuzzerNote kAlarmNotes[] = {
+    {1047U, 140U, 60U, kAlarmDuty},
+    {1319U, 140U, 60U, kAlarmDuty},
+    {1568U, 220U, 1200U, kAlarmDuty},
 };
 
-enum class BuzzerMode : uint8_t {
-    Silent,
-    Alarm,
-    HatchChime,
+constexpr BuzzerNote kHatchNotes[] = {
+    {784U, 110U, 70U, 140U},
+    {988U, 130U, 70U, 140U},
+    {1319U, 260U, 0U, 160U},
 };
 
-TaskHandle_t s_alarm_task = nullptr;
-std::atomic<BuzzerMode> s_mode = BuzzerMode::Silent;
+constexpr BuzzerNote kEatNotes[] = {
+    {1568U, 35U, 25U, 75U},
+    {1175U, 55U, 45U, 90U},
+    {1568U, 35U, 25U, 75U},
+    {1175U, 70U, 0U, 90U},
+};
+
+constexpr BuzzerNote kCooShyNotes[] = {
+    {1047U, 55U, 40U, 80U},
+    {1175U, 90U, 0U, 85U},
+};
+
+constexpr BuzzerNote kCooWarmNotes[] = {
+    {784U, 65U, 40U, 80U},
+    {988U, 75U, 40U, 90U},
+    {1175U, 120U, 0U, 95U},
+};
+
+constexpr BuzzerNote kPlayNotes[] = {
+    {988U, 50U, 30U, 100U},
+    {1319U, 55U, 30U, 110U},
+    {1568U, 70U, 30U, 115U},
+    {1319U, 100U, 0U, 105U},
+};
+
+constexpr BuzzerNote kPlayTiredNotes[] = {
+    {988U, 65U, 40U, 90U},
+    {784U, 90U, 45U, 80U},
+    {659U, 130U, 0U, 75U},
+};
+
+constexpr BuzzerNote kVoiceShyNotes[] = {
+    {1175U, 55U, 35U, 80U},
+    {1319U, 75U, 0U, 85U},
+};
+
+constexpr BuzzerNote kVoiceWarmNotes[] = {
+    {988U, 55U, 30U, 85U},
+    {1175U, 65U, 30U, 90U},
+    {1319U, 90U, 0U, 95U},
+};
+
+constexpr BuzzerNote kVoiceCloseNotes[] = {
+    {988U, 55U, 30U, 90U},
+    {1319U, 65U, 30U, 100U},
+    {1568U, 95U, 0U, 105U},
+};
+
+constexpr BuzzerNote kVoiceHungryNotes[] = {
+    {784U, 90U, 55U, 85U},
+    {988U, 70U, 45U, 90U},
+    {784U, 120U, 0U, 80U},
+};
+
+constexpr BuzzerNote kVoiceTiredNotes[] = {
+    {784U, 100U, 55U, 75U},
+    {659U, 150U, 0U, 70U},
+};
+
+constexpr BuzzerNote kVoiceSadNotes[] = {
+    {784U, 85U, 55U, 75U},
+    {698U, 110U, 55U, 72U},
+    {587U, 160U, 0U, 68U},
+};
+
+constexpr BuzzerNote kVoiceFoodieNotes[] = {
+    {1175U, 45U, 25U, 90U},
+    {1568U, 55U, 35U, 100U},
+    {1319U, 85U, 0U, 95U},
+};
+
+constexpr BuzzerNote kVoiceAffectionateNotes[] = {
+    {784U, 70U, 35U, 80U},
+    {988U, 90U, 35U, 90U},
+    {1175U, 130U, 0U, 95U},
+};
+
+constexpr BuzzerNote kVoiceActiveNotes[] = {
+    {1175U, 40U, 25U, 95U},
+    {1568U, 45U, 25U, 110U},
+    {1760U, 55U, 25U, 115U},
+    {1568U, 75U, 0U, 105U},
+};
+
+constexpr BuzzerNote kStretchNotes[] = {
+    {659U, 100U, 45U, 70U},
+    {784U, 150U, 0U, 75U},
+};
+
+constexpr BuzzerNote kSleepNotes[] = {
+    {988U, 100U, 55U, 85U},
+    {784U, 120U, 55U, 80U},
+    {659U, 180U, 0U, 70U},
+};
+
+constexpr BuzzerNote kWakeNotes[] = {
+    {659U, 75U, 45U, 80U},
+    {988U, 90U, 45U, 90U},
+    {1319U, 140U, 0U, 100U},
+};
+
+TaskHandle_t s_buzzer_task = nullptr;
+std::atomic<StickyBuzzerPattern> s_pattern = StickyBuzzerPattern::None;
+std::atomic<uint8_t> s_variant = 0U;
+
+template <size_t N>
+constexpr BuzzerSequence sequence(const BuzzerNote (&notes)[N],
+                                  const char *name)
+{
+    return {notes, N, name};
+}
+
+BuzzerSequence sequence_for_pattern(StickyBuzzerPattern pattern)
+{
+    switch (pattern) {
+    case StickyBuzzerPattern::Alarm:
+        return sequence(kAlarmNotes, "alarm");
+    case StickyBuzzerPattern::Hatch:
+        return sequence(kHatchNotes, "hatch");
+    case StickyBuzzerPattern::Eat:
+        return sequence(kEatNotes, "eat");
+    case StickyBuzzerPattern::CooShy:
+        return sequence(kCooShyNotes, "coo_shy");
+    case StickyBuzzerPattern::CooWarm:
+        return sequence(kCooWarmNotes, "coo_warm");
+    case StickyBuzzerPattern::Play:
+        return sequence(kPlayNotes, "play");
+    case StickyBuzzerPattern::PlayTired:
+        return sequence(kPlayTiredNotes, "play_tired");
+    case StickyBuzzerPattern::VoiceShy:
+        return sequence(kVoiceShyNotes, "voice_shy");
+    case StickyBuzzerPattern::VoiceWarm:
+        return sequence(kVoiceWarmNotes, "voice_warm");
+    case StickyBuzzerPattern::VoiceClose:
+        return sequence(kVoiceCloseNotes, "voice_close");
+    case StickyBuzzerPattern::VoiceHungry:
+        return sequence(kVoiceHungryNotes, "voice_hungry");
+    case StickyBuzzerPattern::VoiceTired:
+        return sequence(kVoiceTiredNotes, "voice_tired");
+    case StickyBuzzerPattern::VoiceSad:
+        return sequence(kVoiceSadNotes, "voice_sad");
+    case StickyBuzzerPattern::VoiceFoodie:
+        return sequence(kVoiceFoodieNotes, "voice_foodie");
+    case StickyBuzzerPattern::VoiceAffectionate:
+        return sequence(kVoiceAffectionateNotes, "voice_affectionate");
+    case StickyBuzzerPattern::VoiceActive:
+        return sequence(kVoiceActiveNotes, "voice_active");
+    case StickyBuzzerPattern::Stretch:
+        return sequence(kStretchNotes, "stretch");
+    case StickyBuzzerPattern::Sleep:
+        return sequence(kSleepNotes, "sleep");
+    case StickyBuzzerPattern::Wake:
+        return sequence(kWakeNotes, "wake");
+    case StickyBuzzerPattern::None:
+    default:
+        return {nullptr, 0U, "none"};
+    }
+}
 
 esp_err_t set_duty(uint32_t duty)
 {
@@ -56,50 +213,100 @@ esp_err_t set_duty(uint32_t duty)
     return ledc_update_duty(kSpeedMode, kChannel);
 }
 
-bool wait_while_mode(BuzzerMode mode, uint32_t duration_ms)
+bool wait_while_pattern(StickyBuzzerPattern pattern, uint32_t duration_ms)
 {
     TickType_t remaining = pdMS_TO_TICKS(duration_ms);
-    while (remaining > 0 && s_mode.load() == mode) {
+    while (remaining > 0 && s_pattern.load() == pattern) {
         const TickType_t slice = remaining > kCheckInterval
                                      ? kCheckInterval
                                      : remaining;
         vTaskDelay(slice);
         remaining -= slice;
     }
-    return s_mode.load() == mode;
+    return s_pattern.load() == pattern;
 }
 
-esp_err_t play_note(const AlarmNote &note, BuzzerMode mode)
+uint32_t frequency_for_variant(uint32_t frequency_hz, uint8_t variant)
+{
+    switch (variant % 3U) {
+    case 1U:
+        return frequency_hz * 106U / 100U;
+    case 2U:
+        return frequency_hz * 94U / 100U;
+    case 0U:
+    default:
+        return frequency_hz;
+    }
+}
+
+esp_err_t play_note(const BuzzerNote &note,
+                    StickyBuzzerPattern pattern,
+                    uint8_t variant)
 {
     ESP_RETURN_ON_ERROR(
-        ledc_set_freq(kSpeedMode, kTimer, note.frequency_hz),
+        ledc_set_freq(kSpeedMode,
+                      kTimer,
+                      frequency_for_variant(note.frequency_hz, variant)),
         kTag,
         "set note frequency");
-    if (s_mode.load() != mode) {
+    if (s_pattern.load() != pattern) {
         return ESP_OK;
     }
     ESP_RETURN_ON_ERROR(set_duty(note.duty), kTag, "start note");
-    const bool keep_playing = wait_while_mode(mode, note.duration_ms);
-    ESP_RETURN_ON_ERROR(set_duty(0), kTag, "finish note");
+    const bool keep_playing = wait_while_pattern(pattern, note.duration_ms);
+    ESP_RETURN_ON_ERROR(set_duty(0U), kTag, "finish note");
     if (keep_playing) {
-        wait_while_mode(mode, note.gap_ms);
+        wait_while_pattern(pattern, note.gap_ms);
     }
     return ESP_OK;
 }
 
-void alarm_task(void *)
+esp_err_t play_one_shot(StickyBuzzerPattern pattern, uint8_t variant)
+{
+    const BuzzerSequence selected = sequence_for_pattern(pattern);
+    esp_err_t result = ESP_OK;
+    for (size_t index = 0U; index < selected.count; ++index) {
+        if (s_pattern.load() != pattern) {
+            break;
+        }
+        result = play_note(selected.notes[index], pattern, variant);
+        if (result != ESP_OK) {
+            break;
+        }
+    }
+
+    StickyBuzzerPattern expected = pattern;
+    const bool completed = s_pattern.compare_exchange_strong(
+        expected, StickyBuzzerPattern::None);
+    if (result == ESP_OK && completed) {
+        STICKY_LOGD(kTag,
+                    "buzzer=pattern name=%s state=finished result=ok",
+                    selected.name);
+    } else if (result != ESP_OK) {
+        STICKY_LOGW(kTag,
+                    "buzzer=pattern name=%s state=failed result=%s",
+                    selected.name,
+                    esp_err_to_name(result));
+    }
+    return result;
+}
+
+// Owns LEDC playback so screen refresh and touch polling remain independent.
+// 在独立任务中驱动LEDC，让屏幕刷新和触摸轮询保持独立。
+void buzzer_task(void *)
 {
     while (true) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        while (s_mode.load() == BuzzerMode::Alarm) {
-            for (const AlarmNote &note : kAlarmNotes) {
-                if (s_mode.load() != BuzzerMode::Alarm) {
+        while (s_pattern.load() == StickyBuzzerPattern::Alarm) {
+            for (const BuzzerNote &note : kAlarmNotes) {
+                if (s_pattern.load() != StickyBuzzerPattern::Alarm) {
                     break;
                 }
-                const esp_err_t result = play_note(note, BuzzerMode::Alarm);
+                const esp_err_t result = play_note(
+                    note, StickyBuzzerPattern::Alarm, 0U);
                 if (result != ESP_OK) {
-                    s_mode.store(BuzzerMode::Silent);
-                    set_duty(0);
+                    s_pattern.store(StickyBuzzerPattern::None);
+                    set_duty(0U);
                     STICKY_LOGW(kTag,
                                 "buzzer=alarm state=failed result=%s",
                                 esp_err_to_name(result));
@@ -107,31 +314,31 @@ void alarm_task(void *)
                 }
             }
         }
-        if (s_mode.load() == BuzzerMode::HatchChime) {
-            esp_err_t result = ESP_OK;
-            for (const AlarmNote &note : kHatchNotes) {
-                if (s_mode.load() != BuzzerMode::HatchChime) {
-                    break;
-                }
-                result = play_note(note, BuzzerMode::HatchChime);
-                if (result != ESP_OK) {
-                    break;
-                }
-            }
-            BuzzerMode expected = BuzzerMode::HatchChime;
-            const bool completed = s_mode.compare_exchange_strong(
-                expected, BuzzerMode::Silent);
-            if (result == ESP_OK && completed) {
-                STICKY_LOGI(kTag,
-                            "buzzer=hatch_chime state=finished result=ok");
-            } else if (result != ESP_OK) {
-                STICKY_LOGW(kTag,
-                            "buzzer=hatch_chime state=failed result=%s",
-                            esp_err_to_name(result));
-            }
+
+        const StickyBuzzerPattern one_shot = s_pattern.load();
+        if (one_shot != StickyBuzzerPattern::None &&
+            one_shot != StickyBuzzerPattern::Alarm) {
+            play_one_shot(one_shot, s_variant.load());
         }
-        set_duty(0);
+        set_duty(0U);
     }
+}
+
+// Replaces the active pet sound and wakes the background playback task.
+// 替换当前宠物声音，并唤醒后台播放任务。
+esp_err_t start_one_shot(StickyBuzzerPattern pattern, uint8_t variant)
+{
+    if (s_buzzer_task == nullptr) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    s_variant.store(static_cast<uint8_t>(variant % 3U));
+    s_pattern.store(pattern);
+    xTaskNotifyGive(s_buzzer_task);
+    STICKY_LOGD(kTag,
+                "buzzer=pattern name=%s variant=%u state=started",
+                sequence_for_pattern(pattern).name,
+                static_cast<unsigned>(variant % 3U));
+    return ESP_OK;
 }
 
 }  // namespace
@@ -157,33 +364,35 @@ esp_err_t sticky_buzzer_init()
     channel_config.channel = kChannel;
     channel_config.intr_type = LEDC_INTR_DISABLE;
     channel_config.timer_sel = kTimer;
-    channel_config.duty = 0;
+    channel_config.duty = 0U;
     channel_config.hpoint = 0;
     ESP_RETURN_ON_ERROR(
         ledc_channel_config(&channel_config), kTag, "configure channel");
 
-    if (xTaskCreate(alarm_task,
+    if (xTaskCreate(buzzer_task,
                     "sticky_buzzer",
                     kTaskStackSize,
                     nullptr,
                     kTaskPriority,
-                    &s_alarm_task) != pdPASS) {
+                    &s_buzzer_task) != pdPASS) {
         return ESP_ERR_NO_MEM;
     }
 
     STICKY_LOGI(kTag,
-                "buzzer=ready pin=%d patterns=alarm,hatch_chime result=ok",
+                "buzzer=ready pin=%d patterns=alarm,hatch,pet_state result=ok",
                 PIN_BUZZER);
     return ESP_OK;
 }
 
 esp_err_t sticky_buzzer_start_alarm()
 {
-    if (s_alarm_task == nullptr) {
+    if (s_buzzer_task == nullptr) {
         return ESP_ERR_INVALID_STATE;
     }
-    if (s_mode.exchange(BuzzerMode::Alarm) != BuzzerMode::Alarm) {
-        xTaskNotifyGive(s_alarm_task);
+    if (s_pattern.exchange(StickyBuzzerPattern::Alarm) !=
+        StickyBuzzerPattern::Alarm) {
+        s_variant.store(0U);
+        xTaskNotifyGive(s_buzzer_task);
         STICKY_LOGI(kTag, "buzzer=alarm state=started pattern=three_note");
     }
     return ESP_OK;
@@ -191,24 +400,36 @@ esp_err_t sticky_buzzer_start_alarm()
 
 esp_err_t sticky_buzzer_play_hatch_chime()
 {
-    if (s_alarm_task == nullptr) {
-        return ESP_ERR_INVALID_STATE;
+    const esp_err_t result = start_one_shot(StickyBuzzerPattern::Hatch, 0U);
+    if (result == ESP_OK) {
+        STICKY_LOGI(kTag,
+                    "buzzer=hatch_chime state=started pattern=gentle_three_note");
     }
-    s_mode.store(BuzzerMode::HatchChime);
-    xTaskNotifyGive(s_alarm_task);
-    STICKY_LOGI(kTag,
-                "buzzer=hatch_chime state=started pattern=gentle_three_note");
-    return ESP_OK;
+    return result;
+}
+
+esp_err_t sticky_buzzer_play_pattern(StickyBuzzerPattern pattern,
+                                     uint8_t variant)
+{
+    if (pattern == StickyBuzzerPattern::None) {
+        return ESP_OK;
+    }
+    if (pattern == StickyBuzzerPattern::Alarm ||
+        pattern == StickyBuzzerPattern::Hatch) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    return start_one_shot(pattern, variant);
 }
 
 esp_err_t sticky_buzzer_stop()
 {
-    const BuzzerMode previous = s_mode.exchange(BuzzerMode::Silent);
-    ESP_RETURN_ON_ERROR(set_duty(0), kTag, "stop alarm");
-    if (previous != BuzzerMode::Silent) {
+    const StickyBuzzerPattern previous = s_pattern.exchange(
+        StickyBuzzerPattern::None);
+    ESP_RETURN_ON_ERROR(set_duty(0U), kTag, "stop alarm");
+    if (previous != StickyBuzzerPattern::None) {
         STICKY_LOGI(kTag,
                     "buzzer=stopped previous=%s",
-                    previous == BuzzerMode::Alarm ? "alarm" : "hatch_chime");
+                    sequence_for_pattern(previous).name);
     }
     return ESP_OK;
 }
