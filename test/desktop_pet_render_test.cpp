@@ -153,6 +153,30 @@ int main()
            DesktopPetAction::OpenTest);
     write_preview(buffer, "/tmp/desktop_pet_home.ppm");
 
+    state.pet.needs.energy = 0U;
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::Normal,
+        "TAP ME TO TUCK ME IN.");
+    write_preview(buffer, "/tmp/desktop_pet_hatchling_energy_zero.ppm");
+    const std::vector<uint8_t> depleted_frame = buffer;
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Play, DesktopPetIdleFrame::Stretch,
+        "TAP ME TO TUCK ME IN.");
+    assert(buffer == depleted_frame);
+    state.pet.needs.energy = 80U;
+
+    state.pet.activity = PetActivity::Sleeping;
+    state.pet.needs.energy = 44U;
+    desktop_pet_page_render_sleep(canvas, state, false);
+    assert(black_pixel_count(buffer) > 24000U);
+    assert(desktop_pet_page_sleep_action_at(240, 630) ==
+           DesktopPetAction::Wake);
+    write_preview(buffer, "/tmp/desktop_pet_sleep_a.ppm");
+    state.pet.needs.energy = 56U;
+    desktop_pet_page_render_sleep(canvas, state, true);
+    write_preview(buffer, "/tmp/desktop_pet_sleep_b.ppm");
+    state.pet.activity = PetActivity::Idle;
+
     desktop_pet_page_render_home(
         canvas, state, DesktopPetPose::Feed, DesktopPetIdleFrame::Normal,
         "YUM! THAT WAS DELICIOUS!");
@@ -200,6 +224,12 @@ int main()
         "I'M READY FOR AN ADVENTURE.");
     assert(black_pixel_count(buffer) > 18000U);
     write_preview(buffer, "/tmp/desktop_pet_child_home.ppm");
+    state.pet.needs.energy = 0U;
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::Normal,
+        "TAP ME TO TUCK ME IN.");
+    write_preview(buffer, "/tmp/desktop_pet_child_energy_zero.ppm");
+    state.pet.needs.energy = 80U;
     desktop_pet_page_render_home(
         canvas, state, DesktopPetPose::Feed, DesktopPetIdleFrame::Normal,
         "ENERGY FOR ADVENTURES!");
@@ -274,18 +304,28 @@ int main()
         canvas, state, DesktopPetPose::Play, DesktopPetIdleFrame::Normal,
         "I MAPPED A NEW TRAIL FOR US.");
     write_preview(buffer, "/tmp/desktop_pet_adult_active.ppm");
+    state.pet.needs.energy = 0U;
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::Normal,
+        "TAP ME TO TUCK ME IN.");
+    write_preview(buffer, "/tmp/desktop_pet_adult_energy_zero.ppm");
+    state.pet.needs.energy = 80U;
     desktop_pet_page_render_evolution(
         canvas, state, DesktopPetEvolutionFrame::Revealed);
     write_preview(buffer, "/tmp/desktop_pet_adult_evolution.ppm");
 
     desktop_pet_page_render_test(canvas, state, false);
-    assert(desktop_pet_page_action_at(true, 240, 290) ==
+    assert(desktop_pet_page_action_at(true, 240, 250) ==
            DesktopPetAction::NextDay);
-    assert(desktop_pet_page_action_at(true, 240, 380) ==
+    assert(desktop_pet_page_action_at(true, 240, 320) ==
            DesktopPetAction::AddGrowth);
-    assert(desktop_pet_page_action_at(true, 240, 470) ==
+    assert(desktop_pet_page_action_at(true, 240, 390) ==
            DesktopPetAction::AddLove);
-    assert(desktop_pet_page_action_at(true, 240, 590) ==
+    assert(desktop_pet_page_action_at(true, 240, 460) ==
+           DesktopPetAction::ReduceEnergy);
+    assert(desktop_pet_page_action_at(true, 240, 530) ==
+           DesktopPetAction::Sleep);
+    assert(desktop_pet_page_action_at(true, 240, 620) ==
            DesktopPetAction::Reset);
     write_preview(buffer, "/tmp/desktop_pet_test.ppm");
     return 0;

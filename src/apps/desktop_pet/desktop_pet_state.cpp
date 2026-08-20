@@ -241,6 +241,24 @@ DesktopPetActionResult apply_talk(DesktopPetState &state)
             entry == nullptr ? "I'M LISTENING." : entry->text};
 }
 
+DesktopPetActionResult apply_sleep_toggle(DesktopPetState &state,
+                                          bool should_sleep)
+{
+    const bool sleeping = state.pet.activity == PetActivity::Sleeping;
+    if (sleeping == should_sleep) {
+        return {};
+    }
+    const PetCoreActionResult core_result = pet_core_apply_action(
+        state.pet, PetCoreAction::Rest, active_profile());
+    return {core_result.changed,
+            false,
+            0U,
+            0U,
+            DesktopPetPose::Idle,
+            should_sleep ? "GOOD NIGHT. STAY CLOSE."
+                         : "GOOD MORNING! I FEEL RESTED."};
+}
+
 }  // namespace
 
 bool desktop_pet_state_set_name(DesktopPetState &state, const char *name)
@@ -285,6 +303,13 @@ bool desktop_pet_state_has_name(const DesktopPetState &state)
     return state.name[0] != '\0';
 }
 
+bool desktop_pet_state_requires_sleep(const DesktopPetState &state)
+{
+    return state.pet.stage != PetLifeStage::Egg &&
+           state.pet.activity != PetActivity::Sleeping &&
+           state.pet.needs.energy == 0U;
+}
+
 DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
                                                DesktopPetAction action)
 {
@@ -299,6 +324,10 @@ DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
         return apply_care(state, action);
     case DesktopPetAction::Talk:
         return apply_talk(state);
+    case DesktopPetAction::Sleep:
+        return apply_sleep_toggle(state, true);
+    case DesktopPetAction::Wake:
+        return apply_sleep_toggle(state, false);
     case DesktopPetAction::NextDay:
         desktop_pet_state_advance_day(state);
         return {true, false, 0U, 0U, DesktopPetPose::Idle,
@@ -341,6 +370,18 @@ DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
         state.pet.bond = static_cast<uint8_t>(
             state.pet.bond + result.love_delta);
         result.message = "I FEEL SO LOVED!";
+        return result;
+    }
+    case DesktopPetAction::ReduceEnergy: {
+        DesktopPetActionResult result = {};
+        result.changed = true;
+        const uint8_t reduction = std::min<uint8_t>(
+            state.pet.needs.energy, 30U);
+        state.pet.needs.energy = static_cast<uint8_t>(
+            state.pet.needs.energy - reduction);
+        result.message = state.pet.needs.energy <= 35U
+                             ? "TAP ME TO TUCK ME IN."
+                             : "I'M GETTING SLEEPY...";
         return result;
     }
     case DesktopPetAction::Reset:
@@ -533,6 +574,10 @@ const char *desktop_pet_action_name(DesktopPetAction action)
         return "talk";
     case DesktopPetAction::Play:
         return "play";
+    case DesktopPetAction::Sleep:
+        return "sleep";
+    case DesktopPetAction::Wake:
+        return "wake";
     case DesktopPetAction::OpenNameEditor:
         return "open_name_editor";
     case DesktopPetAction::OpenTest:
@@ -545,6 +590,8 @@ const char *desktop_pet_action_name(DesktopPetAction action)
         return "add_growth";
     case DesktopPetAction::AddLove:
         return "add_love";
+    case DesktopPetAction::ReduceEnergy:
+        return "reduce_energy";
     case DesktopPetAction::Reset:
         return "reset";
     case DesktopPetAction::ChooseFoodie:

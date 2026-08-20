@@ -16,12 +16,15 @@ enum class DesktopPetAction : uint8_t {
     Pet,
     Talk,
     Play,
+    Sleep,
+    Wake,
     OpenNameEditor,
     OpenTest,
     CloseTest,
     NextDay,
     AddGrowth,
     AddLove,
+    ReduceEnergy,
     Reset,
     ChooseFoodie,
     ChooseAffectionate,
@@ -133,6 +136,10 @@ bool desktop_pet_state_set_name(DesktopPetState &state, const char *name);
 // Returns whether the pet already has a user-confirmed name.
 // 返回宠物是否已经拥有用户确认过的名字。
 bool desktop_pet_state_has_name(const DesktopPetState &state);
+
+// Returns whether an awake pet has no energy and must rest before interacting.
+// 返回清醒宠物是否已耗尽能量，并需要先休息才能继续互动。
+bool desktop_pet_state_requires_sleep(const DesktopPetState &state);
 
 uint16_t desktop_pet_state_growth_limit(const DesktopPetState &state);
 const char *desktop_pet_state_stage_label(const DesktopPetState &state);

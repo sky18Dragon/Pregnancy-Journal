@@ -46,6 +46,37 @@ int main()
     assert(state.pet.stage == PetLifeStage::Hatchling);
     assert(!desktop_pet_state_tap_egg(state).changed);
 
+    DesktopPetState sleep_state = {};
+    sleep_state.pet.stage = PetLifeStage::Hatchling;
+    sleep_state.pet.needs.energy = 20U;
+    assert(!desktop_pet_state_requires_sleep(sleep_state));
+    sleep_state.pet.needs.energy = 0U;
+    assert(desktop_pet_state_requires_sleep(sleep_state));
+    sleep_state.pet.needs.energy = 1U;
+    assert(!desktop_pet_state_requires_sleep(sleep_state));
+    sleep_state.pet.needs.energy = 20U;
+    const DesktopPetActionResult sleep_result =
+        desktop_pet_state_apply(sleep_state, DesktopPetAction::Sleep);
+    assert(sleep_result.changed);
+    assert(sleep_state.pet.activity == PetActivity::Sleeping);
+    sleep_state.pet.needs.energy = 0U;
+    assert(!desktop_pet_state_requires_sleep(sleep_state));
+    assert(!desktop_pet_state_apply(
+        sleep_state, DesktopPetAction::Sleep).changed);
+    const DesktopPetActionResult wake_result =
+        desktop_pet_state_apply(sleep_state, DesktopPetAction::Wake);
+    assert(wake_result.changed);
+    assert(sleep_state.pet.activity == PetActivity::Idle);
+    assert(desktop_pet_state_requires_sleep(sleep_state));
+    assert(std::strcmp(wake_result.message,
+                       "GOOD MORNING! I FEEL RESTED.") == 0);
+    sleep_state.pet.needs.energy = 1U;
+    assert(!desktop_pet_state_requires_sleep(sleep_state));
+    sleep_state.pet.needs.energy = 80U;
+    assert(desktop_pet_state_apply(
+        sleep_state, DesktopPetAction::ReduceEnergy).changed);
+    assert(sleep_state.pet.needs.energy == 50U);
+
     const DesktopPetActionResult add_growth =
         desktop_pet_state_apply(state, DesktopPetAction::AddGrowth);
     assert(std::strcmp(add_growth.message, "I'M READY TO GROW!") == 0);

@@ -184,6 +184,8 @@ def main() -> None:
 
     specs = [
         AssetSpec("room", source_dir / "room_background.png", 440, 340, "crop=1350:1040:0:62"),
+        AssetSpec("sleep_scene_a", source_dir / "sleep_scene_sheet_v1.png", 440, 340, "crop=768:650:0:185"),
+        AssetSpec("sleep_scene_b", source_dir / "sleep_scene_sheet_v1.png", 440, 340, "crop=768:650:768:185"),
         AssetSpec("egg_intact", source_dir / "egg_hatching_sheet.png", 280, 280, "crop=512:512:13:0", True),
         AssetSpec("egg_wobble_left", source_dir / "egg_hatching_sheet.png", 280, 280, "crop=512:512:459:0", True),
         AssetSpec("egg_wobble_right", source_dir / "egg_hatching_sheet.png", 280, 280, "crop=512:512:16:512", True),
@@ -261,7 +263,7 @@ def main() -> None:
     header_path = args.root / "src" / "ui" / "assets" / "desktop_pet_assets.h"
     source_path = args.root / "src" / "ui" / "assets" / "desktop_pet_assets.cpp"
     header_path.write_text(
-        """#pragma once\n\n#include \"pixel_asset.h\"\n\nenum class DesktopPetAssetId : uint8_t {\n    Room,\n    Idle,\n    IdleMask,\n    IdleBlink,\n    IdleBlinkMask,\n    IdleEarTwitch,\n    IdleEarTwitchMask,\n    IdleLookAround,\n    IdleLookAroundMask,\n    IdleStretch,\n    IdleStretchMask,\n    IdleHungry,\n    IdleHungryMask,\n    IdleTired,\n    IdleTiredMask,\n    Feed,\n    FeedMask,\n    Pet,\n    PetMask,\n    Play,\n    PlayMask,\n    ChildIdle,\n    ChildIdleMask,\n    ChildIdleBlink,\n    ChildIdleBlinkMask,\n    ChildIdleEarTwitch,\n    ChildIdleEarTwitchMask,\n    ChildIdleLookAround,\n    ChildIdleLookAroundMask,\n    ChildIdleStretch,\n    ChildIdleStretchMask,\n    ChildIdleHungry,\n    ChildIdleHungryMask,\n    ChildIdleTired,\n    ChildIdleTiredMask,\n    ChildFeed,\n    ChildFeedMask,\n    ChildPet,\n    ChildPetMask,\n    ChildPlay,\n    ChildPlayMask,\n    FeedIcon,\n    PetIcon,\n    TalkIcon,\n    PlayIcon,\n    LoveIcon,\n};\n\n// Returns one generated desktop-pet bitmap.\n// 返回一张已生成的桌宠位图。\nconst PixelAsset &desktop_pet_asset(DesktopPetAssetId id);\n""",
+        """#pragma once\n\n#include \"pixel_asset.h\"\n\nenum class DesktopPetAssetId : uint8_t {\n    Room,\n    SleepSceneA,\n    SleepSceneB,\n    Idle,\n    IdleMask,\n    IdleBlink,\n    IdleBlinkMask,\n    IdleEarTwitch,\n    IdleEarTwitchMask,\n    IdleLookAround,\n    IdleLookAroundMask,\n    IdleStretch,\n    IdleStretchMask,\n    IdleHungry,\n    IdleHungryMask,\n    IdleTired,\n    IdleTiredMask,\n    Feed,\n    FeedMask,\n    Pet,\n    PetMask,\n    Play,\n    PlayMask,\n    ChildIdle,\n    ChildIdleMask,\n    ChildIdleBlink,\n    ChildIdleBlinkMask,\n    ChildIdleEarTwitch,\n    ChildIdleEarTwitchMask,\n    ChildIdleLookAround,\n    ChildIdleLookAroundMask,\n    ChildIdleStretch,\n    ChildIdleStretchMask,\n    ChildIdleHungry,\n    ChildIdleHungryMask,\n    ChildIdleTired,\n    ChildIdleTiredMask,\n    ChildFeed,\n    ChildFeedMask,\n    ChildPet,\n    ChildPetMask,\n    ChildPlay,\n    ChildPlayMask,\n    FeedIcon,\n    PetIcon,\n    TalkIcon,\n    PlayIcon,\n    LoveIcon,\n};\n\n// Returns one generated desktop-pet bitmap.\n// 返回一张已生成的桌宠位图。\nconst PixelAsset &desktop_pet_asset(DesktopPetAssetId id);\n""",
         encoding="utf-8",
     )
     egg_enum_lines: list[str] = []

@@ -34,13 +34,16 @@ constexpr Rect kPetBodyRect = {110, 270, 260, 320};
 constexpr Rect kNameRect = {0, 0, 350, 70};
 
 constexpr Rect kCloseTestRect = {360, 20, 100, 55};
-constexpr Rect kNextDayRect = {35, 255, 410, 70};
-constexpr Rect kAddGrowthRect = {35, 345, 410, 70};
-constexpr Rect kAddLoveRect = {35, 435, 410, 70};
-constexpr Rect kResetRect = {35, 555, 410, 80};
+constexpr Rect kNextDayRect = {35, 220, 410, 58};
+constexpr Rect kAddGrowthRect = {35, 290, 410, 58};
+constexpr Rect kAddLoveRect = {35, 360, 410, 58};
+constexpr Rect kReduceEnergyRect = {35, 430, 410, 58};
+constexpr Rect kSleepNowRect = {35, 500, 410, 58};
+constexpr Rect kResetRect = {35, 590, 410, 72};
 constexpr Rect kFoodieChoiceRect = {45, 220, 390, 125};
 constexpr Rect kAffectionateChoiceRect = {45, 365, 390, 125};
 constexpr Rect kActiveChoiceRect = {45, 510, 390, 125};
+constexpr Rect kSleepWakeRect = {0, 0, 480, 800};
 
 constexpr Rect kNameBackRect = {0, 0, 92, 102};
 constexpr Rect kNameInputRect = {25, 112, 430, 112};
@@ -930,23 +933,46 @@ void desktop_pet_page_render_home(Canvas &canvas,
     std::snprintf(food_label, sizeof(food_label), "FOOD %u",
                   static_cast<unsigned>(state.pet.needs.food));
     canvas.draw_text(24, 118, food_label, 2);
-    const char *mood_label = desktop_pet_state_mood_label(state);
-    canvas.draw_text(456 - text_width(mood_label, 2),
-                     118, mood_label, 2);
+    char energy_label[16] = {};
+    std::snprintf(energy_label, sizeof(energy_label), "ENERGY %u",
+                  static_cast<unsigned>(state.pet.needs.energy));
+    canvas.draw_text(456 - text_width(energy_label, 2),
+                     118, energy_label, 2);
 
     pixel_asset_draw(canvas, 20, 226,
                      desktop_pet_asset(DesktopPetAssetId::Room));
-    pixel_asset_draw_centered(canvas, 240, 411,
+    DesktopPetPose visible_pose = pose;
+    DesktopPetIdleFrame visible_idle_frame = idle_frame;
+    if (desktop_pet_state_requires_sleep(state)) {
+        // Energy depletion owns the visible pose, including the final frame of
+        // an action that consumed the last energy point.
+        // 能量耗尽时统一接管显示姿势，包括刚好消耗最后一点能量的动作末帧。
+        visible_pose = DesktopPetPose::Idle;
+        visible_idle_frame = DesktopPetIdleFrame::Tired;
+    } else if (visible_pose == DesktopPetPose::Idle &&
+               idle_frame == DesktopPetIdleFrame::Normal &&
+               state.pet.needs.energy <= 35U) {
+        visible_idle_frame = DesktopPetIdleFrame::Tired;
+    }
+    int character_center_y = 411;
+    if (visible_idle_frame == DesktopPetIdleFrame::Tired &&
+        state.pet.stage == PetLifeStage::Hatchling) {
+        character_center_y += 12;
+    } else if (visible_idle_frame == DesktopPetIdleFrame::Tired &&
+               state.pet.stage == PetLifeStage::Child) {
+        character_center_y += 18;
+    }
+    pixel_asset_draw_centered(canvas, 240, character_center_y,
                               desktop_pet_asset(
                                   pose_mask_asset(state.pet,
-                                                  pose,
-                                                  idle_frame)),
+                                                  visible_pose,
+                                                  visible_idle_frame)),
                               1, GrayLevel::White);
-    pixel_asset_draw_centered(canvas, 240, 411,
+    pixel_asset_draw_centered(canvas, 240, character_center_y,
                               desktop_pet_asset(
                                   pose_asset(state.pet,
-                                             pose,
-                                             idle_frame)));
+                                             visible_pose,
+                                             visible_idle_frame)));
     draw_speech_bubble(canvas, message);
 
     canvas.fill_rect(14, 599, 452, 3, GrayLevel::Black);
@@ -962,6 +988,43 @@ void desktop_pet_page_render_home(Canvas &canvas,
     std::snprintf(day_label, sizeof(day_label), "DAY %u",
                   static_cast<unsigned>(state.pet.day));
     draw_centered(canvas, 775, day_label, 2);
+}
+
+void desktop_pet_page_render_sleep(Canvas &canvas,
+                                   const DesktopPetState &state,
+                                   bool secondary_frame)
+{
+    canvas.set_rotation(CanvasRotation::Deg90CounterClockwise);
+    canvas.clear(GrayLevel::White);
+
+    const char *name = desktop_pet_state_has_name(state)
+                           ? state.name
+                           : desktop_pet_state_stage_label(state);
+    draw_centered(canvas, 30, name, 3);
+    draw_centered(canvas, 72, "SLEEPING PEACEFULLY", 3);
+
+    char energy_label[24] = {};
+    std::snprintf(energy_label, sizeof(energy_label), "ENERGY %u / 100",
+                  static_cast<unsigned>(state.pet.needs.energy));
+    draw_centered(canvas, 119, energy_label, 2);
+    canvas.draw_rect(40, 155, 400, 18, GrayLevel::Black);
+    const int energy_width = static_cast<int>(
+        static_cast<uint32_t>(state.pet.needs.energy) * 394U / 100U);
+    if (energy_width > 0) {
+        canvas.fill_rect(43, 158, energy_width, 12, GrayLevel::Black);
+    }
+
+    pixel_asset_draw(canvas, 20, 205,
+                     desktop_pet_asset(
+                         secondary_frame
+                             ? DesktopPetAssetId::SleepSceneB
+                             : DesktopPetAssetId::SleepSceneA));
+
+    canvas.fill_rect(35, 594, 410, 76, GrayLevel::Black);
+    draw_centered_in_rect(canvas, {35, 594, 410, 76},
+                          "WAKE UP", 3, GrayLevel::White);
+    draw_centered(canvas, 704, "ENERGY RESTORES WHILE SLEEPING", 2);
+    draw_centered(canvas, 745, "TAP ANYWHERE TO WAKE", 2);
 }
 
 void desktop_pet_page_render_test(Canvas &canvas,
@@ -992,9 +1055,9 @@ void desktop_pet_page_render_test(Canvas &canvas,
                       static_cast<unsigned>(state.pet.active_score));
     }
     draw_centered(canvas, 155, scores, 2);
-    std::snprintf(scores, sizeof(scores), "FOOD %u  MOOD %s",
+    std::snprintf(scores, sizeof(scores), "FOOD %u  ENERGY %u",
                   static_cast<unsigned>(state.pet.needs.food),
-                  desktop_pet_state_mood_label(state));
+                  static_cast<unsigned>(state.pet.needs.energy));
     draw_centered(canvas, 195, scores, 2);
 
     if (state.pet.stage == PetLifeStage::Egg) {
@@ -1005,6 +1068,8 @@ void desktop_pet_page_render_test(Canvas &canvas,
         draw_button(canvas, kNextDayRect, "NEXT DAY", false);
         draw_button(canvas, kAddGrowthRect, "+30 GROWTH", false);
         draw_button(canvas, kAddLoveRect, "+20 LOVE", false);
+        draw_button(canvas, kReduceEnergyRect, "-30 ENERGY", false);
+        draw_button(canvas, kSleepNowRect, "SLEEP NOW", false);
     }
     draw_button(canvas, kResetRect,
                 reset_confirmation ? "CONFIRM RESET" : "RESET PET",
@@ -1307,6 +1372,12 @@ DesktopPetAction desktop_pet_page_action_at(bool test_open, int x, int y)
     if (kAddLoveRect.contains(x, y)) {
         return DesktopPetAction::AddLove;
     }
+    if (kReduceEnergyRect.contains(x, y)) {
+        return DesktopPetAction::ReduceEnergy;
+    }
+    if (kSleepNowRect.contains(x, y)) {
+        return DesktopPetAction::Sleep;
+    }
     if (kResetRect.contains(x, y)) {
         return DesktopPetAction::Reset;
     }
@@ -1337,6 +1408,13 @@ DesktopPetAction desktop_pet_page_personality_action_at(int x, int y)
         return DesktopPetAction::ChooseActive;
     }
     return DesktopPetAction::None;
+}
+
+DesktopPetAction desktop_pet_page_sleep_action_at(int x, int y)
+{
+    return kSleepWakeRect.contains(x, y)
+               ? DesktopPetAction::Wake
+               : DesktopPetAction::None;
 }
 
 DesktopPetNameAction desktop_pet_page_name_action_at(

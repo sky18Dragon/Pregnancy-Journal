@@ -38,6 +38,15 @@ constexpr int64_t kEvolutionRevealHoldUs = 2600000LL;
 constexpr int64_t kHatchWobbleHoldUs = 420000LL;
 constexpr int64_t kHatchCrackHoldUs = 900000LL;
 constexpr int64_t kHatchWelcomeHoldUs = 2400000LL;
+#if STICKY_DESKTOP_PET_TEST_MODE
+constexpr int64_t kSleepFrameHoldUs = 2400000LL;
+constexpr uint32_t kSleepMinutesPerFrame = 2U;
+#else
+// TODO(rtc): Replace fixed sleep ticks with validated PCF8563 elapsed time.
+// TODO(rtc): 使用校验后的PCF8563经过时间替换固定睡眠节拍。
+constexpr int64_t kSleepFrameHoldUs = 60000000LL;
+constexpr uint32_t kSleepMinutesPerFrame = 1U;
+#endif
 constexpr char kHomeMessage[] = "LET'S SPEND TODAY TOGETHER.";
 
 Canvas *s_canvas = nullptr;
@@ -70,9 +79,20 @@ bool s_hatch_active = false;
 bool s_hatch_final = false;
 DesktopPetHatchFrame s_hatch_frame = DesktopPetHatchFrame::Resting;
 int64_t s_hatch_deadline_us = 0;
+bool s_sleep_secondary_frame = false;
+int64_t s_sleep_deadline_us = 0;
 #if STICKY_DESKTOP_PET_TEST_MODE
 int64_t s_day_deadline_us = 0;
 #endif
+
+const PetCoreProfile &sleep_profile()
+{
+#if STICKY_DESKTOP_PET_TEST_MODE
+    return pet_core_test_profile();
+#else
+    return pet_core_production_profile();
+#endif
+}
 
 const char *select_youth_home_message(uint32_t value)
 {
@@ -144,6 +164,9 @@ const char *select_adult_home_message(uint32_t value)
 
 const char *select_home_message()
 {
+    if (desktop_pet_state_requires_sleep(s_state)) {
+        return "TAP ME TO TUCK ME IN.";
+    }
     if (s_state.pet.stage == PetLifeStage::Hatchling &&
         s_state.pet.growth >= kDesktopPetHatchlingGrowthLimit &&
         !s_state.pet.evolution_ready) {
@@ -198,6 +221,7 @@ esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
         STICKY_LOGD(kTag,
                     "pet=refresh page=%s mode=%s elapsed_ms=%lld result=%s",
                     s_name_editor_open ? "name_editor"
+                    : s_state.pet.activity == PetActivity::Sleeping ? "sleep"
                     : s_hatch_active ? "hatch"
                     : s_test_open ? "test"
                     : s_state.pet.stage == PetLifeStage::Egg ? "egg"
@@ -212,6 +236,7 @@ esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
         STICKY_LOGE(kTag,
                     "pet=refresh page=%s mode=%s result=%s",
                     s_name_editor_open ? "name_editor"
+                    : s_state.pet.activity == PetActivity::Sleeping ? "sleep"
                     : s_hatch_active ? "hatch"
                     : s_test_open ? "test"
                     : s_state.pet.stage == PetLifeStage::Egg ? "egg"
@@ -241,6 +266,9 @@ void render_current_page(bool partial_refresh, bool timing_log = true)
     } else if (s_test_open) {
         desktop_pet_page_render_test(
             *s_canvas, s_state, s_reset_confirmation);
+    } else if (s_state.pet.activity == PetActivity::Sleeping) {
+        desktop_pet_page_render_sleep(
+            *s_canvas, s_state, s_sleep_secondary_frame);
     } else if (s_state.pet.stage == PetLifeStage::Egg) {
         desktop_pet_page_render_egg(
             *s_canvas, s_state, DesktopPetHatchFrame::Resting);
@@ -285,7 +313,8 @@ void enqueue_idle_frame(DesktopPetIdleFrame frame,
 
 void schedule_next_idle(int64_t now_us)
 {
-    if (s_state.pet.stage == PetLifeStage::Egg) {
+    if (s_state.pet.stage == PetLifeStage::Egg ||
+        desktop_pet_state_requires_sleep(s_state)) {
         s_idle_next_us = 0;
         return;
     }
@@ -568,6 +597,8 @@ void update_idle_animation(int64_t now_us)
     if (s_hatch_active || s_state.pet.stage == PetLifeStage::Egg ||
         s_evolution_active || s_test_open || s_personality_choice_open ||
         s_name_editor_open ||
+        s_state.pet.activity == PetActivity::Sleeping ||
+        desktop_pet_state_requires_sleep(s_state) ||
         s_pose != DesktopPetPose::Idle ||
         s_pose_deadline_us > 0) {
         return;
@@ -630,6 +661,73 @@ void save_state(const char *reason)
                 esp_err_to_name(result));
 }
 
+void start_sleep_page()
+{
+    cancel_idle_animation(false);
+    s_test_open = false;
+    s_personality_choice_open = false;
+    s_reset_confirmation = false;
+    s_pose = DesktopPetPose::Idle;
+    s_pose_deadline_us = 0;
+    s_sleep_secondary_frame = false;
+    s_sleep_deadline_us = esp_timer_get_time() + kSleepFrameHoldUs;
+    sticky_touch_clear_press();
+    render_current_page(false);
+    STICKY_LOGI(kTag,
+                "pet=sleep state=started energy=%u result=ok",
+                static_cast<unsigned>(s_state.pet.needs.energy));
+}
+
+void finish_sleep(const char *message, const char *reason)
+{
+    s_sleep_secondary_frame = false;
+    s_sleep_deadline_us = 0;
+    s_pose = DesktopPetPose::Idle;
+    s_idle_frame = DesktopPetIdleFrame::Normal;
+    s_home_message = select_home_message();
+    s_message = message;
+    sticky_touch_clear_press();
+    render_current_page(false);
+    s_pose_deadline_us = esp_timer_get_time() + kTalkMessageHoldUs;
+    schedule_next_idle(esp_timer_get_time());
+    STICKY_LOGI(kTag,
+                "pet=sleep state=finished reason=%s energy=%u result=ok",
+                reason,
+                static_cast<unsigned>(s_state.pet.needs.energy));
+}
+
+// Advances the e-paper breathing frame and accelerated test recovery together.
+// 同时推进电子纸呼吸帧与测试版加速精力恢复。
+void update_sleep(int64_t now_us)
+{
+    if (s_state.pet.activity != PetActivity::Sleeping ||
+        s_sleep_deadline_us == 0 || now_us < s_sleep_deadline_us) {
+        return;
+    }
+
+    pet_core_advance_minutes(s_state.pet,
+                             kSleepMinutesPerFrame,
+                             sleep_profile(),
+                             false);
+    if (s_state.pet.needs.energy >= 100U) {
+        const DesktopPetActionResult wake_result =
+            desktop_pet_state_apply(s_state, DesktopPetAction::Wake);
+        save_state("sleep_complete");
+        finish_sleep(wake_result.message, "rested");
+        return;
+    }
+
+    s_sleep_secondary_frame = !s_sleep_secondary_frame;
+    render_current_page(true, false);
+    s_sleep_deadline_us = esp_timer_get_time() + kSleepFrameHoldUs;
+#if STICKY_LOG_PET_ANIMATION_ENABLED
+    STICKY_LOGD(kTag,
+                "pet=sleep frame=%u energy=%u",
+                s_sleep_secondary_frame ? 1U : 0U,
+                static_cast<unsigned>(s_state.pet.needs.energy));
+#endif
+}
+
 void handle_test_action(DesktopPetAction action)
 {
     if (action == DesktopPetAction::CloseTest) {
@@ -669,6 +767,13 @@ void handle_test_action(DesktopPetAction action)
         }
     }
 
+#if STICKY_DESKTOP_PET_TEST_MODE
+    if (action == DesktopPetAction::Sleep &&
+        s_state.pet.needs.energy > 20U) {
+        s_state.pet.needs.energy = 20U;
+    }
+#endif
+
     const DesktopPetActionResult result =
         desktop_pet_state_apply(s_state, action);
     if (!result.changed) {
@@ -691,6 +796,10 @@ void handle_test_action(DesktopPetAction action)
                 desktop_pet_state_mood_label(s_state));
     if (evolution != DesktopPetEvolutionOutcome::None) {
         apply_evolution_outcome(evolution);
+        return;
+    }
+    if (action == DesktopPetAction::Sleep) {
+        start_sleep_page();
         return;
     }
     render_current_page(true);
@@ -821,6 +930,21 @@ void handle_action(DesktopPetAction action)
         return;
     }
     cancel_idle_animation(false);
+    if (action == DesktopPetAction::Pet &&
+        desktop_pet_state_requires_sleep(s_state)) {
+        action = DesktopPetAction::Sleep;
+    }
+    if (desktop_pet_state_requires_sleep(s_state) &&
+        (action == DesktopPetAction::Feed ||
+         action == DesktopPetAction::Talk ||
+         action == DesktopPetAction::Play)) {
+        s_pose = DesktopPetPose::Idle;
+        s_idle_frame = DesktopPetIdleFrame::Tired;
+        s_home_message = "TOO TIRED. TUCK ME IN FIRST.";
+        s_message = s_home_message;
+        render_current_page(true);
+        return;
+    }
     if (action == DesktopPetAction::OpenNameEditor) {
         open_name_editor(false);
         return;
@@ -854,10 +978,12 @@ void handle_action(DesktopPetAction action)
     if (!result.changed) {
         return;
     }
-    s_pose = result.pose;
-    s_idle_frame = DesktopPetIdleFrame::Normal;
-    s_message = result.message;
+    const bool requires_sleep = desktop_pet_state_requires_sleep(s_state);
+    s_pose = requires_sleep ? DesktopPetPose::Idle : result.pose;
+    s_idle_frame = requires_sleep ? DesktopPetIdleFrame::Tired
+                                  : DesktopPetIdleFrame::Normal;
     s_home_message = select_home_message();
+    s_message = requires_sleep ? s_home_message : result.message;
     const DesktopPetEvolutionOutcome evolution =
         desktop_pet_state_evolve_if_ready(s_state);
     save_state(desktop_pet_action_name(action));
@@ -877,7 +1003,19 @@ void handle_action(DesktopPetAction action)
         apply_evolution_outcome(evolution);
         return;
     }
+    if (action == DesktopPetAction::Sleep) {
+        start_sleep_page();
+        return;
+    }
+    if (action == DesktopPetAction::Wake) {
+        finish_sleep(result.message, "touch");
+        return;
+    }
     render_current_page(true);
+    if (requires_sleep) {
+        s_pose_deadline_us = 0;
+        return;
+    }
     // Hold time begins after the e-paper refresh finishes so the complete
     // pose remains visible for the requested duration.
     // 电子纸刷新完成后再开始计时，确保完整动作真正显示足够时长。
@@ -897,7 +1035,9 @@ DesktopPetAction action_for_press(const StickyTouchPress &press)
     s_canvas->physical_to_logical(
         press.x, press.y, logical_x, logical_y);
     DesktopPetAction action = DesktopPetAction::None;
-    if (s_personality_choice_open) {
+    if (s_state.pet.activity == PetActivity::Sleeping) {
+        action = desktop_pet_page_sleep_action_at(logical_x, logical_y);
+    } else if (s_personality_choice_open) {
         action = desktop_pet_page_personality_action_at(logical_x,
                                                         logical_y);
     } else if (!s_test_open && s_state.pet.stage == PetLifeStage::Egg) {
@@ -912,7 +1052,8 @@ DesktopPetAction action_for_press(const StickyTouchPress &press)
         static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
     STICKY_LOGD(kTag,
                 "pet=touch page=%s action=%s physical_x=%u physical_y=%u logical_x=%d logical_y=%d queue_latency_ms=%u",
-                s_test_open ? "test"
+                s_state.pet.activity == PetActivity::Sleeping ? "sleep"
+                : s_test_open ? "test"
                 : s_state.pet.stage == PetLifeStage::Egg ? "egg" : "home",
                 desktop_pet_action_name(action),
                 static_cast<unsigned>(press.x),
@@ -977,8 +1118,14 @@ void app_task(void *)
                DesktopPetEvolutionOutcome::ChoiceRequired) {
         open_personality_choice();
     } else {
+        if (s_state.pet.activity == PetActivity::Sleeping) {
+            s_sleep_secondary_frame = false;
+            s_sleep_deadline_us =
+                esp_timer_get_time() + kSleepFrameHoldUs;
+        }
         render_current_page(false);
-        if (s_state.pet.stage != PetLifeStage::Egg) {
+        if (s_state.pet.stage != PetLifeStage::Egg &&
+            s_state.pet.activity != PetActivity::Sleeping) {
             schedule_next_idle(esp_timer_get_time());
         }
     }
@@ -991,6 +1138,8 @@ void app_task(void *)
                 "pet=ready page=%s profile=%s save=%s stage=%s day=%u growth=%u love=%u food=%u mood=%s result=ok",
                 s_name_editor_open
                     ? "name_editor"
+                    : s_state.pet.activity == PetActivity::Sleeping
+                           ? "sleep"
                     : (s_state.pet.stage == PetLifeStage::Egg
                            ? "egg"
                            : "home"),
@@ -1069,6 +1218,11 @@ void app_task(void *)
         }
         if (s_evolution_active) {
             update_evolution(now_us);
+            vTaskDelay(kPollInterval);
+            continue;
+        }
+        if (s_state.pet.activity == PetActivity::Sleeping) {
+            update_sleep(now_us);
             vTaskDelay(kPollInterval);
             continue;
         }

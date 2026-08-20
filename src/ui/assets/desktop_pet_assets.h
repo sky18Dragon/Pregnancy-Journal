@@ -4,6 +4,8 @@
 
 enum class DesktopPetAssetId : uint8_t {
     Room,
+    SleepSceneA,
+    SleepSceneB,
     EggIntact,
     EggIntactMask,
     EggWobbleLeft,

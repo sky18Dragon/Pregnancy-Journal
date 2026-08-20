@@ -69,6 +69,12 @@ void desktop_pet_page_render_home(Canvas &canvas,
                                   DesktopPetIdleFrame idle_frame,
                                   const char *message);
 
+// Draws one full nighttime sleep scene and its current energy progress.
+// 绘制一帧完整夜间睡眠场景及当前精力恢复进度。
+void desktop_pet_page_render_sleep(Canvas &canvas,
+                                   const DesktopPetState &state,
+                                   bool secondary_frame);
+
 // Draws the accelerated-build control panel.
 // 绘制加速测试固件的控制面板。
 void desktop_pet_page_render_test(Canvas &canvas,
@@ -100,6 +106,7 @@ void desktop_pet_page_render_name_editor(
 DesktopPetAction desktop_pet_page_action_at(bool test_open, int x, int y);
 DesktopPetAction desktop_pet_page_egg_action_at(int x, int y);
 DesktopPetAction desktop_pet_page_personality_action_at(int x, int y);
+DesktopPetAction desktop_pet_page_sleep_action_at(int x, int y);
 
 // Maps one portrait keyboard touch coordinate into a name-editor action.
 // 将竖屏键盘触摸坐标映射为命名编辑操作。

@@ -17,7 +17,7 @@ This directory stores the original monochrome visual system for the Sticky deskt
 
 `concepts/home_selected_v1.png` is the approved portrait home-screen reference. `concepts/home_selected_480x800.png` is its normalized comparison copy.
 
-The current `source/` set contains the approved six-frame Egg hatching sheet, four-stage woven incubation-nest sheet, room, Hatchling and Child identity art, plus three distinct Youth and Adult personality forms. The incubation nest has a braided rim, wicker texture, stitched cushion, feathers, straw, progressive shell fragments, and a hatched celebration variant. Every Youth and Adult form has its own idle, signature movement, feed, pet, and play poses. The `firmware/` directory contains the generated 1-bit Egg frames, nest scenes, character previews, subject masks, four action icons, and love icon.
+The current `source/` set contains the approved six-frame Egg hatching sheet, four-stage woven incubation-nest sheet, daytime room, two-frame moonlit sleep scene, Hatchling and Child identity art, plus three distinct Youth and Adult personality forms. The incubation nest has a braided rim, wicker texture, stitched cushion, feathers, straw, progressive shell fragments, and a hatched celebration variant. The sleep scene uses a woven bed, stitched blanket, moonlit window, breathing blanket motion, and one-ear movement. Every Youth and Adult form has its own idle, signature movement, feed, pet, and play poses. The `firmware/` directory contains the generated 1-bit Egg frames, nest scenes, sleep frames, character previews, subject masks, four action icons, and love icon.
 
 Run the asset generator from the project root:
 
