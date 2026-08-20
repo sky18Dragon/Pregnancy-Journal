@@ -167,6 +167,9 @@ const char *select_home_message()
     if (desktop_pet_state_requires_sleep(s_state)) {
         return "TAP ME TO TUCK ME IN.";
     }
+    if (desktop_pet_state_is_low_energy(s_state)) {
+        return "I'M LOW ON ENERGY. MAY I REST?";
+    }
     if (s_state.pet.stage == PetLifeStage::Hatchling &&
         s_state.pet.growth >= kDesktopPetHatchlingGrowthLimit &&
         !s_state.pet.evolution_ready) {
@@ -314,7 +317,8 @@ void enqueue_idle_frame(DesktopPetIdleFrame frame,
 void schedule_next_idle(int64_t now_us)
 {
     if (s_state.pet.stage == PetLifeStage::Egg ||
-        desktop_pet_state_requires_sleep(s_state)) {
+        desktop_pet_state_requires_sleep(s_state) ||
+        desktop_pet_state_is_low_energy(s_state)) {
         s_idle_next_us = 0;
         return;
     }
@@ -599,6 +603,7 @@ void update_idle_animation(int64_t now_us)
         s_name_editor_open ||
         s_state.pet.activity == PetActivity::Sleeping ||
         desktop_pet_state_requires_sleep(s_state) ||
+        desktop_pet_state_is_low_energy(s_state) ||
         s_pose != DesktopPetPose::Idle ||
         s_pose_deadline_us > 0) {
         return;

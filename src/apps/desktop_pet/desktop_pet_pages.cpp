@@ -950,8 +950,7 @@ void desktop_pet_page_render_home(Canvas &canvas,
         visible_pose = DesktopPetPose::Idle;
         visible_idle_frame = DesktopPetIdleFrame::Tired;
     } else if (visible_pose == DesktopPetPose::Idle &&
-               idle_frame == DesktopPetIdleFrame::Normal &&
-               state.pet.needs.energy <= 35U) {
+               desktop_pet_state_is_low_energy(state)) {
         visible_idle_frame = DesktopPetIdleFrame::Tired;
     }
     int character_center_y = 411;

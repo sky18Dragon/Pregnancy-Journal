@@ -104,6 +104,7 @@ constexpr uint16_t kDesktopPetChildGrowthLimit = 120U;
 constexpr uint16_t kDesktopPetYouthGrowthLimit = 280U;
 constexpr uint32_t kDesktopPetTestDayLengthMs = 120000U;
 constexpr uint32_t kDesktopPetTestNeedMinutesPerDay = 10U;
+constexpr uint8_t kDesktopPetLowEnergyThreshold = 10U;
 
 // Applies one care or test action to the persistent pet state.
 // 将一次照料或测试操作应用到可持久化的桌宠状态。
@@ -140,6 +141,10 @@ bool desktop_pet_state_has_name(const DesktopPetState &state);
 // Returns whether an awake pet has no energy and must rest before interacting.
 // 返回清醒宠物是否已耗尽能量，并需要先休息才能继续互动。
 bool desktop_pet_state_requires_sleep(const DesktopPetState &state);
+
+// Returns whether an awake pet has 1-9 energy and should rest between actions.
+// 返回清醒宠物是否只剩1到9点能量，并应在互动间隙保持休息。
+bool desktop_pet_state_is_low_energy(const DesktopPetState &state);
 
 uint16_t desktop_pet_state_growth_limit(const DesktopPetState &state);
 const char *desktop_pet_state_stage_label(const DesktopPetState &state);

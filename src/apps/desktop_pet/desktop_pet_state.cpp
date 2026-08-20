@@ -310,6 +310,14 @@ bool desktop_pet_state_requires_sleep(const DesktopPetState &state)
            state.pet.needs.energy == 0U;
 }
 
+bool desktop_pet_state_is_low_energy(const DesktopPetState &state)
+{
+    return state.pet.stage != PetLifeStage::Egg &&
+           state.pet.activity != PetActivity::Sleeping &&
+           state.pet.needs.energy > 0U &&
+           state.pet.needs.energy < kDesktopPetLowEnergyThreshold;
+}
+
 DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
                                                DesktopPetAction action)
 {
@@ -379,9 +387,14 @@ DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
             state.pet.needs.energy, 30U);
         state.pet.needs.energy = static_cast<uint8_t>(
             state.pet.needs.energy - reduction);
-        result.message = state.pet.needs.energy <= 35U
-                             ? "TAP ME TO TUCK ME IN."
-                             : "I'M GETTING SLEEPY...";
+        if (state.pet.needs.energy == 0U) {
+            result.message = "TAP ME TO TUCK ME IN.";
+        } else if (state.pet.needs.energy <
+                   kDesktopPetLowEnergyThreshold) {
+            result.message = "I'M LOW ON ENERGY. MAY I REST?";
+        } else {
+            result.message = "I'M GETTING SLEEPY...";
+        }
         return result;
     }
     case DesktopPetAction::Reset:

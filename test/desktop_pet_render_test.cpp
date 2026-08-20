@@ -153,6 +153,17 @@ int main()
            DesktopPetAction::OpenTest);
     write_preview(buffer, "/tmp/desktop_pet_home.ppm");
 
+    state.pet.needs.energy = 9U;
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::Normal,
+        "I'M LOW ON ENERGY. MAY I REST?");
+    const std::vector<uint8_t> low_energy_idle_frame = buffer;
+    write_preview(buffer, "/tmp/desktop_pet_hatchling_energy_low.ppm");
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Pet, DesktopPetIdleFrame::Normal,
+        "THAT FEELS SO NICE!");
+    assert(buffer != low_energy_idle_frame);
+
     state.pet.needs.energy = 0U;
     desktop_pet_page_render_home(
         canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::Normal,

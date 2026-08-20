@@ -50,10 +50,17 @@ int main()
     sleep_state.pet.stage = PetLifeStage::Hatchling;
     sleep_state.pet.needs.energy = 20U;
     assert(!desktop_pet_state_requires_sleep(sleep_state));
+    assert(!desktop_pet_state_is_low_energy(sleep_state));
     sleep_state.pet.needs.energy = 0U;
     assert(desktop_pet_state_requires_sleep(sleep_state));
+    assert(!desktop_pet_state_is_low_energy(sleep_state));
     sleep_state.pet.needs.energy = 1U;
     assert(!desktop_pet_state_requires_sleep(sleep_state));
+    assert(desktop_pet_state_is_low_energy(sleep_state));
+    sleep_state.pet.needs.energy = 9U;
+    assert(desktop_pet_state_is_low_energy(sleep_state));
+    sleep_state.pet.needs.energy = kDesktopPetLowEnergyThreshold;
+    assert(!desktop_pet_state_is_low_energy(sleep_state));
     sleep_state.pet.needs.energy = 20U;
     const DesktopPetActionResult sleep_result =
         desktop_pet_state_apply(sleep_state, DesktopPetAction::Sleep);
@@ -61,6 +68,7 @@ int main()
     assert(sleep_state.pet.activity == PetActivity::Sleeping);
     sleep_state.pet.needs.energy = 0U;
     assert(!desktop_pet_state_requires_sleep(sleep_state));
+    assert(!desktop_pet_state_is_low_energy(sleep_state));
     assert(!desktop_pet_state_apply(
         sleep_state, DesktopPetAction::Sleep).changed);
     const DesktopPetActionResult wake_result =
@@ -72,10 +80,20 @@ int main()
                        "GOOD MORNING! I FEEL RESTED.") == 0);
     sleep_state.pet.needs.energy = 1U;
     assert(!desktop_pet_state_requires_sleep(sleep_state));
+    assert(desktop_pet_state_is_low_energy(sleep_state));
     sleep_state.pet.needs.energy = 80U;
     assert(desktop_pet_state_apply(
         sleep_state, DesktopPetAction::ReduceEnergy).changed);
     assert(sleep_state.pet.needs.energy == 50U);
+    sleep_state.pet.needs.energy = 39U;
+    const DesktopPetActionResult low_energy_result =
+        desktop_pet_state_apply(sleep_state,
+                                DesktopPetAction::ReduceEnergy);
+    assert(low_energy_result.changed);
+    assert(sleep_state.pet.needs.energy == 9U);
+    assert(desktop_pet_state_is_low_energy(sleep_state));
+    assert(std::strcmp(low_energy_result.message,
+                       "I'M LOW ON ENERGY. MAY I REST?") == 0);
 
     const DesktopPetActionResult add_growth =
         desktop_pet_state_apply(state, DesktopPetAction::AddGrowth);
