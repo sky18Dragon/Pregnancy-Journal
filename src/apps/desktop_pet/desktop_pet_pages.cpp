@@ -687,6 +687,27 @@ int egg_frame_offset(const DesktopPetState &state,
     return 0;
 }
 
+DesktopPetAssetId egg_nest_asset(const DesktopPetState &state,
+                                 DesktopPetHatchFrame frame)
+{
+    if (frame == DesktopPetHatchFrame::Opened) {
+        return DesktopPetAssetId::EggNestHatched;
+    }
+    uint8_t visible_taps = state.hatch_taps;
+    if ((frame == DesktopPetHatchFrame::WobbleLeft ||
+         frame == DesktopPetHatchFrame::WobbleRight) &&
+        visible_taps > 0U) {
+        --visible_taps;
+    }
+    if (visible_taps >= 2U) {
+        return DesktopPetAssetId::EggNestCracked;
+    }
+    if (visible_taps >= 1U) {
+        return DesktopPetAssetId::EggNestChip;
+    }
+    return DesktopPetAssetId::EggNestIntact;
+}
+
 }  // namespace
 
 void desktop_pet_page_render_egg(Canvas &canvas,
@@ -722,14 +743,15 @@ void desktop_pet_page_render_egg(Canvas &canvas,
 
     const DesktopPetAssetId asset = egg_asset(state, frame);
     const int center_x = 240 + egg_frame_offset(state, frame);
+    pixel_asset_draw_centered(canvas, 240, 430,
+                              desktop_pet_asset(
+                                  egg_nest_asset(state, frame)));
     pixel_asset_draw_centered(canvas, center_x, 350,
                               desktop_pet_asset(egg_mask_asset(asset)),
                               1, GrayLevel::White);
     pixel_asset_draw_centered(canvas, center_x, 350,
                               desktop_pet_asset(asset));
 
-    canvas.draw_line(80, 505, 400, 505, GrayLevel::Black);
-    canvas.draw_line(114, 518, 366, 518, GrayLevel::Black);
     draw_sparkle(canvas, 75, 295, 10);
     draw_sparkle(canvas, 403, 335, 8);
     draw_sparkle(canvas, 94, 452, 6);
