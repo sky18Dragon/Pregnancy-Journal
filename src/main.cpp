@@ -4,7 +4,7 @@
 #include "board_sensor_bus.h"
 #include "board_shared_spi.h"
 #include "canvas.h"
-#include "status_board_app.h"
+#include "desktop_pet_app.h"
 #include "sticky_buzzer.h"
 #include "sticky_display.h"
 #include "sticky_touch.h"
@@ -203,8 +203,8 @@ extern "C" void app_main()
     }
 
     // A physical white full refresh removes the image retained by e-paper
-    // before the first status-board frame becomes the new baseline.
-    // 先对白屏执行一次实体全刷，清除电子纸保留的旧画面，再建立状态机首帧基线。
+    // before the first desktop-pet frame becomes the new baseline.
+    // 先对白屏执行一次实体全刷，清除电子纸保留的旧画面，再建立桌宠首帧基线。
     const esp_err_t clear_result = sticky_display_clear();
     if (clear_result != ESP_OK) {
         halt_after_error("sticky_display_clear", clear_result);
@@ -225,11 +225,11 @@ extern "C" void app_main()
         halt_after_error("nvs_flash_init", nvs_result);
     }
 
-    // Runs the landscape status-board experience as an independent app.
-    // 当前把横屏状态机体验作为独立APP直接运行。
-    const esp_err_t app_result = status_board_app_start(*canvas);
+    // Runs the selected portrait desktop-pet experience as an independent app.
+    // 当前把选定的竖屏桌宠体验作为独立APP直接运行。
+    const esp_err_t app_result = desktop_pet_app_start(*canvas);
     if (app_result != ESP_OK) {
-        halt_after_error("status_board_app_start", app_result);
+        halt_after_error("desktop_pet_app_start", app_result);
     }
 
 #if STICKY_LOG_BOOT_DETAILS_ENABLED
