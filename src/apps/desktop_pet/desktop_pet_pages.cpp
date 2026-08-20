@@ -41,7 +41,7 @@ constexpr Rect kReduceEnergyRect = {35, 401, 410, 52};
 constexpr Rect kSleepNowRect = {35, 463, 410, 52};
 constexpr Rect kGoOutRect = {35, 525, 410, 52};
 constexpr Rect kResetRect = {35, 597, 410, 62};
-constexpr Rect kOutingNoteRect = {45, 590, 390, 108};
+constexpr Rect kOutingCallHomeRect = {0, 600, 480, 170};
 constexpr Rect kFoodieChoiceRect = {45, 220, 390, 125};
 constexpr Rect kAffectionateChoiceRect = {45, 365, 390, 125};
 constexpr Rect kActiveChoiceRect = {45, 510, 390, 125};
@@ -918,30 +918,89 @@ void draw_outing_character(Canvas &canvas,
     }
 }
 
-void draw_outing_note(Canvas &canvas, uint32_t duration_ms)
+// Draws the shared identity and care-status area used by the home and outing
+// scenes.
+// 绘制主页与外出场景共用的身份和照料状态区域。
+void draw_pet_status_header(Canvas &canvas, const DesktopPetState &state)
 {
-    canvas.draw_rect(kOutingNoteRect.x, kOutingNoteRect.y,
-                     kOutingNoteRect.width, kOutingNoteRect.height,
-                     GrayLevel::Black);
-    canvas.draw_rect(kOutingNoteRect.x + 3, kOutingNoteRect.y + 3,
-                     kOutingNoteRect.width - 6,
-                     kOutingNoteRect.height - 6,
-                     GrayLevel::Black);
-    canvas.draw_line(394, 593, 432, 631, GrayLevel::Black);
-    canvas.draw_line(394, 593, 394, 631, GrayLevel::Black);
-    canvas.draw_line(394, 631, 432, 631, GrayLevel::Black);
-    draw_centered(canvas, 606, "I WENT TO FIND", 2);
-    draw_centered(canvas, 633, "A LITTLE ADVENTURE", 2);
-    if (duration_ms <= kDesktopPetOutingTestMaximumMs) {
-        char duration_label[28] = {};
-        std::snprintf(duration_label, sizeof(duration_label),
-                      "TEST TRIP  %u SECONDS",
-                      static_cast<unsigned>((duration_ms + 999U) / 1000U));
-        draw_centered(canvas, 660, duration_label, 2);
+    if (desktop_pet_state_has_name(state)) {
+        canvas.draw_text(22, 16, state.name, 3);
+        canvas.draw_text(24, 50, desktop_pet_state_stage_label(state), 2);
+        const int pencil_x = 31 + text_width(state.name, 3);
+        canvas.draw_line(pencil_x, 27, pencil_x + 12, 15,
+                         GrayLevel::Black);
+        canvas.draw_line(pencil_x + 3, 30, pencil_x + 15, 18,
+                         GrayLevel::Black);
+        canvas.draw_line(pencil_x, 27, pencil_x + 3, 30,
+                         GrayLevel::Black);
     } else {
-        draw_centered(canvas, 660, "I'LL BE BACK LATER TODAY", 2);
+        canvas.draw_text(22, 24, desktop_pet_state_stage_label(state), 3);
+        const int pencil_x = 31 +
+            text_width(desktop_pet_state_stage_label(state), 3);
+        canvas.draw_line(pencil_x, 35, pencil_x + 12, 23,
+                         GrayLevel::Black);
+        canvas.draw_line(pencil_x + 3, 38, pencil_x + 15, 26,
+                         GrayLevel::Black);
+        canvas.draw_line(pencil_x, 35, pencil_x + 3, 38,
+                         GrayLevel::Black);
     }
-    draw_centered(canvas, 684, "TAP THIS NOTE TO CALL ME HOME", 1);
+#if STICKY_DESKTOP_PET_TEST_MODE
+    canvas.draw_rect(411, 18, 53, 35, GrayLevel::Black);
+    canvas.draw_rect(413, 20, 49, 31, GrayLevel::Black);
+    canvas.draw_text(419, 27, "TEST", 2);
+#endif
+
+    char growth_label[24] = {};
+    const uint16_t growth_limit = desktop_pet_state_growth_limit(state);
+    std::snprintf(growth_label, sizeof(growth_label), "GROWTH %u / %u",
+                  static_cast<unsigned>(state.pet.growth),
+                  static_cast<unsigned>(growth_limit));
+    canvas.draw_text(24, 72, growth_label, 2);
+    draw_progress(canvas, state.pet.growth, growth_limit);
+
+    pixel_asset_draw(canvas, 310, 67,
+                     desktop_pet_asset(DesktopPetAssetId::LoveIcon));
+    char love_label[16] = {};
+    std::snprintf(love_label, sizeof(love_label), "LOVE %u",
+                  static_cast<unsigned>(state.pet.bond));
+    canvas.draw_text(380, 76, love_label, 2);
+
+    char food_label[16] = {};
+    std::snprintf(food_label, sizeof(food_label), "FOOD %u",
+                  static_cast<unsigned>(state.pet.needs.food));
+    canvas.draw_text(24, 118, food_label, 2);
+    char energy_label[16] = {};
+    std::snprintf(energy_label, sizeof(energy_label), "ENERGY %u",
+                  static_cast<unsigned>(state.pet.needs.energy));
+    canvas.draw_text(456 - text_width(energy_label, 2),
+                     118, energy_label, 2);
+}
+
+void draw_pet_day_label(Canvas &canvas, const DesktopPetState &state)
+{
+    char day_label[16] = {};
+    std::snprintf(day_label, sizeof(day_label), "DAY %u",
+                  static_cast<unsigned>(state.pet.day));
+    draw_centered(canvas, 775, day_label, 2);
+}
+
+void draw_home_action_bar(Canvas &canvas)
+{
+    canvas.fill_rect(14, 599, 452, 3, GrayLevel::Black);
+    for (int y = 616; y < 748; y += 8) {
+        canvas.draw_line(160, y, 160, y + 3, GrayLevel::Black);
+        canvas.draw_line(320, y, 320, y + 3, GrayLevel::Black);
+    }
+    draw_action(canvas, 80, DesktopPetAssetId::FeedIcon, "FEED");
+    draw_action(canvas, 240, DesktopPetAssetId::TalkIcon, "TALK");
+    draw_action(canvas, 400, DesktopPetAssetId::PlayIcon, "PLAY");
+}
+
+void draw_outing_action_bar(Canvas &canvas)
+{
+    canvas.fill_rect(14, 599, 452, 3, GrayLevel::Black);
+    draw_action(canvas, 240, DesktopPetAssetId::TalkIcon,
+                "CALL HER HOME");
 }
 
 }  // namespace
@@ -1024,57 +1083,7 @@ void desktop_pet_page_render_home(Canvas &canvas,
     canvas.set_rotation(CanvasRotation::Deg90CounterClockwise);
     canvas.clear(GrayLevel::White);
 
-    if (desktop_pet_state_has_name(state)) {
-        canvas.draw_text(22, 16, state.name, 3);
-        canvas.draw_text(24, 50, desktop_pet_state_stage_label(state), 2);
-        const int pencil_x = 31 + text_width(state.name, 3);
-        canvas.draw_line(pencil_x, 27, pencil_x + 12, 15,
-                         GrayLevel::Black);
-        canvas.draw_line(pencil_x + 3, 30, pencil_x + 15, 18,
-                         GrayLevel::Black);
-        canvas.draw_line(pencil_x, 27, pencil_x + 3, 30,
-                         GrayLevel::Black);
-    } else {
-        canvas.draw_text(22, 24, desktop_pet_state_stage_label(state), 3);
-        const int pencil_x = 31 +
-            text_width(desktop_pet_state_stage_label(state), 3);
-        canvas.draw_line(pencil_x, 35, pencil_x + 12, 23,
-                         GrayLevel::Black);
-        canvas.draw_line(pencil_x + 3, 38, pencil_x + 15, 26,
-                         GrayLevel::Black);
-        canvas.draw_line(pencil_x, 35, pencil_x + 3, 38,
-                         GrayLevel::Black);
-    }
-#if STICKY_DESKTOP_PET_TEST_MODE
-    canvas.draw_rect(411, 18, 53, 35, GrayLevel::Black);
-    canvas.draw_rect(413, 20, 49, 31, GrayLevel::Black);
-    canvas.draw_text(419, 27, "TEST", 2);
-#endif
-
-    char growth_label[24] = {};
-    const uint16_t growth_limit = desktop_pet_state_growth_limit(state);
-    std::snprintf(growth_label, sizeof(growth_label), "GROWTH %u / %u",
-                  static_cast<unsigned>(state.pet.growth),
-                  static_cast<unsigned>(growth_limit));
-    canvas.draw_text(24, 72, growth_label, 2);
-    draw_progress(canvas, state.pet.growth, growth_limit);
-
-    pixel_asset_draw(canvas, 310, 67,
-                     desktop_pet_asset(DesktopPetAssetId::LoveIcon));
-    char love_label[16] = {};
-    std::snprintf(love_label, sizeof(love_label), "LOVE %u",
-                  static_cast<unsigned>(state.pet.bond));
-    canvas.draw_text(380, 76, love_label, 2);
-
-    char food_label[16] = {};
-    std::snprintf(food_label, sizeof(food_label), "FOOD %u",
-                  static_cast<unsigned>(state.pet.needs.food));
-    canvas.draw_text(24, 118, food_label, 2);
-    char energy_label[16] = {};
-    std::snprintf(energy_label, sizeof(energy_label), "ENERGY %u",
-                  static_cast<unsigned>(state.pet.needs.energy));
-    canvas.draw_text(456 - text_width(energy_label, 2),
-                     118, energy_label, 2);
+    draw_pet_status_header(canvas, state);
 
     pixel_asset_draw(canvas, 20, 226,
                      desktop_pet_asset(DesktopPetAssetId::Room));
@@ -1111,19 +1120,8 @@ void desktop_pet_page_render_home(Canvas &canvas,
                                              visible_idle_frame)));
     draw_speech_bubble(canvas, message);
 
-    canvas.fill_rect(14, 599, 452, 3, GrayLevel::Black);
-    for (int y = 616; y < 748; y += 8) {
-        canvas.draw_line(160, y, 160, y + 3, GrayLevel::Black);
-        canvas.draw_line(320, y, 320, y + 3, GrayLevel::Black);
-    }
-    draw_action(canvas, 80, DesktopPetAssetId::FeedIcon, "FEED");
-    draw_action(canvas, 240, DesktopPetAssetId::TalkIcon, "TALK");
-    draw_action(canvas, 400, DesktopPetAssetId::PlayIcon, "PLAY");
-
-    char day_label[16] = {};
-    std::snprintf(day_label, sizeof(day_label), "DAY %u",
-                  static_cast<unsigned>(state.pet.day));
-    draw_centered(canvas, 775, day_label, 2);
+    draw_home_action_bar(canvas);
+    draw_pet_day_label(canvas, state);
 }
 
 void desktop_pet_page_render_sleep(Canvas &canvas,
@@ -1172,33 +1170,7 @@ void desktop_pet_page_render_outing(
     canvas.set_rotation(CanvasRotation::Deg90CounterClockwise);
     canvas.clear(GrayLevel::White);
 
-    const char *name = desktop_pet_state_has_name(state)
-                           ? state.name
-                           : desktop_pet_state_stage_label(state);
-    draw_centered(canvas, 24, name, 3);
-
-    const char *title = "A LITTLE DAY OUT";
-    switch (outing.phase) {
-    case DesktopPetOutingPhase::Packing:
-        title = "PACKING FOR AN ADVENTURE";
-        break;
-    case DesktopPetOutingPhase::Leaving:
-        title = "SEE YOU SOON!";
-        break;
-    case DesktopPetOutingPhase::Away:
-        title = "OUT EXPLORING";
-        break;
-    case DesktopPetOutingPhase::Returning:
-        title = "TINY PAWS ARE COMING HOME";
-        break;
-    case DesktopPetOutingPhase::Reunion:
-        title = "I'M HOME!";
-        break;
-    case DesktopPetOutingPhase::Home:
-    default:
-        break;
-    }
-    draw_centered(canvas, 71, title, 3);
+    draw_pet_status_header(canvas, state);
 
     pixel_asset_draw(canvas, 20, 226,
                      desktop_pet_asset(DesktopPetAssetId::Room));
@@ -1209,9 +1181,6 @@ void desktop_pet_page_render_outing(
                               DesktopPetPose::Idle,
                               DesktopPetIdleFrame::Normal,
                               true, false);
-        draw_speech_bubble(canvas, "I'M PACKING A TINY BAG!");
-        draw_centered(canvas, 708, "A LITTLE BAG FOR A BIG DAY", 2);
-        draw_centered(canvas, 748, "THE WORLD IS WAITING OUTSIDE", 2);
         break;
     case DesktopPetOutingPhase::Leaving:
         draw_outing_footprints(canvas, false);
@@ -1222,8 +1191,6 @@ void desktop_pet_page_render_outing(
         canvas.draw_line(282, 384, 264, 377, GrayLevel::Black);
         canvas.draw_line(286, 370, 273, 357, GrayLevel::Black);
         canvas.draw_line(292, 357, 286, 340, GrayLevel::Black);
-        draw_speech_bubble(canvas, "I'LL BRING BACK A STORY!");
-        draw_centered(canvas, 723, "OFF TO SEE THE WORLD", 2);
         break;
     case DesktopPetOutingPhase::Away:
         draw_outing_footprints(canvas, false);
@@ -1236,8 +1203,6 @@ void desktop_pet_page_render_outing(
             canvas.draw_line(102, 302, 113, 294, GrayLevel::Black);
             canvas.draw_line(113, 294, 124, 302, GrayLevel::Black);
         }
-        draw_outing_note(canvas, outing.away_duration_ms);
-        draw_centered(canvas, 738, "THE ROOM IS QUIET, BUT NOT LONELY", 2);
         break;
     case DesktopPetOutingPhase::Returning:
         draw_outing_footprints(canvas, true);
@@ -1245,25 +1210,26 @@ void desktop_pet_page_render_outing(
                               DesktopPetPose::Idle,
                               DesktopPetIdleFrame::Normal,
                               true, true);
-        draw_speech_bubble(canvas, "I FOUND SOMETHING FOR YOU!");
-        draw_centered(canvas, 723, "AN ADVENTURE IS COMING HOME", 2);
         break;
     case DesktopPetOutingPhase::Reunion:
         draw_outing_character(canvas, state, 235,
                               DesktopPetPose::Idle,
                               DesktopPetIdleFrame::Normal,
                               false, true);
-        draw_speech_bubble(canvas, "I'M BACK! DID YOU MISS ME?");
         draw_sparkle(canvas, 75, 345, 8);
         draw_sparkle(canvas, 402, 324, 7);
-        draw_centered(canvas, 708, "ONE LITTLE TREASURE", 2);
-        draw_centered(canvas, 748, "AND A BRAND-NEW STORY", 2);
         break;
     case DesktopPetOutingPhase::Home:
     default:
-        draw_centered(canvas, 723, "HOME TOGETHER", 2);
         break;
     }
+
+    if (outing.phase == DesktopPetOutingPhase::Away) {
+        draw_outing_action_bar(canvas);
+    } else {
+        draw_home_action_bar(canvas);
+    }
+    draw_pet_day_label(canvas, state);
 }
 
 void desktop_pet_page_render_test(Canvas &canvas,
@@ -1666,7 +1632,7 @@ DesktopPetAction desktop_pet_page_outing_action_at(
     int y)
 {
     return phase == DesktopPetOutingPhase::Away &&
-                   kOutingNoteRect.contains(x, y)
+                   kOutingCallHomeRect.contains(x, y)
                ? DesktopPetAction::CallHome
                : DesktopPetAction::None;
 }

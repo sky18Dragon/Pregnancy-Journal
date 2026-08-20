@@ -146,7 +146,7 @@ The test home page will display a small `TEST` badge. Tapping it opens a develop
 - `NEXT DAY`: advances exactly one simulated date and runs normal rollover logic
 - `+30 GROWTH`: moves toward the next threshold through the normal stage evaluator
 - `+20 LOVE`: moves through affection dialogue tiers
-- `GO OUT`: plays one accelerated 20-40 second outing and supports calling the rabbit home from its note
+- `GO OUT`: plays one accelerated 20-40 second outing and replaces the home action bar with a call-home action
 - `RESET PET`: clears only desktop-pet test state after confirmation
 - Current stage, growth, affection, and three personality scores
 
@@ -162,7 +162,7 @@ The approved Egg and Hatchling UI stores the user-chosen name, hatching progress
 
 The interaction state now emits a semantic pet performance such as eating, receiving petting, playing, speaking, falling asleep, or waking. `desktop_pet_sound_cues` maps that visible performance together with the current mood, bond tier, life stage, personality branch, and dialogue into a short passive-buzzer pattern. The application refreshes the matching rabbit frame before starting the background sound. Hungry, tired, and sad expressions take priority over normal age- and personality-based speech. Routine stretch, blink, ear-twitch, and look-around frames remain silent.
 
-The first outing slice is available from the accelerated test panel. `desktop_pet_outing` advances the rabbit through packing, leaving, away, returning, reunion, and home without blocking touch polling. The rabbit walks directly toward the screen edge, and the away page keeps the furnished room visible with a fading footprint trail, a tappable note, and an alternating small room detail. Calling the rabbit home from the note enters the same return sequence as a completed outing. Personality routes return with distinct berry, flower, or leaf souvenirs. The test duration is uniformly selected from 20 through 40 seconds, while the approved production duration range is one through seven hours. Automatic daytime scheduling and restart-safe elapsed time will use the validated RTC adapter in the runtime integration slice.
+The first outing slice is available from the accelerated test panel. `desktop_pet_outing` advances the rabbit through packing, leaving, away, returning, reunion, and home without blocking touch polling. Every outing frame preserves the home page's name, stage, growth, affection, food, energy, date, furnished room, and visual proportions. The rabbit walks directly toward the screen edge, leaving a fading footprint trail. While the rabbit is away, the standard care actions become one centered `CALL HER HOME` action. Calling her home enters the same return sequence as a completed outing. Personality routes return with distinct berry, flower, or leaf souvenirs. The test duration is uniformly selected from 20 through 40 seconds, while the approved production duration range is one through seven hours. Automatic daytime scheduling and restart-safe elapsed time will use the validated RTC adapter in the runtime integration slice.
 
 Cleaning, PCF8563 hardware time, and the validated two-slot save backend remain independent integration blocks. The current test build accelerates sleep recovery from the app timer; the later PCF8563 adapter will provide real elapsed time without changing the sleep-state rules.
 

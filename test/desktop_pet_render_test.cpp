@@ -358,9 +358,9 @@ int main()
     outing.phase = DesktopPetOutingPhase::Away;
     desktop_pet_page_render_outing(canvas, state, outing, true);
     assert(desktop_pet_page_outing_action_at(
-               outing.phase, 240, 640) == DesktopPetAction::CallHome);
+               outing.phase, 240, 700) == DesktopPetAction::CallHome);
     assert(desktop_pet_page_outing_action_at(
-               outing.phase, 20, 760) == DesktopPetAction::None);
+               outing.phase, 20, 580) == DesktopPetAction::None);
     write_preview(buffer, "/tmp/desktop_pet_outing_away.ppm");
 
     outing.phase = DesktopPetOutingPhase::Returning;
