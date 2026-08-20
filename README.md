@@ -43,6 +43,7 @@
 - `pet_idle_scheduler`：根据食物、精力和最近动作选择下一段自主行为。
 - `pet_animation_queue`：最多16个节点的非阻塞动画队列，播放动画时仍可继续处理触摸。
 - `pet_save_record`：带版本、校验值和写入序号的双槽存档记录，损坏一个槽时可选择另一个有效槽。
+- `desktop_pet_storage_record`：把名字、成长、照料状态、性格、RTC时间和外出计划一起封装进A/B双槽记录；每次保存写入较旧的槽位。
 - `pet_rtc_time`：把Sticky的PCF8563 RTC日期时间转换为宠物系统使用的连续时间。
 - `desktop_pet_outing`：管理每日外出决定、RTC出发与回家时间、断电恢复，以及准备、离开、外出、返回和团聚阶段。
 
@@ -53,6 +54,8 @@
 `TALK`会优先表达饥饿、低落或疲劳等当前状态；普通状态下会按亲密值分为初识、熟悉和亲密三组语气。对白选择器记录最近五句，存在其他候选时会优先选择新的内容。聊天只表达陪伴状态，不改变成长值、亲密值和每日奖励次数。
 
 开源素材审计结果、精确版本和许可证保存在`third_party/virtual_pet/`。完整台词源档和规则源档保存在`assets/desktop_pet/library/`；固件只编译筛选后的定长C++数据表，源档不会占用设备Flash或RAM。当前桌宠已经接入共享核心的成长、亲密、食物、心情、状态台词和PCF8563硬件时间；测试版继续保留加速时间，方便快速验证成长过程。
+
+桌宠运行存档使用NVS中的`state_a`和`state_b`两个槽位轮流写入。每份记录都带有内容校验值和递增序号；启动时选择序号最新且校验完整的一份。升级前使用`state`键保存的版本2至版本7记录会先正常读取，并在下一次保存时进入双槽结构。
 
 #### 当前测试版玩法规则
 
@@ -195,6 +198,21 @@ clang++ -std=c++17 -Wall -Wextra -Werror \
 ```
 
 命令正常结束且没有输出表示全部断言通过。当前测试覆盖RTC日期、在线与离线时间推进、饥饿衰减、喂食恢复、睡眠、换日、幼兔到成年期进化、青年自动分支和最终选择、成年互动、心情、台词防重复、自主动作防重复、动画队列和双槽存档校验。
+
+完整桌宠存档封装可以独立验证：
+
+```bash
+clang++ -std=c++17 -Wall -Wextra -Werror \
+  -Isrc/apps/desktop_pet \
+  -Isrc/apps/desktop_pet/core \
+  test/desktop_pet_storage_record_test.cpp \
+  src/apps/desktop_pet/desktop_pet_storage_record.cpp \
+  src/apps/desktop_pet/core/pet_save_record.cpp \
+  -o /tmp/desktop_pet_storage_record_test
+/tmp/desktop_pet_storage_record_test
+```
+
+命令正常结束且没有输出，表示完整存档校验、最新槽位选择、损坏槽位回退、下一写入槽位和序号回绕均正确。
 
 桌宠的动作与声音选择可以单独验证：
 
@@ -383,8 +401,11 @@ platformio.ini             开发版与发布版构建配置
 43. 烧录新的`sticky-debug`后停留在桌宠主页，不打开`TEST`面板；确认日志出现`pet=outing schedule=scheduled source=rtc`，并在15～30秒后自动进入收拾背包和离开画面。同一天需要重新测试时，在`TEST`面板点击一次`NEXT DAY`并立即返回主页即可生成新的加速计划。
 44. 兔子离开后立即重启设备；若仍在计划回家时间之前，确认启动日志出现`pet=outing phase=away source=automatic`并直接恢复外出页面；若已经到达回家时间，确认设备直接显示兔子在家的主页。
 45. 在自动外出页面点击`CALL HER HOME`，等待回家动画完成后再次重启，确认当天保持在家且不会重新生成第二次外出。
+46. 保持`sticky-debug`串口打开，连续完成两次会改变数值的互动，例如点击`FEED`后再抚摸兔子；确认日志中的`pet_storage=save`先后写入`slot_a`和`slot_b`，且`sequence`逐次增加。
+47. 记下当前名字、成长值、亲密值和食物值，然后重新启动设备；确认日志出现`pet_storage=load source=slot_a`或`source=slot_b`，并带有`peer_valid=1`。
+48. 确认重启后的名字、阶段和各项数值与重启前一致，再执行一次互动；确认系统继续写入较旧的另一个槽位，而不是覆盖刚刚读出的最新槽位。
 
-新存档启动时会出现`pet=ready page=egg profile=test save=new stage=egg`。三次有效轻触依次记录`pet=hatch tap=1`、`tap=2`和`tap=3`，破壳完成记录`pet=hatch state=complete stage=hatchling`；之后每次照料会出现带`stage`、`food`和`mood`的`pet=care`，测试操作会出现`pet=test`，自动换日会出现带新食物值的`pet=day source=timer`。RTC生成外出计划时记录`pet=outing schedule=... source=rtc`，自动出发和重启恢复分别记录对应的`phase=packing`或`phase=away`。
+新存档启动时会出现`pet=ready page=egg profile=test save=new stage=egg`。三次有效轻触依次记录`pet=hatch tap=1`、`tap=2`和`tap=3`，破壳完成记录`pet=hatch state=complete stage=hatchling`；之后每次照料会出现带`stage`、`food`和`mood`的`pet=care`，测试操作会出现`pet=test`，自动换日会出现带新食物值的`pet=day source=timer`。RTC生成外出计划时记录`pet=outing schedule=... source=rtc`，自动出发和重启恢复分别记录对应的`phase=packing`或`phase=away`。双槽存档会记录`pet_storage=save target=slot_a|slot_b sequence=...`；重启读取时记录`pet_storage=load source=slot_a|slot_b sequence=... peer_valid=... result=ok`。
 
 ## 答案书真机验收
 

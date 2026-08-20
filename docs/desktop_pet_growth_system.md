@@ -71,7 +71,7 @@ The saved state contains these groups of data:
 - Last greeting context
 - Last absence length
 
-All values are stored in a versioned NVS record. A state migration function converts older records when new fields are introduced.
+All values are stored in two rotating, checksummed NVS records. Startup selects the newest valid sequence, and the migration path accepts older single-key records when new fields are introduced.
 
 ## Life Stages
 
@@ -298,7 +298,7 @@ The independent framework currently contains:
 - `pet_save_record`: versioned records, checksum validation, sequence ordering, and two-slot selection
 - `pet_rtc_time`: validated PCF8563 calendar conversion
 
-The existing `desktop_pet_app`, `desktop_pet_pages`, `desktop_pet_state`, and `desktop_pet_storage` modules run the approved Hatchling, Child, and three-route Youth UI and use `PetCoreState` for visible care values. The state wrapper keeps UI actions separate from the reusable rule engine, while storage version 4 migrates both version-2 and version-3 records before preserving the chosen personality branch.
+The existing `desktop_pet_app`, `desktop_pet_pages`, `desktop_pet_state`, and `desktop_pet_storage` modules run the approved life-stage UI and use `PetCoreState` for visible care values. The state wrapper keeps UI actions separate from the reusable rule engine, while storage version 7 migrates version-2 through version-6 records and preserves names, growth, needs, personality, RTC time, and outing plans.
 
 The Hatchling home screen maps direct taps on the rabbit body to petting. The bottom action row contains `FEED`, `TALK`, and `PLAY`. `TALK` selects urgent need dialogue first, then uses bond ranges `0-34`, `35-69`, and `70-100` for increasingly familiar lines. Talking does not award growth or bond points, and its selected line remains visible for four seconds.
 
@@ -306,7 +306,7 @@ The Hatchling also runs a non-blocking autonomous behavior loop. Common actions 
 
 The Child stage uses a taller long-eared rabbit with a neckerchief and its own complete set of idle, blink, ear-twitch, look-around, stretch, hungry, tired, feed, pet, and play bitmaps. The Youth stage then separates into Foodie, Affectionate, and Active silhouettes, accessories, signature movements, interactions, home titles, and route-specific dialogue.
 
-The framework stays independent from the display, touch controller, IMU, NVS driver, and RTC driver. Native tests can therefore validate pet behavior on a computer. The runtime now connects the PCF8563 adapter to this framework; the validated two-slot NVS backend remains an explicit integration task.
+The framework stays independent from the display, touch controller, IMU, NVS driver, and RTC driver. Native tests can therefore validate pet behavior on a computer. The runtime connects both the PCF8563 adapter and the checksummed A/B NVS storage backend to this framework.
 
 ## Open-Source Source Library
 
@@ -354,6 +354,8 @@ The first implementation keeps regression tests for:
 16. Test multipliers still stop at the test-profile daily caps.
 17. Test and production profiles produce the same route result from the same care-action sequence.
 18. `NEXT DAY` applies one rollover and remains idempotent across an immediate reboot.
+19. A corrupted newest save slot falls back to the previous valid sequence.
+20. Sequence rollover still identifies the newest valid slot.
 
 ## First Implementation Boundary
 
@@ -373,4 +375,4 @@ The implemented vertical slices cover Hatchling, Child, and Youth entry:
 - Six-point automatic personality decision and final choice page for close scores
 - Foodie, Affectionate, and Active Youth homes, progress targets, actions, and dialogue
 
-The rule framework underneath these slices is implemented and native-tested. The PCF8563 adapter, three Adult forms, and expanded need-specific Youth animation sets are connected; the validated two-slot NVS backend remains a later persistence slice.
+The rule framework underneath these slices is implemented and native-tested. The PCF8563 adapter, three Adult forms, expanded need-specific Youth animation sets, automatic outings, and checksummed two-slot NVS persistence are connected to the runtime.

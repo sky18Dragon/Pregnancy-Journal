@@ -5,12 +5,19 @@
 #include <cstring>
 #include <iterator>
 
+#include "app_log.h"
+#include "desktop_pet_storage_record.h"
 #include "nvs.h"
 
 namespace {
 
 constexpr char kNamespace[] = "sticky_pet";
-constexpr char kStateKey[] = "state";
+constexpr char kTag[] = "desktop_pet_storage";
+constexpr char kLegacyStateKey[] = "state";
+constexpr const char *kSlotKeys[kPetSaveSlotCount] = {
+    "state_a",
+    "state_b",
+};
 constexpr uint32_t kLegacyStateVersion = 2U;
 constexpr uint32_t kLegacyCoreStateVersion = 1U;
 constexpr uint32_t kLegacyDesktopStateVersion = 3U;
@@ -220,30 +227,54 @@ void migrate_v6(const LegacyDesktopPetStateV6 &legacy,
     sanitize(state);
 }
 
-}  // namespace
-
-esp_err_t desktop_pet_storage_load(DesktopPetState &state, bool &found)
+esp_err_t read_slot(nvs_handle_t handle,
+                    const char *key,
+                    DesktopPetStorageRecord &record,
+                    bool &present)
 {
-    found = false;
-    nvs_handle_t handle = 0;
-    esp_err_t result = nvs_open(kNamespace, NVS_READONLY, &handle);
+    record = {};
+    present = false;
+    size_t size = 0U;
+    esp_err_t result = nvs_get_blob(handle, key, nullptr, &size);
     if (result == ESP_ERR_NVS_NOT_FOUND) {
-        state = {};
         return ESP_OK;
     }
     if (result != ESP_OK) {
         return result;
     }
+    present = true;
+    if (size != sizeof(record)) {
+        return ESP_OK;
+    }
+    return nvs_get_blob(handle, key, &record, &size);
+}
 
+esp_err_t read_slots(nvs_handle_t handle,
+                     DesktopPetStorageRecord *records,
+                     bool *present)
+{
+    for (size_t index = 0U; index < kPetSaveSlotCount; ++index) {
+        const esp_err_t result = read_slot(
+            handle, kSlotKeys[index], records[index], present[index]);
+        if (result != ESP_OK) {
+            return result;
+        }
+    }
+    return ESP_OK;
+}
+
+esp_err_t load_legacy_state(nvs_handle_t handle,
+                            DesktopPetState &state,
+                            bool &found)
+{
     size_t size = 0U;
-    result = nvs_get_blob(handle, kStateKey, nullptr, &size);
+    esp_err_t result = nvs_get_blob(
+        handle, kLegacyStateKey, nullptr, &size);
     if (result == ESP_ERR_NVS_NOT_FOUND) {
-        nvs_close(handle);
         state = {};
         return ESP_OK;
     }
     if (result != ESP_OK) {
-        nvs_close(handle);
         return result;
     }
 
@@ -256,12 +287,11 @@ esp_err_t desktop_pet_storage_load(DesktopPetState &state, bool &found)
          sizeof(LegacyDesktopPetStateV2)});
     std::array<uint8_t, kMaximumRecordSize> bytes = {};
     if (size > bytes.size()) {
-        nvs_close(handle);
         state = {};
         return ESP_OK;
     }
-    result = nvs_get_blob(handle, kStateKey, bytes.data(), &size);
-    nvs_close(handle);
+    result = nvs_get_blob(
+        handle, kLegacyStateKey, bytes.data(), &size);
     if (result != ESP_OK || size < sizeof(uint32_t)) {
         state = {};
         return result == ESP_OK ? ESP_OK : result;
@@ -321,6 +351,64 @@ esp_err_t desktop_pet_storage_load(DesktopPetState &state, bool &found)
     return ESP_OK;
 }
 
+esp_err_t erase_key_if_present(nvs_handle_t handle, const char *key)
+{
+    const esp_err_t result = nvs_erase_key(handle, key);
+    return result == ESP_ERR_NVS_NOT_FOUND ? ESP_OK : result;
+}
+
+}  // namespace
+
+esp_err_t desktop_pet_storage_load(DesktopPetState &state, bool &found)
+{
+    found = false;
+    nvs_handle_t handle = 0;
+    esp_err_t result = nvs_open(kNamespace, NVS_READONLY, &handle);
+    if (result == ESP_ERR_NVS_NOT_FOUND) {
+        state = {};
+        return ESP_OK;
+    }
+    if (result != ESP_OK) {
+        return result;
+    }
+
+    DesktopPetStorageRecord records[kPetSaveSlotCount] = {};
+    bool present[kPetSaveSlotCount] = {};
+    result = read_slots(handle, records, present);
+    if (result != ESP_OK) {
+        nvs_close(handle);
+        return result;
+    }
+    const int newest = desktop_pet_storage_record_select_newest(
+        records, kPetSaveSlotCount);
+    if (newest >= 0) {
+        const size_t selected = static_cast<size_t>(newest);
+        state = records[selected].state;
+        sanitize(state);
+        found = true;
+        nvs_close(handle);
+        const bool peer_valid = desktop_pet_storage_record_validate(
+            records[(selected + 1U) % kPetSaveSlotCount]);
+        STICKY_LOGI(kTag,
+                    "pet_storage=load source=slot_%c sequence=%u peer_valid=%u result=ok",
+                    selected == 0U ? 'a' : 'b',
+                    static_cast<unsigned>(
+                        records[selected].header.sequence),
+                    peer_valid ? 1U : 0U);
+        return ESP_OK;
+    }
+    result = load_legacy_state(handle, state, found);
+    nvs_close(handle);
+    if (result == ESP_OK) {
+        STICKY_LOGI(kTag,
+                    "pet_storage=load source=%s slot_a_present=%u slot_b_present=%u result=ok",
+                    found ? "legacy" : "new",
+                    present[0] ? 1U : 0U,
+                    present[1] ? 1U : 0U);
+    }
+    return result;
+}
+
 esp_err_t desktop_pet_storage_save(const DesktopPetState &state)
 {
     nvs_handle_t handle = 0;
@@ -328,11 +416,41 @@ esp_err_t desktop_pet_storage_save(const DesktopPetState &state)
     if (result != ESP_OK) {
         return result;
     }
-    result = nvs_set_blob(handle, kStateKey, &state, sizeof(state));
+    DesktopPetStorageRecord records[kPetSaveSlotCount] = {};
+    bool present[kPetSaveSlotCount] = {};
+    result = read_slots(handle, records, present);
+    if (result != ESP_OK) {
+        nvs_close(handle);
+        return result;
+    }
+    const int newest = desktop_pet_storage_record_select_newest(
+        records, kPetSaveSlotCount);
+    const uint32_t sequence = newest >= 0
+        ? records[static_cast<size_t>(newest)].header.sequence + 1U
+        : 1U;
+    const size_t write_slot =
+        desktop_pet_storage_record_select_write_slot(
+            records, kPetSaveSlotCount);
+    const DesktopPetStorageRecord next_record =
+        desktop_pet_storage_record_make(
+            state, sequence, state.pet.last_rtc_epoch_seconds);
+    result = nvs_set_blob(
+        handle,
+        kSlotKeys[write_slot],
+        &next_record,
+        sizeof(next_record));
     if (result == ESP_OK) {
         result = nvs_commit(handle);
     }
     nvs_close(handle);
+#if STICKY_LOG_DESKTOP_PET_ENABLED
+    if (result == ESP_OK) {
+        STICKY_LOGD(kTag,
+                    "pet_storage=save target=slot_%c sequence=%u result=ok",
+                    write_slot == 0U ? 'a' : 'b',
+                    static_cast<unsigned>(sequence));
+    }
+#endif
     return result;
 }
 
@@ -343,9 +461,13 @@ esp_err_t desktop_pet_storage_reset()
     if (result != ESP_OK) {
         return result;
     }
-    result = nvs_erase_key(handle, kStateKey);
-    if (result == ESP_ERR_NVS_NOT_FOUND) {
-        result = ESP_OK;
+    result = erase_key_if_present(handle, kLegacyStateKey);
+    for (size_t index = 0U; index < kPetSaveSlotCount; ++index) {
+        const esp_err_t slot_result = erase_key_if_present(
+            handle, kSlotKeys[index]);
+        if (result == ESP_OK && slot_result != ESP_OK) {
+            result = slot_result;
+        }
     }
     if (result == ESP_OK) {
         result = nvs_commit(handle);

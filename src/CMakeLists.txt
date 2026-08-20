@@ -11,6 +11,7 @@ idf_component_register(
         "apps/desktop_pet/desktop_pet_sound_cues.cpp"
         "apps/desktop_pet/desktop_pet_state.cpp"
         "apps/desktop_pet/desktop_pet_storage.cpp"
+        "apps/desktop_pet/desktop_pet_storage_record.cpp"
         "apps/desktop_pet/core/pet_animation_queue.cpp"
         "apps/desktop_pet/core/pet_core.cpp"
         "apps/desktop_pet/core/pet_dialogue.cpp"

@@ -303,6 +303,19 @@ int main()
     second_save.state.bond = 99U;
     assert(!pet_save_validate(second_save));
 
+    const uint8_t generic_payload[] = {1U, 2U, 3U, 4U};
+    const PetSaveHeader generic_header = pet_save_make_header(
+        generic_payload, sizeof(generic_payload), 7U, 15U, 100U);
+    assert(pet_save_validate_payload(
+        generic_header, generic_payload, sizeof(generic_payload), 7U));
+    uint8_t corrupted_payload[] = {1U, 2U, 3U, 5U};
+    assert(!pet_save_validate_payload(
+        generic_header,
+        corrupted_payload,
+        sizeof(corrupted_payload),
+        7U));
+    assert(pet_save_sequence_newer(0U, UINT32_MAX));
+
     assert(sizeof(PetCoreState) <= 128U);
     assert(sizeof(PetAnimationQueue) <= 768U);
 
