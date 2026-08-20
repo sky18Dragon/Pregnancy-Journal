@@ -1,6 +1,8 @@
 #include "desktop_pet_state.h"
 
 #include <algorithm>
+#include <cctype>
+#include <cstring>
 
 #include "pet_dialogue.h"
 
@@ -241,6 +243,48 @@ DesktopPetActionResult apply_talk(DesktopPetState &state)
 
 }  // namespace
 
+bool desktop_pet_state_set_name(DesktopPetState &state, const char *name)
+{
+    if (name == nullptr) {
+        return false;
+    }
+
+    char normalized[kDesktopPetNameMaximumLength + 1U] = {};
+    size_t output_length = 0U;
+    bool pending_space = false;
+    for (size_t index = 0U;
+         name[index] != '\0' &&
+         output_length < kDesktopPetNameMaximumLength;
+         ++index) {
+        const unsigned char raw = static_cast<unsigned char>(name[index]);
+        if (raw == ' ') {
+            pending_space = output_length > 0U;
+            continue;
+        }
+        if (!std::isalnum(raw)) {
+            continue;
+        }
+        if (pending_space &&
+            output_length < kDesktopPetNameMaximumLength - 1U) {
+            normalized[output_length++] = ' ';
+        }
+        pending_space = false;
+        normalized[output_length++] = static_cast<char>(std::toupper(raw));
+    }
+
+    if (output_length == 0U) {
+        return false;
+    }
+    normalized[output_length] = '\0';
+    std::memcpy(state.name, normalized, sizeof(state.name));
+    return true;
+}
+
+bool desktop_pet_state_has_name(const DesktopPetState &state)
+{
+    return state.name[0] != '\0';
+}
+
 DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
                                                DesktopPetAction action)
 {
@@ -304,6 +348,7 @@ DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
         return {true, false, 0U, 0U, DesktopPetPose::Idle,
                 "LET'S SPEND TODAY TOGETHER."};
     case DesktopPetAction::OpenTest:
+    case DesktopPetAction::OpenNameEditor:
     case DesktopPetAction::CloseTest:
     case DesktopPetAction::ChooseFoodie:
     case DesktopPetAction::ChooseAffectionate:
@@ -488,6 +533,8 @@ const char *desktop_pet_action_name(DesktopPetAction action)
         return "talk";
     case DesktopPetAction::Play:
         return "play";
+    case DesktopPetAction::OpenNameEditor:
+        return "open_name_editor";
     case DesktopPetAction::OpenTest:
         return "open_test";
     case DesktopPetAction::CloseTest:

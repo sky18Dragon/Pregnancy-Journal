@@ -15,6 +15,7 @@ constexpr uint32_t kLegacyStateVersion = 2U;
 constexpr uint32_t kLegacyCoreStateVersion = 1U;
 constexpr uint32_t kLegacyDesktopStateVersion = 3U;
 constexpr uint32_t kLegacyDesktopStateVersionV4 = 4U;
+constexpr uint32_t kLegacyDesktopStateVersionV5 = 5U;
 
 struct LegacyDesktopPetStateV2 {
     uint32_t version = kLegacyStateVersion;
@@ -71,6 +72,12 @@ struct LegacyDesktopPetStateV4 {
     PetCoreState pet = {};
 };
 
+struct LegacyDesktopPetStateV5 {
+    uint32_t version = kLegacyDesktopStateVersionV5;
+    PetCoreState pet = {};
+    uint8_t hatch_taps = 0U;
+};
+
 const PetCoreProfile &storage_profile()
 {
 #if STICKY_DESKTOP_PET_TEST_MODE
@@ -93,6 +100,14 @@ void sanitize(DesktopPetState &state)
     }
     state.pet.growth = std::min<uint16_t>(
         state.pet.growth, desktop_pet_state_growth_limit(state));
+    state.name[kDesktopPetNameMaximumLength] = '\0';
+    if (state.name[0] != '\0') {
+        char name_copy[kDesktopPetNameMaximumLength + 1U] = {};
+        std::memcpy(name_copy, state.name, sizeof(name_copy));
+        if (!desktop_pet_state_set_name(state, name_copy)) {
+            state.name[0] = '\0';
+        }
+    }
 }
 
 // Converts the accepted version-2 Hatchling record into the shared core.
@@ -173,6 +188,17 @@ void migrate_v4(const LegacyDesktopPetStateV4 &legacy,
     sanitize(state);
 }
 
+// Preserves version-5 hatching progress with an optional empty name.
+// 保留版本5的孵化进度，并允许已有宠物暂时保持未命名状态。
+void migrate_v5(const LegacyDesktopPetStateV5 &legacy,
+                DesktopPetState &state)
+{
+    state = {};
+    state.pet = legacy.pet;
+    state.hatch_taps = legacy.hatch_taps;
+    sanitize(state);
+}
+
 }  // namespace
 
 esp_err_t desktop_pet_storage_load(DesktopPetState &state, bool &found)
@@ -202,6 +228,7 @@ esp_err_t desktop_pet_storage_load(DesktopPetState &state, bool &found)
 
     constexpr size_t kMaximumRecordSize = std::max(
         {sizeof(DesktopPetState),
+         sizeof(LegacyDesktopPetStateV5),
          sizeof(LegacyDesktopPetStateV4),
          sizeof(LegacyDesktopPetStateV3),
          sizeof(LegacyDesktopPetStateV2)});
@@ -224,6 +251,14 @@ esp_err_t desktop_pet_storage_load(DesktopPetState &state, bool &found)
         size == sizeof(DesktopPetState)) {
         std::memcpy(&state, bytes.data(), sizeof(state));
         sanitize(state);
+        found = true;
+        return ESP_OK;
+    }
+    if (stored_version == kLegacyDesktopStateVersionV5 &&
+        size == sizeof(LegacyDesktopPetStateV5)) {
+        LegacyDesktopPetStateV5 legacy = {};
+        std::memcpy(&legacy, bytes.data(), sizeof(legacy));
+        migrate_v5(legacy, state);
         found = true;
         return ESP_OK;
     }

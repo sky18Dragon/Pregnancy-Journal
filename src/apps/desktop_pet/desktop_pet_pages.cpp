@@ -31,6 +31,7 @@ constexpr Rect kFeedRect = {0, 600, 160, 170};
 constexpr Rect kTalkRect = {160, 600, 160, 170};
 constexpr Rect kPlayRect = {320, 600, 160, 170};
 constexpr Rect kPetBodyRect = {110, 270, 260, 320};
+constexpr Rect kNameRect = {0, 0, 350, 70};
 
 constexpr Rect kCloseTestRect = {360, 20, 100, 55};
 constexpr Rect kNextDayRect = {35, 255, 410, 70};
@@ -40,6 +41,66 @@ constexpr Rect kResetRect = {35, 555, 410, 80};
 constexpr Rect kFoodieChoiceRect = {45, 220, 390, 125};
 constexpr Rect kAffectionateChoiceRect = {45, 365, 390, 125};
 constexpr Rect kActiveChoiceRect = {45, 510, 390, 125};
+
+constexpr Rect kNameBackRect = {0, 0, 92, 102};
+constexpr Rect kNameInputRect = {25, 112, 430, 112};
+constexpr Rect kNameLetterRow1[] = {
+    {10, 270, 42, 64}, {56, 270, 42, 64}, {102, 270, 42, 64},
+    {148, 270, 42, 64}, {194, 270, 42, 64}, {240, 270, 42, 64},
+    {286, 270, 42, 64}, {332, 270, 42, 64}, {378, 270, 42, 64},
+    {424, 270, 42, 64},
+};
+constexpr Rect kNameLetterRow2[] = {
+    {33, 344, 42, 64}, {79, 344, 42, 64}, {125, 344, 42, 64},
+    {171, 344, 42, 64}, {217, 344, 42, 64}, {263, 344, 42, 64},
+    {309, 344, 42, 64}, {355, 344, 42, 64}, {401, 344, 42, 64},
+};
+constexpr Rect kNameLetterRow3[] = {
+    {79, 418, 42, 64}, {125, 418, 42, 64}, {171, 418, 42, 64},
+    {217, 418, 42, 64}, {263, 418, 42, 64}, {309, 418, 42, 64},
+    {355, 418, 42, 64},
+};
+constexpr Rect kNameDigitRow1[] = {
+    {25, 290, 78, 76}, {113, 290, 78, 76}, {201, 290, 78, 76},
+    {289, 290, 78, 76}, {377, 290, 78, 76},
+};
+constexpr Rect kNameDigitRow2[] = {
+    {25, 380, 78, 76}, {113, 380, 78, 76}, {201, 380, 78, 76},
+    {289, 380, 78, 76}, {377, 380, 78, 76},
+};
+constexpr Rect kNameToggleRect = {15, 510, 105, 66};
+constexpr Rect kNameSpaceRect = {128, 510, 210, 66};
+constexpr Rect kNameDeleteRect = {346, 510, 119, 66};
+constexpr Rect kNameClearRect = {15, 594, 130, 78};
+constexpr Rect kNameApplyRect = {153, 594, 312, 78};
+
+constexpr DesktopPetNameAction kNameLetterRow1Actions[] = {
+    DesktopPetNameAction::KeyQ, DesktopPetNameAction::KeyW,
+    DesktopPetNameAction::KeyE, DesktopPetNameAction::KeyR,
+    DesktopPetNameAction::KeyT, DesktopPetNameAction::KeyY,
+    DesktopPetNameAction::KeyU, DesktopPetNameAction::KeyI,
+    DesktopPetNameAction::KeyO, DesktopPetNameAction::KeyP,
+};
+constexpr DesktopPetNameAction kNameLetterRow2Actions[] = {
+    DesktopPetNameAction::KeyA, DesktopPetNameAction::KeyS,
+    DesktopPetNameAction::KeyD, DesktopPetNameAction::KeyF,
+    DesktopPetNameAction::KeyG, DesktopPetNameAction::KeyH,
+    DesktopPetNameAction::KeyJ, DesktopPetNameAction::KeyK,
+    DesktopPetNameAction::KeyL,
+};
+constexpr DesktopPetNameAction kNameLetterRow3Actions[] = {
+    DesktopPetNameAction::KeyZ, DesktopPetNameAction::KeyX,
+    DesktopPetNameAction::KeyC, DesktopPetNameAction::KeyV,
+    DesktopPetNameAction::KeyB, DesktopPetNameAction::KeyN,
+    DesktopPetNameAction::KeyM,
+};
+constexpr DesktopPetNameAction kNameDigitActions[] = {
+    DesktopPetNameAction::Digit1, DesktopPetNameAction::Digit2,
+    DesktopPetNameAction::Digit3, DesktopPetNameAction::Digit4,
+    DesktopPetNameAction::Digit5, DesktopPetNameAction::Digit6,
+    DesktopPetNameAction::Digit7, DesktopPetNameAction::Digit8,
+    DesktopPetNameAction::Digit9, DesktopPetNameAction::Digit0,
+};
 
 int text_width(const char *text, int scale)
 {
@@ -89,6 +150,41 @@ void draw_button(Canvas &canvas,
     canvas.draw_rect(rect.x + 2, rect.y + 2, rect.width - 4,
                      rect.height - 4, GrayLevel::Black);
     draw_centered_in_rect(canvas, rect, label, 3);
+}
+
+void draw_name_key(Canvas &canvas,
+                   const Rect &rect,
+                   const char *label,
+                   int scale = 3)
+{
+    canvas.draw_rect(rect.x, rect.y, rect.width, rect.height,
+                     GrayLevel::Black);
+    canvas.draw_rect(rect.x + 2, rect.y + 2, rect.width - 4,
+                     rect.height - 4, GrayLevel::Black);
+    draw_centered_in_rect(canvas, rect, label, scale);
+}
+
+void draw_name_back_arrow(Canvas &canvas)
+{
+    canvas.draw_line(23, 48, 47, 28, GrayLevel::Black);
+    canvas.draw_line(23, 48, 47, 68, GrayLevel::Black);
+    canvas.draw_line(24, 49, 66, 49, GrayLevel::Black);
+    canvas.draw_line(24, 52, 66, 52, GrayLevel::Black);
+}
+
+DesktopPetNameAction name_action_in_rects(
+    const Rect *rects,
+    const DesktopPetNameAction *actions,
+    size_t count,
+    int x,
+    int y)
+{
+    for (size_t index = 0U; index < count; ++index) {
+        if (rects[index].contains(x, y)) {
+            return actions[index];
+        }
+    }
+    return DesktopPetNameAction::None;
 }
 
 void draw_speech_bubble(Canvas &canvas, const char *message)
@@ -788,7 +884,27 @@ void desktop_pet_page_render_home(Canvas &canvas,
     canvas.set_rotation(CanvasRotation::Deg90CounterClockwise);
     canvas.clear(GrayLevel::White);
 
-    canvas.draw_text(22, 24, desktop_pet_state_stage_label(state), 3);
+    if (desktop_pet_state_has_name(state)) {
+        canvas.draw_text(22, 16, state.name, 3);
+        canvas.draw_text(24, 50, desktop_pet_state_stage_label(state), 2);
+        const int pencil_x = 31 + text_width(state.name, 3);
+        canvas.draw_line(pencil_x, 27, pencil_x + 12, 15,
+                         GrayLevel::Black);
+        canvas.draw_line(pencil_x + 3, 30, pencil_x + 15, 18,
+                         GrayLevel::Black);
+        canvas.draw_line(pencil_x, 27, pencil_x + 3, 30,
+                         GrayLevel::Black);
+    } else {
+        canvas.draw_text(22, 24, desktop_pet_state_stage_label(state), 3);
+        const int pencil_x = 31 +
+            text_width(desktop_pet_state_stage_label(state), 3);
+        canvas.draw_line(pencil_x, 35, pencil_x + 12, 23,
+                         GrayLevel::Black);
+        canvas.draw_line(pencil_x + 3, 38, pencil_x + 15, 26,
+                         GrayLevel::Black);
+        canvas.draw_line(pencil_x, 35, pencil_x + 3, 38,
+                         GrayLevel::Black);
+    }
 #if STICKY_DESKTOP_PET_TEST_MODE
     canvas.draw_rect(411, 18, 53, 35, GrayLevel::Black);
     canvas.draw_rect(413, 20, 49, 31, GrayLevel::Black);
@@ -1057,6 +1173,102 @@ void desktop_pet_page_render_personality_choice(
     draw_centered(canvas, 735, "TAP THE MOMENT THAT FEELS LIKE US", 2);
 }
 
+void desktop_pet_page_render_name_editor(
+    Canvas &canvas,
+    const char *text,
+    DesktopPetKeyboardMode keyboard_mode,
+    bool input_error,
+    bool can_cancel)
+{
+    canvas.set_rotation(CanvasRotation::Deg90CounterClockwise);
+    canvas.clear(GrayLevel::White);
+
+    if (can_cancel) {
+        draw_name_back_arrow(canvas);
+    }
+    draw_centered(canvas, 30, "NAME YOUR FRIEND", 3);
+    draw_centered(canvas, 72,
+                  can_cancel ? "CHOOSE A NEW NAME" : "A NAME MAKES IT YOURS",
+                  2);
+    canvas.draw_rect(kNameInputRect.x, kNameInputRect.y,
+                     kNameInputRect.width, kNameInputRect.height,
+                     GrayLevel::Black);
+    canvas.draw_rect(kNameInputRect.x + 3, kNameInputRect.y + 3,
+                     kNameInputRect.width - 6, kNameInputRect.height - 6,
+                     GrayLevel::Black);
+
+    const char *safe_text = text == nullptr ? "" : text;
+    char preview[kDesktopPetNameMaximumLength + 12U] = {};
+    std::snprintf(preview, sizeof(preview),
+                  safe_text[0] == '\0' ? "YOUR PET_" : "%s_",
+                  safe_text);
+    draw_centered_in_rect(canvas, kNameInputRect, preview, 4);
+
+    char count_text[16] = {};
+    std::snprintf(count_text, sizeof(count_text), "%u / %u",
+                  static_cast<unsigned>(std::strlen(safe_text)),
+                  static_cast<unsigned>(kDesktopPetNameMaximumLength));
+    canvas.draw_text(kNameInputRect.x + kNameInputRect.width -
+                         text_width(count_text, 2) - 10,
+                     232, count_text, 2);
+    if (input_error) {
+        canvas.draw_text(26, 232, "TYPE AT LEAST 1 CHARACTER", 1);
+    }
+
+    constexpr const char *kRow1Labels[] = {
+        "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P",
+    };
+    constexpr const char *kRow2Labels[] = {
+        "A", "S", "D", "F", "G", "H", "J", "K", "L",
+    };
+    constexpr const char *kRow3Labels[] = {
+        "Z", "X", "C", "V", "B", "N", "M",
+    };
+    constexpr const char *kDigitLabels[] = {
+        "1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
+    };
+
+    if (keyboard_mode == DesktopPetKeyboardMode::Letters) {
+        for (size_t index = 0U; index < 10U; ++index) {
+            draw_name_key(canvas, kNameLetterRow1[index],
+                          kRow1Labels[index]);
+        }
+        for (size_t index = 0U; index < 9U; ++index) {
+            draw_name_key(canvas, kNameLetterRow2[index],
+                          kRow2Labels[index]);
+        }
+        for (size_t index = 0U; index < 7U; ++index) {
+            draw_name_key(canvas, kNameLetterRow3[index],
+                          kRow3Labels[index]);
+        }
+    } else {
+        for (size_t index = 0U; index < 5U; ++index) {
+            draw_name_key(canvas, kNameDigitRow1[index],
+                          kDigitLabels[index], 4);
+            draw_name_key(canvas, kNameDigitRow2[index],
+                          kDigitLabels[index + 5U], 4);
+        }
+    }
+
+    draw_name_key(canvas, kNameToggleRect,
+                  keyboard_mode == DesktopPetKeyboardMode::Letters
+                      ? "123"
+                      : "ABC");
+    draw_name_key(canvas, kNameSpaceRect, "SPACE");
+    draw_name_key(canvas, kNameDeleteRect, "DELETE", 2);
+    draw_name_key(canvas, kNameClearRect, "CLEAR", 2);
+    canvas.fill_rect(kNameApplyRect.x, kNameApplyRect.y,
+                     kNameApplyRect.width, kNameApplyRect.height,
+                     GrayLevel::Black);
+    draw_centered_in_rect(canvas, kNameApplyRect, "SAVE NAME", 3,
+                          GrayLevel::White);
+    draw_centered(canvas, 712,
+                  can_cancel ? "BACK KEEPS THE CURRENT NAME"
+                             : "THIS FRIEND IS WAITING FOR A NAME",
+                  2);
+    draw_centered(canvas, 753, "LETTERS  NUMBERS  ONE SPACE", 1);
+}
+
 DesktopPetAction desktop_pet_page_action_at(bool test_open, int x, int y)
 {
     if (!test_open) {
@@ -1065,6 +1277,9 @@ DesktopPetAction desktop_pet_page_action_at(bool test_open, int x, int y)
             return DesktopPetAction::OpenTest;
         }
 #endif
+        if (kNameRect.contains(x, y)) {
+            return DesktopPetAction::OpenNameEditor;
+        }
         if (kPetBodyRect.contains(x, y)) {
             return DesktopPetAction::Pet;
         }
@@ -1122,4 +1337,122 @@ DesktopPetAction desktop_pet_page_personality_action_at(int x, int y)
         return DesktopPetAction::ChooseActive;
     }
     return DesktopPetAction::None;
+}
+
+DesktopPetNameAction desktop_pet_page_name_action_at(
+    DesktopPetKeyboardMode keyboard_mode,
+    bool can_cancel,
+    int x,
+    int y)
+{
+    if (x < 0 || y < 0 || x >= 480 || y >= 800) {
+        return DesktopPetNameAction::None;
+    }
+    if (can_cancel && kNameBackRect.contains(x, y)) {
+        return DesktopPetNameAction::Back;
+    }
+
+    if (keyboard_mode == DesktopPetKeyboardMode::Letters) {
+        DesktopPetNameAction action = name_action_in_rects(
+            kNameLetterRow1, kNameLetterRow1Actions, 10U, x, y);
+        if (action != DesktopPetNameAction::None) {
+            return action;
+        }
+        action = name_action_in_rects(
+            kNameLetterRow2, kNameLetterRow2Actions, 9U, x, y);
+        if (action != DesktopPetNameAction::None) {
+            return action;
+        }
+        action = name_action_in_rects(
+            kNameLetterRow3, kNameLetterRow3Actions, 7U, x, y);
+        if (action != DesktopPetNameAction::None) {
+            return action;
+        }
+    } else {
+        DesktopPetNameAction action = name_action_in_rects(
+            kNameDigitRow1, kNameDigitActions, 5U, x, y);
+        if (action != DesktopPetNameAction::None) {
+            return action;
+        }
+        action = name_action_in_rects(
+            kNameDigitRow2, kNameDigitActions + 5, 5U, x, y);
+        if (action != DesktopPetNameAction::None) {
+            return action;
+        }
+    }
+
+    if (kNameToggleRect.contains(x, y)) {
+        return DesktopPetNameAction::ToggleKeyboard;
+    }
+    if (kNameSpaceRect.contains(x, y)) {
+        return DesktopPetNameAction::Space;
+    }
+    if (kNameDeleteRect.contains(x, y)) {
+        return DesktopPetNameAction::Delete;
+    }
+    if (kNameClearRect.contains(x, y)) {
+        return DesktopPetNameAction::Clear;
+    }
+    if (kNameApplyRect.contains(x, y)) {
+        return DesktopPetNameAction::Apply;
+    }
+    return DesktopPetNameAction::None;
+}
+
+bool desktop_pet_name_action_character(DesktopPetNameAction action,
+                                       char &character)
+{
+    if (action >= DesktopPetNameAction::KeyA &&
+        action <= DesktopPetNameAction::KeyZ) {
+        character = static_cast<char>(
+            'A' + static_cast<int>(action) -
+            static_cast<int>(DesktopPetNameAction::KeyA));
+        return true;
+    }
+    if (action >= DesktopPetNameAction::Digit0 &&
+        action <= DesktopPetNameAction::Digit9) {
+        character = static_cast<char>(
+            '0' + static_cast<int>(action) -
+            static_cast<int>(DesktopPetNameAction::Digit0));
+        return true;
+    }
+    return false;
+}
+
+bool desktop_pet_name_action_can_batch(DesktopPetNameAction action)
+{
+    char character = '\0';
+    if (desktop_pet_name_action_character(action, character)) {
+        return true;
+    }
+    return action == DesktopPetNameAction::Space ||
+           action == DesktopPetNameAction::Delete ||
+           action == DesktopPetNameAction::Clear;
+}
+
+const char *desktop_pet_name_action_name(DesktopPetNameAction action)
+{
+    char character = '\0';
+    if (desktop_pet_name_action_character(action, character)) {
+        return character >= '0' && character <= '9'
+                   ? "key_digit"
+                   : "key_letter";
+    }
+    switch (action) {
+    case DesktopPetNameAction::Back:
+        return "back";
+    case DesktopPetNameAction::ToggleKeyboard:
+        return "toggle_keyboard";
+    case DesktopPetNameAction::Space:
+        return "space";
+    case DesktopPetNameAction::Delete:
+        return "delete";
+    case DesktopPetNameAction::Clear:
+        return "clear";
+    case DesktopPetNameAction::Apply:
+        return "apply";
+    case DesktopPetNameAction::None:
+    default:
+        return "none";
+    }
 }

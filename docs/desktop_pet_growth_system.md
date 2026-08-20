@@ -35,6 +35,7 @@ The saved state contains these groups of data:
 ### Identity
 
 - Save-data version
+- User-chosen name: up to 10 uppercase letters, digits, or spaces
 - Life stage
 - Personality branch
 - Hatch date
@@ -156,7 +157,7 @@ The current visible firmware implements Egg, Hatchling, Child, all three Youth p
 
 An independent core framework now exists under `src/apps/desktop_pet/core/`. It models six life stages, food, joy, energy, hygiene, seven relationship moods plus urgent need states, sleep, waste, care mistakes, bond, streaks, personality evidence, evolution readiness, dialogue history, bounded offline progression, a fixed animation queue, RTC conversion, and validated two-slot save records.
 
-The approved Egg and Hatchling UI stores hatching progress, growth, bond, daily counters, personality evidence, food, and mood in the versioned desktop-pet record. The home page displays food and the current mood, test-day rollover advances the need simulation, feeding restores food even after its daily growth reward has been collected, and state-aware dialogue is selected from the compact runtime table. Version-2, version-3, and version-4 pet saves migrate into the current record as already-hatched pets and preserve their achieved stages.
+The approved Egg and Hatchling UI stores the user-chosen name, hatching progress, growth, bond, daily counters, personality evidence, food, and mood in the versioned desktop-pet record. After the final hatching frame, a portrait QWERTY keyboard collects a name of up to 10 characters. The home page displays the saved name and opens the same editor when the name or stage heading is tapped. The home page also displays food and the current mood, test-day rollover advances the need simulation, feeding restores food even after its daily growth reward has been collected, and state-aware dialogue is selected from the compact runtime table. Version-2 through version-5 pet saves migrate into the current record and preserve their achieved stages without interrupting startup; an existing unnamed pet can be named from the home-page heading.
 
 Sleep, cleaning, PCF8563 hardware time, and the validated two-slot save backend remain independent integration blocks.
 

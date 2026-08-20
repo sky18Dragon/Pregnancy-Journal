@@ -7,14 +7,25 @@ int main()
 {
     DesktopPetState state = {};
     assert(state.version == kDesktopPetStateVersion);
-    assert(state.version == 5U);
+    assert(state.version == 6U);
     assert(state.pet.stage == PetLifeStage::Egg);
     assert(state.hatch_taps == 0U);
+    assert(!desktop_pet_state_has_name(state));
     assert(state.pet.growth == 10U);
     assert(state.pet.bond == 18U);
     assert(state.pet.day == 1U);
     assert(state.pet.needs.food == 80U);
     assert(std::strcmp(desktop_pet_state_mood_label(state), "HAPPY") == 0);
+
+    DesktopPetState naming_state = {};
+    assert(!desktop_pet_state_set_name(naming_state, "   "));
+    assert(!desktop_pet_state_set_name(naming_state, "***"));
+    assert(desktop_pet_state_set_name(naming_state,
+                                      "  little   bun  "));
+    assert(std::strcmp(naming_state.name, "LITTLE BUN") == 0);
+    assert(desktop_pet_state_has_name(naming_state));
+    assert(desktop_pet_state_set_name(naming_state, "ABCDEFGHIJKL"));
+    assert(std::strcmp(naming_state.name, "ABCDEFGHIJ") == 0);
     assert(!desktop_pet_state_apply(state, DesktopPetAction::Feed).changed);
     desktop_pet_state_advance_day(state);
     assert(state.pet.day == 1U);

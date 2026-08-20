@@ -88,6 +88,55 @@ int main()
     desktop_pet_page_render_home(
         canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::Normal,
         "LET'S SPEND TODAY TOGETHER.");
+    assert(!desktop_pet_state_has_name(state));
+    assert(desktop_pet_page_action_at(false, 120, 35) ==
+           DesktopPetAction::OpenNameEditor);
+    write_preview(buffer, "/tmp/desktop_pet_unnamed_home.ppm");
+
+    desktop_pet_page_render_name_editor(
+        canvas, "BUNNY", DesktopPetKeyboardMode::Letters, false, false);
+    assert(canvas.rotation() == CanvasRotation::Deg90CounterClockwise);
+    assert(black_pixel_count(buffer) > 12000U);
+    assert(desktop_pet_page_name_action_at(
+               DesktopPetKeyboardMode::Letters, false, 31, 300) ==
+           DesktopPetNameAction::KeyQ);
+    assert(desktop_pet_page_name_action_at(
+               DesktopPetKeyboardMode::Letters, false, 240, 540) ==
+           DesktopPetNameAction::Space);
+    assert(desktop_pet_page_name_action_at(
+               DesktopPetKeyboardMode::Letters, false, 300, 630) ==
+           DesktopPetNameAction::Apply);
+    assert(desktop_pet_page_name_action_at(
+               DesktopPetKeyboardMode::Letters, false, 40, 50) ==
+           DesktopPetNameAction::None);
+    assert(desktop_pet_page_name_action_at(
+               DesktopPetKeyboardMode::Letters, true, 40, 50) ==
+           DesktopPetNameAction::Back);
+    char name_character = '\0';
+    assert(desktop_pet_name_action_character(
+        DesktopPetNameAction::KeyZ, name_character));
+    assert(name_character == 'Z');
+    assert(desktop_pet_name_action_can_batch(
+        DesktopPetNameAction::Delete));
+    assert(!desktop_pet_name_action_can_batch(
+        DesktopPetNameAction::Apply));
+    write_preview(buffer, "/tmp/desktop_pet_name_letters.ppm");
+
+    desktop_pet_page_render_name_editor(
+        canvas, "BUNNY 2", DesktopPetKeyboardMode::Numbers, false, true);
+    assert(desktop_pet_page_name_action_at(
+               DesktopPetKeyboardMode::Numbers, true, 63, 328) ==
+           DesktopPetNameAction::Digit1);
+    assert(desktop_pet_page_name_action_at(
+               DesktopPetKeyboardMode::Numbers, true, 415, 418) ==
+           DesktopPetNameAction::Digit0);
+    write_preview(buffer, "/tmp/desktop_pet_name_numbers.ppm");
+
+    assert(desktop_pet_state_set_name(state, "BUNNY"));
+
+    desktop_pet_page_render_home(
+        canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::Normal,
+        "LET'S SPEND TODAY TOGETHER.");
     assert(canvas.rotation() == CanvasRotation::Deg90CounterClockwise);
     assert(black_pixel_count(buffer) > 18000U);
     assert(desktop_pet_page_action_at(false, 80, 680) ==
@@ -98,6 +147,8 @@ int main()
            DesktopPetAction::Play);
     assert(desktop_pet_page_action_at(false, 240, 500) ==
            DesktopPetAction::Pet);
+    assert(desktop_pet_page_action_at(false, 120, 35) ==
+           DesktopPetAction::OpenNameEditor);
     assert(desktop_pet_page_action_at(false, 440, 35) ==
            DesktopPetAction::OpenTest);
     write_preview(buffer, "/tmp/desktop_pet_home.ppm");

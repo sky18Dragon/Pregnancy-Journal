@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #include "core/pet_core.h"
@@ -15,6 +16,7 @@ enum class DesktopPetAction : uint8_t {
     Pet,
     Talk,
     Play,
+    OpenNameEditor,
     OpenTest,
     CloseTest,
     NextDay,
@@ -63,13 +65,15 @@ enum class DesktopPetHatchFrame : uint8_t {
     Opened,
 };
 
-constexpr uint32_t kDesktopPetStateVersion = 5U;
+constexpr uint32_t kDesktopPetStateVersion = 6U;
 constexpr uint8_t kDesktopPetRequiredHatchTaps = 3U;
+constexpr size_t kDesktopPetNameMaximumLength = 10U;
 
 struct DesktopPetState {
     uint32_t version = kDesktopPetStateVersion;
     PetCoreState pet = {};
     uint8_t hatch_taps = 0U;
+    char name[kDesktopPetNameMaximumLength + 1U] = {};
 
     DesktopPetState()
     {
@@ -121,6 +125,14 @@ DesktopPetEvolutionOutcome desktop_pet_state_evolve_if_ready(
 bool desktop_pet_state_choose_youth_branch(
     DesktopPetState &state,
     PetPersonalityBranch branch);
+
+// Stores a trimmed uppercase pet name containing letters, digits or spaces.
+// 保存由字母、数字或空格组成并已整理格式的大写宠物名字。
+bool desktop_pet_state_set_name(DesktopPetState &state, const char *name);
+
+// Returns whether the pet already has a user-confirmed name.
+// 返回宠物是否已经拥有用户确认过的名字。
+bool desktop_pet_state_has_name(const DesktopPetState &state);
 
 uint16_t desktop_pet_state_growth_limit(const DesktopPetState &state);
 const char *desktop_pet_state_stage_label(const DesktopPetState &state);

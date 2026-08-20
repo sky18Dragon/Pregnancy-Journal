@@ -1,6 +1,9 @@
 #include "desktop_pet_app.h"
 
+#include <cstddef>
 #include <cstdint>
+#include <cstdio>
+#include <cstring>
 
 #include "app_log.h"
 #include "canvas.h"
@@ -46,6 +49,13 @@ const char *s_message = kHomeMessage;
 const char *s_home_message = kHomeMessage;
 bool s_test_open = false;
 bool s_personality_choice_open = false;
+bool s_name_editor_open = false;
+bool s_name_required = false;
+bool s_name_input_error = false;
+DesktopPetKeyboardMode s_name_keyboard_mode =
+    DesktopPetKeyboardMode::Letters;
+char s_name_text[kDesktopPetNameMaximumLength + 1U] = {};
+size_t s_name_text_length = 0U;
 bool s_reset_confirmation = false;
 int64_t s_pose_deadline_us = 0;
 int64_t s_idle_next_us = 0;
@@ -187,7 +197,8 @@ esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
     if (timing_log) {
         STICKY_LOGD(kTag,
                     "pet=refresh page=%s mode=%s elapsed_ms=%lld result=%s",
-                    s_hatch_active ? "hatch"
+                    s_name_editor_open ? "name_editor"
+                    : s_hatch_active ? "hatch"
                     : s_test_open ? "test"
                     : s_state.pet.stage == PetLifeStage::Egg ? "egg"
                                                               : "home",
@@ -200,7 +211,8 @@ esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
     if (result != ESP_OK) {
         STICKY_LOGE(kTag,
                     "pet=refresh page=%s mode=%s result=%s",
-                    s_hatch_active ? "hatch"
+                    s_name_editor_open ? "name_editor"
+                    : s_hatch_active ? "hatch"
                     : s_test_open ? "test"
                     : s_state.pet.stage == PetLifeStage::Egg ? "egg"
                                                               : "home",
@@ -212,7 +224,14 @@ esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
 
 void render_current_page(bool partial_refresh, bool timing_log = true)
 {
-    if (s_hatch_active) {
+    if (s_name_editor_open) {
+        desktop_pet_page_render_name_editor(
+            *s_canvas,
+            s_name_text,
+            s_name_keyboard_mode,
+            s_name_input_error,
+            !s_name_required);
+    } else if (s_hatch_active) {
         desktop_pet_page_render_egg(*s_canvas, s_state, s_hatch_frame);
     } else if (s_evolution_active) {
         desktop_pet_page_render_evolution(
@@ -294,6 +313,33 @@ void cancel_idle_animation(bool schedule_next)
     }
 }
 
+// Opens the portrait editor with either a blank first name or current name.
+// 打开竖屏命名编辑器，并载入首次空名字或当前已有名字。
+void open_name_editor(bool required, bool render_page = true)
+{
+    cancel_idle_animation(false);
+    s_test_open = false;
+    s_personality_choice_open = false;
+    s_reset_confirmation = false;
+    s_pose = DesktopPetPose::Idle;
+    s_pose_deadline_us = 0;
+    s_name_editor_open = true;
+    s_name_required = required;
+    s_name_input_error = false;
+    s_name_keyboard_mode = DesktopPetKeyboardMode::Letters;
+    std::snprintf(s_name_text, sizeof(s_name_text), "%s",
+                  required ? "" : s_state.name);
+    s_name_text_length = std::strlen(s_name_text);
+    sticky_touch_clear_press();
+    if (render_page) {
+        render_current_page(false);
+    }
+    STICKY_LOGI(kTag,
+                "pet=name_editor state=open required=%d length=%u result=ok",
+                required ? 1 : 0,
+                static_cast<unsigned>(s_name_text_length));
+}
+
 // Starts one saved tap sequence without blocking touch polling.
 // 启动一次已保存的轻触动画，同时保持触摸轮询不被阻塞。
 void start_hatch_animation(const DesktopPetHatchResult &result)
@@ -351,6 +397,12 @@ void update_hatch_animation(int64_t now_us)
     s_hatch_deadline_us = 0;
     sticky_touch_clear_press();
     if (s_state.pet.stage == PetLifeStage::Hatchling) {
+        if (!desktop_pet_state_has_name(s_state)) {
+            open_name_editor(true);
+            STICKY_LOGI(kTag,
+                        "pet=hatch state=complete stage=hatchling next=name_editor result=ok");
+            return;
+        }
         s_home_message = select_home_message();
         s_message = s_home_message;
         render_current_page(false);
@@ -515,6 +567,7 @@ void update_idle_animation(int64_t now_us)
 {
     if (s_hatch_active || s_state.pet.stage == PetLifeStage::Egg ||
         s_evolution_active || s_test_open || s_personality_choice_open ||
+        s_name_editor_open ||
         s_pose != DesktopPetPose::Idle ||
         s_pose_deadline_us > 0) {
         return;
@@ -643,6 +696,102 @@ void handle_test_action(DesktopPetAction action)
     render_current_page(true);
 }
 
+struct NameEditorActionResult {
+    bool changed = false;
+    bool exited = false;
+};
+
+bool append_name_character(char character)
+{
+    if (s_name_text_length >= kDesktopPetNameMaximumLength) {
+        return false;
+    }
+    s_name_text[s_name_text_length++] = character;
+    s_name_text[s_name_text_length] = '\0';
+    return true;
+}
+
+// Applies one editor command without refreshing, allowing queued keys to batch.
+// 在不立即刷新的情况下应用一次编辑命令，让连续按键能够合并刷新。
+NameEditorActionResult handle_name_editor_action(
+    DesktopPetNameAction action)
+{
+    char character = '\0';
+    if (desktop_pet_name_action_character(action, character)) {
+        s_name_input_error = false;
+        const bool appended = append_name_character(character);
+        if (!appended) {
+            STICKY_LOGW(kTag,
+                        "pet=name_editor action=append result=full length=%u",
+                        static_cast<unsigned>(s_name_text_length));
+        }
+        return {appended, false};
+    }
+
+    switch (action) {
+    case DesktopPetNameAction::Space:
+        s_name_input_error = false;
+        if (s_name_text_length > 0U &&
+            s_name_text[s_name_text_length - 1U] != ' ') {
+            return {append_name_character(' '), false};
+        }
+        return {};
+    case DesktopPetNameAction::Delete:
+        s_name_input_error = false;
+        if (s_name_text_length > 0U) {
+            s_name_text[--s_name_text_length] = '\0';
+            return {true, false};
+        }
+        return {};
+    case DesktopPetNameAction::Clear:
+        s_name_input_error = false;
+        if (s_name_text_length > 0U) {
+            s_name_text_length = 0U;
+            s_name_text[0] = '\0';
+            return {true, false};
+        }
+        return {};
+    case DesktopPetNameAction::ToggleKeyboard:
+        s_name_input_error = false;
+        s_name_keyboard_mode =
+            s_name_keyboard_mode == DesktopPetKeyboardMode::Letters
+                ? DesktopPetKeyboardMode::Numbers
+                : DesktopPetKeyboardMode::Letters;
+        return {true, false};
+    case DesktopPetNameAction::Apply:
+        if (!desktop_pet_state_set_name(s_state, s_name_text)) {
+            s_name_input_error = true;
+            STICKY_LOGW(kTag,
+                        "pet=name_editor action=apply result=empty");
+            return {true, false};
+        }
+        save_state("name");
+        s_name_editor_open = false;
+        s_name_required = false;
+        s_name_input_error = false;
+        s_home_message = select_home_message();
+        s_message = s_home_message;
+        STICKY_LOGI(kTag,
+                    "pet=name_editor action=apply length=%u result=ok",
+                    static_cast<unsigned>(std::strlen(s_state.name)));
+        return {true, true};
+    case DesktopPetNameAction::Back:
+        if (!s_name_required) {
+            s_name_editor_open = false;
+            s_name_input_error = false;
+            s_home_message = select_home_message();
+            s_message = s_home_message;
+            STICKY_LOGI(kTag,
+                        "pet=name_editor action=back result=cancelled");
+            return {true, true};
+        }
+        return {};
+    case DesktopPetNameAction::None:
+    default:
+        return {};
+    }
+}
+
 void handle_action(DesktopPetAction action)
 {
     if (action == DesktopPetAction::None) {
@@ -672,6 +821,10 @@ void handle_action(DesktopPetAction action)
         return;
     }
     cancel_idle_animation(false);
+    if (action == DesktopPetAction::OpenNameEditor) {
+        open_name_editor(false);
+        return;
+    }
     if (action == DesktopPetAction::OpenTest) {
         s_test_open = true;
         s_reset_confirmation = false;
@@ -771,6 +924,34 @@ DesktopPetAction action_for_press(const StickyTouchPress &press)
     return action;
 }
 
+DesktopPetNameAction name_action_for_press(const StickyTouchPress &press)
+{
+    int logical_x = 0;
+    int logical_y = 0;
+    s_canvas->physical_to_logical(
+        press.x, press.y, logical_x, logical_y);
+    const DesktopPetNameAction action = desktop_pet_page_name_action_at(
+        s_name_keyboard_mode,
+        !s_name_required,
+        logical_x,
+        logical_y);
+#if STICKY_LOG_DESKTOP_PET_ENABLED
+    if (action != DesktopPetNameAction::None) {
+        const uint32_t now_ms =
+            static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
+        STICKY_LOGD(kTag,
+                    "pet=touch page=name_editor action=%s physical_x=%u physical_y=%u logical_x=%d logical_y=%d queue_latency_ms=%u",
+                    desktop_pet_name_action_name(action),
+                    static_cast<unsigned>(press.x),
+                    static_cast<unsigned>(press.y),
+                    logical_x,
+                    logical_y,
+                    static_cast<unsigned>(now_ms - press.captured_at_ms));
+    }
+#endif
+    return action;
+}
+
 void app_task(void *)
 {
     bool found = false;
@@ -785,10 +966,10 @@ void app_task(void *)
     sticky_touch_clear_press();
     s_idle_animation.reset();
     s_idle_frame = DesktopPetIdleFrame::Normal;
-    const DesktopPetEvolutionOutcome evolution_on_load =
-        desktop_pet_state_evolve_if_ready(s_state);
     s_home_message = select_home_message();
     s_message = s_home_message;
+    const DesktopPetEvolutionOutcome evolution_on_load =
+        desktop_pet_state_evolve_if_ready(s_state);
     if (evolution_on_load == DesktopPetEvolutionOutcome::Evolved) {
         save_state("evolution_on_load");
         start_evolution();
@@ -808,7 +989,11 @@ void app_task(void *)
 #endif
     STICKY_LOGI(kTag,
                 "pet=ready page=%s profile=%s save=%s stage=%s day=%u growth=%u love=%u food=%u mood=%s result=ok",
-                s_state.pet.stage == PetLifeStage::Egg ? "egg" : "home",
+                s_name_editor_open
+                    ? "name_editor"
+                    : (s_state.pet.stage == PetLifeStage::Egg
+                           ? "egg"
+                           : "home"),
 #if STICKY_DESKTOP_PET_TEST_MODE
                 "test",
 #else
@@ -825,7 +1010,55 @@ void app_task(void *)
     while (true) {
         StickyTouchPress press = {};
         if (sticky_touch_take_press(press)) {
-            handle_action(action_for_press(press));
+            if (s_name_editor_open) {
+                bool redraw_needed = false;
+                bool exited = false;
+                unsigned batched_actions = 0U;
+                while (true) {
+                    const DesktopPetNameAction action =
+                        name_action_for_press(press);
+                    if (action != DesktopPetNameAction::None) {
+                        const NameEditorActionResult result =
+                            handle_name_editor_action(action);
+                        redraw_needed = result.changed || redraw_needed;
+                        exited = result.exited || exited;
+                        ++batched_actions;
+                        if (result.exited ||
+                            !desktop_pet_name_action_can_batch(action)) {
+                            // The next screen must not inherit taps captured
+                            // for the keyboard that has just disappeared.
+                            // 下一个页面不接收刚刚消失的键盘所积累的触摸。
+                            sticky_touch_clear_press();
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+
+                    if (!sticky_touch_take_press(press)) {
+                        break;
+                    }
+                }
+
+                if (redraw_needed) {
+                    if (batched_actions > 1U) {
+                        STICKY_LOGI(kTag,
+                                    "pet=name_input_batch actions=%u refreshes=1",
+                                    batched_actions);
+                    }
+                    render_current_page(!exited);
+                    if (exited) {
+                        schedule_next_idle(esp_timer_get_time());
+#if STICKY_DESKTOP_PET_TEST_MODE
+                        s_day_deadline_us = esp_timer_get_time() +
+                            static_cast<int64_t>(
+                                kDesktopPetTestDayLengthMs) * 1000LL;
+#endif
+                    }
+                }
+            } else {
+                handle_action(action_for_press(press));
+            }
         }
 
         const int64_t now_us = esp_timer_get_time();
@@ -840,6 +1073,7 @@ void app_task(void *)
             continue;
         }
         if (!s_test_open && !s_personality_choice_open &&
+            !s_name_editor_open &&
             s_pose_deadline_us > 0 &&
             now_us >= s_pose_deadline_us) {
             s_pose = DesktopPetPose::Idle;
@@ -854,7 +1088,8 @@ void app_task(void *)
 
 #if STICKY_DESKTOP_PET_TEST_MODE
         if (s_state.pet.stage != PetLifeStage::Egg &&
-            !s_personality_choice_open && s_day_deadline_us > 0 &&
+            !s_personality_choice_open && !s_name_editor_open &&
+            s_day_deadline_us > 0 &&
             now_us >= s_day_deadline_us) {
             cancel_idle_animation(false);
             desktop_pet_state_advance_day(s_state);
