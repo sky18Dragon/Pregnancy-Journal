@@ -7,9 +7,10 @@ int main()
 {
     DesktopPetState state = {};
     assert(state.version == kDesktopPetStateVersion);
-    assert(state.version == 6U);
+    assert(state.version == 7U);
     assert(state.pet.stage == PetLifeStage::Egg);
     assert(state.hatch_taps == 0U);
+    assert(state.outing_plan.decision_day_key == 0U);
     assert(!desktop_pet_state_has_name(state));
     assert(state.pet.growth == 10U);
     assert(state.pet.bond == 18U);

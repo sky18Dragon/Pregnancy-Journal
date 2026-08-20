@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "core/pet_core.h"
+#include "desktop_pet_outing.h"
 
 #ifndef STICKY_DESKTOP_PET_TEST_MODE
 #define STICKY_DESKTOP_PET_TEST_MODE 1
@@ -82,7 +83,7 @@ enum class DesktopPetHatchFrame : uint8_t {
     Opened,
 };
 
-constexpr uint32_t kDesktopPetStateVersion = 6U;
+constexpr uint32_t kDesktopPetStateVersion = 7U;
 constexpr uint8_t kDesktopPetRequiredHatchTaps = 3U;
 constexpr size_t kDesktopPetNameMaximumLength = 10U;
 
@@ -91,6 +92,7 @@ struct DesktopPetState {
     PetCoreState pet = {};
     uint8_t hatch_taps = 0U;
     char name[kDesktopPetNameMaximumLength + 1U] = {};
+    DesktopPetOutingPlan outing_plan = {};
 
     DesktopPetState()
     {

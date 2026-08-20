@@ -16,6 +16,7 @@
 #include "pet_dialogue.h"
 #include "pet_idle_scheduler.h"
 #include "pet_rtc_time.h"
+#include "esp_random.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -58,10 +59,6 @@ constexpr int64_t kOutingAwaySceneHoldUs = 300000000LL;
 #endif
 constexpr char kHomeMessage[] = "LET'S SPEND TODAY TOGETHER.";
 
-// TODO(outing-runtime): Persist scheduled outings and arm automatic daytime
-// departures after the validated RTC adapter supplies trusted elapsed time.
-// TODO(outing-runtime): 接入已校验的RTC时间后，保存外出计划并启用白天自动外出。
-
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
 DesktopPetState s_state = {};
@@ -96,11 +93,14 @@ int64_t s_hatch_deadline_us = 0;
 bool s_sleep_secondary_frame = false;
 int64_t s_sleep_deadline_us = 0;
 DesktopPetOutingSession s_outing = {};
+bool s_outing_is_automatic = false;
 bool s_outing_secondary_frame = false;
 int64_t s_outing_scene_deadline_us = 0;
 int64_t s_rtc_next_poll_us = 0;
 uint32_t s_rtc_last_saved_epoch = 0U;
 bool s_rtc_has_valid_time = false;
+uint32_t s_rtc_anchor_epoch = 0U;
+int64_t s_rtc_anchor_us = 0;
 #if STICKY_DESKTOP_PET_TEST_MODE
 int64_t s_day_deadline_us = 0;
 #endif
@@ -781,6 +781,137 @@ bool rtc_page_can_refresh()
            s_pose == DesktopPetPose::Idle && s_pose_deadline_us == 0;
 }
 
+uint32_t current_rtc_epoch(int64_t now_us)
+{
+    if (!s_rtc_has_valid_time || s_rtc_anchor_epoch == 0U ||
+        now_us < s_rtc_anchor_us) {
+        return 0U;
+    }
+    return s_rtc_anchor_epoch + static_cast<uint32_t>(
+        (now_us - s_rtc_anchor_us) / 1000000LL);
+}
+
+bool automatic_outing_can_start()
+{
+    return s_state.pet.stage != PetLifeStage::Egg &&
+           s_state.pet.activity != PetActivity::Sleeping &&
+           !s_hatch_active && !s_evolution_active &&
+           !s_personality_choice_open && !s_name_editor_open &&
+           !s_test_open && !desktop_pet_outing_active(s_outing);
+}
+
+void prepare_automatic_outing()
+{
+    cancel_idle_animation(false);
+    s_pose = DesktopPetPose::Idle;
+    s_idle_frame = DesktopPetIdleFrame::Normal;
+    s_pose_deadline_us = 0;
+    s_outing_secondary_frame = false;
+    s_outing_scene_deadline_us = 0;
+    s_outing_is_automatic = true;
+    sticky_touch_clear_press();
+}
+
+// Reconciles the persistent RTC plan with the visual outing state.
+// 将持久化RTC日程与当前显示的外出状态同步。
+bool reconcile_automatic_outing(uint32_t now_epoch_seconds,
+                                int64_t now_us,
+                                bool initial_read,
+                                bool &plan_changed)
+{
+    plan_changed = false;
+    if (now_epoch_seconds == 0U ||
+        s_state.pet.stage == PetLifeStage::Egg) {
+        return false;
+    }
+
+#if STICKY_DESKTOP_PET_TEST_MODE
+    constexpr bool kAccelerated = true;
+#else
+    constexpr bool kAccelerated = false;
+#endif
+    plan_changed = desktop_pet_outing_plan_day(
+        s_state.outing_plan,
+        now_epoch_seconds,
+        esp_random(),
+        esp_random(),
+        esp_random(),
+        kAccelerated);
+
+    DesktopPetOutingPlanStatus status =
+        desktop_pet_outing_plan_status(
+            s_state.outing_plan, now_epoch_seconds);
+    if (plan_changed) {
+        STICKY_LOGI(kTag,
+                    "pet=outing schedule=%s source=rtc day_key=%u departure=%u return=%u duration_s=%u result=ok",
+                    desktop_pet_outing_plan_status_name(status),
+                    static_cast<unsigned>(
+                        s_state.outing_plan.decision_day_key),
+                    static_cast<unsigned>(
+                        s_state.outing_plan.departure_epoch_seconds),
+                    static_cast<unsigned>(
+                        s_state.outing_plan.return_epoch_seconds),
+                    static_cast<unsigned>(
+                        s_state.outing_plan.return_epoch_seconds >
+                                s_state.outing_plan.departure_epoch_seconds
+                            ? s_state.outing_plan.return_epoch_seconds -
+                                  s_state.outing_plan.departure_epoch_seconds
+                            : 0U));
+    }
+
+    if (status == DesktopPetOutingPlanStatus::Completed) {
+        if (s_outing_is_automatic &&
+            s_outing.phase == DesktopPetOutingPhase::Away) {
+            const uint32_t now_ms = static_cast<uint32_t>(
+                now_us / 1000LL);
+            if (desktop_pet_outing_call_home(s_outing, now_ms)) {
+                s_outing_secondary_frame = false;
+                s_outing_scene_deadline_us = 0;
+                if (!initial_read) {
+                    render_current_page(true, false);
+                }
+                STICKY_LOGI(kTag,
+                            "pet=outing phase=returning source=rtc result=ok");
+                return true;
+            }
+        }
+        return false;
+    }
+
+    if (status != DesktopPetOutingPlanStatus::Away ||
+        !automatic_outing_can_start()) {
+        return false;
+    }
+
+    const uint32_t remaining_seconds =
+        desktop_pet_outing_plan_remaining_seconds(
+            s_state.outing_plan, now_epoch_seconds);
+    if (remaining_seconds == 0U) {
+        return false;
+    }
+    const uint32_t now_ms = static_cast<uint32_t>(now_us / 1000LL);
+    prepare_automatic_outing();
+    const bool started = initial_read
+        ? desktop_pet_outing_resume_away(
+              s_outing, now_ms, remaining_seconds * 1000U)
+        : desktop_pet_outing_start_for_duration(
+              s_outing, now_ms, remaining_seconds * 1000U);
+    if (!started) {
+        s_outing_is_automatic = false;
+        return false;
+    }
+    if (initial_read) {
+        s_outing_scene_deadline_us = now_us + kOutingAwaySceneHoldUs;
+    } else {
+        render_current_page(false);
+    }
+    STICKY_LOGI(kTag,
+                "pet=outing phase=%s source=automatic remaining_s=%u result=ok",
+                desktop_pet_outing_phase_name(s_outing.phase),
+                static_cast<unsigned>(remaining_seconds));
+    return true;
+}
+
 // Applies one trusted PCF8563 snapshot to the persistent pet timeline.
 // 将一份可信的PCF8563快照应用到宠物的持久时间线。
 bool apply_rtc_time(bool offline_catch_up, bool initial_read)
@@ -854,7 +985,12 @@ bool apply_rtc_time(bool offline_catch_up, bool initial_read)
     }
 
     s_rtc_has_valid_time = true;
+    s_rtc_anchor_epoch = epoch_seconds;
+    s_rtc_anchor_us = now_us;
     s_rtc_next_poll_us = now_us + kRtcPollIntervalUs;
+    bool outing_plan_changed = false;
+    reconcile_automatic_outing(
+        epoch_seconds, now_us, initial_read, outing_plan_changed);
     const bool day_changed = s_state.pet.day != previous_day;
     const bool visible_needs_changed =
         s_state.pet.needs.food != previous_food ||
@@ -874,6 +1010,7 @@ bool apply_rtc_time(bool offline_catch_up, bool initial_read)
         s_rtc_last_saved_epoch == 0U ||
         epoch_seconds - s_rtc_last_saved_epoch >= kRtcSaveIntervalSeconds;
     if (initial_read || day_changed || woke_automatically ||
+        outing_plan_changed ||
         save_interval_reached) {
         save_state(initial_read ? "rtc_boot" : "rtc_periodic");
         s_rtc_last_saved_epoch = epoch_seconds;
@@ -956,6 +1093,7 @@ void start_test_outing()
     s_pose_deadline_us = 0;
     s_outing_secondary_frame = false;
     s_outing_scene_deadline_us = 0;
+    s_outing_is_automatic = false;
 #if STICKY_DESKTOP_PET_TEST_MODE
     constexpr bool kAccelerated = true;
 #else
@@ -981,6 +1119,11 @@ void call_outing_home()
     }
     s_outing_secondary_frame = false;
     s_outing_scene_deadline_us = 0;
+    if (s_outing_is_automatic) {
+        desktop_pet_outing_complete_plan(s_state.outing_plan);
+        save_state("outing_call_home");
+        s_outing_is_automatic = false;
+    }
     sticky_touch_clear_press();
     render_current_page(true);
     STICKY_LOGI(kTag,
@@ -1003,6 +1146,11 @@ void update_outing(int64_t now_us)
                 ? now_us + kOutingAwaySceneHoldUs
                 : 0;
         if (s_outing.phase == DesktopPetOutingPhase::Home) {
+            if (s_outing_is_automatic) {
+                desktop_pet_outing_complete_plan(s_state.outing_plan);
+                save_state("outing_returned");
+                s_outing_is_automatic = false;
+            }
             s_home_message = select_home_message();
             s_message = outing_return_message();
             render_current_page(false);
@@ -1126,6 +1274,13 @@ void handle_test_action(DesktopPetAction action)
     if (!result.changed) {
         return;
     }
+#if STICKY_DESKTOP_PET_TEST_MODE
+    // A simulated new day re-arms the daily automatic-outing test.
+    // 模拟进入新的一天时，重新启用当天的自动外出测试。
+    if (action == DesktopPetAction::NextDay) {
+        s_state.outing_plan = {};
+    }
+#endif
     s_reset_confirmation = false;
     s_message = result.message;
     s_home_message = select_home_message();
@@ -1493,10 +1648,13 @@ void app_task(void *)
         }
         render_current_page(false);
         if (s_state.pet.stage != PetLifeStage::Egg &&
-            s_state.pet.activity != PetActivity::Sleeping) {
+            s_state.pet.activity != PetActivity::Sleeping &&
+            !desktop_pet_outing_active(s_outing)) {
             schedule_next_idle(esp_timer_get_time());
         }
-        play_empty_energy_sound_once();
+        if (!desktop_pet_outing_active(s_outing)) {
+            play_empty_energy_sound_once();
+        }
     }
 #if STICKY_DESKTOP_PET_TEST_MODE
     s_day_deadline_us = esp_timer_get_time() +
@@ -1507,6 +1665,7 @@ void app_task(void *)
                 "pet=ready page=%s profile=%s save=%s stage=%s day=%u growth=%u love=%u food=%u mood=%s result=ok",
                 s_name_editor_open
                     ? "name_editor"
+                    : desktop_pet_outing_active(s_outing) ? "outing"
                     : s_state.pet.activity == PetActivity::Sleeping
                            ? "sleep"
                     : (s_state.pet.stage == PetLifeStage::Egg
@@ -1582,6 +1741,15 @@ void app_task(void *)
         const int64_t now_us = esp_timer_get_time();
         if (s_rtc_next_poll_us == 0 || now_us >= s_rtc_next_poll_us) {
             apply_rtc_time(false, false);
+        }
+        const uint32_t rtc_epoch = current_rtc_epoch(now_us);
+        if (rtc_epoch != 0U) {
+            bool outing_plan_changed = false;
+            reconcile_automatic_outing(
+                rtc_epoch, now_us, false, outing_plan_changed);
+            if (outing_plan_changed) {
+                save_state("outing_schedule");
+            }
         }
         desktop_pet_sound_rearm_need_alerts(
             s_state, s_need_sound_state);

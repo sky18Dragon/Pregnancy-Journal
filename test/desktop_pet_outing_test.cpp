@@ -36,5 +36,71 @@ int main()
 
     assert(desktop_pet_outing_update(session, 24311U));
     assert(session.phase == DesktopPetOutingPhase::Returning);
+
+    DesktopPetOutingPlan production_home = {};
+    const uint32_t day_start = 20000U * 86400U;
+    assert(desktop_pet_outing_plan_day(
+        production_home, day_start + 8U * 3600U,
+        4U, 0U, 0U, false));
+    assert(desktop_pet_outing_plan_status(
+               production_home, day_start + 8U * 3600U) ==
+           DesktopPetOutingPlanStatus::StayingHome);
+    assert(!desktop_pet_outing_plan_day(
+        production_home, day_start + 9U * 3600U,
+        0U, 0U, 0U, false));
+
+    DesktopPetOutingPlan production_trip = {};
+    assert(desktop_pet_outing_plan_day(
+        production_trip, day_start + 8U * 3600U,
+        0U, 0U, 0U, false));
+    assert(production_trip.departure_epoch_seconds ==
+           day_start + 9U * 3600U);
+    assert(production_trip.return_epoch_seconds ==
+           day_start + 10U * 3600U);
+    assert(desktop_pet_outing_plan_status(
+               production_trip, day_start + 8U * 3600U) ==
+           DesktopPetOutingPlanStatus::Scheduled);
+    assert(desktop_pet_outing_plan_status(
+               production_trip, day_start + 9U * 3600U) ==
+           DesktopPetOutingPlanStatus::Away);
+    assert(desktop_pet_outing_plan_remaining_seconds(
+               production_trip, day_start + 9U * 3600U) == 3600U);
+    assert(desktop_pet_outing_plan_status(
+               production_trip, day_start + 10U * 3600U) ==
+           DesktopPetOutingPlanStatus::Completed);
+
+    DesktopPetOutingPlan late_day = {};
+    assert(desktop_pet_outing_plan_day(
+        late_day, day_start + 16U * 3600U,
+        0U, 0U, 0U, false));
+    assert(desktop_pet_outing_plan_status(
+               late_day, day_start + 16U * 3600U) ==
+           DesktopPetOutingPlanStatus::StayingHome);
+
+    DesktopPetOutingPlan test_trip = {};
+    assert(desktop_pet_outing_plan_day(
+        test_trip, day_start + 18U * 3600U,
+        4U, 0U, 0U, true));
+    assert(test_trip.departure_epoch_seconds ==
+           day_start + 18U * 3600U + 15U);
+    assert(test_trip.return_epoch_seconds ==
+           day_start + 18U * 3600U + 35U);
+
+    DesktopPetOutingSession resumed = {};
+    assert(desktop_pet_outing_resume_away(resumed, 1000U, 25000U));
+    assert(resumed.phase == DesktopPetOutingPhase::Away);
+    assert(resumed.phase_deadline_ms == 26000U);
+
+    desktop_pet_outing_complete_plan(test_trip);
+    assert(desktop_pet_outing_plan_status(
+               test_trip, day_start + 18U * 3600U + 16U) ==
+           DesktopPetOutingPlanStatus::StayingHome);
+
+    DesktopPetOutingPlan invalid = {};
+    invalid.decision_day_key = 20U;
+    invalid.departure_epoch_seconds = 300U;
+    invalid.return_epoch_seconds = 200U;
+    desktop_pet_outing_sanitize_plan(invalid);
+    assert(invalid.decision_day_key == 0U);
     return 0;
 }

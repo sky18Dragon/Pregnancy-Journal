@@ -16,6 +16,7 @@ constexpr uint32_t kLegacyCoreStateVersion = 1U;
 constexpr uint32_t kLegacyDesktopStateVersion = 3U;
 constexpr uint32_t kLegacyDesktopStateVersionV4 = 4U;
 constexpr uint32_t kLegacyDesktopStateVersionV5 = 5U;
+constexpr uint32_t kLegacyDesktopStateVersionV6 = 6U;
 
 struct LegacyDesktopPetStateV2 {
     uint32_t version = kLegacyStateVersion;
@@ -78,6 +79,13 @@ struct LegacyDesktopPetStateV5 {
     uint8_t hatch_taps = 0U;
 };
 
+struct LegacyDesktopPetStateV6 {
+    uint32_t version = kLegacyDesktopStateVersionV6;
+    PetCoreState pet = {};
+    uint8_t hatch_taps = 0U;
+    char name[kDesktopPetNameMaximumLength + 1U] = {};
+};
+
 const PetCoreProfile &storage_profile()
 {
 #if STICKY_DESKTOP_PET_TEST_MODE
@@ -100,6 +108,7 @@ void sanitize(DesktopPetState &state)
     }
     state.pet.growth = std::min<uint16_t>(
         state.pet.growth, desktop_pet_state_growth_limit(state));
+    desktop_pet_outing_sanitize_plan(state.outing_plan);
     state.name[kDesktopPetNameMaximumLength] = '\0';
     if (state.name[0] != '\0') {
         char name_copy[kDesktopPetNameMaximumLength + 1U] = {};
@@ -199,6 +208,18 @@ void migrate_v5(const LegacyDesktopPetStateV5 &legacy,
     sanitize(state);
 }
 
+// Preserves the named version-6 pet and starts with no outing decision.
+// 保留版本6中已经命名的宠物，并从尚未生成外出决定开始。
+void migrate_v6(const LegacyDesktopPetStateV6 &legacy,
+                DesktopPetState &state)
+{
+    state = {};
+    state.pet = legacy.pet;
+    state.hatch_taps = legacy.hatch_taps;
+    std::memcpy(state.name, legacy.name, sizeof(state.name));
+    sanitize(state);
+}
+
 }  // namespace
 
 esp_err_t desktop_pet_storage_load(DesktopPetState &state, bool &found)
@@ -228,6 +249,7 @@ esp_err_t desktop_pet_storage_load(DesktopPetState &state, bool &found)
 
     constexpr size_t kMaximumRecordSize = std::max(
         {sizeof(DesktopPetState),
+         sizeof(LegacyDesktopPetStateV6),
          sizeof(LegacyDesktopPetStateV5),
          sizeof(LegacyDesktopPetStateV4),
          sizeof(LegacyDesktopPetStateV3),
@@ -251,6 +273,14 @@ esp_err_t desktop_pet_storage_load(DesktopPetState &state, bool &found)
         size == sizeof(DesktopPetState)) {
         std::memcpy(&state, bytes.data(), sizeof(state));
         sanitize(state);
+        found = true;
+        return ESP_OK;
+    }
+    if (stored_version == kLegacyDesktopStateVersionV6 &&
+        size == sizeof(LegacyDesktopPetStateV6)) {
+        LegacyDesktopPetStateV6 legacy = {};
+        std::memcpy(&legacy, bytes.data(), sizeof(legacy));
+        migrate_v6(legacy, state);
         found = true;
         return ESP_OK;
     }
