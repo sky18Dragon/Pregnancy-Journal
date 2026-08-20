@@ -13,6 +13,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "sticky_buzzer.h"
 #include "sticky_display.h"
 #include "sticky_touch.h"
 
@@ -31,6 +32,9 @@ constexpr int64_t kTalkMessageHoldUs = 4000000LL;
 constexpr int64_t kEvolutionStartingHoldUs = 1300000LL;
 constexpr int64_t kEvolutionSilhouetteHoldUs = 1400000LL;
 constexpr int64_t kEvolutionRevealHoldUs = 2600000LL;
+constexpr int64_t kHatchWobbleHoldUs = 420000LL;
+constexpr int64_t kHatchCrackHoldUs = 900000LL;
+constexpr int64_t kHatchWelcomeHoldUs = 2400000LL;
 constexpr char kHomeMessage[] = "LET'S SPEND TODAY TOGETHER.";
 
 Canvas *s_canvas = nullptr;
@@ -52,6 +56,10 @@ bool s_evolution_active = false;
 DesktopPetEvolutionFrame s_evolution_frame =
     DesktopPetEvolutionFrame::Starting;
 int64_t s_evolution_deadline_us = 0;
+bool s_hatch_active = false;
+bool s_hatch_final = false;
+DesktopPetHatchFrame s_hatch_frame = DesktopPetHatchFrame::Resting;
+int64_t s_hatch_deadline_us = 0;
 #if STICKY_DESKTOP_PET_TEST_MODE
 int64_t s_day_deadline_us = 0;
 #endif
@@ -179,7 +187,10 @@ esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
     if (timing_log) {
         STICKY_LOGD(kTag,
                     "pet=refresh page=%s mode=%s elapsed_ms=%lld result=%s",
-                    s_test_open ? "test" : "home",
+                    s_hatch_active ? "hatch"
+                    : s_test_open ? "test"
+                    : s_state.pet.stage == PetLifeStage::Egg ? "egg"
+                                                              : "home",
                     partial_refresh ? "partial" : "full",
                     static_cast<long long>(
                         (esp_timer_get_time() - started_us) / 1000LL),
@@ -189,7 +200,10 @@ esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
     if (result != ESP_OK) {
         STICKY_LOGE(kTag,
                     "pet=refresh page=%s mode=%s result=%s",
-                    s_test_open ? "test" : "home",
+                    s_hatch_active ? "hatch"
+                    : s_test_open ? "test"
+                    : s_state.pet.stage == PetLifeStage::Egg ? "egg"
+                                                              : "home",
                     partial_refresh ? "partial" : "full",
                     esp_err_to_name(result));
     }
@@ -198,7 +212,9 @@ esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
 
 void render_current_page(bool partial_refresh, bool timing_log = true)
 {
-    if (s_evolution_active) {
+    if (s_hatch_active) {
+        desktop_pet_page_render_egg(*s_canvas, s_state, s_hatch_frame);
+    } else if (s_evolution_active) {
         desktop_pet_page_render_evolution(
             *s_canvas, s_state, s_evolution_frame);
     } else if (s_personality_choice_open) {
@@ -206,6 +222,9 @@ void render_current_page(bool partial_refresh, bool timing_log = true)
     } else if (s_test_open) {
         desktop_pet_page_render_test(
             *s_canvas, s_state, s_reset_confirmation);
+    } else if (s_state.pet.stage == PetLifeStage::Egg) {
+        desktop_pet_page_render_egg(
+            *s_canvas, s_state, DesktopPetHatchFrame::Resting);
     } else {
         desktop_pet_page_render_home(
             *s_canvas, s_state, s_pose, s_idle_frame, s_message);
@@ -247,6 +266,10 @@ void enqueue_idle_frame(DesktopPetIdleFrame frame,
 
 void schedule_next_idle(int64_t now_us)
 {
+    if (s_state.pet.stage == PetLifeStage::Egg) {
+        s_idle_next_us = 0;
+        return;
+    }
     const uint32_t random_value =
         static_cast<uint32_t>(now_us / 1000LL) ^
         static_cast<uint32_t>(s_state.pet.day * 2654435761U);
@@ -269,6 +292,79 @@ void cancel_idle_animation(bool schedule_next)
     if (schedule_next) {
         schedule_next_idle(esp_timer_get_time());
     }
+}
+
+// Starts one saved tap sequence without blocking touch polling.
+// 启动一次已保存的轻触动画，同时保持触摸轮询不被阻塞。
+void start_hatch_animation(const DesktopPetHatchResult &result)
+{
+    cancel_idle_animation(false);
+    s_test_open = false;
+    s_personality_choice_open = false;
+    s_reset_confirmation = false;
+    s_pose = DesktopPetPose::Idle;
+    s_pose_deadline_us = 0;
+    s_hatch_active = true;
+    s_hatch_final = result.hatched;
+    s_hatch_frame = DesktopPetHatchFrame::WobbleLeft;
+    sticky_touch_clear_press();
+    render_current_page(true, false);
+    s_hatch_deadline_us = esp_timer_get_time() + kHatchWobbleHoldUs;
+}
+
+// Advances the wobble, crack and welcome frames for one accepted tap.
+// 推进一次有效轻触对应的摇摆、裂开和欢迎画面。
+void update_hatch_animation(int64_t now_us)
+{
+    if (!s_hatch_active || now_us < s_hatch_deadline_us) {
+        return;
+    }
+
+    if (s_hatch_frame == DesktopPetHatchFrame::WobbleLeft) {
+        s_hatch_frame = DesktopPetHatchFrame::WobbleRight;
+        render_current_page(true, false);
+        s_hatch_deadline_us = esp_timer_get_time() + kHatchWobbleHoldUs;
+        return;
+    }
+    if (s_hatch_frame == DesktopPetHatchFrame::WobbleRight) {
+        s_hatch_frame = DesktopPetHatchFrame::Cracked;
+        render_current_page(true, false);
+        s_hatch_deadline_us = esp_timer_get_time() + kHatchCrackHoldUs;
+        return;
+    }
+    if (s_hatch_frame == DesktopPetHatchFrame::Cracked && s_hatch_final) {
+        s_hatch_frame = DesktopPetHatchFrame::Opened;
+        const esp_err_t buzzer_result = sticky_buzzer_play_hatch_chime();
+        if (buzzer_result != ESP_OK) {
+            STICKY_LOGW(kTag,
+                        "pet=hatch sound=failed result=%s",
+                        esp_err_to_name(buzzer_result));
+        }
+        render_current_page(true, false);
+        s_hatch_deadline_us = esp_timer_get_time() + kHatchWelcomeHoldUs;
+        return;
+    }
+
+    s_hatch_active = false;
+    s_hatch_final = false;
+    s_hatch_frame = DesktopPetHatchFrame::Resting;
+    s_hatch_deadline_us = 0;
+    sticky_touch_clear_press();
+    if (s_state.pet.stage == PetLifeStage::Hatchling) {
+        s_home_message = select_home_message();
+        s_message = s_home_message;
+        render_current_page(false);
+        schedule_next_idle(esp_timer_get_time());
+#if STICKY_DESKTOP_PET_TEST_MODE
+        s_day_deadline_us = esp_timer_get_time() +
+                            static_cast<int64_t>(
+                                kDesktopPetTestDayLengthMs) * 1000LL;
+#endif
+        STICKY_LOGI(kTag,
+                    "pet=hatch state=complete stage=hatchling result=ok");
+        return;
+    }
+    render_current_page(true, false);
 }
 
 // Starts a non-blocking three-frame stage transition.
@@ -417,7 +513,8 @@ void start_idle_animation(int64_t now_us)
 // 推进自主动作帧，同时保持触摸处理不被阻塞。
 void update_idle_animation(int64_t now_us)
 {
-    if (s_evolution_active || s_test_open || s_personality_choice_open ||
+    if (s_hatch_active || s_state.pet.stage == PetLifeStage::Egg ||
+        s_evolution_active || s_test_open || s_personality_choice_open ||
         s_pose != DesktopPetPose::Idle ||
         s_pose_deadline_us > 0) {
         return;
@@ -490,7 +587,9 @@ void handle_test_action(DesktopPetAction action)
         s_pose = DesktopPetPose::Idle;
         s_idle_frame = DesktopPetIdleFrame::Normal;
         s_pose_deadline_us = 0;
-        schedule_next_idle(esp_timer_get_time());
+        if (s_state.pet.stage != PetLifeStage::Egg) {
+            schedule_next_idle(esp_timer_get_time());
+        }
         sticky_touch_clear_press();
         render_current_page(true);
         return;
@@ -499,6 +598,11 @@ void handle_test_action(DesktopPetAction action)
     if (action == DesktopPetAction::Reset && !s_reset_confirmation) {
         s_reset_confirmation = true;
         render_current_page(true);
+        return;
+    }
+
+    if (s_state.pet.stage == PetLifeStage::Egg &&
+        action != DesktopPetAction::Reset) {
         return;
     }
 
@@ -576,6 +680,22 @@ void handle_action(DesktopPetAction action)
         return;
     }
 
+    if (action == DesktopPetAction::TapEgg) {
+        const DesktopPetHatchResult hatch_result =
+            desktop_pet_state_tap_egg(s_state);
+        if (!hatch_result.changed) {
+            return;
+        }
+        save_state("tap_egg");
+        STICKY_LOGI(kTag,
+                    "pet=hatch tap=%u required=%u hatched=%d result=ok",
+                    static_cast<unsigned>(hatch_result.tap_count),
+                    static_cast<unsigned>(kDesktopPetRequiredHatchTaps),
+                    hatch_result.hatched ? 1 : 0);
+        start_hatch_animation(hatch_result);
+        return;
+    }
+
     const DesktopPetActionResult result =
         desktop_pet_state_apply(s_state, action);
     if (!result.changed) {
@@ -616,26 +736,31 @@ void handle_action(DesktopPetAction action)
 
 DesktopPetAction action_for_press(const StickyTouchPress &press)
 {
-    if (s_evolution_active) {
+    if (s_hatch_active || s_evolution_active) {
         return DesktopPetAction::None;
     }
     int logical_x = 0;
     int logical_y = 0;
     s_canvas->physical_to_logical(
         press.x, press.y, logical_x, logical_y);
-    const DesktopPetAction action = s_personality_choice_open
-                                        ? desktop_pet_page_personality_action_at(
-                                              logical_x, logical_y)
-                                        : desktop_pet_page_action_at(
-                                              s_test_open,
-                                              logical_x,
-                                              logical_y);
+    DesktopPetAction action = DesktopPetAction::None;
+    if (s_personality_choice_open) {
+        action = desktop_pet_page_personality_action_at(logical_x,
+                                                        logical_y);
+    } else if (!s_test_open && s_state.pet.stage == PetLifeStage::Egg) {
+        action = desktop_pet_page_egg_action_at(logical_x, logical_y);
+    } else {
+        action = desktop_pet_page_action_at(s_test_open,
+                                            logical_x,
+                                            logical_y);
+    }
 #if STICKY_LOG_DESKTOP_PET_ENABLED
     const uint32_t now_ms =
         static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
     STICKY_LOGD(kTag,
                 "pet=touch page=%s action=%s physical_x=%u physical_y=%u logical_x=%d logical_y=%d queue_latency_ms=%u",
-                s_test_open ? "test" : "home",
+                s_test_open ? "test"
+                : s_state.pet.stage == PetLifeStage::Egg ? "egg" : "home",
                 desktop_pet_action_name(action),
                 static_cast<unsigned>(press.x),
                 static_cast<unsigned>(press.y),
@@ -672,7 +797,9 @@ void app_task(void *)
         open_personality_choice();
     } else {
         render_current_page(false);
-        schedule_next_idle(esp_timer_get_time());
+        if (s_state.pet.stage != PetLifeStage::Egg) {
+            schedule_next_idle(esp_timer_get_time());
+        }
     }
 #if STICKY_DESKTOP_PET_TEST_MODE
     s_day_deadline_us = esp_timer_get_time() +
@@ -680,7 +807,8 @@ void app_task(void *)
                             1000LL;
 #endif
     STICKY_LOGI(kTag,
-                "pet=ready page=home profile=%s save=%s stage=%s day=%u growth=%u love=%u food=%u mood=%s result=ok",
+                "pet=ready page=%s profile=%s save=%s stage=%s day=%u growth=%u love=%u food=%u mood=%s result=ok",
+                s_state.pet.stage == PetLifeStage::Egg ? "egg" : "home",
 #if STICKY_DESKTOP_PET_TEST_MODE
                 "test",
 #else
@@ -701,6 +829,11 @@ void app_task(void *)
         }
 
         const int64_t now_us = esp_timer_get_time();
+        if (s_hatch_active) {
+            update_hatch_animation(now_us);
+            vTaskDelay(kPollInterval);
+            continue;
+        }
         if (s_evolution_active) {
             update_evolution(now_us);
             vTaskDelay(kPollInterval);
@@ -720,7 +853,8 @@ void app_task(void *)
         update_idle_animation(now_us);
 
 #if STICKY_DESKTOP_PET_TEST_MODE
-        if (!s_personality_choice_open && s_day_deadline_us > 0 &&
+        if (s_state.pet.stage != PetLifeStage::Egg &&
+            !s_personality_choice_open && s_day_deadline_us > 0 &&
             now_us >= s_day_deadline_us) {
             cancel_idle_animation(false);
             desktop_pet_state_advance_day(s_state);

@@ -7,12 +7,33 @@ int main()
 {
     DesktopPetState state = {};
     assert(state.version == kDesktopPetStateVersion);
-    assert(state.version == 4U);
+    assert(state.version == 5U);
+    assert(state.pet.stage == PetLifeStage::Egg);
+    assert(state.hatch_taps == 0U);
     assert(state.pet.growth == 10U);
     assert(state.pet.bond == 18U);
     assert(state.pet.day == 1U);
     assert(state.pet.needs.food == 80U);
     assert(std::strcmp(desktop_pet_state_mood_label(state), "HAPPY") == 0);
+    assert(!desktop_pet_state_apply(state, DesktopPetAction::Feed).changed);
+    desktop_pet_state_advance_day(state);
+    assert(state.pet.day == 1U);
+
+    const DesktopPetHatchResult first_tap =
+        desktop_pet_state_tap_egg(state);
+    assert(first_tap.changed && !first_tap.hatched);
+    assert(first_tap.tap_count == 1U);
+    assert(state.pet.stage == PetLifeStage::Egg);
+    const DesktopPetHatchResult second_tap =
+        desktop_pet_state_tap_egg(state);
+    assert(second_tap.changed && !second_tap.hatched);
+    assert(second_tap.tap_count == 2U);
+    const DesktopPetHatchResult third_tap =
+        desktop_pet_state_tap_egg(state);
+    assert(third_tap.changed && third_tap.hatched);
+    assert(third_tap.tap_count == kDesktopPetRequiredHatchTaps);
+    assert(state.pet.stage == PetLifeStage::Hatchling);
+    assert(!desktop_pet_state_tap_egg(state).changed);
 
     const DesktopPetActionResult add_growth =
         desktop_pet_state_apply(state, DesktopPetAction::AddGrowth);
@@ -33,6 +54,7 @@ int main()
     assert(state.pet.growth == 60U);
 
     DesktopPetState waiting_to_grow = {};
+    waiting_to_grow.pet.stage = PetLifeStage::Hatchling;
     waiting_to_grow.pet.needs.food = 20U;
     desktop_pet_state_apply(waiting_to_grow, DesktopPetAction::AddGrowth);
     assert(desktop_pet_state_evolve_if_ready(waiting_to_grow) ==
@@ -113,6 +135,8 @@ int main()
     assert(!desktop_pet_state_choose_youth_branch(
         chosen_youth, PetPersonalityBranch::Active));
     state = {};
+    state.pet.stage = PetLifeStage::Hatchling;
+    state.hatch_taps = kDesktopPetRequiredHatchTaps;
 
     const DesktopPetActionResult feed =
         desktop_pet_state_apply(state, DesktopPetAction::Feed);
@@ -165,6 +189,7 @@ int main()
     assert(state.pet.active_score == 6U);
 
     DesktopPetState talk_state = {};
+    talk_state.pet.stage = PetLifeStage::Hatchling;
     const uint16_t growth_before_talk = talk_state.pet.growth;
     const uint8_t love_before_talk = talk_state.pet.bond;
     const char *talk_lines[6] = {};
@@ -247,5 +272,7 @@ int main()
     assert(state.pet.bond == 18U);
     assert(state.pet.day == 1U);
     assert(state.pet.needs.food == 80U);
+    assert(state.pet.stage == PetLifeStage::Egg);
+    assert(state.hatch_taps == 0U);
     return 0;
 }

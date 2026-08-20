@@ -25,16 +25,29 @@ struct AlarmNote {
     uint32_t frequency_hz;
     uint32_t duration_ms;
     uint32_t gap_ms;
+    uint32_t duty;
 };
 
 constexpr AlarmNote kAlarmNotes[] = {
-    {1047, 140, 60},
-    {1319, 140, 60},
-    {1568, 220, 1200},
+    {1047, 140, 60, kAlarmDuty},
+    {1319, 140, 60, kAlarmDuty},
+    {1568, 220, 1200, kAlarmDuty},
+};
+
+constexpr AlarmNote kHatchNotes[] = {
+    {784, 110, 70, 140},
+    {988, 130, 70, 140},
+    {1319, 260, 0, 160},
+};
+
+enum class BuzzerMode : uint8_t {
+    Silent,
+    Alarm,
+    HatchChime,
 };
 
 TaskHandle_t s_alarm_task = nullptr;
-std::atomic_bool s_alarm_active = false;
+std::atomic<BuzzerMode> s_mode = BuzzerMode::Silent;
 
 esp_err_t set_duty(uint32_t duty)
 {
@@ -43,33 +56,33 @@ esp_err_t set_duty(uint32_t duty)
     return ledc_update_duty(kSpeedMode, kChannel);
 }
 
-bool wait_while_active(uint32_t duration_ms)
+bool wait_while_mode(BuzzerMode mode, uint32_t duration_ms)
 {
     TickType_t remaining = pdMS_TO_TICKS(duration_ms);
-    while (remaining > 0 && s_alarm_active.load()) {
+    while (remaining > 0 && s_mode.load() == mode) {
         const TickType_t slice = remaining > kCheckInterval
                                      ? kCheckInterval
                                      : remaining;
         vTaskDelay(slice);
         remaining -= slice;
     }
-    return s_alarm_active.load();
+    return s_mode.load() == mode;
 }
 
-esp_err_t play_note(const AlarmNote &note)
+esp_err_t play_note(const AlarmNote &note, BuzzerMode mode)
 {
     ESP_RETURN_ON_ERROR(
         ledc_set_freq(kSpeedMode, kTimer, note.frequency_hz),
         kTag,
         "set note frequency");
-    if (!s_alarm_active.load()) {
+    if (s_mode.load() != mode) {
         return ESP_OK;
     }
-    ESP_RETURN_ON_ERROR(set_duty(kAlarmDuty), kTag, "start note");
-    const bool keep_playing = wait_while_active(note.duration_ms);
+    ESP_RETURN_ON_ERROR(set_duty(note.duty), kTag, "start note");
+    const bool keep_playing = wait_while_mode(mode, note.duration_ms);
     ESP_RETURN_ON_ERROR(set_duty(0), kTag, "finish note");
     if (keep_playing) {
-        wait_while_active(note.gap_ms);
+        wait_while_mode(mode, note.gap_ms);
     }
     return ESP_OK;
 }
@@ -78,20 +91,43 @@ void alarm_task(void *)
 {
     while (true) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        while (s_alarm_active.load()) {
+        while (s_mode.load() == BuzzerMode::Alarm) {
             for (const AlarmNote &note : kAlarmNotes) {
-                if (!s_alarm_active.load()) {
+                if (s_mode.load() != BuzzerMode::Alarm) {
                     break;
                 }
-                const esp_err_t result = play_note(note);
+                const esp_err_t result = play_note(note, BuzzerMode::Alarm);
                 if (result != ESP_OK) {
-                    s_alarm_active.store(false);
+                    s_mode.store(BuzzerMode::Silent);
                     set_duty(0);
                     STICKY_LOGW(kTag,
                                 "buzzer=alarm state=failed result=%s",
                                 esp_err_to_name(result));
                     break;
                 }
+            }
+        }
+        if (s_mode.load() == BuzzerMode::HatchChime) {
+            esp_err_t result = ESP_OK;
+            for (const AlarmNote &note : kHatchNotes) {
+                if (s_mode.load() != BuzzerMode::HatchChime) {
+                    break;
+                }
+                result = play_note(note, BuzzerMode::HatchChime);
+                if (result != ESP_OK) {
+                    break;
+                }
+            }
+            BuzzerMode expected = BuzzerMode::HatchChime;
+            const bool completed = s_mode.compare_exchange_strong(
+                expected, BuzzerMode::Silent);
+            if (result == ESP_OK && completed) {
+                STICKY_LOGI(kTag,
+                            "buzzer=hatch_chime state=finished result=ok");
+            } else if (result != ESP_OK) {
+                STICKY_LOGW(kTag,
+                            "buzzer=hatch_chime state=failed result=%s",
+                            esp_err_to_name(result));
             }
         }
         set_duty(0);
@@ -136,7 +172,7 @@ esp_err_t sticky_buzzer_init()
     }
 
     STICKY_LOGI(kTag,
-                "buzzer=ready pin=%d pattern=three_note result=ok",
+                "buzzer=ready pin=%d patterns=alarm,hatch_chime result=ok",
                 PIN_BUZZER);
     return ESP_OK;
 }
@@ -146,19 +182,33 @@ esp_err_t sticky_buzzer_start_alarm()
     if (s_alarm_task == nullptr) {
         return ESP_ERR_INVALID_STATE;
     }
-    if (!s_alarm_active.exchange(true)) {
+    if (s_mode.exchange(BuzzerMode::Alarm) != BuzzerMode::Alarm) {
         xTaskNotifyGive(s_alarm_task);
         STICKY_LOGI(kTag, "buzzer=alarm state=started pattern=three_note");
     }
     return ESP_OK;
 }
 
+esp_err_t sticky_buzzer_play_hatch_chime()
+{
+    if (s_alarm_task == nullptr) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    s_mode.store(BuzzerMode::HatchChime);
+    xTaskNotifyGive(s_alarm_task);
+    STICKY_LOGI(kTag,
+                "buzzer=hatch_chime state=started pattern=gentle_three_note");
+    return ESP_OK;
+}
+
 esp_err_t sticky_buzzer_stop()
 {
-    const bool was_active = s_alarm_active.exchange(false);
+    const BuzzerMode previous = s_mode.exchange(BuzzerMode::Silent);
     ESP_RETURN_ON_ERROR(set_duty(0), kTag, "stop alarm");
-    if (was_active) {
-        STICKY_LOGI(kTag, "buzzer=alarm state=stopped");
+    if (previous != BuzzerMode::Silent) {
+        STICKY_LOGI(kTag,
+                    "buzzer=stopped previous=%s",
+                    previous == BuzzerMode::Alarm ? "alarm" : "hatch_chime");
     }
     return ESP_OK;
 }

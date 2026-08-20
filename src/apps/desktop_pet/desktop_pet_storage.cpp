@@ -14,6 +14,7 @@ constexpr char kStateKey[] = "state";
 constexpr uint32_t kLegacyStateVersion = 2U;
 constexpr uint32_t kLegacyCoreStateVersion = 1U;
 constexpr uint32_t kLegacyDesktopStateVersion = 3U;
+constexpr uint32_t kLegacyDesktopStateVersionV4 = 4U;
 
 struct LegacyDesktopPetStateV2 {
     uint32_t version = kLegacyStateVersion;
@@ -65,6 +66,11 @@ struct LegacyDesktopPetStateV3 {
     LegacyPetCoreStateV1 pet = {};
 };
 
+struct LegacyDesktopPetStateV4 {
+    uint32_t version = kLegacyDesktopStateVersionV4;
+    PetCoreState pet = {};
+};
+
 const PetCoreProfile &storage_profile()
 {
 #if STICKY_DESKTOP_PET_TEST_MODE
@@ -78,6 +84,13 @@ void sanitize(DesktopPetState &state)
 {
     state.version = kDesktopPetStateVersion;
     pet_core_sanitize(state.pet, storage_profile());
+    if (state.pet.stage == PetLifeStage::Egg) {
+        state.hatch_taps = std::min<uint8_t>(
+            state.hatch_taps,
+            static_cast<uint8_t>(kDesktopPetRequiredHatchTaps - 1U));
+    } else {
+        state.hatch_taps = kDesktopPetRequiredHatchTaps;
+    }
     state.pet.growth = std::min<uint16_t>(
         state.pet.growth, desktop_pet_state_growth_limit(state));
 }
@@ -88,6 +101,8 @@ void migrate_v2(const LegacyDesktopPetStateV2 &legacy,
                 DesktopPetState &state)
 {
     state = {};
+    state.pet.stage = PetLifeStage::Hatchling;
+    state.hatch_taps = kDesktopPetRequiredHatchTaps;
     state.pet.growth = legacy.growth;
     state.pet.bond = legacy.love;
     state.pet.day = legacy.day;
@@ -102,13 +117,16 @@ void migrate_v2(const LegacyDesktopPetStateV2 &legacy,
     sanitize(state);
 }
 
-// Copies the complete version-3 Child record into the version-4 core.
-// 将完整的版本3儿童期存档复制到版本4核心结构。
+// Copies the complete version-3 Child record into the current core.
+// 将完整的版本3儿童期存档复制到当前核心结构。
 void migrate_v3(const LegacyDesktopPetStateV3 &legacy,
                 DesktopPetState &state)
 {
     state = {};
-    state.pet.stage = legacy.pet.stage;
+    state.hatch_taps = kDesktopPetRequiredHatchTaps;
+    state.pet.stage = legacy.pet.stage == PetLifeStage::Egg
+                          ? PetLifeStage::Hatchling
+                          : legacy.pet.stage;
     state.pet.activity = legacy.pet.activity;
     state.pet.needs = legacy.pet.needs;
     state.pet.growth = legacy.pet.growth;
@@ -141,6 +159,20 @@ void migrate_v3(const LegacyDesktopPetStateV3 &legacy,
     sanitize(state);
 }
 
+// Preserves every accepted version-4 pet field and marks it as already hatched.
+// 保留版本4存档的全部宠物字段，并标记为已完成孵化。
+void migrate_v4(const LegacyDesktopPetStateV4 &legacy,
+                DesktopPetState &state)
+{
+    state = {};
+    state.pet = legacy.pet;
+    if (state.pet.stage == PetLifeStage::Egg) {
+        state.pet.stage = PetLifeStage::Hatchling;
+    }
+    state.hatch_taps = kDesktopPetRequiredHatchTaps;
+    sanitize(state);
+}
+
 }  // namespace
 
 esp_err_t desktop_pet_storage_load(DesktopPetState &state, bool &found)
@@ -168,8 +200,11 @@ esp_err_t desktop_pet_storage_load(DesktopPetState &state, bool &found)
         return result;
     }
 
-    constexpr size_t kMaximumRecordSize =
-        std::max(sizeof(DesktopPetState), sizeof(LegacyDesktopPetStateV3));
+    constexpr size_t kMaximumRecordSize = std::max(
+        {sizeof(DesktopPetState),
+         sizeof(LegacyDesktopPetStateV4),
+         sizeof(LegacyDesktopPetStateV3),
+         sizeof(LegacyDesktopPetStateV2)});
     std::array<uint8_t, kMaximumRecordSize> bytes = {};
     if (size > bytes.size()) {
         nvs_close(handle);
@@ -189,6 +224,14 @@ esp_err_t desktop_pet_storage_load(DesktopPetState &state, bool &found)
         size == sizeof(DesktopPetState)) {
         std::memcpy(&state, bytes.data(), sizeof(state));
         sanitize(state);
+        found = true;
+        return ESP_OK;
+    }
+    if (stored_version == kLegacyDesktopStateVersionV4 &&
+        size == sizeof(LegacyDesktopPetStateV4)) {
+        LegacyDesktopPetStateV4 legacy = {};
+        std::memcpy(&legacy, bytes.data(), sizeof(legacy));
+        migrate_v4(legacy, state);
         found = true;
         return ESP_OK;
     }

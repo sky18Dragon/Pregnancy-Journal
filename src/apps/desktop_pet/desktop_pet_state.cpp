@@ -244,6 +244,10 @@ DesktopPetActionResult apply_talk(DesktopPetState &state)
 DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
                                                DesktopPetAction action)
 {
+    if (state.pet.stage == PetLifeStage::Egg &&
+        action != DesktopPetAction::Reset) {
+        return {};
+    }
     switch (action) {
     case DesktopPetAction::Feed:
     case DesktopPetAction::Pet:
@@ -304,14 +308,38 @@ DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
     case DesktopPetAction::ChooseFoodie:
     case DesktopPetAction::ChooseAffectionate:
     case DesktopPetAction::ChooseActive:
+    case DesktopPetAction::TapEgg:
     case DesktopPetAction::None:
         return {};
     }
     return {};
 }
 
+DesktopPetHatchResult desktop_pet_state_tap_egg(DesktopPetState &state)
+{
+    if (state.pet.stage != PetLifeStage::Egg) {
+        return {};
+    }
+
+    state.hatch_taps = static_cast<uint8_t>(std::min<unsigned>(
+        static_cast<unsigned>(state.hatch_taps) + 1U,
+        kDesktopPetRequiredHatchTaps));
+    if (state.hatch_taps < kDesktopPetRequiredHatchTaps) {
+        return {true, false, state.hatch_taps};
+    }
+
+    // The newborn always starts from the documented Hatchling baseline.
+    // 新生宠物始终从已定义的幼兔初始数值开始。
+    state.pet = {};
+    state.pet.stage = PetLifeStage::Hatchling;
+    return {true, true, state.hatch_taps};
+}
+
 void desktop_pet_state_advance_day(DesktopPetState &state)
 {
+    if (state.pet.stage == PetLifeStage::Egg) {
+        return;
+    }
 #if STICKY_DESKTOP_PET_TEST_MODE
     pet_core_advance_minutes(state.pet,
                              kDesktopPetTestNeedMinutesPerDay,
@@ -370,6 +398,8 @@ bool desktop_pet_state_choose_youth_branch(
 uint16_t desktop_pet_state_growth_limit(const DesktopPetState &state)
 {
     switch (state.pet.stage) {
+    case PetLifeStage::Egg:
+        return kDesktopPetHatchlingGrowthLimit;
     case PetLifeStage::Adult:
     case PetLifeStage::Youth:
         return kDesktopPetYouthGrowthLimit;
@@ -384,6 +414,8 @@ uint16_t desktop_pet_state_growth_limit(const DesktopPetState &state)
 const char *desktop_pet_state_stage_label(const DesktopPetState &state)
 {
     switch (state.pet.stage) {
+    case PetLifeStage::Egg:
+        return "EGG";
     case PetLifeStage::Adult:
         switch (state.pet.branch) {
         case PetPersonalityBranch::Foodie:
@@ -446,6 +478,8 @@ const char *desktop_pet_state_mood_label(const DesktopPetState &state)
 const char *desktop_pet_action_name(DesktopPetAction action)
 {
     switch (action) {
+    case DesktopPetAction::TapEgg:
+        return "tap_egg";
     case DesktopPetAction::Feed:
         return "feed";
     case DesktopPetAction::Pet:

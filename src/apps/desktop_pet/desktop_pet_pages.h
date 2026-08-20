@@ -4,6 +4,12 @@
 
 class Canvas;
 
+// Draws the full-screen egg and one frame of its tap-to-hatch sequence.
+// 绘制全屏宠物蛋，以及轻触孵化过程中的一帧。
+void desktop_pet_page_render_egg(Canvas &canvas,
+                                 const DesktopPetState &state,
+                                 DesktopPetHatchFrame frame);
+
 // Draws the portrait home scene for the current pose and dialogue.
 // 根据当前动作姿势和对白绘制竖屏桌宠主页。
 void desktop_pet_page_render_home(Canvas &canvas,
@@ -32,4 +38,5 @@ void desktop_pet_page_render_personality_choice(
     const DesktopPetState &state);
 
 DesktopPetAction desktop_pet_page_action_at(bool test_open, int x, int y);
+DesktopPetAction desktop_pet_page_egg_action_at(int x, int y);
 DesktopPetAction desktop_pet_page_personality_action_at(int x, int y);

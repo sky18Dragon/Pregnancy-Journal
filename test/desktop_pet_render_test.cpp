@@ -59,6 +59,32 @@ int main()
                   buffer.data(), buffer.size());
     DesktopPetState state = {};
 
+    desktop_pet_page_render_egg(
+        canvas, state, DesktopPetHatchFrame::Resting);
+    assert(canvas.rotation() == CanvasRotation::Deg90CounterClockwise);
+    assert(black_pixel_count(buffer) > 7000U);
+    assert(desktop_pet_page_egg_action_at(240, 350) ==
+           DesktopPetAction::TapEgg);
+    assert(desktop_pet_page_egg_action_at(440, 35) ==
+           DesktopPetAction::OpenTest);
+    assert(desktop_pet_page_egg_action_at(20, 760) ==
+           DesktopPetAction::None);
+    write_preview(buffer, "/tmp/desktop_pet_egg_intact.ppm");
+
+    state.hatch_taps = 1U;
+    desktop_pet_page_render_egg(
+        canvas, state, DesktopPetHatchFrame::Cracked);
+    write_preview(buffer, "/tmp/desktop_pet_egg_crack_one.ppm");
+    state.hatch_taps = 2U;
+    desktop_pet_page_render_egg(
+        canvas, state, DesktopPetHatchFrame::Cracked);
+    write_preview(buffer, "/tmp/desktop_pet_egg_crack_two.ppm");
+    state.hatch_taps = kDesktopPetRequiredHatchTaps;
+    state.pet.stage = PetLifeStage::Hatchling;
+    desktop_pet_page_render_egg(
+        canvas, state, DesktopPetHatchFrame::Opened);
+    write_preview(buffer, "/tmp/desktop_pet_egg_open.ppm");
+
     desktop_pet_page_render_home(
         canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::Normal,
         "LET'S SPEND TODAY TOGETHER.");

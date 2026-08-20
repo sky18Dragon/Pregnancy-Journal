@@ -10,6 +10,7 @@
 
 enum class DesktopPetAction : uint8_t {
     None,
+    TapEgg,
     Feed,
     Pet,
     Talk,
@@ -54,11 +55,32 @@ enum class DesktopPetEvolutionOutcome : uint8_t {
     ChoiceRequired,
 };
 
-constexpr uint32_t kDesktopPetStateVersion = 4U;
+enum class DesktopPetHatchFrame : uint8_t {
+    Resting,
+    WobbleLeft,
+    WobbleRight,
+    Cracked,
+    Opened,
+};
+
+constexpr uint32_t kDesktopPetStateVersion = 5U;
+constexpr uint8_t kDesktopPetRequiredHatchTaps = 3U;
 
 struct DesktopPetState {
     uint32_t version = kDesktopPetStateVersion;
     PetCoreState pet = {};
+    uint8_t hatch_taps = 0U;
+
+    DesktopPetState()
+    {
+        pet.stage = PetLifeStage::Egg;
+    }
+};
+
+struct DesktopPetHatchResult {
+    bool changed = false;
+    bool hatched = false;
+    uint8_t tap_count = 0U;
 };
 
 struct DesktopPetActionResult {
@@ -80,6 +102,10 @@ constexpr uint32_t kDesktopPetTestNeedMinutesPerDay = 10U;
 // 将一次照料或测试操作应用到可持久化的桌宠状态。
 DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
                                                DesktopPetAction action);
+
+// Records one accepted egg tap and creates the initial Hatchling on tap three.
+// 记录一次有效的蛋触摸，并在第三次触摸时创建初始幼兔。
+DesktopPetHatchResult desktop_pet_state_tap_egg(DesktopPetState &state);
 
 // Starts a new simulated day and resets only the daily reward counters.
 // 开始新的模拟日期，并只重置当天奖励计数。

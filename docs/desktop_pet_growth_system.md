@@ -152,13 +152,13 @@ The accelerated rewards will still pass through the normal daily counters and ca
 
 ### Current Implemented Slice
 
-The current visible firmware implements Hatchling, Child, all three Youth personality forms, and all three matching Adult forms. A Hatchling with `30` growth and all four care needs at or above `40` automatically plays a three-frame full-page evolution scene and opens the Child home. At `120` growth, the pet either follows a clear score leader or opens the final three-way care choice before saving and revealing the selected Youth form. At `280` growth, a well-cared-for Youth keeps its selected branch and plays a second three-frame transition into the corresponding Adult form.
+The current visible firmware implements Egg, Hatchling, Child, all three Youth personality forms, and all three matching Adult forms. A new record opens on a full-screen Egg page. Three completed taps are saved independently: the first tap rocks and cracks the Egg, the second reveals two ears, and the third opens the shell, plays a gentle three-note chime, and creates the Hatchling baseline at growth `10`, affection `18`, and food `80`. A Hatchling with `30` growth and all four care needs at or above `40` automatically plays a three-frame full-page evolution scene and opens the Child home. At `120` growth, the pet either follows a clear score leader or opens the final three-way care choice before saving and revealing the selected Youth form. At `280` growth, a well-cared-for Youth keeps its selected branch and plays a second three-frame transition into the corresponding Adult form.
 
 An independent core framework now exists under `src/apps/desktop_pet/core/`. It models six life stages, food, joy, energy, hygiene, seven relationship moods plus urgent need states, sleep, waste, care mistakes, bond, streaks, personality evidence, evolution readiness, dialogue history, bounded offline progression, a fixed animation queue, RTC conversion, and validated two-slot save records.
 
-The approved Hatchling UI now stores its growth, bond, daily counters, personality evidence, food, and mood in `PetCoreState`. The home page displays food and the current mood, test-day rollover advances the need simulation, feeding restores food even after its daily growth reward has been collected, and state-aware dialogue is selected from the compact runtime table. Version-2 Hatchling saves migrate into the shared core record.
+The approved Egg and Hatchling UI stores hatching progress, growth, bond, daily counters, personality evidence, food, and mood in the versioned desktop-pet record. The home page displays food and the current mood, test-day rollover advances the need simulation, feeding restores food even after its daily growth reward has been collected, and state-aware dialogue is selected from the compact runtime table. Version-2, version-3, and version-4 pet saves migrate into the current record as already-hatched pets and preserve their achieved stages.
 
-Sleep, cleaning, PCF8563 hardware time, the validated two-slot save backend, Egg hatching, and later-stage artwork remain independent integration blocks.
+Sleep, cleaning, PCF8563 hardware time, and the validated two-slot save backend remain independent integration blocks.
 
 ### Production Profile
 

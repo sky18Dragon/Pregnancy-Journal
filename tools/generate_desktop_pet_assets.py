@@ -184,6 +184,12 @@ def main() -> None:
 
     specs = [
         AssetSpec("room", source_dir / "room_background.png", 440, 340, "crop=1350:1040:0:62"),
+        AssetSpec("egg_intact", source_dir / "egg_hatching_sheet.png", 280, 280, "crop=512:512:0:0", True),
+        AssetSpec("egg_wobble_left", source_dir / "egg_hatching_sheet.png", 280, 280, "crop=512:512:512:0", True),
+        AssetSpec("egg_wobble_right", source_dir / "egg_hatching_sheet.png", 280, 280, "crop=512:512:0:512", True),
+        AssetSpec("egg_crack_one", source_dir / "egg_hatching_sheet.png", 280, 280, "crop=512:512:512:512", True),
+        AssetSpec("egg_crack_two", source_dir / "egg_hatching_sheet.png", 280, 280, "crop=512:512:0:1024", True),
+        AssetSpec("egg_open", source_dir / "egg_hatching_sheet.png", 280, 280, "crop=576:576:448:960", True),
         AssetSpec("idle", source_dir / "hatchling_idle.png", 220, 220, "crop=920:920:167:167", True),
         AssetSpec("idle_blink", source_dir / "hatchling_blink.png", 220, 220, "crop=920:920:167:167", True),
         AssetSpec("idle_ear_twitch", source_dir / "hatchling_ear_twitch.png", 220, 220, "crop=1000:1000:127:127", True),
@@ -252,6 +258,21 @@ def main() -> None:
     source_path = args.root / "src" / "ui" / "assets" / "desktop_pet_assets.cpp"
     header_path.write_text(
         """#pragma once\n\n#include \"pixel_asset.h\"\n\nenum class DesktopPetAssetId : uint8_t {\n    Room,\n    Idle,\n    IdleMask,\n    IdleBlink,\n    IdleBlinkMask,\n    IdleEarTwitch,\n    IdleEarTwitchMask,\n    IdleLookAround,\n    IdleLookAroundMask,\n    IdleStretch,\n    IdleStretchMask,\n    IdleHungry,\n    IdleHungryMask,\n    IdleTired,\n    IdleTiredMask,\n    Feed,\n    FeedMask,\n    Pet,\n    PetMask,\n    Play,\n    PlayMask,\n    ChildIdle,\n    ChildIdleMask,\n    ChildIdleBlink,\n    ChildIdleBlinkMask,\n    ChildIdleEarTwitch,\n    ChildIdleEarTwitchMask,\n    ChildIdleLookAround,\n    ChildIdleLookAroundMask,\n    ChildIdleStretch,\n    ChildIdleStretchMask,\n    ChildIdleHungry,\n    ChildIdleHungryMask,\n    ChildIdleTired,\n    ChildIdleTiredMask,\n    ChildFeed,\n    ChildFeedMask,\n    ChildPet,\n    ChildPetMask,\n    ChildPlay,\n    ChildPlayMask,\n    FeedIcon,\n    PetIcon,\n    TalkIcon,\n    PlayIcon,\n    LoveIcon,\n};\n\n// Returns one generated desktop-pet bitmap.\n// 返回一张已生成的桌宠位图。\nconst PixelAsset &desktop_pet_asset(DesktopPetAssetId id);\n""",
+        encoding="utf-8",
+    )
+    egg_enum_lines: list[str] = []
+    for spec in specs:
+        if not spec.name.startswith("egg_"):
+            continue
+        enum_name = "".join(part.capitalize() for part in spec.name.split("_"))
+        egg_enum_lines.append(f"    {enum_name},")
+        if spec.subject_mask:
+            egg_enum_lines.append(f"    {enum_name}Mask,")
+    header_path.write_text(
+        header_path.read_text(encoding="utf-8").replace(
+            "    Idle,",
+            "\n".join(egg_enum_lines) + "\n    Idle,",
+        ),
         encoding="utf-8",
     )
     personality_enum_lines: list[str] = []

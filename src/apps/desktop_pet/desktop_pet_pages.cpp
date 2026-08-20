@@ -26,6 +26,7 @@ struct Rect {
 };
 
 constexpr Rect kTestBadgeRect = {390, 12, 90, 72};
+constexpr Rect kEggBodyRect = {55, 155, 370, 450};
 constexpr Rect kFeedRect = {0, 600, 160, 170};
 constexpr Rect kTalkRect = {160, 600, 160, 170};
 constexpr Rect kPlayRect = {320, 600, 160, 170};
@@ -621,7 +622,140 @@ void draw_sparkle(Canvas &canvas, int x, int y, int radius)
     canvas.fill_rect(x - 1, y - 1, 3, 3, GrayLevel::Black);
 }
 
+DesktopPetAssetId egg_asset(const DesktopPetState &state,
+                            DesktopPetHatchFrame frame)
+{
+    if (frame == DesktopPetHatchFrame::Opened) {
+        return DesktopPetAssetId::EggOpen;
+    }
+    if (frame == DesktopPetHatchFrame::WobbleLeft &&
+        state.hatch_taps == 1U) {
+        return DesktopPetAssetId::EggWobbleLeft;
+    }
+    if (frame == DesktopPetHatchFrame::WobbleRight &&
+        state.hatch_taps == 1U) {
+        return DesktopPetAssetId::EggWobbleRight;
+    }
+    if ((frame == DesktopPetHatchFrame::WobbleLeft ||
+         frame == DesktopPetHatchFrame::WobbleRight) &&
+        state.hatch_taps == 2U) {
+        return DesktopPetAssetId::EggCrackOne;
+    }
+    if (state.hatch_taps >= kDesktopPetRequiredHatchTaps) {
+        return DesktopPetAssetId::EggCrackTwo;
+    }
+    if (state.hatch_taps >= 2U) {
+        return DesktopPetAssetId::EggCrackTwo;
+    }
+    if (state.hatch_taps >= 1U) {
+        return DesktopPetAssetId::EggCrackOne;
+    }
+    return DesktopPetAssetId::EggIntact;
+}
+
+DesktopPetAssetId egg_mask_asset(DesktopPetAssetId asset)
+{
+    switch (asset) {
+    case DesktopPetAssetId::EggWobbleLeft:
+        return DesktopPetAssetId::EggWobbleLeftMask;
+    case DesktopPetAssetId::EggWobbleRight:
+        return DesktopPetAssetId::EggWobbleRightMask;
+    case DesktopPetAssetId::EggCrackOne:
+        return DesktopPetAssetId::EggCrackOneMask;
+    case DesktopPetAssetId::EggCrackTwo:
+        return DesktopPetAssetId::EggCrackTwoMask;
+    case DesktopPetAssetId::EggOpen:
+        return DesktopPetAssetId::EggOpenMask;
+    case DesktopPetAssetId::EggIntact:
+    default:
+        return DesktopPetAssetId::EggIntactMask;
+    }
+}
+
+int egg_frame_offset(const DesktopPetState &state,
+                     DesktopPetHatchFrame frame)
+{
+    if (state.hatch_taps <= 1U) {
+        return 0;
+    }
+    if (frame == DesktopPetHatchFrame::WobbleLeft) {
+        return state.hatch_taps >= kDesktopPetRequiredHatchTaps ? -18 : -12;
+    }
+    if (frame == DesktopPetHatchFrame::WobbleRight) {
+        return state.hatch_taps >= kDesktopPetRequiredHatchTaps ? 18 : 12;
+    }
+    return 0;
+}
+
 }  // namespace
+
+void desktop_pet_page_render_egg(Canvas &canvas,
+                                 const DesktopPetState &state,
+                                 DesktopPetHatchFrame frame)
+{
+    canvas.set_rotation(CanvasRotation::Deg90CounterClockwise);
+    canvas.clear(GrayLevel::White);
+
+    const bool opened = frame == DesktopPetHatchFrame::Opened;
+    draw_centered(canvas, 58,
+                  opened ? "WELCOME, LITTLE ONE!"
+                         : "A NEW FRIEND IS HERE",
+                  3);
+    draw_centered(canvas, 105,
+                  opened ? "OUR DAYS TOGETHER BEGIN NOW"
+                         : "SOMETHING WARM IS WAITING INSIDE",
+                  2);
+#if STICKY_DESKTOP_PET_TEST_MODE
+    canvas.draw_rect(411, 18, 53, 35, GrayLevel::Black);
+    canvas.draw_rect(413, 20, 49, 31, GrayLevel::Black);
+    canvas.draw_text(419, 27, "TEST", 2);
+#endif
+
+    for (uint8_t index = 0U; index < kDesktopPetRequiredHatchTaps; ++index) {
+        const int x = 218 + static_cast<int>(index) * 22;
+        if (index < state.hatch_taps) {
+            canvas.fill_circle(x, 153, 6, GrayLevel::Black);
+        } else {
+            canvas.draw_circle(x, 153, 6, GrayLevel::Black);
+        }
+    }
+
+    const DesktopPetAssetId asset = egg_asset(state, frame);
+    const int center_x = 240 + egg_frame_offset(state, frame);
+    pixel_asset_draw_centered(canvas, center_x, 350,
+                              desktop_pet_asset(egg_mask_asset(asset)),
+                              1, GrayLevel::White);
+    pixel_asset_draw_centered(canvas, center_x, 350,
+                              desktop_pet_asset(asset));
+
+    canvas.draw_line(80, 505, 400, 505, GrayLevel::Black);
+    canvas.draw_line(114, 518, 366, 518, GrayLevel::Black);
+    draw_sparkle(canvas, 75, 295, 10);
+    draw_sparkle(canvas, 403, 335, 8);
+    draw_sparkle(canvas, 94, 452, 6);
+
+    const char *status = "TAP THE EGG GENTLY";
+    const char *hint = "THREE TAPS TO WELCOME IT";
+    if (opened) {
+        status = "HELLO, LITTLE ONE!";
+        hint = "YOUR FIRST DAY STARTS NOW";
+    } else if (state.hatch_taps >= 2U) {
+        status = "TWO LITTLE EARS!";
+        hint = "ONE MORE GENTLE TAP";
+    } else if (state.hatch_taps >= 1U) {
+        status = "A TINY CRACK APPEARED!";
+        hint = "IT CAN HEAR YOU NOW";
+    }
+
+    canvas.draw_rect(40, 575, 400, 122, GrayLevel::Black);
+    canvas.draw_rect(43, 578, 394, 116, GrayLevel::Black);
+    draw_centered(canvas, 608, status, 3);
+    draw_centered(canvas, 657, hint, 2);
+    draw_centered(canvas, 738,
+                  opened ? "HATCHLING  GROWTH 10  LOVE 18"
+                         : "BE GENTLE. A FRIEND IS GROWING.",
+                  2);
+}
 
 void desktop_pet_page_render_home(Canvas &canvas,
                                   const DesktopPetState &state,
@@ -709,19 +843,31 @@ void desktop_pet_page_render_test(Canvas &canvas,
                   static_cast<unsigned>(state.pet.growth),
                   static_cast<unsigned>(state.pet.bond));
     draw_centered(canvas, 115, scores, 2);
-    std::snprintf(scores, sizeof(scores), "PATH F%u  P%u  A%u",
-                  static_cast<unsigned>(state.pet.foodie_score),
-                  static_cast<unsigned>(state.pet.affectionate_score),
-                  static_cast<unsigned>(state.pet.active_score));
+    if (state.pet.stage == PetLifeStage::Egg) {
+        std::snprintf(scores, sizeof(scores), "HATCH %u / %u",
+                      static_cast<unsigned>(state.hatch_taps),
+                      static_cast<unsigned>(kDesktopPetRequiredHatchTaps));
+    } else {
+        std::snprintf(scores, sizeof(scores), "PATH F%u  P%u  A%u",
+                      static_cast<unsigned>(state.pet.foodie_score),
+                      static_cast<unsigned>(state.pet.affectionate_score),
+                      static_cast<unsigned>(state.pet.active_score));
+    }
     draw_centered(canvas, 155, scores, 2);
     std::snprintf(scores, sizeof(scores), "FOOD %u  MOOD %s",
                   static_cast<unsigned>(state.pet.needs.food),
                   desktop_pet_state_mood_label(state));
     draw_centered(canvas, 195, scores, 2);
 
-    draw_button(canvas, kNextDayRect, "NEXT DAY", false);
-    draw_button(canvas, kAddGrowthRect, "+30 GROWTH", false);
-    draw_button(canvas, kAddLoveRect, "+20 LOVE", false);
+    if (state.pet.stage == PetLifeStage::Egg) {
+        draw_centered(canvas, 285, "CLOSE THIS PANEL", 3);
+        draw_centered(canvas, 350, "THEN TAP THE EGG GENTLY", 3);
+        draw_centered(canvas, 425, "EACH TAP IS SAVED", 2);
+    } else {
+        draw_button(canvas, kNextDayRect, "NEXT DAY", false);
+        draw_button(canvas, kAddGrowthRect, "+30 GROWTH", false);
+        draw_button(canvas, kAddLoveRect, "+20 LOVE", false);
+    }
     draw_button(canvas, kResetRect,
                 reset_confirmation ? "CONFIRM RESET" : "RESET PET",
                 reset_confirmation);
@@ -928,6 +1074,18 @@ DesktopPetAction desktop_pet_page_action_at(bool test_open, int x, int y)
         return DesktopPetAction::Reset;
     }
     return DesktopPetAction::None;
+}
+
+DesktopPetAction desktop_pet_page_egg_action_at(int x, int y)
+{
+#if STICKY_DESKTOP_PET_TEST_MODE
+    if (kTestBadgeRect.contains(x, y)) {
+        return DesktopPetAction::OpenTest;
+    }
+#endif
+    return kEggBodyRect.contains(x, y)
+               ? DesktopPetAction::TapEgg
+               : DesktopPetAction::None;
 }
 
 DesktopPetAction desktop_pet_page_personality_action_at(int x, int y)

@@ -4,6 +4,18 @@
 
 enum class DesktopPetAssetId : uint8_t {
     Room,
+    EggIntact,
+    EggIntactMask,
+    EggWobbleLeft,
+    EggWobbleLeftMask,
+    EggWobbleRight,
+    EggWobbleRightMask,
+    EggCrackOne,
+    EggCrackOneMask,
+    EggCrackTwo,
+    EggCrackTwoMask,
+    EggOpen,
+    EggOpenMask,
     Idle,
     IdleMask,
     IdleBlink,
