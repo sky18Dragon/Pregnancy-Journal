@@ -7,7 +7,7 @@
 #include "desktop_pet_outing.h"
 
 #ifndef STICKY_DESKTOP_PET_TEST_MODE
-#define STICKY_DESKTOP_PET_TEST_MODE 1
+#define STICKY_DESKTOP_PET_TEST_MODE 0
 #endif
 
 enum class DesktopPetAction : uint8_t {

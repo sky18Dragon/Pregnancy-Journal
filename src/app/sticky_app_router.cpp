@@ -106,6 +106,19 @@ StickyAppRouteResult sticky_app_router_settled(
     return {};
 }
 
+StickyAppRouteResult sticky_app_router_rotation_candidate(
+    StickyAppRouterState &state,
+    StickyImuOrientation orientation,
+    uint8_t stable_samples,
+    bool shake_active)
+{
+    if (shake_active ||
+        stable_samples < kStickyLauncherRotationStableSamples) {
+        return {};
+    }
+    return sticky_app_router_settled(state, orientation);
+}
+
 StickyAppRouteResult sticky_app_router_shaking(
     StickyAppRouterState &state,
     uint32_t shake_duration_ms)

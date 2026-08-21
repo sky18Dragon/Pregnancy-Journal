@@ -119,7 +119,7 @@ The growth engine reads all timing and reward values from one balance profile. T
 
 ### Fast Test Profile
 
-The first desktop-pet development build will use `STICKY_DESKTOP_PET_TEST_MODE=1` with these values:
+The accelerated validation profile uses `STICKY_DESKTOP_PET_TEST_MODE=1` with these values:
 
 | Setting | Test value |
 | --- | ---: |
@@ -168,11 +168,11 @@ The runtime creates one persistent outing decision for each trusted RTC calendar
 
 The first normal home visit on a new trusted RTC date now displays one absence-aware greeting. The first accepted feed, pet, or play action on each care day advances the streak once. The first lifetime record at 3, 7, 30, and 100 days waits for the visible care action to finish, then plays a two-frame full-screen celebration before returning home. Rebuilding a broken streak preserves the best record and does not replay an earned milestone. The test profile derives its care-day identity from the accelerated `DAY` value, so `NEXT DAY` can validate the complete milestone flow without changing the RTC calendar.
 
-The PCF8563 hardware adapter now reads and validates the shared-bus calendar at startup and once per minute. A clock carrying the voltage-low flag is seeded once from the firmware build timestamp using one complete seconds-through-years I2C write; later boots preserve the running calendar. Startup applies a bounded offline catch-up, while runtime reads advance the same pet rules online. The current test build retains accelerated sleep recovery; production sleep uses trusted RTC elapsed time and falls back to the app timer only while no valid RTC reading is available. The runtime stores the complete pet state in two rotating, checksummed NVS records.
+The PCF8563 hardware adapter now reads and validates the shared-bus calendar at startup and once per minute. A clock carrying the voltage-low flag is seeded once from the firmware build timestamp using one complete seconds-through-years I2C write; later boots preserve the running calendar. Startup applies a bounded offline catch-up, while runtime reads advance the same pet rules online. The accelerated profile retains shortened sleep recovery; production sleep uses trusted RTC elapsed time and falls back to the app timer only while no valid RTC reading is available. The runtime stores the complete pet state in two rotating, checksummed NVS records.
 
 ### Production Profile
 
-The final firmware uses `STICKY_DESKTOP_PET_TEST_MODE=0` with these values:
+The current Debug and Release firmware use `STICKY_DESKTOP_PET_TEST_MODE=0` with these values:
 
 | Setting | Production value |
 | --- | ---: |

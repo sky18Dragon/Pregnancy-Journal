@@ -232,6 +232,9 @@ void complete_selection(StickyAppId selected_app,
         imu_result = set_imu_running(false);
     }
 
+    if (imu_result == ESP_OK) {
+        sticky_display_prepare_app_transition_refresh();
+    }
     const esp_err_t activation_result =
         imu_result == ESP_OK ? activate_app(selected_app) : imu_result;
     if (activation_result == ESP_OK) {
@@ -248,6 +251,7 @@ void complete_selection(StickyAppId selected_app,
         return;
     }
 
+    sticky_display_cancel_app_transition_refresh();
     if (selected_app == StickyAppId::BookOfAnswers) {
         set_imu_running(false);
     }
@@ -352,6 +356,14 @@ void app_task(void *)
 
         if (router.launcher_open) {
             StickyImuState imu_state = {};
+            const bool shake_active = sticky_imu_is_shaking();
+            if (shake_active) {
+                handle_route(sticky_app_router_shaking(
+                                 router,
+                                 sticky_imu_shake_duration_ms()),
+                             "shake");
+            }
+
             if (sticky_imu_get_state(imu_state) == ESP_OK) {
                 if (router.baseline_orientation ==
                     StickyImuOrientation::Unknown) {
@@ -362,23 +374,20 @@ void app_task(void *)
                 }
 
                 if (router.launcher_open &&
-                    !imu_state.moving &&
-                    imu_state.orientation !=
+                    imu_state.observed_orientation !=
                         StickyImuOrientation::Unknown &&
-                    imu_state.orientation != last_settled) {
-                    last_settled = imu_state.orientation;
-                    handle_route(sticky_app_router_settled(
-                                     router,
-                                     imu_state.orientation),
-                                 "rotation");
+                    imu_state.observed_orientation != last_settled) {
+                    const StickyAppRouteResult route =
+                        sticky_app_router_rotation_candidate(
+                            router,
+                            imu_state.observed_orientation,
+                            imu_state.orientation_stable_samples,
+                            shake_active);
+                    if (route.action != StickyAppRouteAction::None) {
+                        last_settled = imu_state.observed_orientation;
+                        handle_route(route, "rotation_fast");
+                    }
                 }
-            }
-
-            if (router.launcher_open && sticky_imu_is_shaking()) {
-                handle_route(sticky_app_router_shaking(
-                                 router,
-                                 sticky_imu_shake_duration_ms()),
-                             "shake");
             }
         }
 

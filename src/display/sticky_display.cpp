@@ -1,5 +1,6 @@
 #include "sticky_display.h"
 
+#include <atomic>
 #include <cstring>
 #include <new>
 
@@ -21,12 +22,15 @@ constexpr char kTag[] = "sticky_display";
 constexpr size_t kFramebufferStride = kStickyDisplayWidth / 4U;
 constexpr size_t kFramebufferSize = kFramebufferStride * kStickyDisplayHeight;
 constexpr size_t kMonochromeStride = kStickyDisplayWidth / 8U;
+constexpr uint8_t kFastAppTransitionsBeforeCleanup = 5U;
 
 seeed_epaper_panel_handle_t s_panel = nullptr;
 spi_device_handle_t s_spi_device = nullptr;
 uint8_t *s_framebuffer = nullptr;
 uint8_t *s_rotated_framebuffer = nullptr;
 Canvas *s_canvas = nullptr;
+std::atomic<bool> s_fast_app_refresh_armed{false};
+uint8_t s_fast_app_transition_count = 0U;
 
 uint8_t reverse_pixel_order(uint8_t packed_pixels)
 {
@@ -261,7 +265,19 @@ esp_err_t sticky_display_refresh_monochrome()
         return ESP_ERR_INVALID_STATE;
     }
 
+    const bool fast_refresh =
+        s_fast_app_refresh_armed.exchange(false, std::memory_order_acq_rel);
     const int64_t refresh_started_us = esp_timer_get_time();
+    if (fast_refresh) {
+        STICKY_LOGI(kTag, "display=refresh_begin mode=monochrome_fast");
+        const esp_err_t result = sticky_display_refresh_partial();
+        STICKY_LOGI(kTag,
+                    "display=refresh_done mode=monochrome_fast elapsed_ms=%lld result=%s",
+                    static_cast<long long>(
+                        (esp_timer_get_time() - refresh_started_us) / 1000),
+                    esp_err_to_name(result));
+        return result;
+    }
     STICKY_LOGI(kTag, "display=refresh_begin mode=monochrome_full");
     rotate_framebuffer_180(s_canvas->data(), s_rotated_framebuffer);
     convert_gray4_to_monochrome_in_place(s_rotated_framebuffer);
@@ -281,6 +297,31 @@ esp_err_t sticky_display_refresh_monochrome()
                 static_cast<long long>((esp_timer_get_time() - refresh_started_us) / 1000),
                 esp_err_to_name(result));
     return result;
+}
+
+bool sticky_display_prepare_app_transition_refresh()
+{
+    if (s_fast_app_transition_count >=
+        kFastAppTransitionsBeforeCleanup) {
+        s_fast_app_transition_count = 0U;
+        s_fast_app_refresh_armed.store(false, std::memory_order_release);
+        STICKY_LOGI(kTag,
+                    "display=transition_refresh mode=full reason=periodic_cleanup");
+        return false;
+    }
+
+    ++s_fast_app_transition_count;
+    s_fast_app_refresh_armed.store(true, std::memory_order_release);
+    STICKY_LOGI(kTag,
+                "display=transition_refresh mode=fast sequence=%u/%u",
+                static_cast<unsigned>(s_fast_app_transition_count),
+                static_cast<unsigned>(kFastAppTransitionsBeforeCleanup));
+    return true;
+}
+
+void sticky_display_cancel_app_transition_refresh()
+{
+    s_fast_app_refresh_armed.store(false, std::memory_order_release);
 }
 
 esp_err_t sticky_display_clear()

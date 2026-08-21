@@ -31,6 +31,14 @@ esp_err_t sticky_display_refresh_partial();
 // 使用黑白波形刷新整个屏幕，适合只包含黑色和白色的页面。
 esp_err_t sticky_display_refresh_monochrome();
 
+// Arms a fast first frame, with a periodic full refresh for panel cleanup.
+// 为APP首帧安排快刷，并定期保留一次全刷清理屏幕。
+bool sticky_display_prepare_app_transition_refresh();
+
+// Cancels an armed transition refresh when app activation cannot continue.
+// 当APP无法继续启动时，取消已安排的过渡刷新。
+void sticky_display_cancel_app_transition_refresh();
+
 // Clears the physical panel to white and clears the framebuffer.
 // 将实体屏幕和内存中的画布同时清成白色。
 esp_err_t sticky_display_clear();

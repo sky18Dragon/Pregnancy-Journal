@@ -13,6 +13,7 @@ struct StickyImuState {
     StickyImuOrientation observed_orientation =
         StickyImuOrientation::Unknown;
     StickyImuOrientation orientation = StickyImuOrientation::Unknown;
+    uint8_t orientation_stable_samples = 0U;
     bool moving = false;
     bool valid = false;
 };
@@ -29,8 +30,8 @@ esp_err_t sticky_imu_start_monitoring();
 // 停止监测任务，并清除本次会话留下的测量状态。
 esp_err_t sticky_imu_stop_monitoring();
 
-// Copies the latest acceleration, motion flag, and settled orientation.
-// 复制最近一次加速度、移动标记和最终放稳姿态。
+// Copies acceleration, fast stability count, motion, and settled orientation.
+// 复制加速度、快速稳定计数、移动标记和最终放稳姿态。
 esp_err_t sticky_imu_get_state(StickyImuState &state);
 
 // Returns and clears one pending shake-session start event.

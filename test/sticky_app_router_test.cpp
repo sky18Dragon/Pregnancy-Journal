@@ -23,6 +23,27 @@ int main()
     assert(route.action == StickyAppRouteAction::AppSelected);
     assert(route.selected_app == StickyAppId::StatusBoard);
 
+    sticky_app_router_open(state, StickyImuOrientation::Portrait0);
+    route = sticky_app_router_rotation_candidate(
+        state,
+        StickyImuOrientation::Landscape0,
+        kStickyLauncherRotationStableSamples - 1U,
+        false);
+    assert(route.action == StickyAppRouteAction::None);
+    route = sticky_app_router_rotation_candidate(
+        state,
+        StickyImuOrientation::Landscape0,
+        kStickyLauncherRotationStableSamples,
+        true);
+    assert(route.action == StickyAppRouteAction::None);
+    route = sticky_app_router_rotation_candidate(
+        state,
+        StickyImuOrientation::Landscape0,
+        kStickyLauncherRotationStableSamples,
+        false);
+    assert(route.action == StickyAppRouteAction::AppSelected);
+    assert(route.selected_app == StickyAppId::Pomodoro);
+
     sticky_app_router_open(state, StickyImuOrientation::Unknown);
     route = sticky_app_router_observed(
         state, StickyImuOrientation::Landscape180);

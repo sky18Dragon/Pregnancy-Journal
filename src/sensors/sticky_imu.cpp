@@ -61,6 +61,10 @@ struct PlacementTracker {
     bool has_settled_reference = false;
     bool has_previous_sample = false;
     TickType_t motion_started_at = 0;
+    StickyImuOrientation fast_quiet_candidate =
+        StickyImuOrientation::Unknown;
+    StickyImuState fast_quiet_anchor = {};
+    uint8_t fast_quiet_sample_count = 0U;
 };
 
 esp_err_t write_register(uint8_t reg, uint8_t value)
@@ -186,9 +190,34 @@ void commit_settled_placement(PlacementTracker &tracker,
                 static_cast<double>(sample.acceleration_z_g));
 }
 
-void update_placement(PlacementTracker &tracker, StickyImuState &sample)
+void update_fast_orientation_stability(PlacementTracker &tracker,
+                                       StickyImuState &sample,
+                                       bool shake_activity)
+{
+    // Counts a fresh quiet window and restarts it around every shake session.
+    // 统计一段全新的安静窗口，并在每次摇晃会话前后重新计数。
+    if (shake_activity || !is_quiet_sample(sample)) {
+        tracker.fast_quiet_candidate = StickyImuOrientation::Unknown;
+        tracker.fast_quiet_anchor = sample;
+        tracker.fast_quiet_sample_count = 0U;
+    } else if (sample.orientation != tracker.fast_quiet_candidate ||
+               acceleration_delta(sample, tracker.fast_quiet_anchor) >
+                   kQuietVectorDeltaG) {
+        tracker.fast_quiet_candidate = sample.orientation;
+        tracker.fast_quiet_anchor = sample;
+        tracker.fast_quiet_sample_count = 1U;
+    } else if (tracker.fast_quiet_sample_count < UINT8_MAX) {
+        ++tracker.fast_quiet_sample_count;
+    }
+    sample.orientation_stable_samples = tracker.fast_quiet_sample_count;
+}
+
+void update_placement(PlacementTracker &tracker,
+                      StickyImuState &sample,
+                      bool shake_activity)
 {
     sample.observed_orientation = sample.orientation;
+    update_fast_orientation_stability(tracker, sample, shake_activity);
     // Compares each sample with the last committed pose and current quiet window.
     // 将每次采样与上次已提交姿态及当前安静窗口进行比较。
     const float reference_delta = tracker.has_settled_reference
@@ -337,7 +366,11 @@ void monitor_task(void *)
                             static_cast<unsigned>(
                                 shake.active_duration_ms));
             }
-            update_placement(tracker, sample);
+            update_placement(tracker,
+                             sample,
+                             shake.session_started ||
+                                 shake.session_active ||
+                                 shake.session_stopped);
             store_state(sample);
         } else {
             STICKY_LOGE(kTag,

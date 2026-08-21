@@ -6,6 +6,7 @@
 #include "sticky_orientation.h"
 
 constexpr uint32_t kStickyLauncherShakeSelectMs = 800U;
+constexpr uint8_t kStickyLauncherRotationStableSamples = 5U;
 
 enum class StickyAppRouteAction {
     None,
@@ -48,6 +49,14 @@ StickyAppRouteResult sticky_app_router_observed(
 StickyAppRouteResult sticky_app_router_settled(
     StickyAppRouterState &state,
     StickyImuOrientation orientation);
+
+// Accepts a fast rotation only after a fresh quiet window and outside shaking.
+// 仅在全新安静窗口达标且未摇晃时接受快速旋转。
+StickyAppRouteResult sticky_app_router_rotation_candidate(
+    StickyAppRouterState &state,
+    StickyImuOrientation orientation,
+    uint8_t stable_samples,
+    bool shake_active);
 
 // Selects Book of Answers after one continuous launcher shake session.
 // 在选择窗口内持续摇晃达到门槛后选择答案书。
