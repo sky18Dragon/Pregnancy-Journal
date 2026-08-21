@@ -76,3 +76,9 @@ esp_err_t board_charger_init()
                 gpio_get_level(static_cast<gpio_num_t>(PIN_EXTERNAL_POWER)));
     return ESP_OK;
 }
+
+bool board_charger_external_power_present()
+{
+    return gpio_get_level(
+               static_cast<gpio_num_t>(PIN_EXTERNAL_POWER)) != 0;
+}

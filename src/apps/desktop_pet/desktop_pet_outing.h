@@ -63,6 +63,12 @@ bool desktop_pet_outing_resume_away(DesktopPetOutingSession &session,
                                     uint32_t now_ms,
                                     uint32_t remaining_duration_ms);
 
+// Restores the short returning sequence after a scheduled timer wake.
+// 在计划定时唤醒后恢复短暂的回家过场。
+bool desktop_pet_outing_resume_returning(
+    DesktopPetOutingSession &session,
+    uint32_t now_ms);
+
 // Advances one due outing phase without blocking touch processing.
 // 在不阻塞触摸处理的情况下推进一个到期的外出阶段。
 bool desktop_pet_outing_update(DesktopPetOutingSession &session,

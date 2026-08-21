@@ -4,10 +4,14 @@
 
 #include "app_log.h"
 #include "app_pages.h"
+#include "board_charger.h"
+#include "board_power.h"
 #include "book_of_answers_app.h"
 #include "canvas.h"
 #include "desktop_pet_app.h"
 #include "esp_timer.h"
+#include "esp_attr.h"
+#include "esp_sleep.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "pomodoro_app.h"
@@ -29,6 +33,18 @@ constexpr uint8_t kInitialImuSampleAttempts = 7U;
 constexpr TickType_t kInitialImuSampleRetry = pdMS_TO_TICKS(10);
 constexpr uint32_t kTaskStackSize = 5120U;
 constexpr UBaseType_t kTaskPriority = 4U;
+constexpr uint32_t kSleepContextMagic = 0x53504C50U;
+constexpr uint32_t kScheduledWakeLeadSeconds = 15U;
+constexpr int64_t kBackgroundEventWindowUs = 20000000LL;
+constexpr uint32_t kLauncherIdleCloseMs = 30000U;
+#ifndef STICKY_POWER_TEST_MODE
+#define STICKY_POWER_TEST_MODE 0
+#endif
+#if STICKY_POWER_TEST_MODE
+constexpr uint32_t kPetIdleSleepMs = 60000U;
+#else
+constexpr uint32_t kPetIdleSleepMs = 10U * 60U * 1000U;
+#endif
 
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
@@ -37,6 +53,17 @@ bool s_pet_started = false;
 bool s_status_started = false;
 bool s_pomodoro_started = false;
 bool s_book_started = false;
+bool s_background_timer_wake = false;
+int64_t s_background_sleep_deadline_us = 0;
+uint32_t s_last_user_activity_ms = 0U;
+
+struct StickySleepContext {
+    uint32_t magic;
+    StickyAppId app;
+    CanvasRotation rotation;
+};
+
+RTC_NOINIT_ATTR StickySleepContext s_sleep_context;
 
 struct LauncherImuPrestart {
     bool active = false;
@@ -141,6 +168,152 @@ esp_err_t set_imu_running(bool running)
 {
     return running ? sticky_imu_start_monitoring()
                    : sticky_imu_stop_monitoring();
+}
+
+bool power_sleep_allowed()
+{
+    if (s_current_app == StickyAppId::DesktopPet) {
+        return desktop_pet_app_power_sleep_allowed();
+    }
+    if (s_current_app == StickyAppId::Pomodoro) {
+        return pomodoro_app_power_sleep_allowed();
+    }
+    if (s_current_app == StickyAppId::BookOfAnswers) {
+        return book_of_answers_app_power_sleep_allowed();
+    }
+    return true;
+}
+
+uint32_t power_sleep_timeout_ms()
+{
+    if (s_current_app == StickyAppId::DesktopPet) {
+        return kPetIdleSleepMs;
+    }
+    if (s_current_app == StickyAppId::StatusBoard) {
+        return status_board_app_power_sleep_timeout_ms();
+    }
+    if (s_current_app == StickyAppId::Pomodoro) {
+        return pomodoro_app_power_sleep_timeout_ms();
+    }
+    if (s_current_app == StickyAppId::BookOfAnswers) {
+        return book_of_answers_app_power_sleep_timeout_ms();
+    }
+    return 0U;
+}
+
+esp_err_t prepare_app_power_sleep(uint32_t &current_epoch,
+                                  uint32_t &next_event_epoch)
+{
+    current_epoch = 0U;
+    next_event_epoch = 0U;
+    if (s_current_app == StickyAppId::DesktopPet) {
+        return desktop_pet_app_prepare_power_sleep(
+            current_epoch, next_event_epoch);
+    }
+    if (s_current_app == StickyAppId::StatusBoard) {
+        return status_board_app_prepare_power_sleep();
+    }
+    if (s_current_app == StickyAppId::Pomodoro) {
+        return pomodoro_app_prepare_power_sleep();
+    }
+    if (s_current_app == StickyAppId::BookOfAnswers) {
+        return book_of_answers_app_prepare_power_sleep();
+    }
+    return ESP_ERR_INVALID_ARG;
+}
+
+void draw_sleep_indicator()
+{
+    // A compact crescent remains visible in the logical top-right corner of
+    // every orientation without replacing the current app page.
+    // 小型月牙会保留在各方向页面的逻辑右上角，同时不替换当前APP画面。
+    const int left = static_cast<int>(s_canvas->width()) - 45;
+    constexpr int top = 10;
+    s_canvas->fill_rect(left, top, 35, 35, GrayLevel::White);
+    s_canvas->fill_circle(left + 16, top + 17, 11, GrayLevel::Black);
+    s_canvas->fill_circle(left + 21, top + 12, 10, GrayLevel::White);
+    s_canvas->fill_rect(left + 28, top + 25, 3, 3, GrayLevel::Black);
+    s_canvas->draw_pixel(left + 30, top + 23, GrayLevel::Black);
+    s_canvas->draw_pixel(left + 30, top + 29, GrayLevel::Black);
+    s_canvas->draw_pixel(left + 26, top + 27, GrayLevel::Black);
+    s_canvas->draw_pixel(left + 34, top + 27, GrayLevel::Black);
+}
+
+void enter_power_sleep(StickyAppRouterState &router, const char *source)
+{
+    if (!power_sleep_allowed()) {
+        STICKY_LOGI(kTag,
+                    "power=sleep_request source=%s app=%s result=blocked",
+                    source,
+                    sticky_app_id_name(s_current_app));
+        return;
+    }
+
+    if (router.launcher_open) {
+        sticky_app_router_close(router);
+    }
+    uint32_t current_epoch = 0U;
+    uint32_t next_event_epoch = 0U;
+    const esp_err_t pause_result = prepare_app_power_sleep(
+        current_epoch, next_event_epoch);
+    if (pause_result != ESP_OK) {
+        STICKY_LOGE(kTag,
+                    "power=sleep_request source=%s app=%s pause=%s result=failed",
+                    source,
+                    sticky_app_id_name(s_current_app),
+                    esp_err_to_name(pause_result));
+        return;
+    }
+
+    s_sleep_context.magic = kSleepContextMagic;
+    s_sleep_context.app = s_current_app;
+    s_sleep_context.rotation = s_canvas->rotation();
+
+    draw_sleep_indicator();
+    const esp_err_t indicator_result = sticky_display_refresh_partial();
+    if (indicator_result != ESP_OK) {
+        resume_app(s_current_app);
+        STICKY_LOGE(kTag,
+                    "power=sleep_indicator refresh=%s result=failed",
+                    esp_err_to_name(indicator_result));
+        return;
+    }
+
+    sticky_buzzer_stop();
+    set_imu_running(false);
+    const esp_err_t touch_result = sticky_touch_stop();
+    if (touch_result != ESP_OK) {
+        STICKY_LOGE(kTag,
+                    "power=sleep peripheral=touch result=%s",
+                    esp_err_to_name(touch_result));
+    }
+    const esp_err_t display_result = sticky_display_sleep();
+    if (display_result != ESP_OK) {
+        STICKY_LOGE(kTag,
+                    "power=sleep peripheral=display result=%s",
+                    esp_err_to_name(display_result));
+    }
+
+    uint64_t timer_wakeup_us = 0U;
+    uint32_t wake_epoch = 0U;
+    if (next_event_epoch > current_epoch) {
+        wake_epoch = next_event_epoch > kScheduledWakeLeadSeconds
+                         ? next_event_epoch - kScheduledWakeLeadSeconds
+                         : next_event_epoch;
+        if (wake_epoch <= current_epoch) {
+            wake_epoch = current_epoch + 1U;
+        }
+        timer_wakeup_us = static_cast<uint64_t>(
+            wake_epoch - current_epoch) * 1000000ULL;
+    }
+    STICKY_LOGI(kTag,
+                "power=sleep_request source=%s app=%s current=%u next_event=%u wake_at=%u result=ready",
+                source,
+                sticky_app_id_name(s_current_app),
+                static_cast<unsigned>(current_epoch),
+                static_cast<unsigned>(next_event_epoch),
+                static_cast<unsigned>(wake_epoch));
+    board_power_enter_deep_sleep(timer_wakeup_us);
 }
 
 void render_launcher()
@@ -490,6 +663,14 @@ void app_task(void *)
     while (true) {
         StickyButtonEvent button_event = StickyButtonEvent::None;
         if (sticky_button_take_event(button_event)) {
+            s_last_user_activity_ms = static_cast<uint32_t>(
+                esp_timer_get_time() / 1000LL);
+            if (s_background_timer_wake) {
+                s_background_timer_wake = false;
+                s_background_sleep_deadline_us = 0;
+                STICKY_LOGI(kTag,
+                            "power=background_window state=cancelled source=button result=ok");
+            }
             if (button_event == StickyButtonEvent::PressDown) {
                 if (!router.launcher_open) {
                     prestart_launcher_imu(imu_prestart);
@@ -509,6 +690,21 @@ void app_task(void *)
                                   last_settled,
                                   imu_prestart);
                 }
+            } else if (button_event == StickyButtonEvent::SleepChord) {
+                enter_power_sleep(router, "side_button_chord");
+            }
+        }
+
+        const uint32_t touch_activity_ms =
+            sticky_touch_last_activity_ms();
+        if (static_cast<int32_t>(
+                touch_activity_ms - s_last_user_activity_ms) > 0) {
+            s_last_user_activity_ms = touch_activity_ms;
+            if (s_background_timer_wake) {
+                s_background_timer_wake = false;
+                s_background_sleep_deadline_us = 0;
+                STICKY_LOGI(kTag,
+                            "power=background_window state=cancelled source=touch result=ok");
             }
         }
 
@@ -556,6 +752,33 @@ void app_task(void *)
             }
         }
 
+
+        const uint32_t now_ms = static_cast<uint32_t>(
+            esp_timer_get_time() / 1000LL);
+        if (router.launcher_open &&
+            now_ms - s_last_user_activity_ms >= kLauncherIdleCloseMs) {
+            cancel_launcher(router);
+            s_last_user_activity_ms = now_ms;
+            STICKY_LOGI(kTag,
+                        "launcher=timeout idle_ms=%u result=closed",
+                        static_cast<unsigned>(kLauncherIdleCloseMs));
+        }
+
+        if (s_background_timer_wake &&
+            s_background_sleep_deadline_us > 0 &&
+            esp_timer_get_time() >= s_background_sleep_deadline_us) {
+            s_background_timer_wake = false;
+            s_background_sleep_deadline_us = 0;
+            enter_power_sleep(router, "scheduled_event_complete");
+        }
+        const uint32_t idle_sleep_timeout_ms = power_sleep_timeout_ms();
+        if (!s_background_timer_wake && !router.launcher_open &&
+            !board_charger_external_power_present() &&
+            idle_sleep_timeout_ms > 0U && power_sleep_allowed() &&
+            now_ms - s_last_user_activity_ms >= idle_sleep_timeout_ms) {
+            enter_power_sleep(router, "app_idle_timeout");
+        }
+
         vTaskDelay(kPollInterval);
     }
 }
@@ -570,19 +793,60 @@ esp_err_t sticky_app_start(Canvas &canvas)
     }
 
     s_canvas = &canvas;
+    const esp_sleep_wakeup_cause_t wake_cause =
+        esp_sleep_get_wakeup_cause();
+    const bool restore_sleep_context =
+        wake_cause != ESP_SLEEP_WAKEUP_UNDEFINED &&
+        s_sleep_context.magic == kSleepContextMagic;
+    const StickyAppId initial_app = restore_sleep_context
+                                        ? s_sleep_context.app
+                                        : StickyAppId::DesktopPet;
+    const CanvasRotation initial_rotation = restore_sleep_context
+                                                ? s_sleep_context.rotation
+                                                : CanvasRotation::Deg0;
+    s_sleep_context.magic = 0U;
     esp_err_t result = sticky_button_init();
     if (result != ESP_OK) {
         s_canvas = nullptr;
         return result;
     }
 
-    result = desktop_pet_app_start(canvas);
+    if (initial_app == StickyAppId::Pomodoro) {
+        pomodoro_app_set_display_rotation(initial_rotation);
+    } else if (initial_app == StickyAppId::StatusBoard) {
+        status_board_app_set_display_rotation(initial_rotation);
+    }
+    if (initial_app == StickyAppId::BookOfAnswers) {
+        result = set_imu_running(true);
+        if (result != ESP_OK) {
+            s_canvas = nullptr;
+            return result;
+        }
+    }
+    result = start_app(initial_app);
     if (result != ESP_OK) {
         s_canvas = nullptr;
         return result;
     }
-    s_pet_started = true;
-    s_current_app = StickyAppId::DesktopPet;
+    mark_app_started(initial_app);
+    s_current_app = initial_app;
+    s_background_timer_wake =
+        wake_cause == ESP_SLEEP_WAKEUP_TIMER &&
+        initial_app == StickyAppId::DesktopPet;
+    s_background_sleep_deadline_us = s_background_timer_wake
+        ? esp_timer_get_time() + kBackgroundEventWindowUs
+        : 0;
+    s_last_user_activity_ms = static_cast<uint32_t>(
+        esp_timer_get_time() / 1000LL);
+    STICKY_LOGI(kTag,
+                "power=restore wake=%d context=%s app=%s background_window_s=%u result=ok",
+                static_cast<int>(wake_cause),
+                restore_sleep_context ? "valid" : "default",
+                sticky_app_id_name(initial_app),
+                s_background_timer_wake
+                    ? static_cast<unsigned>(kBackgroundEventWindowUs /
+                                            1000000LL)
+                    : 0U);
 
     if (xTaskCreate(app_task,
                     "sticky_launcher",

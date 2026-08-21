@@ -4,6 +4,7 @@
 
 #include "app_log.h"
 #include "canvas.h"
+#include "esp_attr.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -23,6 +24,18 @@ constexpr UBaseType_t kTaskPriority = 3;
 constexpr size_t kCustomTextMaximum = 20U;
 constexpr uint16_t kDisplayPrimaryHoldMs = 450U;
 constexpr uint16_t kDisplaySecondaryHoldMs = 250U;
+constexpr uint32_t kSleepSnapshotMagic = 0x53544244U;
+constexpr uint32_t kMenuSleepTimeoutMs = 5U * 60U * 1000U;
+constexpr uint32_t kDisplaySleepTimeoutMs = 60U * 1000U;
+
+struct StatusBoardSleepSnapshot {
+    uint32_t magic;
+    StatusBoardPage page;
+    StatusBoardStatus selected_status;
+    char custom_text[kCustomTextMaximum + 1U];
+};
+
+RTC_NOINIT_ATTR StatusBoardSleepSnapshot s_sleep_snapshot;
 
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
@@ -392,6 +405,16 @@ esp_err_t status_board_app_start(Canvas &canvas)
         return ESP_OK;
     }
 
+    if (s_sleep_snapshot.magic == kSleepSnapshotMagic) {
+        s_state.page = s_sleep_snapshot.page;
+        s_state.selected_status = s_sleep_snapshot.selected_status;
+        std::memcpy(s_custom_text,
+                    s_sleep_snapshot.custom_text,
+                    sizeof(s_custom_text));
+        s_custom_text[sizeof(s_custom_text) - 1U] = '\0';
+        s_custom_text_length = std::strlen(s_custom_text);
+        s_sleep_snapshot.magic = 0U;
+    }
     s_canvas = &canvas;
     if (xTaskCreate(app_task,
                     "status_board_app",
@@ -422,4 +445,30 @@ esp_err_t status_board_app_resume()
     }
     sticky_app_lifecycle_resume(s_lifecycle);
     return ESP_OK;
+}
+
+esp_err_t status_board_app_prepare_power_sleep()
+{
+    const esp_err_t result = status_board_app_pause();
+    if (result != ESP_OK) {
+        return result;
+    }
+    s_sleep_snapshot.page = s_state.page;
+    s_sleep_snapshot.selected_status = s_state.selected_status;
+    std::memcpy(s_sleep_snapshot.custom_text,
+                s_custom_text,
+                sizeof(s_sleep_snapshot.custom_text));
+    s_sleep_snapshot.magic = kSleepSnapshotMagic;
+    return ESP_OK;
+}
+
+uint32_t status_board_app_power_sleep_timeout_ms()
+{
+    if (s_state.page == StatusBoardPage::Display) {
+        return kDisplaySleepTimeoutMs;
+    }
+    if (s_state.page == StatusBoardPage::Menu) {
+        return kMenuSleepTimeoutMs;
+    }
+    return 0U;
 }

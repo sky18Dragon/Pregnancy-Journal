@@ -7,6 +7,10 @@
 // Top AI/OK button from the hardware reference / 硬件示例中的顶部AI/OK按键
 #define PIN_TOP_BUTTON 4
 
+// Side buttons used as the deliberate sleep chord / 用于组合休眠操作的两个侧键
+#define PIN_SIDE_BUTTON_LEFT 5
+#define PIN_SIDE_BUTTON_RIGHT 6
+
 // BQ25616 charger and USB-power detection / BQ25616充电和USB电源检测
 #define PIN_BAT_CHG_EN 39
 #define PIN_EXTERNAL_POWER 9

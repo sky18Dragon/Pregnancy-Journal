@@ -1,6 +1,7 @@
 #include "sticky_touch.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 
 #include "app_log.h"
@@ -24,6 +25,7 @@ constexpr TickType_t kPollInterval = pdMS_TO_TICKS(30);
 constexpr uint32_t kTaskStackSize = 4096;
 constexpr UBaseType_t kTaskPriority = 5;
 constexpr UBaseType_t kPressQueueLength = 8;
+constexpr TickType_t kStopTimeout = pdMS_TO_TICKS(1000);
 
 i2c_master_bus_handle_t s_touch_bus = nullptr;
 GT911 s_controller;
@@ -33,6 +35,8 @@ bool s_read_error_reported = false;
 uint16_t s_last_x = 0;
 uint16_t s_last_y = 0;
 QueueHandle_t s_press_queue = nullptr;
+std::atomic<bool> s_stop_requested{false};
+std::atomic<uint32_t> s_last_activity_ms{0U};
 
 uint16_t scale_coordinate(uint16_t value,
                           uint16_t source_max,
@@ -71,7 +75,7 @@ void transform_touch_coordinate(uint16_t controller_x,
 void touch_task(void *)
 {
     TickType_t next_poll = xTaskGetTickCount();
-    while (true) {
+    while (!s_stop_requested.load(std::memory_order_acquire)) {
         GTPoint point = {};
         const int8_t count = s_controller.read_points(&point, 1);
         if (count > 0) {
@@ -81,10 +85,14 @@ void touch_task(void *)
                                        s_last_y);
             if (!s_touching) {
                 s_touching = true;
+                const uint32_t captured_at_ms = static_cast<uint32_t>(
+                    esp_timer_get_time() / 1000LL);
+                s_last_activity_ms.store(captured_at_ms,
+                                         std::memory_order_release);
                 const StickyTouchPress press = {
                     s_last_x,
                     s_last_y,
-                    static_cast<uint32_t>(esp_timer_get_time() / 1000LL),
+                    captured_at_ms,
                 };
                 if (xQueueSend(s_press_queue, &press, 0) == pdTRUE) {
                     STICKY_LOGI(kTag,
@@ -116,6 +124,8 @@ void touch_task(void *)
 
         vTaskDelayUntil(&next_poll, kPollInterval);
     }
+    s_touch_task = nullptr;
+    vTaskDelete(nullptr);
 }
 
 }  // namespace
@@ -190,6 +200,7 @@ esp_err_t sticky_touch_init()
     esp_log_level_set("GT911", ESP_LOG_ERROR);
 #endif
 
+    s_stop_requested.store(false, std::memory_order_release);
     if (xTaskCreate(touch_task,
                     "sticky_touch",
                     kTaskStackSize,
@@ -207,6 +218,26 @@ esp_err_t sticky_touch_init()
     return ESP_OK;
 }
 
+esp_err_t sticky_touch_stop()
+{
+    if (s_touch_task == nullptr) {
+        return ESP_OK;
+    }
+
+    s_stop_requested.store(true, std::memory_order_release);
+    const TickType_t deadline = xTaskGetTickCount() + kStopTimeout;
+    while (s_touch_task != nullptr) {
+        if (static_cast<int32_t>(xTaskGetTickCount() - deadline) >= 0) {
+            STICKY_LOGE(kTag, "touch=stop result=timeout");
+            return ESP_ERR_TIMEOUT;
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    sticky_touch_clear_press();
+    STICKY_LOGI(kTag, "touch=monitoring state=stopped result=ok");
+    return ESP_OK;
+}
+
 bool sticky_touch_take_press(StickyTouchPress &press)
 {
     return s_press_queue != nullptr &&
@@ -218,4 +249,9 @@ void sticky_touch_clear_press()
     if (s_press_queue != nullptr) {
         xQueueReset(s_press_queue);
     }
+}
+
+uint32_t sticky_touch_last_activity_ms()
+{
+    return s_last_activity_ms.load(std::memory_order_acquire);
 }

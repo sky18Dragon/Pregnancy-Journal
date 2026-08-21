@@ -90,6 +90,19 @@ bool desktop_pet_outing_resume_away(DesktopPetOutingSession &session,
     return true;
 }
 
+bool desktop_pet_outing_resume_returning(
+    DesktopPetOutingSession &session,
+    uint32_t now_ms)
+{
+    if (desktop_pet_outing_active(session)) {
+        return false;
+    }
+    session.phase = DesktopPetOutingPhase::Returning;
+    session.away_duration_ms = 0U;
+    session.phase_deadline_ms = now_ms + kReturningHoldMs;
+    return true;
+}
+
 bool desktop_pet_outing_update(DesktopPetOutingSession &session,
                                uint32_t now_ms)
 {

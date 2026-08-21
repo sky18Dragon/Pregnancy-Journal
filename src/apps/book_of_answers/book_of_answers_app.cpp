@@ -7,6 +7,7 @@
 #include "book_of_answers_pages.h"
 #include "book_of_answers_state.h"
 #include "canvas.h"
+#include "esp_attr.h"
 #include "esp_random.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -31,6 +32,17 @@ constexpr int64_t kThinkingFrameHoldUs = 450000LL;
 constexpr int64_t kRevealingFrameHoldUs = 450000LL;
 constexpr int64_t kResultFrameHoldUs = 800000LL;
 constexpr int64_t kShakeLongerFrameHoldUs = 600000LL;
+constexpr uint32_t kSleepSnapshotMagic = 0x424F4F4BU;
+constexpr uint32_t kIdleSleepTimeoutMs = 5U * 60U * 1000U;
+
+struct BookOfAnswersSleepSnapshot {
+    uint32_t magic;
+    BookOfAnswersState state;
+    size_t message_answer_index;
+    size_t crystal_answer_index;
+};
+
+RTC_NOINIT_ATTR BookOfAnswersSleepSnapshot s_sleep_snapshot;
 
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
@@ -456,6 +468,12 @@ esp_err_t book_of_answers_app_start(Canvas &canvas)
         return ESP_OK;
     }
 
+    if (s_sleep_snapshot.magic == kSleepSnapshotMagic) {
+        s_state = s_sleep_snapshot.state;
+        s_message_answer_index = s_sleep_snapshot.message_answer_index;
+        s_crystal_answer_index = s_sleep_snapshot.crystal_answer_index;
+        s_sleep_snapshot.magic = 0U;
+    }
     s_canvas = &canvas;
     if (xTaskCreate(app_task,
                     "book_answers_app",
@@ -481,4 +499,31 @@ esp_err_t book_of_answers_app_resume()
     }
     sticky_app_lifecycle_resume(s_lifecycle);
     return ESP_OK;
+}
+
+bool book_of_answers_app_power_sleep_allowed()
+{
+    return s_state.page != BookOfAnswersPage::Shaking &&
+           s_state.page != BookOfAnswersPage::Thinking &&
+           s_state.page != BookOfAnswersPage::Revealing;
+}
+
+esp_err_t book_of_answers_app_prepare_power_sleep()
+{
+    const esp_err_t result = book_of_answers_app_pause();
+    if (result != ESP_OK) {
+        return result;
+    }
+    s_sleep_snapshot.state = s_state;
+    s_sleep_snapshot.message_answer_index = s_message_answer_index;
+    s_sleep_snapshot.crystal_answer_index = s_crystal_answer_index;
+    s_sleep_snapshot.magic = kSleepSnapshotMagic;
+    return ESP_OK;
+}
+
+uint32_t book_of_answers_app_power_sleep_timeout_ms()
+{
+    return book_of_answers_app_power_sleep_allowed()
+               ? kIdleSleepTimeoutMs
+               : 0U;
 }

@@ -4,6 +4,7 @@
 
 #include "app_log.h"
 #include "canvas.h"
+#include "esp_attr.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -22,6 +23,23 @@ constexpr uint32_t kDefaultDurationSeconds = 15U * 60U;
 constexpr TickType_t kPollInterval = pdMS_TO_TICKS(40);
 constexpr uint32_t kTaskStackSize = 6144;
 constexpr UBaseType_t kTaskPriority = 3;
+constexpr uint32_t kSleepSnapshotMagic = 0x504F4D4FU;
+constexpr uint32_t kIdleSleepTimeoutMs = 5U * 60U * 1000U;
+
+struct PomodoroSleepSnapshot {
+    uint32_t magic;
+    PomodoroPage page;
+    PomodoroTimeField active_field;
+    uint32_t selected_seconds;
+    uint32_t total_seconds;
+    uint8_t custom_hours;
+    uint8_t custom_minutes;
+    uint8_t custom_seconds;
+    bool replace_field_on_digit;
+    int64_t paused_remaining_us;
+};
+
+RTC_NOINIT_ATTR PomodoroSleepSnapshot s_sleep_snapshot;
 
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
@@ -470,6 +488,21 @@ esp_err_t pomodoro_app_start(Canvas &canvas)
         return ESP_OK;
     }
 
+    if (s_sleep_snapshot.magic == kSleepSnapshotMagic) {
+        s_page = s_sleep_snapshot.page;
+        s_active_field = s_sleep_snapshot.active_field;
+        s_selected_seconds = s_sleep_snapshot.selected_seconds;
+        s_total_seconds = s_sleep_snapshot.total_seconds;
+        s_custom_hours = s_sleep_snapshot.custom_hours;
+        s_custom_minutes = s_sleep_snapshot.custom_minutes;
+        s_custom_seconds = s_sleep_snapshot.custom_seconds;
+        s_replace_field_on_digit =
+            s_sleep_snapshot.replace_field_on_digit;
+        s_paused_remaining_us = s_sleep_snapshot.paused_remaining_us;
+        s_displayed_remaining_seconds = static_cast<uint32_t>(
+            (s_paused_remaining_us + 999999LL) / 1000000LL);
+        s_sleep_snapshot.magic = 0U;
+    }
     s_canvas = &canvas;
     if (xTaskCreate(app_task,
                     "pomodoro_app",
@@ -500,4 +533,38 @@ esp_err_t pomodoro_app_resume()
     }
     sticky_app_lifecycle_resume(s_lifecycle);
     return ESP_OK;
+}
+
+bool pomodoro_app_power_sleep_allowed()
+{
+    return s_page != PomodoroPage::Running &&
+           s_page != PomodoroPage::Alarm &&
+           s_page != PomodoroPage::EndConfirmation;
+}
+
+esp_err_t pomodoro_app_prepare_power_sleep()
+{
+    const esp_err_t result = pomodoro_app_pause();
+    if (result != ESP_OK) {
+        return result;
+    }
+    s_sleep_snapshot.page = s_page;
+    s_sleep_snapshot.active_field = s_active_field;
+    s_sleep_snapshot.selected_seconds = s_selected_seconds;
+    s_sleep_snapshot.total_seconds = s_total_seconds;
+    s_sleep_snapshot.custom_hours = s_custom_hours;
+    s_sleep_snapshot.custom_minutes = s_custom_minutes;
+    s_sleep_snapshot.custom_seconds = s_custom_seconds;
+    s_sleep_snapshot.replace_field_on_digit = s_replace_field_on_digit;
+    s_sleep_snapshot.paused_remaining_us = s_paused_remaining_us;
+    s_sleep_snapshot.magic = kSleepSnapshotMagic;
+    return ESP_OK;
+}
+
+uint32_t pomodoro_app_power_sleep_timeout_ms()
+{
+    return s_page == PomodoroPage::Setup ||
+                   s_page == PomodoroPage::Paused
+               ? kIdleSleepTimeoutMs
+               : 0U;
 }

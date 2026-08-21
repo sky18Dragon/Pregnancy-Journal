@@ -91,6 +91,16 @@ int main()
     assert(resumed.phase == DesktopPetOutingPhase::Away);
     assert(resumed.phase_deadline_ms == 26000U);
 
+    DesktopPetOutingSession resumed_returning = {};
+    assert(desktop_pet_outing_resume_returning(
+        resumed_returning, 1000U));
+    assert(resumed_returning.phase == DesktopPetOutingPhase::Returning);
+    assert(resumed_returning.phase_deadline_ms == 2700U);
+    assert(!desktop_pet_outing_resume_returning(
+        resumed_returning, 1001U));
+    assert(desktop_pet_outing_update(resumed_returning, 2700U));
+    assert(resumed_returning.phase == DesktopPetOutingPhase::Reunion);
+
     desktop_pet_outing_complete_plan(test_trip);
     assert(desktop_pet_outing_plan_status(
                test_trip, day_start + 18U * 3600U + 16U) ==

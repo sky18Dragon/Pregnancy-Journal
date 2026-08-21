@@ -13,3 +13,15 @@ void pomodoro_app_set_display_rotation(CanvasRotation rotation);
 
 esp_err_t pomodoro_app_pause();
 esp_err_t pomodoro_app_resume();
+
+// Reports whether deep sleep can preserve the current timer experience.
+// 返回当前番茄钟体验是否允许进入深度睡眠。
+bool pomodoro_app_power_sleep_allowed();
+
+// Pauses the app and saves a restorable setup or paused timer page.
+// 暂停APP，并保存可恢复的设置页或暂停计时页。
+esp_err_t pomodoro_app_prepare_power_sleep();
+
+// Returns the battery idle timeout for the current page; zero blocks it.
+// 返回当前页面的电池空闲休眠时间；零表示暂缓自动休眠。
+uint32_t pomodoro_app_power_sleep_timeout_ms();

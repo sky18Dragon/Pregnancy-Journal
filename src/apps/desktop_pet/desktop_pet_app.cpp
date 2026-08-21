@@ -31,6 +31,10 @@
 #define STICKY_LOG_DESKTOP_PET_ENABLED 0
 #endif
 
+#ifndef STICKY_POWER_TEST_MODE
+#define STICKY_POWER_TEST_MODE 0
+#endif
+
 namespace {
 
 constexpr char kTag[] = "desktop_pet_app";
@@ -998,6 +1002,27 @@ bool reconcile_automatic_outing(uint32_t now_epoch_seconds,
                             "pet=outing phase=returning source=rtc result=ok");
                 return true;
             }
+        }
+        constexpr uint32_t kScheduledReturnGraceSeconds = 5U * 60U;
+        if (initial_read && automatic_outing_can_start() &&
+            s_state.outing_plan.return_epoch_seconds != 0U &&
+            now_epoch_seconds -
+                    s_state.outing_plan.return_epoch_seconds <=
+                kScheduledReturnGraceSeconds) {
+            const uint32_t now_ms = static_cast<uint32_t>(
+                now_us / 1000LL);
+            prepare_automatic_outing();
+            if (desktop_pet_outing_resume_returning(
+                    s_outing, now_ms)) {
+                STICKY_LOGI(kTag,
+                            "pet=outing phase=returning source=scheduled_wake result=ok");
+                return true;
+            }
+        }
+        if (initial_read &&
+            s_state.outing_plan.return_epoch_seconds != 0U) {
+            desktop_pet_outing_complete_plan(s_state.outing_plan);
+            plan_changed = true;
         }
         return false;
     }
@@ -2052,6 +2077,73 @@ esp_err_t desktop_pet_app_return_home()
                 pet_core_activity_name(s_state.pet.activity),
                 desktop_pet_outing_active(s_outing));
     return ESP_OK;
+}
+
+esp_err_t desktop_pet_app_prepare_power_sleep(
+    uint32_t &current_epoch_seconds,
+    uint32_t &next_event_epoch_seconds)
+{
+    current_epoch_seconds = 0U;
+    next_event_epoch_seconds = 0U;
+    const esp_err_t pause_result =
+        sticky_app_lifecycle_pause(s_lifecycle, s_app_task);
+    if (pause_result != ESP_OK) {
+        return pause_result;
+    }
+
+    apply_rtc_time(false, false);
+    current_epoch_seconds = current_rtc_epoch(esp_timer_get_time());
+#if STICKY_POWER_TEST_MODE
+    if (current_epoch_seconds != 0U) {
+        const DesktopPetOutingPlanStatus test_status =
+            desktop_pet_outing_plan_status(
+                s_state.outing_plan, current_epoch_seconds);
+        const bool needs_test_event =
+            test_status != DesktopPetOutingPlanStatus::Away &&
+            (test_status != DesktopPetOutingPlanStatus::Scheduled ||
+             s_state.outing_plan.departure_epoch_seconds >
+                 current_epoch_seconds + 180U);
+        if (needs_test_event) {
+            s_state.outing_plan.decision_day_key =
+                current_epoch_seconds / 86400U;
+            s_state.outing_plan.departure_epoch_seconds =
+                current_epoch_seconds + 120U;
+            s_state.outing_plan.return_epoch_seconds =
+                current_epoch_seconds + 300U;
+            STICKY_LOGI(kTag,
+                        "pet=power_test schedule=outing departure=%u return=%u result=prepared",
+                        static_cast<unsigned>(
+                            s_state.outing_plan.departure_epoch_seconds),
+                        static_cast<unsigned>(
+                            s_state.outing_plan.return_epoch_seconds));
+        }
+    }
+#endif
+    if (current_epoch_seconds != 0U) {
+        const DesktopPetOutingPlanStatus status =
+            desktop_pet_outing_plan_status(
+                s_state.outing_plan, current_epoch_seconds);
+        if (status == DesktopPetOutingPlanStatus::Scheduled) {
+            next_event_epoch_seconds =
+                s_state.outing_plan.departure_epoch_seconds;
+        } else if (status == DesktopPetOutingPlanStatus::Away) {
+            next_event_epoch_seconds =
+                s_state.outing_plan.return_epoch_seconds;
+        }
+    }
+    save_state("power_sleep");
+    STICKY_LOGI(kTag,
+                "pet=power_sleep now=%u next_event=%u result=ok",
+                static_cast<unsigned>(current_epoch_seconds),
+                static_cast<unsigned>(next_event_epoch_seconds));
+    return ESP_OK;
+}
+
+bool desktop_pet_app_power_sleep_allowed()
+{
+    return !s_name_editor_open && !s_personality_choice_open &&
+           !s_test_open && !s_hatch_active && !s_evolution_active &&
+           !s_care_celebration_active && s_pose_deadline_us == 0;
 }
 
 esp_err_t desktop_pet_app_pause()

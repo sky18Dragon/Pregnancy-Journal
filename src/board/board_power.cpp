@@ -1,5 +1,7 @@
 #include "board_power.h"
 
+#include <cstdio>
+
 #include "app_log.h"
 #include "driver/gpio.h"
 #include "esp_sleep.h"
@@ -11,6 +13,8 @@ namespace {
 
 constexpr char kTag[] = "sticky_power";
 constexpr TickType_t kPowerSettleDelay = pdMS_TO_TICKS(100);
+constexpr TickType_t kReleasePollInterval = pdMS_TO_TICKS(20);
+constexpr TickType_t kReleaseDebounceTime = pdMS_TO_TICKS(60);
 
 esp_err_t set_power_level(gpio_num_t pin, uint32_t level)
 {
@@ -25,6 +29,32 @@ esp_err_t set_power_level(gpio_num_t pin, uint32_t level)
                     esp_err_to_name(result));
     }
     return result;
+}
+
+esp_err_t hold_output(gpio_num_t pin, int level)
+{
+    gpio_hold_dis(pin);
+    esp_err_t result = gpio_set_direction(pin, GPIO_MODE_OUTPUT);
+    if (result != ESP_OK) {
+        return result;
+    }
+    result = gpio_set_level(pin, level);
+    return result == ESP_OK ? gpio_hold_en(pin) : result;
+}
+
+void wait_for_sleep_chord_release()
+{
+    STICKY_LOGI(kTag,
+                "power=sleep_chord state=waiting_for_release pins=%d,%d",
+                PIN_SIDE_BUTTON_LEFT,
+                PIN_SIDE_BUTTON_RIGHT);
+    while (gpio_get_level(
+               static_cast<gpio_num_t>(PIN_SIDE_BUTTON_LEFT)) == 0 ||
+           gpio_get_level(
+               static_cast<gpio_num_t>(PIN_SIDE_BUTTON_RIGHT)) == 0) {
+        vTaskDelay(kReleasePollInterval);
+    }
+    vTaskDelay(kReleaseDebounceTime);
 }
 
 }  // namespace
@@ -53,8 +83,19 @@ esp_err_t board_power_init()
     }
 
     gpio_deep_sleep_hold_dis();
-    gpio_hold_dis(static_cast<gpio_num_t>(PIN_POWER_HOLD));
-    gpio_hold_dis(static_cast<gpio_num_t>(PIN_POWER_LOCK));
+    constexpr int kHeldPins[] = {
+        PIN_POWER_HOLD,
+        PIN_POWER_LOCK,
+        PIN_TOP_BUTTON,
+        PIN_EPD_EN,
+        PIN_TOUCH_EN,
+        PIN_TOUCH_RST,
+        PIN_SD_EN,
+        PIN_BUZZER,
+    };
+    for (int held_pin : kHeldPins) {
+        gpio_hold_dis(static_cast<gpio_num_t>(held_pin));
+    }
 
     gpio_config_t config = {};
     config.pin_bit_mask =
@@ -85,4 +126,50 @@ esp_err_t board_power_init()
     vTaskDelay(kPowerSettleDelay);
     STICKY_LOGI(kTag, "step=ready hold=high lock=high result=ok");
     return ESP_OK;
+}
+
+
+[[noreturn]] void board_power_enter_deep_sleep(uint64_t timer_wakeup_us)
+{
+    const gpio_num_t wake_pin =
+        static_cast<gpio_num_t>(PIN_TOP_BUTTON);
+    wait_for_sleep_chord_release();
+
+    // This sequence mirrors the hardware demo: the board latch stays high,
+    // while powered peripherals are retained low throughout deep sleep.
+    // 此顺序与硬件示例一致：保持板级锁存为高，同时让各外设供电在深睡期间保持低电平。
+    ESP_ERROR_CHECK(hold_output(
+        static_cast<gpio_num_t>(PIN_POWER_HOLD), 1));
+    ESP_ERROR_CHECK(hold_output(
+        static_cast<gpio_num_t>(PIN_POWER_LOCK), 1));
+    ESP_ERROR_CHECK(hold_output(
+        static_cast<gpio_num_t>(PIN_EPD_EN), 0));
+    ESP_ERROR_CHECK(hold_output(
+        static_cast<gpio_num_t>(PIN_TOUCH_EN), 0));
+    ESP_ERROR_CHECK(hold_output(
+        static_cast<gpio_num_t>(PIN_TOUCH_RST), 0));
+    ESP_ERROR_CHECK(hold_output(
+        static_cast<gpio_num_t>(PIN_SD_EN), 0));
+    ESP_ERROR_CHECK(hold_output(
+        static_cast<gpio_num_t>(PIN_BUZZER), 0));
+
+    gpio_hold_dis(wake_pin);
+    ESP_ERROR_CHECK(gpio_set_direction(wake_pin, GPIO_MODE_INPUT));
+    ESP_ERROR_CHECK(gpio_pullup_en(wake_pin));
+    ESP_ERROR_CHECK(gpio_pulldown_dis(wake_pin));
+    ESP_ERROR_CHECK(gpio_hold_en(wake_pin));
+    ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(
+        1ULL << PIN_TOP_BUTTON, ESP_EXT1_WAKEUP_ANY_LOW));
+    if (timer_wakeup_us > 0U) {
+        ESP_ERROR_CHECK(esp_sleep_enable_timer_wakeup(timer_wakeup_us));
+    }
+    gpio_deep_sleep_hold_en();
+
+    STICKY_LOGI(kTag,
+                "power=deep_sleep wake_button=%d timer_us=%llu result=entering",
+                PIN_TOP_BUTTON,
+                static_cast<unsigned long long>(timer_wakeup_us));
+    std::fflush(stdout);
+    vTaskDelay(pdMS_TO_TICKS(50));
+    esp_deep_sleep_start();
 }

@@ -217,9 +217,16 @@ extern "C" void app_main()
     // A physical white full refresh removes the image retained by e-paper
     // before the first desktop-pet frame becomes the new baseline.
     // 先对白屏执行一次实体全刷，清除电子纸保留的旧画面，再建立桌宠首帧基线。
-    const esp_err_t clear_result = sticky_display_clear();
-    if (clear_result != ESP_OK) {
-        halt_after_error("sticky_display_clear", clear_result);
+    const bool woke_from_deep_sleep =
+        esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_UNDEFINED;
+    if (!woke_from_deep_sleep) {
+        const esp_err_t clear_result = sticky_display_clear();
+        if (clear_result != ESP_OK) {
+            halt_after_error("sticky_display_clear", clear_result);
+        }
+    } else {
+        STICKY_LOGI(kTag,
+                    "display=clear action=skipped reason=deep_sleep_wake");
     }
 
     const esp_err_t touch_result = sticky_touch_init();
