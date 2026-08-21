@@ -270,7 +270,12 @@ void enter_power_sleep(StickyAppRouterState &router, const char *source)
     s_sleep_context.rotation = s_canvas->rotation();
 
     draw_sleep_indicator();
-    const esp_err_t indicator_result = sticky_display_refresh_partial();
+    // The final frame stays visible throughout deep sleep, so force a full
+    // monochrome waveform to clean accumulated partial-refresh ghosting.
+    // 最后一帧会在深睡期间长期保留，因此强制全刷以清理局刷积累的残影。
+    sticky_display_cancel_app_transition_refresh();
+    const esp_err_t indicator_result =
+        sticky_display_refresh_monochrome();
     if (indicator_result != ESP_OK) {
         resume_app(s_current_app);
         STICKY_LOGE(kTag,
