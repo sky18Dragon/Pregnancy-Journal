@@ -76,6 +76,8 @@ int main()
     assert(selected_app == StickyAppId::BookOfAnswers);
     assert(!app_page_launcher_app_at(
         canvas.width(), canvas.height(), 240, 400, selected_app));
+    assert(!app_page_launcher_app_at(
+        canvas.width(), canvas.height(), 132, 406, selected_app));
     write_preview(buffer, "/tmp/sticky_launcher_portrait.ppm");
 
     canvas.set_rotation(CanvasRotation::Deg0);

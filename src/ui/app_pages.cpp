@@ -50,8 +50,8 @@ std::array<LauncherCard, kCardCount> launcher_cards(int width, int height)
         constexpr int kCardHeight = 244;
         constexpr int kColumnGap = 16;
         const int left = (width - kCardWidth * 2 - kColumnGap) / 2;
-        constexpr int kTopRowY = 114;
-        constexpr int kBottomRowY = 454;
+        constexpr int kTopRowY = 154;
+        constexpr int kBottomRowY = 414;
         return {{{StickyAppId::DesktopPet,
                   left, kTopRowY, kCardWidth, kCardHeight,
                   kTopRowY + 10, kTopRowY + 200},

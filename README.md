@@ -212,7 +212,7 @@ clang++ -std=c++17 -Wall -Wextra -Werror \
 /tmp/sticky_app_launcher_render_test
 ```
 
-命令成功后会同时验证八个贴纸触摸点、两个入口间隙以及黑色和浅灰素材层，并生成`/tmp/sticky_launcher_portrait.ppm`和`/tmp/sticky_launcher_landscape.ppm`，分别用于检查竖屏和横屏布局。
+命令成功后会同时验证八个贴纸触摸点、三个入口间隙以及黑色和浅灰素材层，并生成`/tmp/sticky_launcher_portrait.ppm`和`/tmp/sticky_launcher_landscape.ppm`，分别用于检查竖屏和横屏布局。
 
 应用选择动作规则可以脱离硬件验证：
 
