@@ -15,6 +15,7 @@
 #include "sticky_app_display_orientation.h"
 #include "sticky_app_id.h"
 #include "sticky_app_router.h"
+#include "sticky_buzzer.h"
 #include "sticky_button.h"
 #include "sticky_display.h"
 #include "sticky_imu.h"
@@ -362,10 +363,31 @@ void complete_selection(StickyAppId selected_app,
 
 void return_to_desktop_pet(StickyAppRouterState &router)
 {
-    if (s_current_app == StickyAppId::DesktopPet &&
-        !router.launcher_open) {
+    const esp_err_t buzzer_result = sticky_buzzer_stop();
+    if (buzzer_result != ESP_OK) {
+        STICKY_LOGW(kTag,
+                    "launcher=home input=button_double_click buzzer=%s",
+                    esp_err_to_name(buzzer_result));
+    }
+
+    if (s_current_app == StickyAppId::DesktopPet) {
+        if (router.launcher_open) {
+            sticky_app_router_close(router);
+        }
+        const esp_err_t imu_result = set_imu_running(false);
+        sticky_display_prepare_app_transition_refresh();
+        const esp_err_t home_result = desktop_pet_app_return_home();
+        if (home_result != ESP_OK) {
+            sticky_display_cancel_app_transition_refresh();
+            resume_app(StickyAppId::DesktopPet);
+        }
         STICKY_LOGI(kTag,
-                    "launcher=home input=button_double_click state=already_active result=ok");
+                    "launcher=home input=button_double_click app_from=desktop_pet app_to=desktop_pet page=root imu=%s navigation=%s result=%s",
+                    esp_err_to_name(imu_result),
+                    esp_err_to_name(home_result),
+                    imu_result == ESP_OK && home_result == ESP_OK
+                        ? "ok"
+                        : "failed");
         return;
     }
 

@@ -2010,6 +2010,50 @@ esp_err_t desktop_pet_app_start(Canvas &canvas)
     return ESP_OK;
 }
 
+esp_err_t desktop_pet_app_return_home()
+{
+    const esp_err_t pause_result =
+        sticky_app_lifecycle_pause(s_lifecycle, s_app_task);
+    if (pause_result != ESP_OK) {
+        return pause_result;
+    }
+
+    // Keeps persistent care, sleep, outing, and life-stage data while closing
+    // temporary editors, menus, celebrations, and transition frames.
+    // 保留养成、睡眠、外出与生命阶段数据，同时关闭临时编辑页、菜单、庆祝页与过场帧。
+    s_test_open = false;
+    s_personality_choice_open = false;
+    s_name_editor_open = false;
+    s_name_required = false;
+    s_name_input_error = false;
+    s_reset_confirmation = false;
+
+    s_hatch_active = false;
+    s_hatch_final = false;
+    s_hatch_frame = DesktopPetHatchFrame::Resting;
+    s_hatch_deadline_us = 0;
+    s_evolution_active = false;
+    s_evolution_deadline_us = 0;
+    s_care_celebration_active = false;
+    s_care_celebration_days = 0U;
+    s_care_celebration_deadline_us = 0;
+
+    cancel_idle_animation(false);
+    s_pose = DesktopPetPose::Idle;
+    s_idle_frame = DesktopPetIdleFrame::Normal;
+    s_pose_deadline_us = 0;
+    s_home_message = select_home_message();
+    s_message = s_home_message;
+    sticky_touch_clear_press();
+    sticky_app_lifecycle_resume(s_lifecycle);
+    STICKY_LOGI(kTag,
+                "pet=navigation action=return_home stage=%s activity=%s outing=%d result=ok",
+                pet_core_stage_name(s_state.pet.stage),
+                pet_core_activity_name(s_state.pet.activity),
+                desktop_pet_outing_active(s_outing));
+    return ESP_OK;
+}
+
 esp_err_t desktop_pet_app_pause()
 {
     return sticky_app_lifecycle_pause(s_lifecycle, s_app_task);
