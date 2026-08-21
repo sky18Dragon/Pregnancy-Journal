@@ -6,6 +6,7 @@
 
 #include "canvas.h"
 #include "desktop_pet_assets.h"
+#include "font.h"
 #include "pixel_asset.h"
 
 namespace {
@@ -42,6 +43,7 @@ constexpr Rect kSleepNowRect = {35, 463, 410, 52};
 constexpr Rect kGoOutRect = {35, 525, 410, 52};
 constexpr Rect kResetRect = {35, 597, 410, 62};
 constexpr Rect kOutingCallHomeRect = {0, 600, 480, 170};
+constexpr Rect kCareCelebrationMessageRect = {30, 674, 420, 68};
 constexpr Rect kFoodieChoiceRect = {45, 220, 390, 125};
 constexpr Rect kAffectionateChoiceRect = {45, 365, 390, 125};
 constexpr Rect kActiveChoiceRect = {45, 510, 390, 125};
@@ -115,6 +117,46 @@ int text_width(const char *text, int scale)
     return (static_cast<int>(std::strlen(text)) * 6 - 1) * scale;
 }
 
+struct TextInkBounds {
+    int left;
+    int width;
+};
+
+// Measures only visible glyph columns so display text can be optically centered.
+// 只测量字符真正点亮的列，用于让屏幕文字在视觉上准确居中。
+TextInkBounds text_ink_bounds(const char *text, int scale)
+{
+    if (text == nullptr || text[0] == '\0' || scale <= 0) {
+        return {0, 0};
+    }
+
+    int first_visible_column = -1;
+    int last_visible_column = -1;
+    int cursor_column = 0;
+    for (const char *character = text; *character != '\0'; ++character) {
+        const FontGlyph &glyph = font_get_glyph(*character);
+        for (int column = 0; column < kFontWidth; ++column) {
+            if (glyph.columns[column] == 0U) {
+                continue;
+            }
+            const int visible_column = cursor_column + column;
+            if (first_visible_column < 0) {
+                first_visible_column = visible_column;
+            }
+            last_visible_column = visible_column;
+        }
+        cursor_column += kFontWidth + kFontSpacing;
+    }
+
+    if (first_visible_column < 0) {
+        return {0, 0};
+    }
+    return {
+        first_visible_column * scale,
+        (last_visible_column - first_visible_column + 1) * scale,
+    };
+}
+
 void draw_centered(Canvas &canvas,
                    int y,
                    const char *text,
@@ -136,6 +178,20 @@ void draw_centered_in_rect(Canvas &canvas,
 {
     const int x = rect.x + (rect.width - text_width(text, scale)) / 2;
     const int y = rect.y + (rect.height - 7 * scale) / 2;
+    canvas.draw_text(x, y, text, static_cast<uint8_t>(scale), color);
+}
+
+// Aligns the visible pixels of a label to the rectangle center.
+// 按文字实际可见像素对齐到矩形中心，消除字符留白造成的视觉偏移。
+void draw_visually_centered_in_rect(Canvas &canvas,
+                                    const Rect &rect,
+                                    const char *text,
+                                    int scale,
+                                    GrayLevel color = GrayLevel::Black)
+{
+    const TextInkBounds bounds = text_ink_bounds(text, scale);
+    const int x = rect.x + (rect.width - bounds.width) / 2 - bounds.left;
+    const int y = rect.y + (rect.height - kFontHeight * scale) / 2;
     canvas.draw_text(x, y, text, static_cast<uint8_t>(scale), color);
 }
 
@@ -1488,7 +1544,7 @@ void desktop_pet_page_render_care_celebration(
             ? DesktopPetPose::Pet
             : DesktopPetPose::Play;
     const int rabbit_y =
-        frame == DesktopPetCelebrationFrame::Proud ? 445 : 440;
+        frame == DesktopPetCelebrationFrame::Proud ? 435 : 430;
     pixel_asset_draw_centered(
         canvas,
         240,
@@ -1515,10 +1571,14 @@ void desktop_pet_page_render_care_celebration(
     draw_sparkle(canvas, 68, 586, 7);
     draw_sparkle(canvas, 414, 590, 9);
 
-    canvas.fill_rect(30, 650, 420, 72, GrayLevel::Black);
-    draw_centered(
+    canvas.fill_rect(kCareCelebrationMessageRect.x,
+                     kCareCelebrationMessageRect.y,
+                     kCareCelebrationMessageRect.width,
+                     kCareCelebrationMessageRect.height,
+                     GrayLevel::Black);
+    draw_visually_centered_in_rect(
         canvas,
-        672,
+        kCareCelebrationMessageRect,
         frame == DesktopPetCelebrationFrame::Proud
             ? "LOOK HOW FAR WE'VE COME!"
             : "THANK YOU FOR CARING FOR ME!",

@@ -1,5 +1,7 @@
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <cstdlib>
 #include <fstream>
 #include <vector>
 
@@ -18,6 +20,52 @@ uint8_t pixel_level(const std::vector<uint8_t> &buffer, int x, int y)
                          static_cast<size_t>(x) / 4U;
     const uint8_t shift = static_cast<uint8_t>((3 - (x & 0x03)) * 2);
     return static_cast<uint8_t>((buffer[index] >> shift) & 0x03U);
+}
+
+uint8_t logical_pixel_level(const std::vector<uint8_t> &buffer, int x, int y)
+{
+    return pixel_level(buffer, y, kPhysicalHeight - 1 - x);
+}
+
+size_t logical_black_pixel_count(const std::vector<uint8_t> &buffer,
+                                 int left,
+                                 int top,
+                                 int right,
+                                 int bottom)
+{
+    size_t count = 0U;
+    for (int y = top; y <= bottom; ++y) {
+        for (int x = left; x <= right; ++x) {
+            if (logical_pixel_level(buffer, x, y) ==
+                static_cast<uint8_t>(GrayLevel::Black)) {
+                ++count;
+            }
+        }
+    }
+    return count;
+}
+
+void assert_white_ink_is_centered(const std::vector<uint8_t> &buffer,
+                                  int left,
+                                  int top,
+                                  int right,
+                                  int bottom)
+{
+    int first_white_x = right + 1;
+    int last_white_x = left - 1;
+    for (int y = top; y <= bottom; ++y) {
+        for (int x = left; x <= right; ++x) {
+            if (logical_pixel_level(buffer, x, y) !=
+                static_cast<uint8_t>(GrayLevel::White)) {
+                continue;
+            }
+            first_white_x = std::min(first_white_x, x);
+            last_white_x = std::max(last_white_x, x);
+        }
+    }
+
+    assert(last_white_x >= first_white_x);
+    assert(std::abs(first_white_x + last_white_x - 479) <= 1);
 }
 
 size_t black_pixel_count(const std::vector<uint8_t> &buffer)
@@ -328,12 +376,20 @@ int main()
     desktop_pet_page_render_care_celebration(
         canvas, state, 3U, DesktopPetCelebrationFrame::Proud);
     assert(black_pixel_count(buffer) > 12000U);
+    assert(logical_black_pixel_count(buffer, 0, 655, 479, 673) == 0U);
+    assert(logical_pixel_level(buffer, 30, 674) ==
+           static_cast<uint8_t>(GrayLevel::Black));
+    assert(logical_pixel_level(buffer, 449, 741) ==
+           static_cast<uint8_t>(GrayLevel::Black));
+    assert_white_ink_is_centered(buffer, 30, 674, 449, 741);
     const std::vector<uint8_t> proud_celebration = buffer;
     write_preview(buffer, "/tmp/desktop_pet_streak_3_proud.ppm");
     desktop_pet_page_render_care_celebration(
         canvas, state, 3U, DesktopPetCelebrationFrame::Jump);
     assert(black_pixel_count(buffer) > 12000U);
     assert(buffer != proud_celebration);
+    assert(logical_black_pixel_count(buffer, 0, 655, 479, 673) == 0U);
+    assert_white_ink_is_centered(buffer, 30, 674, 449, 741);
     write_preview(buffer, "/tmp/desktop_pet_streak_3_jump.ppm");
 
     desktop_pet_page_render_test(canvas, state, false);
