@@ -41,6 +41,12 @@ The actual-size full views keep the four illustrations and all labels legible, s
 - Fix: moved the first portrait row down 40 pixels and the second row up 40 pixels, preserving equal label spacing and a 16-pixel non-interactive gap between the touch tracks.
 - Post-fix evidence: `assets/app_launcher/qa/comparison.png` shows the compact centered portrait group while the landscape layout remains unchanged.
 
+### Iteration 3
+
+- Finding: P2, the portrait title group remained close to the top edge after the entry grid moved toward the center, leaving the upper page rhythm disconnected.
+- Fix: moved the portrait title, both title sparkles, and the dotted divider down 28 pixels as one unit. The landscape title coordinates remain unchanged.
+- Post-fix evidence: `assets/app_launcher/qa/comparison.png` shows the title and 2 x 2 entry grid reading as one centered portrait composition.
+
 ## Findings
 
 No actionable P0, P1, or P2 differences remain.

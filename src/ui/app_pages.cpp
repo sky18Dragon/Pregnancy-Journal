@@ -238,19 +238,23 @@ bool contains(const LauncherCard &card, int x, int y)
 void app_page_render_launcher(Canvas &canvas, StickyAppId current_app)
 {
     canvas.clear(GrayLevel::White);
+    const bool portrait = canvas.height() > canvas.width();
+    const int title_y = portrait ? 58 : 30;
+    const int sparkle_y = portrait ? 77 : 49;
+    const int divider_y = portrait ? 110 : 82;
     draw_centered_text(canvas,
                        canvas.width() / 2,
-                       30,
+                       title_y,
                        "CHOOSE AN APP",
                        4);
     constexpr int title_sparkle_offset = 190;
     draw_title_sparkle(canvas,
                        canvas.width() / 2 - title_sparkle_offset,
-                       49);
+                       sparkle_y);
     draw_title_sparkle(canvas,
                        canvas.width() / 2 + title_sparkle_offset,
-                       49);
-    draw_title_divider(canvas, 82);
+                       sparkle_y);
+    draw_title_divider(canvas, divider_y);
     const auto cards = launcher_cards(canvas.width(), canvas.height());
     for (const LauncherCard &card : cards) {
         draw_card(canvas, card, current_app);
