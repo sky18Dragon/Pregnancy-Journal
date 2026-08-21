@@ -4,9 +4,10 @@
 #include "board_sensor_bus.h"
 #include "board_shared_spi.h"
 #include "canvas.h"
-#include "desktop_pet_app.h"
+#include "sticky_app.h"
 #include "sticky_buzzer.h"
 #include "sticky_display.h"
+#include "sticky_imu.h"
 #include "sticky_rtc.h"
 #include "sticky_touch.h"
 
@@ -231,16 +232,22 @@ extern "C" void app_main()
         halt_after_error("sticky_buzzer_init", buzzer_result);
     }
 
+    const esp_err_t imu_result =
+        sticky_imu_init(board_sensor_i2c_bus());
+    if (imu_result != ESP_OK) {
+        halt_after_error("sticky_imu_init", imu_result);
+    }
+
     const esp_err_t nvs_result = nvs_flash_init();
     if (nvs_result != ESP_OK) {
         halt_after_error("nvs_flash_init", nvs_result);
     }
 
-    // Runs the selected portrait desktop-pet experience as an independent app.
-    // 当前把选定的竖屏桌宠体验作为独立APP直接运行。
-    const esp_err_t app_result = desktop_pet_app_start(*canvas);
+    // Starts the default pet and top-button application launcher.
+    // 启动默认桌宠和顶部按键应用选择器。
+    const esp_err_t app_result = sticky_app_start(*canvas);
     if (app_result != ESP_OK) {
-        halt_after_error("desktop_pet_app_start", app_result);
+        halt_after_error("sticky_app_start", app_result);
     }
 
 #if STICKY_LOG_BOOT_DETAILS_ENABLED

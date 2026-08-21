@@ -10,6 +10,7 @@
 #include "status_board_pages.h"
 #include "status_board_state.h"
 #include "status_pet_animation.h"
+#include "sticky_app_lifecycle.h"
 #include "sticky_display.h"
 #include "sticky_touch.h"
 
@@ -25,6 +26,7 @@ constexpr uint16_t kDisplaySecondaryHoldMs = 250U;
 
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
+StickyAppLifecycle s_lifecycle = {};
 StatusBoardState s_state = {};
 StatusBoardKeyboardMode s_keyboard_mode = StatusBoardKeyboardMode::Letters;
 char s_custom_text[kCustomTextMaximum + 1U] = {};
@@ -322,6 +324,11 @@ void app_task(void *)
                 "status_board=status_animation state=ready statuses=6 frames_per_status=2 result=ok");
 
     while (true) {
+        if (sticky_app_lifecycle_checkpoint(s_lifecycle)) {
+            sticky_touch_clear_press();
+            render_page(false);
+        }
+
         StickyTouchPress press = {};
         if (sticky_touch_take_press(press)) {
             bool redraw_needed = false;
@@ -393,5 +400,19 @@ esp_err_t status_board_app_start(Canvas &canvas)
         s_canvas = nullptr;
         return ESP_ERR_NO_MEM;
     }
+    return ESP_OK;
+}
+
+esp_err_t status_board_app_pause()
+{
+    return sticky_app_lifecycle_pause(s_lifecycle, s_app_task);
+}
+
+esp_err_t status_board_app_resume()
+{
+    if (s_app_task == nullptr) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    sticky_app_lifecycle_resume(s_lifecycle);
     return ESP_OK;
 }

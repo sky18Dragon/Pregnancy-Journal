@@ -1,52 +1,24 @@
 #include "app_pages.h"
 
-#include <cstdio>
+#include <array>
 #include <cstring>
 
 #include "canvas.h"
+#include "pet_animation_assets.h"
+#include "pixel_asset.h"
+#include "status_bunny_assets.h"
 
 namespace {
 
-constexpr int kBorderMargin = 12;
+struct LauncherCard {
+    StickyAppId app;
+    int x;
+    int y;
+    int width;
+    int height;
+};
 
-CanvasRotation rotation_for_orientation(StickyImuOrientation orientation)
-{
-    switch (orientation) {
-    case StickyImuOrientation::Portrait0:
-        return CanvasRotation::Deg90CounterClockwise;
-    case StickyImuOrientation::Landscape180:
-        return CanvasRotation::Deg180;
-    case StickyImuOrientation::Portrait180:
-        return CanvasRotation::Deg90Clockwise;
-    case StickyImuOrientation::Landscape0:
-    case StickyImuOrientation::FaceUp:
-    case StickyImuOrientation::FaceDown:
-    case StickyImuOrientation::Unknown:
-    default:
-        return CanvasRotation::Deg0;
-    }
-}
-
-const char *page_orientation_name(StickyImuOrientation orientation)
-{
-    switch (orientation) {
-    case StickyImuOrientation::Landscape0:
-        return "LANDSCAPE 0";
-    case StickyImuOrientation::Landscape180:
-        return "LANDSCAPE 180";
-    case StickyImuOrientation::Portrait0:
-        return "PORTRAIT 0";
-    case StickyImuOrientation::Portrait180:
-        return "PORTRAIT 180";
-    case StickyImuOrientation::FaceUp:
-        return "FACE UP";
-    case StickyImuOrientation::FaceDown:
-        return "FACE DOWN";
-    case StickyImuOrientation::Unknown:
-    default:
-        return "UNKNOWN";
-    }
-}
+constexpr size_t kCardCount = 4U;
 
 int text_width(const char *text, int scale)
 {
@@ -54,100 +26,217 @@ int text_width(const char *text, int scale)
 }
 
 void draw_centered_text(Canvas &canvas,
+                        int center_x,
                         int y,
                         const char *text,
                         int scale,
                         GrayLevel color = GrayLevel::Black)
 {
-    const int x = (static_cast<int>(canvas.width()) -
-                   text_width(text, scale)) /
-                  2;
-    canvas.draw_text(x, y, text, scale, color);
+    canvas.draw_text(center_x - text_width(text, scale) / 2,
+                     y,
+                     text,
+                     scale,
+                     color);
 }
 
-void begin_page(Canvas &canvas, StickyImuOrientation orientation)
+std::array<LauncherCard, kCardCount> launcher_cards(int width, int height)
 {
-    // Applies the matching logical coordinate rotation before every full redraw.
-    // 每次整页重绘前都切换到与放稳姿态匹配的逻辑坐标。
-    canvas.set_rotation(rotation_for_orientation(orientation));
-    canvas.clear(GrayLevel::White);
-    canvas.draw_rect(kBorderMargin,
-                     kBorderMargin,
-                     canvas.width() - 2 * kBorderMargin,
-                     canvas.height() - 2 * kBorderMargin,
+    const bool portrait = height > width;
+    if (portrait) {
+        constexpr int kCardWidth = 196;
+        constexpr int kCardHeight = 226;
+        constexpr int kColumnGap = 20;
+        constexpr int kRowGap = 24;
+        const int left = (width - kCardWidth * 2 - kColumnGap) / 2;
+        const int top = (height - kCardHeight * 2 - kRowGap) / 2 + 16;
+        return {{{StickyAppId::DesktopPet,
+                  left, top, kCardWidth, kCardHeight},
+                 {StickyAppId::Pomodoro,
+                  left + kCardWidth + kColumnGap,
+                  top, kCardWidth, kCardHeight},
+                 {StickyAppId::StatusBoard,
+                  left, top + kCardHeight + kRowGap,
+                  kCardWidth, kCardHeight},
+                 {StickyAppId::BookOfAnswers,
+                  left + kCardWidth + kColumnGap,
+                  top + kCardHeight + kRowGap,
+                  kCardWidth, kCardHeight}}};
+    }
+
+    constexpr int kCardWidth = 178;
+    constexpr int kCardHeight = 244;
+    constexpr int kGap = 16;
+    const int left = (width - kCardWidth * 4 - kGap * 3) / 2;
+    const int top = (height - kCardHeight) / 2 + 16;
+    return {{{StickyAppId::DesktopPet,
+              left, top, kCardWidth, kCardHeight},
+             {StickyAppId::Pomodoro,
+              left + (kCardWidth + kGap), top,
+              kCardWidth, kCardHeight},
+             {StickyAppId::StatusBoard,
+              left + (kCardWidth + kGap) * 2, top,
+              kCardWidth, kCardHeight},
+             {StickyAppId::BookOfAnswers,
+              left + (kCardWidth + kGap) * 3, top,
+              kCardWidth, kCardHeight}}};
+}
+
+const char *app_label(StickyAppId app)
+{
+    switch (app) {
+    case StickyAppId::DesktopPet:
+        return "PET";
+    case StickyAppId::Pomodoro:
+        return "FOCUS";
+    case StickyAppId::StatusBoard:
+        return "STATUS";
+    case StickyAppId::BookOfAnswers:
+        return "ANSWERS";
+    }
+    return "APP";
+}
+
+void draw_timer_icon(Canvas &canvas, int center_x, int center_y)
+{
+    canvas.draw_circle(center_x, center_y + 4, 42, GrayLevel::Black);
+    canvas.draw_circle(center_x, center_y + 4, 37, GrayLevel::Black);
+    canvas.fill_rect(center_x - 13, center_y - 48,
+                     26, 7, GrayLevel::Black);
+    canvas.draw_line(center_x, center_y + 4,
+                     center_x, center_y - 23, GrayLevel::Black);
+    canvas.draw_line(center_x, center_y + 4,
+                     center_x + 22, center_y + 16, GrayLevel::Black);
+    canvas.fill_circle(center_x, center_y + 4, 4, GrayLevel::Black);
+    canvas.draw_line(center_x - 26, center_y - 28,
+                     center_x - 36, center_y - 38, GrayLevel::Black);
+    canvas.draw_line(center_x + 26, center_y - 28,
+                     center_x + 36, center_y - 38, GrayLevel::Black);
+}
+
+void draw_crystal_icon(Canvas &canvas, int center_x, int center_y)
+{
+    canvas.draw_circle(center_x, center_y - 6, 43, GrayLevel::Black);
+    canvas.draw_circle(center_x, center_y - 6, 37, GrayLevel::Black);
+    canvas.fill_circle(center_x - 15, center_y - 18, 4,
+                       GrayLevel::Black);
+    canvas.draw_line(center_x + 13, center_y - 29,
+                     center_x + 13, center_y - 13,
                      GrayLevel::Black);
+    canvas.draw_line(center_x + 5, center_y - 21,
+                     center_x + 21, center_y - 21,
+                     GrayLevel::Black);
+    canvas.draw_line(center_x - 30, center_y + 31,
+                     center_x - 40, center_y + 47,
+                     GrayLevel::Black);
+    canvas.draw_line(center_x + 30, center_y + 31,
+                     center_x + 40, center_y + 47,
+                     GrayLevel::Black);
+    canvas.fill_rect(center_x - 40, center_y + 44,
+                     80, 7, GrayLevel::Black);
+    canvas.fill_rect(center_x - 31, center_y + 51,
+                     62, 5, GrayLevel::Black);
+}
+
+void draw_app_icon(Canvas &canvas,
+                   StickyAppId app,
+                   int center_x,
+                   int center_y)
+{
+    switch (app) {
+    case StickyAppId::DesktopPet:
+        pixel_asset_draw_centered(
+            canvas, center_x, center_y,
+            pet_animation_asset(PetAnimationPose::Wave));
+        break;
+    case StickyAppId::Pomodoro:
+        draw_timer_icon(canvas, center_x, center_y);
+        break;
+    case StickyAppId::StatusBoard:
+        pixel_asset_draw_centered(
+            canvas, center_x, center_y,
+            status_bunny_asset(StatusBunnyAssetId::Welcome));
+        break;
+    case StickyAppId::BookOfAnswers:
+        draw_crystal_icon(canvas, center_x, center_y);
+        break;
+    }
+}
+
+void draw_card(Canvas &canvas,
+               const LauncherCard &card,
+               StickyAppId current_app)
+{
+    const bool active = card.app == current_app;
+    const int center_x = card.x + card.width / 2;
+    constexpr int kLabelHeight = 44;
+    canvas.draw_rect(card.x, card.y,
+                     card.width, card.height, GrayLevel::Black);
+    canvas.draw_rect(card.x + 4, card.y + 4,
+                     card.width - 8, card.height - 8,
+                     GrayLevel::Black);
+    if (active) {
+        canvas.fill_circle(card.x + card.width - 18,
+                           card.y + 18, 6, GrayLevel::Black);
+    }
+
+    draw_app_icon(canvas,
+                  card.app,
+                  center_x,
+                  card.y + (card.height - kLabelHeight) / 2);
+
+    const int label_y = card.y + card.height - kLabelHeight;
+    if (active) {
+        canvas.fill_rect(card.x + 4, label_y,
+                         card.width - 8, kLabelHeight - 4,
+                         GrayLevel::Black);
+    } else {
+        canvas.draw_line(card.x + 4, label_y,
+                         card.x + card.width - 5, label_y,
+                         GrayLevel::Black);
+    }
+    draw_centered_text(canvas,
+                       center_x,
+                       label_y + 10,
+                       app_label(card.app),
+                       2,
+                       active ? GrayLevel::White : GrayLevel::Black);
+}
+
+bool contains(const LauncherCard &card, int x, int y)
+{
+    return x >= card.x && y >= card.y &&
+           x < card.x + card.width &&
+           y < card.y + card.height;
 }
 
 }  // namespace
 
-void app_page_render_base(Canvas &canvas, StickyImuOrientation orientation)
+void app_page_render_launcher(Canvas &canvas, StickyAppId current_app)
 {
-    begin_page(canvas, orientation);
-    draw_centered_text(canvas, canvas.height() / 2 - 72, "STICKY HOME", 5);
+    canvas.clear(GrayLevel::White);
     draw_centered_text(canvas,
-                       canvas.height() / 2 + 4,
-                       page_orientation_name(orientation),
+                       canvas.width() / 2,
+                       42,
+                       "CHOOSE AN APP",
                        3);
-    draw_centered_text(canvas, canvas.height() - 62, "READY", 2);
+    const auto cards = launcher_cards(canvas.width(), canvas.height());
+    for (const LauncherCard &card : cards) {
+        draw_card(canvas, card, current_app);
+    }
 }
 
-void app_page_render_pomodoro_confirmation(
-    Canvas &canvas,
-    StickyImuOrientation orientation)
+bool app_page_launcher_app_at(int width,
+                              int height,
+                              int x,
+                              int y,
+                              StickyAppId &selected_app)
 {
-    begin_page(canvas, orientation);
-    draw_centered_text(canvas, 80, "POMODORO", 5);
-    draw_centered_text(canvas, 210, "15:00", 10);
-
-    const int box_x = 48;
-    const int box_y = 470;
-    const int box_width = canvas.width() - box_x * 2;
-    canvas.fill_rect(box_x, box_y, box_width, 112, GrayLevel::Black);
-    draw_centered_text(canvas, box_y + 24, "TAP TO START", 4, GrayLevel::White);
-    draw_centered_text(canvas, 625, "10 SECOND WINDOW", 2);
-    draw_centered_text(canvas, 690, "NO TAP: HOME", 2);
-}
-
-void app_page_render_pomodoro_running(
-    Canvas &canvas,
-    StickyImuOrientation orientation,
-    uint32_t remaining_seconds)
-{
-    begin_page(canvas, orientation);
-
-    char time_text[16] = {};
-    const uint32_t minutes = remaining_seconds / 60U;
-    const uint32_t seconds = remaining_seconds % 60U;
-    std::snprintf(time_text,
-                  sizeof(time_text),
-                  "%02lu:%02lu",
-                  static_cast<unsigned long>(minutes),
-                  static_cast<unsigned long>(seconds));
-
-    const bool portrait_page = canvas.height() > canvas.width();
-    const int title_y = portrait_page ? 95 : 70;
-    const int timer_y = portrait_page ? 280 : 190;
-    const int status_y = portrait_page ? 520 : 340;
-    const int status_text_y = portrait_page ? 548 : 366;
-    draw_centered_text(canvas, title_y, "FOCUS SESSION", 4);
-    draw_centered_text(canvas, timer_y, time_text, 10);
-    canvas.fill_rect(48,
-                     status_y,
-                     canvas.width() - 96,
-                     portrait_page ? 100 : 88,
-                     GrayLevel::Black);
-    draw_centered_text(
-        canvas, status_text_y, "POMODORO RUNNING", 3, GrayLevel::White);
-}
-
-void app_page_render_pomodoro_done(
-    Canvas &canvas,
-    StickyImuOrientation orientation)
-{
-    begin_page(canvas, orientation);
-    const bool portrait_page = canvas.height() > canvas.width();
-    draw_centered_text(canvas, portrait_page ? 210 : 100, "POMODORO", 5);
-    draw_centered_text(canvas, portrait_page ? 330 : 220, "COMPLETE", 6);
-    draw_centered_text(
-        canvas, portrait_page ? 560 : 360, "FOCUS SESSION DONE", 2);
+    const auto cards = launcher_cards(width, height);
+    for (const LauncherCard &card : cards) {
+        if (contains(card, x, y)) {
+            selected_app = card.app;
+            return true;
+        }
+    }
+    return false;
 }

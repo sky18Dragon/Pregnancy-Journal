@@ -10,6 +10,7 @@
 #include "pomodoro_countdown.h"
 #include "pomodoro_pages.h"
 #include "pomodoro_render_policy.h"
+#include "sticky_app_lifecycle.h"
 #include "sticky_buzzer.h"
 #include "sticky_display.h"
 #include "sticky_touch.h"
@@ -24,6 +25,7 @@ constexpr UBaseType_t kTaskPriority = 3;
 
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
+StickyAppLifecycle s_lifecycle = {};
 
 PomodoroPage s_page = PomodoroPage::Setup;
 PomodoroPage s_return_page = PomodoroPage::Running;
@@ -418,6 +420,15 @@ void app_task(void *)
                 static_cast<unsigned long>(kDefaultDurationSeconds));
 
     while (true) {
+        if (sticky_app_lifecycle_checkpoint(s_lifecycle)) {
+            sticky_touch_clear_press();
+            if (s_page == PomodoroPage::Running) {
+                s_paused_remaining_us =
+                    timer_remaining_us(esp_timer_get_time());
+            }
+            render_current_page(false);
+        }
+
         if (s_page == PomodoroPage::Running) {
             update_running_timer();
         }
@@ -466,5 +477,19 @@ esp_err_t pomodoro_app_start(Canvas &canvas)
         s_canvas = nullptr;
         return ESP_ERR_NO_MEM;
     }
+    return ESP_OK;
+}
+
+esp_err_t pomodoro_app_pause()
+{
+    return sticky_app_lifecycle_pause(s_lifecycle, s_app_task);
+}
+
+esp_err_t pomodoro_app_resume()
+{
+    if (s_app_task == nullptr) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    sticky_app_lifecycle_resume(s_lifecycle);
     return ESP_OK;
 }

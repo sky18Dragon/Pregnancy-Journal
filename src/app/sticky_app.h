@@ -4,6 +4,6 @@
 
 class Canvas;
 
-// Starts the orientation-driven page and Pomodoro state machine.
-// 启动由放稳姿态驱动的页面与番茄钟状态机。
+// Starts the top-button launcher and the default desktop-pet application.
+// 启动顶部按键应用选择器和默认桌宠应用。
 esp_err_t sticky_app_start(Canvas &canvas);

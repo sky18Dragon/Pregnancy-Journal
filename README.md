@@ -2,9 +2,21 @@
 
 这是 reTerminal Sticky 的新固件工程。工程使用 PlatformIO 管理构建、烧录和串口监视，底层框架采用 ESP-IDF。`Sticky_dashboard_demo`是硬件驱动的参考来源。
 
-当前`feature/ui-experience`分支将桌宠作为一个完整、独立的APP运行。启动入口直接进入当前成长阶段的竖屏主页，用于独立验证主页视觉、喂食、抚摸、陪玩、成长值、亲密值、测试时间和存档。答案书、番茄钟与状态牌APP源码继续保留，等待最终整合。
+当前`feature/ui-experience`分支上电后进入桌宠主页，顶部AI/OK按键负责唤起统一应用选择窗口。桌宠、答案书、番茄钟与状态牌通过同一个屏幕和触摸生命周期管理器运行。
+
+IMU平时保持停止状态。单击顶部按键后，当前APP在安全边界暂停，屏幕中央显示桌宠、番茄钟、状态牌和答案书四个入口，同时启动本次IMU选择会话。用户可以直接触摸图标，也可以把设备从实际横置转为实际竖置进入番茄钟、从实际竖置转为实际横置进入状态牌，或持续摇晃进入答案书；再次单击顶部按键会取消选择并恢复原APP。摇晃选择答案书时，同一次动作会继续用于完成答案书的三秒持续摇晃检测。
 
 ## 当前功能
+
+### 顶部按键应用选择器
+
+- 顶部AI/OK按键沿用硬件示例的GPIO4、低电平有效和180毫秒短按配置。
+- 应用选择窗口使用四张居中的像素风格卡片，竖屏采用2×2排列，横屏采用单行排列；当前APP使用黑色标签和圆点标记。
+- 四张卡片的完整范围都是触摸区，触摸坐标先按照当前页面方向转换，再与画面使用的同一套卡片位置匹配。
+- 选择窗口同时读取稳定横竖变化和持续摇晃：实际横置转实际竖置选择番茄钟，实际竖置转实际横置选择状态牌，持续摇晃达到800毫秒后选择答案书。
+- 答案书沿用选择窗口正在进行的摇晃会话，用户保持同一次动作满3秒即可继续进入思考和答案动画。
+- 当前APP暂停后保留内部状态；恢复时重新绘制当前页面。番茄钟使用真实截止时间，因此切换期间倒计时继续准确推进。
+- 每次完成选择后，只有目标APP读取触摸和刷新屏幕，其余APP停在安全循环边界等待。
 
 ### 桌宠养成系统（宠物蛋、幼兔、儿童、青年与成年期）
 
@@ -154,18 +166,20 @@
 - SSD1677 800×480电子纸屏幕。
 - GT911触摸控制器。
 - LSM6DS3TR-C加速度计，104Hz、正负2g量程。
+- GPIO4顶部AI/OK按键，单击打开或取消触摸式应用选择窗口。
 - PCF8563实时时钟，使用共享I2C1总线和`0x51`地址；首次低电压状态使用固件构建时间完成一次校时，之后启动时补算离线时间，运行中每分钟读取一次。
 - GPIO48无源蜂鸣器，使用10位LEDC输出；番茄钟使用循环三音，桌宠按照当前可见动作、情绪、亲密度和性格播放短促电子宠物声。
 - 电子纸与MicroSD共享SPI2，启动时先将MicroSD控制脚设置为确定的空闲状态。
 - GPIO45和GPIO46负责板级供电锁存。
 
-桌宠APP位于`src/apps/desktop_pet/`，当前通过屏幕、触摸和NVS存档接口使用硬件。答案书、番茄钟、状态牌、姿态与方向页面源码继续保留，后续由产品入口负责选择并启动APP。
+桌宠APP位于`src/apps/desktop_pet/`，答案书、番茄钟和状态牌分别位于对应的`src/apps/`子目录。`src/app/`中的统一管理器负责按键入口、触摸与动作选择、IMU会话以及APP暂停和恢复。
 
 ## 环境
 
 - PlatformIO Core 6.1.19
 - `espressif32` Platform 6.11.0
 - ESP-IDF 5.4.1
+- `espressif/button` 4.1.6
 - 目标芯片：ESP32-S3
 
 工程固定使用`espressif32@6.11.0`，与硬件参考工程的ESP-IDF 5.4驱动接口保持一致。
@@ -183,6 +197,36 @@
 ```bash
 /Users/mengdu/.local/bin/pio run -e sticky-release
 ```
+
+应用选择窗口的横竖屏布局和触摸区域可以脱离硬件验证：
+
+```bash
+clang++ -std=c++17 -Wall -Wextra -Werror \
+  -Isrc/app -Isrc/ui -Isrc/ui/assets \
+  test/sticky_app_launcher_render_test.cpp \
+  src/ui/app_pages.cpp src/ui/canvas.cpp src/ui/font.cpp \
+  src/ui/assets/pixel_asset.cpp \
+  src/ui/assets/pet_animation_assets.cpp \
+  src/ui/assets/status_bunny_assets.cpp \
+  src/app/sticky_app_id.cpp \
+  -o /tmp/sticky_app_launcher_render_test
+/tmp/sticky_app_launcher_render_test
+```
+
+命令成功后会同时验证八个卡片中心点和两个卡片间隙，并生成`/tmp/sticky_launcher_portrait.ppm`和`/tmp/sticky_launcher_landscape.ppm`，分别用于检查竖屏和横屏布局。
+
+应用选择动作规则可以脱离硬件验证：
+
+```bash
+clang++ -std=c++17 -Wall -Wextra -Werror \
+  -Isrc/app -Isrc/sensors \
+  test/sticky_app_router_test.cpp \
+  src/app/sticky_app_router.cpp \
+  -o /tmp/sticky_app_router_test
+/tmp/sticky_app_router_test
+```
+
+命令正常结束且没有输出，表示实际横转竖、实际竖转横、快速起始姿态记录、800毫秒摇晃门槛和取消会话均通过。
 
 桌宠核心规则可以脱离硬件在电脑上验证：
 
@@ -342,12 +386,26 @@ src/core/                  日志基础设施
 src/devices/               蜂鸣器、PCF8563实时时钟等独立设备接口
 src/display/               屏幕初始化和刷新
 src/input/                 GT911触摸初始化、坐标转换和采样
-src/sensors/               姿态监测与防误触发摇晃检测
+src/sensors/               答案书使用的姿态监测与连续摇晃检测
 src/ui/                    画布、字体、公共1位像素素材接口和已保留页面源码
-src/main.cpp               当前独立桌宠启动入口
+src/main.cpp               统一APP管理器与默认桌宠启动入口
 test/                      可在电脑上运行的回归测试
 platformio.ini             开发版与发布版构建配置
 ```
+
+## 顶部按键应用选择器真机验收
+
+1. 使用`sticky-debug`烧录并打开串口，等待桌宠主页出现；确认日志包含`button=ready pin=4`和`launcher=ready trigger=top_button imu=on_demand`，启动阶段不出现`imu=monitoring`。
+2. 将设备实际横置后单击顶部按键；确认四张卡片出现，日志记录`input=touch,rotation,shake`、`imu=started`，随后记录`launcher=baseline orientation=portrait_0`或`portrait_180`。
+3. 把设备连续转为实际竖置并放稳；确认进入番茄钟，日志记录`input=rotation`、`app_to=pomodoro`和`imu=stopped`。
+4. 保持实际竖置，在番茄钟中打开选择窗口，再把设备转为实际横置并放稳；确认进入状态牌，日志记录`app_to=status_board`。
+5. 在状态牌中打开选择窗口并持续摇晃3秒；确认约800毫秒后进入答案书，并由同一次摇晃继续完成答案书的三秒资格、思考和答案动画。
+6. 从答案书打开选择窗口，直接点击`PET`；确认停止本次IMU会话并进入桌宠。
+7. 再次打开选择窗口，依次点击`FOCUS`、`STATUS`和`ANSWERS`；确认四张卡片在横竖页面中都可以直接触摸选择。
+8. 打开窗口后只快速转动一下或短促晃动后立即停下；确认不会进入答案书，再次按顶部按键可以取消并恢复原APP。
+9. 在番茄钟启动30秒倒计时，切到桌宠停留几秒，再切回番茄钟；确认倒计时按照真实经过时间继续，并且暂停、结束触摸正常响应。
+
+一句话总结：顶部按键打开四个APP入口，触摸、横竖转换和持续摇晃都可以完成选择。
 
 ## PCF8563真实时间验收
 

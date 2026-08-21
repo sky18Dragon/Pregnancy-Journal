@@ -303,7 +303,7 @@ void draw_status_button(Canvas &canvas,
 
 void begin_landscape_page(Canvas &canvas, GrayLevel background)
 {
-    canvas.set_rotation(CanvasRotation::Deg0);
+    canvas.set_rotation(CanvasRotation::Deg180);
     canvas.clear(background);
 }
 

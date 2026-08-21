@@ -4,6 +4,9 @@
 #define PIN_POWER_HOLD 45
 #define PIN_POWER_LOCK 46
 
+// Top AI/OK button from the hardware reference / 硬件示例中的顶部AI/OK按键
+#define PIN_TOP_BUTTON 4
+
 // BQ25616 charger and USB-power detection / BQ25616充电和USB电源检测
 #define PIN_BAT_CHG_EN 39
 #define PIN_EXTERNAL_POWER 9

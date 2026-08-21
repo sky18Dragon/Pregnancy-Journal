@@ -1,5 +1,6 @@
 #include "sticky_imu.h"
 
+#include <atomic>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -38,6 +39,8 @@ constexpr UBaseType_t kTaskPriority = 4;
 
 i2c_master_dev_handle_t s_device = nullptr;
 TaskHandle_t s_monitor_task = nullptr;
+std::atomic<bool> s_stop_requested{false};
+std::atomic<bool> s_monitor_running{false};
 portMUX_TYPE s_state_lock = portMUX_INITIALIZER_UNLOCKED;
 StickyImuState s_latest_state = {};
 bool s_shake_started_event_pending = false;
@@ -92,14 +95,14 @@ StickyImuOrientation classify_orientation(float x, float y, float z)
                          : StickyImuOrientation::FaceDown;
     }
     if (abs_x >= kOrientationThresholdG && abs_x > abs_y) {
-        // Hardware calibration: +X is portrait 0; -X is portrait 180.
-        // 真机校准结果：+X为竖置0度，-X为竖置180度。
+        // Sensor-axis calibration: +X is portrait 0; -X is portrait 180.
+        // 传感器轴标定结果：+X为portrait 0，-X为portrait 180。
         return x < 0.0F ? StickyImuOrientation::Portrait180
                         : StickyImuOrientation::Portrait0;
     }
     if (abs_y >= kOrientationThresholdG) {
-        // Hardware calibration: -Y is landscape 0; +Y is landscape 180.
-        // 真机校准结果：-Y为横置0度，+Y为横置180度。
+        // Sensor-axis calibration: -Y is landscape 0; +Y is landscape 180.
+        // 传感器轴标定结果：-Y为landscape 0，+Y为landscape 180。
         return y < 0.0F ? StickyImuOrientation::Landscape0
                         : StickyImuOrientation::Landscape180;
     }
@@ -185,6 +188,7 @@ void commit_settled_placement(PlacementTracker &tracker,
 
 void update_placement(PlacementTracker &tracker, StickyImuState &sample)
 {
+    sample.observed_orientation = sample.orientation;
     // Compares each sample with the last committed pose and current quiet window.
     // 将每次采样与上次已提交姿态及当前安静窗口进行比较。
     const float reference_delta = tracker.has_settled_reference
@@ -286,7 +290,7 @@ void monitor_task(void *)
     StickyShakeDetectorState shake_detector = {};
     TickType_t next_read = xTaskGetTickCount();
 
-    while (true) {
+    while (!s_stop_requested.load(std::memory_order_acquire)) {
         StickyImuState sample = {};
         const esp_err_t result = read_acceleration(sample);
         if (result == ESP_OK) {
@@ -343,6 +347,18 @@ void monitor_task(void *)
 
         vTaskDelayUntil(&next_read, kPollInterval);
     }
+
+    taskENTER_CRITICAL(&s_state_lock);
+    s_latest_state = {};
+    s_shake_started_event_pending = false;
+    s_shake_stopped_event_pending = false;
+    s_shake_session_active = false;
+    s_shake_session_duration_ms = 0U;
+    taskEXIT_CRITICAL(&s_state_lock);
+    s_monitor_task = nullptr;
+    s_monitor_running.store(false, std::memory_order_release);
+    STICKY_LOGI(kTag, "imu=monitoring state=stopped result=ok");
+    vTaskDelete(nullptr);
 }
 
 }  // namespace
@@ -405,9 +421,18 @@ esp_err_t sticky_imu_start_monitoring()
     if (s_device == nullptr) {
         return ESP_ERR_INVALID_STATE;
     }
-    if (s_monitor_task != nullptr) {
+    if (s_monitor_running.load(std::memory_order_acquire)) {
         return ESP_OK;
     }
+
+    taskENTER_CRITICAL(&s_state_lock);
+    s_latest_state = {};
+    s_shake_started_event_pending = false;
+    s_shake_stopped_event_pending = false;
+    s_shake_session_active = false;
+    s_shake_session_duration_ms = 0U;
+    taskEXIT_CRITICAL(&s_state_lock);
+    s_stop_requested.store(false, std::memory_order_release);
 
     const BaseType_t result = xTaskCreate(monitor_task,
                                           "imu_monitor",
@@ -418,12 +443,31 @@ esp_err_t sticky_imu_start_monitoring()
     if (result != pdPASS) {
         return ESP_ERR_NO_MEM;
     }
+    s_monitor_running.store(true, std::memory_order_release);
     STICKY_LOGI(kTag,
                 "imu=monitoring interval_ms=100 settle_samples=%d motion_delta_g=%.2f quiet_delta_g=%.2f shake_mode=continuous raw_samples=%d result=ok",
                 kSettleSampleCount,
                 static_cast<double>(kMotionStartDeltaG),
                 static_cast<double>(kQuietVectorDeltaG),
                 STICKY_LOG_MOTION_SAMPLES_ENABLED);
+    return ESP_OK;
+}
+
+esp_err_t sticky_imu_stop_monitoring()
+{
+    if (!s_monitor_running.load(std::memory_order_acquire)) {
+        return ESP_OK;
+    }
+
+    s_stop_requested.store(true, std::memory_order_release);
+    const TickType_t started_at = xTaskGetTickCount();
+    const TickType_t timeout = pdMS_TO_TICKS(1000);
+    while (s_monitor_running.load(std::memory_order_acquire)) {
+        if (xTaskGetTickCount() - started_at >= timeout) {
+            return ESP_ERR_TIMEOUT;
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
     return ESP_OK;
 }
 

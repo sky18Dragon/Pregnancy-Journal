@@ -22,6 +22,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "sticky_buzzer.h"
+#include "sticky_app_lifecycle.h"
 #include "sticky_display.h"
 #include "sticky_rtc.h"
 #include "sticky_touch.h"
@@ -64,6 +65,7 @@ constexpr char kHomeMessage[] = "LET'S SPEND TODAY TOGETHER.";
 
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
+StickyAppLifecycle s_lifecycle = {};
 DesktopPetState s_state = {};
 DesktopPetPose s_pose = DesktopPetPose::Idle;
 DesktopPetIdleFrame s_idle_frame = DesktopPetIdleFrame::Normal;
@@ -1824,6 +1826,12 @@ void app_task(void *)
                 desktop_pet_state_mood_label(s_state));
 
     while (true) {
+        if (sticky_app_lifecycle_checkpoint(s_lifecycle)) {
+            sticky_touch_clear_press();
+            apply_rtc_time(false, false);
+            render_current_page(false);
+        }
+
         StickyTouchPress press = {};
         if (sticky_touch_take_press(press)) {
             if (s_name_editor_open) {
@@ -1999,5 +2007,19 @@ esp_err_t desktop_pet_app_start(Canvas &canvas)
         s_canvas = nullptr;
         return ESP_ERR_NO_MEM;
     }
+    return ESP_OK;
+}
+
+esp_err_t desktop_pet_app_pause()
+{
+    return sticky_app_lifecycle_pause(s_lifecycle, s_app_task);
+}
+
+esp_err_t desktop_pet_app_resume()
+{
+    if (s_app_task == nullptr) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    sticky_app_lifecycle_resume(s_lifecycle);
     return ESP_OK;
 }

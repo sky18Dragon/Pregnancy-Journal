@@ -21,6 +21,15 @@ uint8_t pixel_level(const std::vector<uint8_t> &buffer, int x, int y)
     return static_cast<uint8_t>((buffer[index] >> shift) & 0x03U);
 }
 
+uint8_t logical_pixel_level(const std::vector<uint8_t> &buffer,
+                            int x,
+                            int y)
+{
+    return pixel_level(buffer,
+                       static_cast<int>(kWidth) - 1 - x,
+                       static_cast<int>(kHeight) - 1 - y);
+}
+
 void write_preview(const std::vector<uint8_t> &buffer, const char *path)
 {
     std::ofstream output(path, std::ios::binary);
@@ -40,7 +49,7 @@ void assert_bottom_band_is_clear(const std::vector<uint8_t> &buffer)
 {
     for (int y = 415; y < kHeight; ++y) {
         for (int x = 0; x < kWidth; ++x) {
-            assert(pixel_level(buffer, x, y) ==
+            assert(logical_pixel_level(buffer, x, y) ==
                    static_cast<uint8_t>(GrayLevel::Black));
         }
     }
@@ -53,7 +62,7 @@ size_t black_pixel_count(const std::vector<uint8_t> &buffer,
     size_t count = 0U;
     for (int y = top; y < bottom; ++y) {
         for (int x = 0; x < kWidth; ++x) {
-            if (pixel_level(buffer, x, y) ==
+            if (logical_pixel_level(buffer, x, y) ==
                 static_cast<uint8_t>(GrayLevel::Black)) {
                 ++count;
             }
@@ -74,13 +83,13 @@ int main()
     status_board_page_render_menu_pet(
         canvas, left_frame.pose, left_frame.center_x);
     assert(black_pixel_count(buffer, 340, 480) > 100U);
-    assert(pixel_level(buffer, 20, 456) ==
+    assert(logical_pixel_level(buffer, 20, 456) ==
            static_cast<uint8_t>(GrayLevel::Black));
-    assert(pixel_level(buffer, 779, 457) ==
+    assert(logical_pixel_level(buffer, 779, 457) ==
            static_cast<uint8_t>(GrayLevel::Black));
-    assert(pixel_level(buffer, 19, 456) ==
+    assert(logical_pixel_level(buffer, 19, 456) ==
            static_cast<uint8_t>(GrayLevel::White));
-    assert(pixel_level(buffer, 780, 456) ==
+    assert(logical_pixel_level(buffer, 780, 456) ==
            static_cast<uint8_t>(GrayLevel::White));
     write_preview(buffer, "/tmp/status_board_menu.ppm");
 
@@ -140,8 +149,8 @@ int main()
             canvas, kStatuses[index], true);
         for (int y = 0; y < kHeight; ++y) {
             for (int x = 0; x < 460; ++x) {
-                assert(pixel_level(buffer, x, y) ==
-                       pixel_level(primary_buffer, x, y));
+                assert(logical_pixel_level(buffer, x, y) ==
+                       logical_pixel_level(primary_buffer, x, y));
             }
         }
         assert_bottom_band_is_clear(buffer);
@@ -153,12 +162,12 @@ int main()
                                           StatusBoardKeyboardMode::Letters,
                                           false);
 
-    assert(canvas.rotation() == CanvasRotation::Deg0);
-    assert(pixel_level(buffer, 145, 20) ==
+    assert(canvas.rotation() == CanvasRotation::Deg180);
+    assert(logical_pixel_level(buffer, 145, 20) ==
            static_cast<uint8_t>(GrayLevel::Black));
-    assert(pixel_level(buffer, 600, 420) ==
+    assert(logical_pixel_level(buffer, 600, 420) ==
            static_cast<uint8_t>(GrayLevel::Black));
-    assert(pixel_level(buffer, 400, 170) ==
+    assert(logical_pixel_level(buffer, 400, 170) ==
            static_cast<uint8_t>(GrayLevel::White));
 
     write_preview(buffer, "/tmp/status_board_preview.ppm");

@@ -4,21 +4,14 @@
 
 #include "driver/i2c_master.h"
 #include "esp_err.h"
-
-enum class StickyImuOrientation {
-    Unknown,
-    Landscape0,
-    Landscape180,
-    Portrait0,
-    Portrait180,
-    FaceUp,
-    FaceDown,
-};
+#include "sticky_orientation.h"
 
 struct StickyImuState {
     float acceleration_x_g = 0.0F;
     float acceleration_y_g = 0.0F;
     float acceleration_z_g = 0.0F;
+    StickyImuOrientation observed_orientation =
+        StickyImuOrientation::Unknown;
     StickyImuOrientation orientation = StickyImuOrientation::Unknown;
     bool moving = false;
     bool valid = false;
@@ -31,6 +24,10 @@ esp_err_t sticky_imu_init(i2c_master_bus_handle_t bus);
 // Starts the stable-orientation monitoring task.
 // 启动稳定姿态监测任务。
 esp_err_t sticky_imu_start_monitoring();
+
+// Stops the monitoring task and clears measurements from the ended session.
+// 停止监测任务，并清除本次会话留下的测量状态。
+esp_err_t sticky_imu_stop_monitoring();
 
 // Copies the latest acceleration, motion flag, and settled orientation.
 // 复制最近一次加速度、移动标记和最终放稳姿态。

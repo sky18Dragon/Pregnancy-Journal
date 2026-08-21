@@ -11,6 +11,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "sticky_app_lifecycle.h"
 #include "sticky_display.h"
 #include "sticky_imu.h"
 #include "sticky_touch.h"
@@ -33,6 +34,7 @@ constexpr int64_t kShakeLongerFrameHoldUs = 600000LL;
 
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
+StickyAppLifecycle s_lifecycle = {};
 BookOfAnswersState s_state = {};
 size_t s_shake_frame_index = 0U;
 size_t s_animation_frame_index = 0U;
@@ -384,6 +386,11 @@ void app_task(void *)
                 static_cast<unsigned>(kShakeFrameCount));
 
     while (true) {
+        if (sticky_app_lifecycle_checkpoint(s_lifecycle)) {
+            sticky_touch_clear_press();
+            render_current_page(false);
+        }
+
         StickyTouchPress press = {};
         if (sticky_touch_take_press(press)) {
             handle_action(action_for_press(press), "touch");
@@ -459,5 +466,19 @@ esp_err_t book_of_answers_app_start(Canvas &canvas)
         s_canvas = nullptr;
         return ESP_ERR_NO_MEM;
     }
+    return ESP_OK;
+}
+
+esp_err_t book_of_answers_app_pause()
+{
+    return sticky_app_lifecycle_pause(s_lifecycle, s_app_task);
+}
+
+esp_err_t book_of_answers_app_resume()
+{
+    if (s_app_task == nullptr) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    sticky_app_lifecycle_resume(s_lifecycle);
     return ESP_OK;
 }

@@ -1,6 +1,10 @@
 idf_component_register(
     SRCS
         "main.cpp"
+        "app/sticky_app.cpp"
+        "app/sticky_app_id.cpp"
+        "app/sticky_app_lifecycle.cpp"
+        "app/sticky_app_router.cpp"
         "apps/book_of_answers/book_of_answers_answers.cpp"
         "apps/book_of_answers/book_of_answers_app.cpp"
         "apps/book_of_answers/book_of_answers_pages.cpp"
@@ -34,6 +38,7 @@ idf_component_register(
         "devices/sticky_rtc.cpp"
         "display/sticky_display.cpp"
         "input/sticky_touch.cpp"
+        "input/sticky_button.cpp"
         "sensors/sticky_imu.cpp"
         "sensors/sticky_shake_detector.cpp"
         "ui/assets/pixel_asset.cpp"
@@ -42,9 +47,11 @@ idf_component_register(
         "ui/assets/pet_animation_assets.cpp"
         "ui/assets/status_bunny_assets.cpp"
         "ui/canvas.cpp"
+        "ui/app_pages.cpp"
         "ui/font.cpp"
     INCLUDE_DIRS
         "."
+        "app"
         "apps/book_of_answers"
         "apps/desktop_pet"
         "apps/desktop_pet/core"
@@ -64,6 +71,7 @@ idf_component_register(
         esp_driver_ledc
         esp_driver_spi
         esp_hw_support
+        button
         gt911
         nvs_flash
         seeed_epaper

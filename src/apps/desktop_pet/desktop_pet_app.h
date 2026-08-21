@@ -8,3 +8,10 @@ class Canvas;
 // 启动独立运行的竖屏桌宠应用。
 esp_err_t desktop_pet_app_start(Canvas &canvas);
 
+// Cooperatively pauses display and touch ownership at a safe loop boundary.
+// 在安全循环边界协作式暂停屏幕和触摸控制权。
+esp_err_t desktop_pet_app_pause();
+
+// Resumes the pet and redraws its preserved current page.
+// 恢复桌宠并重新绘制保留的当前页面。
+esp_err_t desktop_pet_app_resume();
