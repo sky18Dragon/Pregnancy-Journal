@@ -39,6 +39,8 @@ bool s_replace_field_on_digit = true;
 int64_t s_timer_deadline_us = 0;
 int64_t s_paused_remaining_us = 0;
 uint32_t s_displayed_remaining_seconds = 0;
+CanvasRotation s_display_rotation =
+    CanvasRotation::Deg90CounterClockwise;
 
 void log_refresh_failure(const char *mode, esp_err_t result)
 {
@@ -54,6 +56,7 @@ void render_current_page(
     bool partial_refresh = false,
     PomodoroRenderReason reason = PomodoroRenderReason::InteractiveChange)
 {
+    s_canvas->set_rotation(s_display_rotation);
     switch (s_page) {
     case PomodoroPage::Setup:
         pomodoro_page_render_setup(*s_canvas, s_selected_seconds);
@@ -478,6 +481,11 @@ esp_err_t pomodoro_app_start(Canvas &canvas)
         return ESP_ERR_NO_MEM;
     }
     return ESP_OK;
+}
+
+void pomodoro_app_set_display_rotation(CanvasRotation rotation)
+{
+    s_display_rotation = rotation;
 }
 
 esp_err_t pomodoro_app_pause()

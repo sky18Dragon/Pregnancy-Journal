@@ -77,6 +77,7 @@ int main()
 {
     std::vector<uint8_t> buffer(kStride * kHeight, 0xFFU);
     Canvas canvas(kWidth, kHeight, buffer.data(), buffer.size());
+    canvas.set_rotation(CanvasRotation::Deg180);
 
     status_board_page_render_menu(canvas, StatusBoardStatus::InMeeting);
     const StatusPetFrame &left_frame = status_pet_frame(0U);

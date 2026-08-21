@@ -36,6 +36,7 @@ size_t s_pet_frame_index = 0U;
 int64_t s_next_pet_frame_us = 0;
 bool s_display_secondary_frame = false;
 int64_t s_next_display_frame_us = 0;
+CanvasRotation s_display_rotation = CanvasRotation::Deg180;
 
 esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
 {
@@ -105,6 +106,7 @@ void reset_display_animation()
 
 void render_page(bool partial_refresh)
 {
+    s_canvas->set_rotation(s_display_rotation);
     switch (s_state.page) {
     case StatusBoardPage::Menu:
         status_board_page_render_menu(*s_canvas, s_state.selected_status);
@@ -401,6 +403,11 @@ esp_err_t status_board_app_start(Canvas &canvas)
         return ESP_ERR_NO_MEM;
     }
     return ESP_OK;
+}
+
+void status_board_app_set_display_rotation(CanvasRotation rotation)
+{
+    s_display_rotation = rotation;
 }
 
 esp_err_t status_board_app_pause()

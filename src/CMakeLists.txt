@@ -2,6 +2,7 @@ idf_component_register(
     SRCS
         "main.cpp"
         "app/sticky_app.cpp"
+        "app/sticky_app_display_orientation.cpp"
         "app/sticky_app_id.cpp"
         "app/sticky_app_lifecycle.cpp"
         "app/sticky_app_router.cpp"

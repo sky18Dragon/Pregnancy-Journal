@@ -116,9 +116,6 @@ void draw_centered_text_in_rect(Canvas &canvas,
 
 void begin_page(Canvas &canvas)
 {
-    // The standalone app always uses the calibrated upright portrait surface.
-    // 独立APP固定使用已标定的正向竖屏坐标。
-    canvas.set_rotation(CanvasRotation::Deg90CounterClockwise);
     canvas.clear(GrayLevel::White);
 }
 

@@ -11,6 +11,7 @@
 #include "freertos/task.h"
 #include "pomodoro_app.h"
 #include "status_board_app.h"
+#include "sticky_app_display_orientation.h"
 #include "sticky_app_id.h"
 #include "sticky_app_router.h"
 #include "sticky_button.h"
@@ -217,7 +218,8 @@ void cancel_launcher(StickyAppRouterState &router)
 
 void complete_selection(StickyAppId selected_app,
                         const char *source,
-                        bool preserve_shake_session)
+                        bool preserve_shake_session,
+                        StickyImuOrientation final_orientation)
 {
     const StickyAppId previous_app = s_current_app;
     esp_err_t imu_result = ESP_OK;
@@ -230,6 +232,22 @@ void complete_selection(StickyAppId selected_app,
         }
     } else {
         imu_result = set_imu_running(false);
+    }
+
+    CanvasRotation display_rotation = CanvasRotation::Deg0;
+    if (sticky_app_display_rotation(selected_app,
+                                    final_orientation,
+                                    display_rotation)) {
+        if (selected_app == StickyAppId::Pomodoro) {
+            pomodoro_app_set_display_rotation(display_rotation);
+        } else if (selected_app == StickyAppId::StatusBoard) {
+            status_board_app_set_display_rotation(display_rotation);
+        }
+        STICKY_LOGI(kTag,
+                    "launcher=orientation app=%s imu=%s display_rotation=%s result=applied",
+                    sticky_app_id_name(selected_app),
+                    sticky_imu_orientation_name(final_orientation),
+                    sticky_app_display_rotation_name(display_rotation));
     }
 
     if (imu_result == ESP_OK) {
@@ -290,7 +308,8 @@ void return_to_desktop_pet(StickyAppRouterState &router)
 
     complete_selection(StickyAppId::DesktopPet,
                        "button_double_click",
-                       false);
+                       false,
+                       StickyImuOrientation::Unknown);
 }
 
 void handle_launcher_touch(const StickyTouchPress &press,
@@ -321,7 +340,10 @@ void handle_launcher_touch(const StickyTouchPress &press,
                 sticky_app_id_name(selected_app),
                 logical_x,
                 logical_y);
-    complete_selection(selected_app, "touch", false);
+    complete_selection(selected_app,
+                       "touch",
+                       false,
+                       StickyImuOrientation::Unknown);
 }
 
 void log_route(const StickyAppRouteResult &route, const char *source)
@@ -353,7 +375,8 @@ void handle_route(const StickyAppRouteResult &route, const char *source)
     complete_selection(route.selected_app,
                        source,
                        route.selected_app ==
-                           StickyAppId::BookOfAnswers);
+                           StickyAppId::BookOfAnswers,
+                       route.to_orientation);
 }
 
 void app_task(void *)

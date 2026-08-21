@@ -303,7 +303,6 @@ void draw_status_button(Canvas &canvas,
 
 void begin_landscape_page(Canvas &canvas, GrayLevel background)
 {
-    canvas.set_rotation(CanvasRotation::Deg180);
     canvas.clear(background);
 }
 
@@ -430,8 +429,6 @@ StatusBoardAction action_in_rects(const Rect *rects,
 void status_board_page_render_menu(Canvas &canvas,
                                    StatusBoardStatus selected_status)
 {
-    // Status Board uses the panel's native 800x480 landscape coordinates.
-    // 状态牌使用电子纸原生的800x480横屏坐标。
     begin_landscape_page(canvas, GrayLevel::White);
     draw_centered_text(canvas,
                        28,
