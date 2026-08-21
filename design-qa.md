@@ -1,62 +1,55 @@
-# Status Board Pixel Asset Design QA
+# Sticky App Launcher Design QA
 
-- Source visual truth: `/Users/mengdu/.codex/generated_images/01a00e64-6173-7c61-900b-598f2bc9b152/exec-054e9c84-ff4f-4411-ab90-26adfcc58ecd.png`
-- Firmware menu screenshot: `/tmp/status_board_menu.png`
-- Firmware display screenshot: `/tmp/status_board_display_no_time.png`
-- Six-state display contact sheet: `/tmp/status_display_no_time_contact.png`
-- Asset contact sheet: `/tmp/pixel_bunny_library.png`
-- Combined comparison: `/tmp/status_board_no_time_compare.png`
-- Target viewport: 800×480
+## Evidence
+
+- Source visual truth: `/Users/mengdu/.codex/generated_images/01a00e64-6173-7c61-900b-598f2bc9b152/exec-fb66571d-5d17-4aca-9dc3-18fd3f684128.png`
+- Portrait implementation: `assets/app_launcher/qa/launcher_portrait.png`
+- Landscape implementation: `assets/app_launcher/qa/launcher_landscape.png`
+- Combined comparison: `assets/app_launcher/qa/comparison.png`
+- Source pixels: 971 x 1627 design board containing both orientations.
+- Implementation pixels and viewport: 480 x 800 portrait and 800 x 480 landscape at device density 1.
+- Normalization: the source portrait and landscape screen regions were cropped from the design board and resampled to the two physical viewport sizes before comparison.
+- State: `PET` selected; the other three applications are available.
 
 ## Full-view comparison
 
-The firmware keeps the monochrome pixel-art direction of the source design. The status display uses a complete focusing scene with the bunny, laptop, desk, and mug. The menu uses six distinct scenes with recognizable silhouettes, faces, props, and actions instead of generic symbols.
+The combined comparison confirms the same four-entry hierarchy, 2 x 2 portrait grid, single-row landscape grid, centered title, dotted divider, sticker illustrations, clipped-corner labels, grayscale halftone, selected sparkle, and inverse selected label.
 
-## Asset-library comparison
+The ImageGen board does not preserve the hardware's exact landscape aspect ratio, so the firmware implementation follows the physical 800 x 480 canvas while retaining the visible proportions and spacing rhythm.
 
-All six 80×80 firmware previews preserve the important source characteristics at electronic-paper resolution: continuous outlines, readable facial features, and clear scene-specific props. The same packed data remains legible as black artwork on white cards and white artwork on the selected black card.
+## Required fidelity surfaces
 
-## Fidelity surfaces
+- Fonts and typography: the built-in Sticky pixel font matches the source family and uppercase treatment. The title uses scale 4 and labels use scale 2, preserving the intended hierarchy without wrapping or truncation.
+- Spacing and layout rhythm: portrait uses two centered rows with equal columns; landscape uses four equal touch tracks. Labels share one size and baseline. Every visible sticker remains inside its touch track.
+- Colors and visual tokens: the page uses white, black, and `LightGray` only. Selected state uses a black label with white text and a black sparkle marker.
+- Image quality and asset fidelity: all four applications use dedicated 176 x 176 generated pixel illustrations with complete silhouettes. Black outlines and gray halftone are stored as separate 1-bit layers and render without scaling artifacts.
+- Copy and content: `CHOOSE AN APP`, `PET`, `FOCUS`, `STATUS`, and `ANSWERS` match the selected design.
 
-- Illustration language: every status uses one complete pixel bunny scene.
-- Monochrome behavior: assets contain only transparent and foreground pixels, matching the black-and-white panel refresh path.
-- Scale: menu cards use the native 80×80 asset; display pages use integer 3× scaling to retain crisp square pixels.
-- Composition: the status title fills the left region and the 4× bunny scene fills the right region, with no fixed-time row competing for attention.
-- Menu rhythm: six equal content-height cards contain only the bunny scene and label, leaving a continuous blank area below the row.
-- Reuse: source PNGs, firmware previews, packed bitmap data, and the drawing API are stored as one shared UI asset system.
+The actual-size full views keep the four illustrations and all labels legible, so an additional focused crop is not required.
+
+## Comparison history
+
+### Iteration 1
+
+- Finding: P2, the first implementation used 160 x 160 stickers and a scale-3 title, leaving more empty space than the selected source.
+- Fix: enlarged every sticker to 176 x 176, raised the title to scale 4, repositioned the lower portrait row, and matched the landscape selected state to `PET`.
+- Post-fix evidence: `assets/app_launcher/qa/comparison.png` shows the revised proportions in both orientations.
 
 ## Findings
 
-No actionable P0, P1, or P2 visual differences remain for the pixel-asset implementation.
+No actionable P0, P1, or P2 differences remain.
 
-## Physical-panel check
+## Follow-up polish
 
-- P3: verify the one-pixel menu outlines and the white-on-black selected asset after flashing, because the electronic-paper waveform can change their perceived thickness.
+- P3: physical e-paper contrast may make the light-gray halftone appear lighter than the computer preview; this is best judged on the device after flashing.
+
+## Implementation checklist
+
+- [x] Dedicated visual asset for every application.
+- [x] Portrait and landscape layouts.
+- [x] Dynamic selected application styling.
+- [x] Large invisible touch targets aligned with visible entries.
+- [x] Host render and hit-area regression coverage.
+- [x] Sticky Debug firmware build.
 
 final result: passed
-
-# Desktop Pet Home Design QA
-
-- Selected reference: `assets/desktop_pet/concepts/home_selected_480x800.png`
-- Firmware home render: `assets/desktop_pet/qa/home_firmware_render.png`
-- Combined comparison: `assets/desktop_pet/qa/home_reference_comparison.png`
-- Target viewport: 480×800 portrait on the physical 800×480 panel
-
-## Fidelity surfaces
-
-- The hierarchy matches the selected concept: stage and values, speech bubble, room scene, large central rabbit, then three equal care actions.
-- The room, rabbit poses, and action icons are packed source artwork rather than geometric placeholders.
-- Character masks preserve the white body and stop room lines from showing through the rabbit.
-- Feed, pet, and play use independent silhouettes; play shows a real airborne pounce instead of a size change.
-- The bottom action areas keep large 160×170 touch targets while the visible labels and icons remain compact.
-
-## Findings
-
-No actionable P0, P1, or P2 differences remain in the computer-rendered home page.
-
-## Physical-panel check
-
-- P3: verify the one-pixel speech-bubble border and room details after flashing because the e-paper waveform can alter perceived line weight.
-- P3: verify that three consecutive partial-refresh interactions remain responsive and visually clean on the device.
-
-final result: passed for computer render; physical-panel verification pending

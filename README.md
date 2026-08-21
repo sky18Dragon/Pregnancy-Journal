@@ -11,8 +11,8 @@ IMU平时保持停止状态。单击顶部按键后，当前APP在安全边界�
 ### 顶部按键应用选择器
 
 - 顶部AI/OK按键沿用硬件示例的GPIO4、低电平有效和180毫秒短按配置。
-- 应用选择窗口使用四张居中的像素风格卡片，竖屏采用2×2排列，横屏采用单行排列；当前APP使用黑色标签和圆点标记。
-- 四张卡片的完整范围都是触摸区，触摸坐标先按照当前页面方向转换，再与画面使用的同一套卡片位置匹配。
+- 应用选择窗口使用四张完整轮廓的兔子像素贴纸，竖屏采用2×2排列，横屏采用单行排列；浅灰网点保留素材层次，当前APP使用黑色标签和闪光标记。
+- 四张贴纸周围的完整留白范围都是触摸区，触摸坐标先按照当前页面方向转换，再与画面使用的同一套入口位置匹配。
 - 选择窗口同时读取稳定横竖变化和持续摇晃：实际横置转实际竖置选择番茄钟，实际竖置转实际横置选择状态牌，持续摇晃达到800毫秒后选择答案书。
 - 答案书沿用选择窗口正在进行的摇晃会话，用户保持同一次动作满3秒即可继续进入思考和答案动画。
 - 当前APP暂停后保留内部状态；恢复时重新绘制当前页面。番茄钟使用真实截止时间，因此切换期间倒计时继续准确推进。
@@ -206,14 +206,13 @@ clang++ -std=c++17 -Wall -Wextra -Werror \
   test/sticky_app_launcher_render_test.cpp \
   src/ui/app_pages.cpp src/ui/canvas.cpp src/ui/font.cpp \
   src/ui/assets/pixel_asset.cpp \
-  src/ui/assets/pet_animation_assets.cpp \
-  src/ui/assets/status_bunny_assets.cpp \
+  src/ui/assets/app_launcher_assets.cpp \
   src/app/sticky_app_id.cpp \
   -o /tmp/sticky_app_launcher_render_test
 /tmp/sticky_app_launcher_render_test
 ```
 
-命令成功后会同时验证八个卡片中心点和两个卡片间隙，并生成`/tmp/sticky_launcher_portrait.ppm`和`/tmp/sticky_launcher_landscape.ppm`，分别用于检查竖屏和横屏布局。
+命令成功后会同时验证八个贴纸触摸点、两个入口间隙以及黑色和浅灰素材层，并生成`/tmp/sticky_launcher_portrait.ppm`和`/tmp/sticky_launcher_landscape.ppm`，分别用于检查竖屏和横屏布局。
 
 应用选择动作规则可以脱离硬件验证：
 
@@ -396,7 +395,7 @@ platformio.ini             开发版与发布版构建配置
 ## 顶部按键应用选择器真机验收
 
 1. 使用`sticky-debug`烧录并打开串口，等待桌宠主页出现；确认日志包含`button=ready pin=4`和`launcher=ready trigger=top_button imu=on_demand`，启动阶段不出现`imu=monitoring`。
-2. 将设备实际横置后单击顶部按键；确认四张卡片出现，日志记录`input=touch,rotation,shake`、`imu=started`，随后记录`launcher=baseline orientation=portrait_0`或`portrait_180`。
+2. 将设备实际横置后单击顶部按键；确认四张兔子像素贴纸出现，日志记录`input=touch,rotation,shake`、`imu=started`，随后记录`launcher=baseline orientation=portrait_0`或`portrait_180`。
 3. 把设备连续转为实际竖置并放稳；确认进入番茄钟，日志记录`input=rotation`、`app_to=pomodoro`和`imu=stopped`。
 4. 保持实际竖置，在番茄钟中打开选择窗口，再把设备转为实际横置并放稳；确认进入状态牌，日志记录`app_to=status_board`。
 5. 在状态牌中打开选择窗口并持续摇晃3秒；确认约800毫秒后进入答案书，并由同一次摇晃继续完成答案书的三秒资格、思考和答案动画。

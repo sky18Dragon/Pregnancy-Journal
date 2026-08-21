@@ -61,6 +61,7 @@ int main()
     app_page_render_launcher(canvas, StickyAppId::DesktopPet);
     assert(canvas.rotation() == CanvasRotation::Deg90CounterClockwise);
     assert(count_level(buffer, GrayLevel::Black) > 7000U);
+    assert(count_level(buffer, GrayLevel::LightGray) > 2000U);
     assert(app_page_launcher_app_at(
         canvas.width(), canvas.height(), 132, 291, selected_app));
     assert(selected_app == StickyAppId::DesktopPet);
@@ -78,9 +79,10 @@ int main()
     write_preview(buffer, "/tmp/sticky_launcher_portrait.ppm");
 
     canvas.set_rotation(CanvasRotation::Deg0);
-    app_page_render_launcher(canvas, StickyAppId::StatusBoard);
+    app_page_render_launcher(canvas, StickyAppId::DesktopPet);
     assert(canvas.rotation() == CanvasRotation::Deg0);
     assert(count_level(buffer, GrayLevel::Black) > 7000U);
+    assert(count_level(buffer, GrayLevel::LightGray) > 2000U);
     assert(app_page_launcher_app_at(
         canvas.width(), canvas.height(), 109, 256, selected_app));
     assert(selected_app == StickyAppId::DesktopPet);

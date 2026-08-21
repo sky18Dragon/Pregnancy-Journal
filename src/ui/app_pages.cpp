@@ -3,10 +3,9 @@
 #include <array>
 #include <cstring>
 
+#include "app_launcher_assets.h"
 #include "canvas.h"
-#include "pet_animation_assets.h"
 #include "pixel_asset.h"
-#include "status_bunny_assets.h"
 
 namespace {
 
@@ -16,6 +15,8 @@ struct LauncherCard {
     int y;
     int width;
     int height;
+    int asset_y;
+    int label_y;
 };
 
 constexpr size_t kCardCount = 4U;
@@ -41,44 +42,52 @@ void draw_centered_text(Canvas &canvas,
 
 std::array<LauncherCard, kCardCount> launcher_cards(int width, int height)
 {
+    // Keeps visible placement and invisible touch targets in one geometry table.
+    // 使用同一份几何表管理画面位置与透明触摸区域。
     const bool portrait = height > width;
     if (portrait) {
-        constexpr int kCardWidth = 196;
-        constexpr int kCardHeight = 226;
-        constexpr int kColumnGap = 20;
-        constexpr int kRowGap = 24;
+        constexpr int kCardWidth = 212;
+        constexpr int kCardHeight = 244;
+        constexpr int kColumnGap = 16;
         const int left = (width - kCardWidth * 2 - kColumnGap) / 2;
-        const int top = (height - kCardHeight * 2 - kRowGap) / 2 + 16;
+        constexpr int kTopRowY = 114;
+        constexpr int kBottomRowY = 454;
         return {{{StickyAppId::DesktopPet,
-                  left, top, kCardWidth, kCardHeight},
+                  left, kTopRowY, kCardWidth, kCardHeight,
+                  kTopRowY + 10, kTopRowY + 200},
                  {StickyAppId::Pomodoro,
                   left + kCardWidth + kColumnGap,
-                  top, kCardWidth, kCardHeight},
+                  kTopRowY, kCardWidth, kCardHeight,
+                  kTopRowY + 10, kTopRowY + 200},
                  {StickyAppId::StatusBoard,
-                  left, top + kCardHeight + kRowGap,
-                  kCardWidth, kCardHeight},
+                  left, kBottomRowY, kCardWidth, kCardHeight,
+                  kBottomRowY + 10, kBottomRowY + 200},
                  {StickyAppId::BookOfAnswers,
                   left + kCardWidth + kColumnGap,
-                  top + kCardHeight + kRowGap,
-                  kCardWidth, kCardHeight}}};
+                  kBottomRowY, kCardWidth, kCardHeight,
+                  kBottomRowY + 10, kBottomRowY + 200}}};
     }
 
-    constexpr int kCardWidth = 178;
-    constexpr int kCardHeight = 244;
-    constexpr int kGap = 16;
+    constexpr int kCardWidth = 184;
+    constexpr int kCardHeight = 300;
+    constexpr int kGap = 12;
     const int left = (width - kCardWidth * 4 - kGap * 3) / 2;
-    const int top = (height - kCardHeight) / 2 + 16;
+    constexpr int kTop = 124;
     return {{{StickyAppId::DesktopPet,
-              left, top, kCardWidth, kCardHeight},
+              left, kTop, kCardWidth, kCardHeight,
+              kTop + 22, kTop + 212},
              {StickyAppId::Pomodoro,
-              left + (kCardWidth + kGap), top,
-              kCardWidth, kCardHeight},
+              left + (kCardWidth + kGap), kTop,
+              kCardWidth, kCardHeight,
+              kTop + 22, kTop + 212},
              {StickyAppId::StatusBoard,
-              left + (kCardWidth + kGap) * 2, top,
-              kCardWidth, kCardHeight},
+              left + (kCardWidth + kGap) * 2, kTop,
+              kCardWidth, kCardHeight,
+              kTop + 22, kTop + 212},
              {StickyAppId::BookOfAnswers,
-              left + (kCardWidth + kGap) * 3, top,
-              kCardWidth, kCardHeight}}};
+              left + (kCardWidth + kGap) * 3, kTop,
+              kCardWidth, kCardHeight,
+              kTop + 22, kTop + 212}}};
 }
 
 const char *app_label(StickyAppId app)
@@ -96,70 +105,101 @@ const char *app_label(StickyAppId app)
     return "APP";
 }
 
-void draw_timer_icon(Canvas &canvas, int center_x, int center_y)
-{
-    canvas.draw_circle(center_x, center_y + 4, 42, GrayLevel::Black);
-    canvas.draw_circle(center_x, center_y + 4, 37, GrayLevel::Black);
-    canvas.fill_rect(center_x - 13, center_y - 48,
-                     26, 7, GrayLevel::Black);
-    canvas.draw_line(center_x, center_y + 4,
-                     center_x, center_y - 23, GrayLevel::Black);
-    canvas.draw_line(center_x, center_y + 4,
-                     center_x + 22, center_y + 16, GrayLevel::Black);
-    canvas.fill_circle(center_x, center_y + 4, 4, GrayLevel::Black);
-    canvas.draw_line(center_x - 26, center_y - 28,
-                     center_x - 36, center_y - 38, GrayLevel::Black);
-    canvas.draw_line(center_x + 26, center_y - 28,
-                     center_x + 36, center_y - 38, GrayLevel::Black);
-}
-
-void draw_crystal_icon(Canvas &canvas, int center_x, int center_y)
-{
-    canvas.draw_circle(center_x, center_y - 6, 43, GrayLevel::Black);
-    canvas.draw_circle(center_x, center_y - 6, 37, GrayLevel::Black);
-    canvas.fill_circle(center_x - 15, center_y - 18, 4,
-                       GrayLevel::Black);
-    canvas.draw_line(center_x + 13, center_y - 29,
-                     center_x + 13, center_y - 13,
-                     GrayLevel::Black);
-    canvas.draw_line(center_x + 5, center_y - 21,
-                     center_x + 21, center_y - 21,
-                     GrayLevel::Black);
-    canvas.draw_line(center_x - 30, center_y + 31,
-                     center_x - 40, center_y + 47,
-                     GrayLevel::Black);
-    canvas.draw_line(center_x + 30, center_y + 31,
-                     center_x + 40, center_y + 47,
-                     GrayLevel::Black);
-    canvas.fill_rect(center_x - 40, center_y + 44,
-                     80, 7, GrayLevel::Black);
-    canvas.fill_rect(center_x - 31, center_y + 51,
-                     62, 5, GrayLevel::Black);
-}
-
-void draw_app_icon(Canvas &canvas,
-                   StickyAppId app,
-                   int center_x,
-                   int center_y)
+AppLauncherAssetId launcher_asset_id(StickyAppId app)
 {
     switch (app) {
     case StickyAppId::DesktopPet:
-        pixel_asset_draw_centered(
-            canvas, center_x, center_y,
-            pet_animation_asset(PetAnimationPose::Wave));
-        break;
+        return AppLauncherAssetId::Pet;
     case StickyAppId::Pomodoro:
-        draw_timer_icon(canvas, center_x, center_y);
-        break;
+        return AppLauncherAssetId::Focus;
     case StickyAppId::StatusBoard:
-        pixel_asset_draw_centered(
-            canvas, center_x, center_y,
-            status_bunny_asset(StatusBunnyAssetId::Welcome));
-        break;
+        return AppLauncherAssetId::Status;
     case StickyAppId::BookOfAnswers:
-        draw_crystal_icon(canvas, center_x, center_y);
-        break;
+        return AppLauncherAssetId::Answers;
     }
+    return AppLauncherAssetId::Pet;
+}
+
+void draw_sticker(Canvas &canvas,
+                  StickyAppId app,
+                  int center_x,
+                  int top)
+{
+    // Paints gray halftone first so the black silhouette remains crisp.
+    // 先绘制浅灰网点，再覆盖黑色轮廓，保证电子纸上的边缘清晰。
+    const AppLauncherStickerAsset &asset =
+        app_launcher_sticker_asset(launcher_asset_id(app));
+    const int x = center_x - static_cast<int>(asset.black.width) / 2;
+    pixel_asset_draw(canvas, x, top, asset.gray, 1, GrayLevel::LightGray);
+    pixel_asset_draw(canvas, x, top, asset.black, 1, GrayLevel::Black);
+}
+
+void draw_selection_marker(Canvas &canvas, int center_x, int center_y)
+{
+    canvas.fill_rect(center_x - 2, center_y - 8,
+                     5, 17, GrayLevel::Black);
+    canvas.fill_rect(center_x - 8, center_y - 2,
+                     17, 5, GrayLevel::Black);
+    canvas.fill_rect(center_x - 4, center_y - 4,
+                     9, 9, GrayLevel::Black);
+}
+
+void draw_beveled_label(Canvas &canvas,
+                        int x,
+                        int y,
+                        int width,
+                        int height,
+                        bool active)
+{
+    constexpr int kCut = 6;
+    if (active) {
+        canvas.fill_rect(x + kCut, y,
+                         width - kCut * 2, height, GrayLevel::Black);
+        canvas.fill_rect(x, y + kCut,
+                         width, height - kCut * 2, GrayLevel::Black);
+        return;
+    }
+
+    canvas.draw_line(x + kCut, y,
+                     x + width - kCut - 1, y, GrayLevel::Black);
+    canvas.draw_line(x + width - kCut - 1, y,
+                     x + width - 1, y + kCut, GrayLevel::Black);
+    canvas.draw_line(x + width - 1, y + kCut,
+                     x + width - 1, y + height - kCut - 1,
+                     GrayLevel::Black);
+    canvas.draw_line(x + width - 1, y + height - kCut - 1,
+                     x + width - kCut - 1, y + height - 1,
+                     GrayLevel::Black);
+    canvas.draw_line(x + width - kCut - 1, y + height - 1,
+                     x + kCut, y + height - 1, GrayLevel::Black);
+    canvas.draw_line(x + kCut, y + height - 1,
+                     x, y + height - kCut - 1, GrayLevel::Black);
+    canvas.draw_line(x, y + height - kCut - 1,
+                     x, y + kCut, GrayLevel::Black);
+    canvas.draw_line(x, y + kCut,
+                     x + kCut, y, GrayLevel::Black);
+}
+
+void draw_title_divider(Canvas &canvas, int y)
+{
+    const int half_width = canvas.height() > canvas.width() ? 154 : 204;
+    const int center_x = canvas.width() / 2;
+    for (int x = center_x - half_width;
+         x <= center_x + half_width;
+         x += 12) {
+        canvas.fill_rect(x, y, 3, 3, GrayLevel::Black);
+    }
+    canvas.fill_rect(center_x - 4, y - 3, 9, 9, GrayLevel::Black);
+}
+
+void draw_title_sparkle(Canvas &canvas, int center_x, int center_y)
+{
+    canvas.fill_rect(center_x, center_y - 6,
+                     2, 14, GrayLevel::Black);
+    canvas.fill_rect(center_x - 6, center_y,
+                     14, 2, GrayLevel::Black);
+    canvas.fill_rect(center_x - 2, center_y - 2,
+                     6, 6, GrayLevel::Black);
 }
 
 void draw_card(Canvas &canvas,
@@ -168,35 +208,19 @@ void draw_card(Canvas &canvas,
 {
     const bool active = card.app == current_app;
     const int center_x = card.x + card.width / 2;
-    constexpr int kLabelHeight = 44;
-    canvas.draw_rect(card.x, card.y,
-                     card.width, card.height, GrayLevel::Black);
-    canvas.draw_rect(card.x + 4, card.y + 4,
-                     card.width - 8, card.height - 8,
-                     GrayLevel::Black);
-    if (active) {
-        canvas.fill_circle(card.x + card.width - 18,
-                           card.y + 18, 6, GrayLevel::Black);
-    }
+    constexpr int kLabelWidth = 150;
+    constexpr int kLabelHeight = 42;
+    const int label_x = center_x - kLabelWidth / 2;
 
-    draw_app_icon(canvas,
-                  card.app,
-                  center_x,
-                  card.y + (card.height - kLabelHeight) / 2);
-
-    const int label_y = card.y + card.height - kLabelHeight;
+    draw_sticker(canvas, card.app, center_x, card.asset_y);
     if (active) {
-        canvas.fill_rect(card.x + 4, label_y,
-                         card.width - 8, kLabelHeight - 4,
-                         GrayLevel::Black);
-    } else {
-        canvas.draw_line(card.x + 4, label_y,
-                         card.x + card.width - 5, label_y,
-                         GrayLevel::Black);
+        draw_selection_marker(canvas, card.x + 14, card.asset_y + 8);
     }
+    draw_beveled_label(canvas, label_x, card.label_y,
+                       kLabelWidth, kLabelHeight, active);
     draw_centered_text(canvas,
                        center_x,
-                       label_y + 10,
+                       card.label_y + 9,
                        app_label(card.app),
                        2,
                        active ? GrayLevel::White : GrayLevel::Black);
@@ -216,9 +240,17 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app)
     canvas.clear(GrayLevel::White);
     draw_centered_text(canvas,
                        canvas.width() / 2,
-                       42,
+                       30,
                        "CHOOSE AN APP",
-                       3);
+                       4);
+    constexpr int title_sparkle_offset = 190;
+    draw_title_sparkle(canvas,
+                       canvas.width() / 2 - title_sparkle_offset,
+                       49);
+    draw_title_sparkle(canvas,
+                       canvas.width() / 2 + title_sparkle_offset,
+                       49);
+    draw_title_divider(canvas, 82);
     const auto cards = launcher_cards(canvas.width(), canvas.height());
     for (const LauncherCard &card : cards) {
         draw_card(canvas, card, current_app);
