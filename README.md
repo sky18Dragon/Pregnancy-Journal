@@ -11,6 +11,7 @@ IMU平时保持停止状态。单击顶部按键后，当前APP在安全边界�
 ### 顶部按键应用选择器
 
 - 顶部AI/OK按键沿用硬件示例的GPIO4、低电平有效和180毫秒点击窗口；单击打开或取消应用选择，快速双击直接返回桌宠。
+- 顶部按键第一次物理按下时立即启动IMU会话，单击确认后再等待当前APP暂停和选择页刷新；单击判定和电子纸刷新期间的旋转与摇晃都会被记录。
 - 应用选择窗口使用四张完整轮廓的兔子像素贴纸，竖屏采用2×2排列，横屏采用单行排列；浅灰网点保留素材层次，当前APP使用黑色标签和闪光标记。
 - 四张贴纸周围的完整留白范围都是触摸区，触摸坐标先按照当前页面方向转换，再与画面使用的同一套入口位置匹配。
 - 选择窗口同时读取稳定横竖变化和持续摇晃：旋转在连续5次、约500毫秒的独立安静窗口后生效；摇晃期间暂停旋转选择，持续摇晃达到800毫秒后选择答案书。
@@ -411,7 +412,7 @@ platformio.ini             开发版与发布版构建配置
 
 ## 顶部按键应用选择器真机验收
 
-1. 使用`sticky-debug`烧录并打开串口，等待桌宠主页出现；确认日志包含`button=ready pin=4`和`launcher=ready trigger=top_button imu=on_demand`，启动阶段不出现`imu=monitoring`。
+1. 使用`sticky-debug`烧录并打开串口，等待桌宠主页出现；确认日志包含`button=ready pin=4`和`launcher=ready trigger=top_button imu=on_demand`。按键第一次压下后应立即出现`launcher=imu phase=started_on_press`，之后才出现`launcher=opened`；后者的`pause_ms`和`display_ms`分别表示APP暂停与电子纸刷新耗时。
 2. 将设备实际横置后单击顶部按键；确认四张兔子像素贴纸出现，日志记录`input=touch,rotation,shake`、`imu=started`，随后记录`launcher=baseline orientation=portrait_0`或`portrait_180`。
 3. 把设备连续转为实际竖置并放稳；确认约500毫秒后进入番茄钟，番茄钟画面朝向你并且触摸正常。日志应包含`app_to=pomodoro`、`display_rotation=90_counter_clockwise`或`90_clockwise`和`imu=stopped`。
 4. 保持实际竖置，在番茄钟中打开选择窗口，再把设备转为实际横置并放稳；确认进入状态牌，状态牌画面朝向你并且触摸正常。日志应包含`app_to=status_board`和`display_rotation=180`或`0`。

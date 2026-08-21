@@ -7,6 +7,7 @@
 #include "book_of_answers_app.h"
 #include "canvas.h"
 #include "desktop_pet_app.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "pomodoro_app.h"
@@ -23,6 +24,8 @@ namespace {
 
 constexpr char kTag[] = "sticky_app";
 constexpr TickType_t kPollInterval = pdMS_TO_TICKS(40);
+constexpr uint8_t kInitialImuSampleAttempts = 7U;
+constexpr TickType_t kInitialImuSampleRetry = pdMS_TO_TICKS(10);
 constexpr uint32_t kTaskStackSize = 5120U;
 constexpr UBaseType_t kTaskPriority = 4U;
 
@@ -33,6 +36,14 @@ bool s_pet_started = false;
 bool s_status_started = false;
 bool s_pomodoro_started = false;
 bool s_book_started = false;
+
+struct LauncherImuPrestart {
+    bool active = false;
+    bool restarted = false;
+    int64_t started_at_us = 0;
+    StickyImuOrientation baseline = StickyImuOrientation::Unknown;
+    StickyImuOrientation last_settled = StickyImuOrientation::Unknown;
+};
 
 bool app_started(StickyAppId app)
 {
@@ -143,53 +154,118 @@ void render_launcher()
     }
 }
 
-bool open_launcher(StickyAppRouterState &router,
-                   StickyImuOrientation &last_settled)
+StickyImuState read_initial_launcher_imu_state()
 {
-    const esp_err_t pause_result = pause_app(s_current_app);
-    if (pause_result != ESP_OK) {
-        STICKY_LOGE(kTag,
-                    "launcher=open app=%s pause=%s result=failed",
-                    sticky_app_id_name(s_current_app),
-                    esp_err_to_name(pause_result));
-        return false;
+    // Gives the new monitor task a short scheduling window and keeps the first
+    // physical pose as the route baseline before display work begins.
+    // 给新IMU任务留出很短的调度时间，并在屏幕工作前保存最初实际姿态。
+    StickyImuState state = {};
+    for (uint8_t attempt = 0U;
+         attempt < kInitialImuSampleAttempts;
+         ++attempt) {
+        if (sticky_imu_get_state(state) == ESP_OK) {
+            return state;
+        }
+        vTaskDelay(kInitialImuSampleRetry);
+    }
+    return {};
+}
+
+// Starts one launcher-owned IMU session on the physical press event and keeps
+// its first pose until the click type has been resolved.
+// 在物理按下事件中启动选择器专属IMU会话，并保留起始姿态直到完成点击类型判定。
+bool prestart_launcher_imu(LauncherImuPrestart &prestart)
+{
+    if (prestart.active) {
+        return true;
     }
 
-    if (s_current_app == StickyAppId::BookOfAnswers) {
-        const esp_err_t imu_result = set_imu_running(false);
-        if (imu_result != ESP_OK) {
-            resume_app(s_current_app);
+    prestart = {};
+    prestart.started_at_us = esp_timer_get_time();
+    prestart.restarted =
+        s_current_app == StickyAppId::BookOfAnswers;
+    if (prestart.restarted) {
+        const esp_err_t stop_result = set_imu_running(false);
+        if (stop_result != ESP_OK) {
             STICKY_LOGE(kTag,
-                        "launcher=open app=book_of_answers imu=stop result=%s",
-                        esp_err_to_name(imu_result));
+                        "launcher=imu phase=press_start app=book_of_answers stop=%s result=failed",
+                        esp_err_to_name(stop_result));
+            prestart = {};
             return false;
         }
     }
 
-    const esp_err_t imu_result = set_imu_running(true);
-    if (imu_result != ESP_OK) {
-        resume_app(s_current_app);
+    const esp_err_t start_result = set_imu_running(true);
+    if (start_result != ESP_OK) {
         STICKY_LOGE(kTag,
-                    "launcher=open imu=start result=%s",
-                    esp_err_to_name(imu_result));
+                    "launcher=imu phase=press_start start=%s result=failed",
+                    esp_err_to_name(start_result));
+        prestart = {};
         return false;
     }
 
-    StickyImuState imu_state = {};
-    StickyImuOrientation baseline = StickyImuOrientation::Unknown;
-    if (sticky_imu_get_state(imu_state) == ESP_OK) {
-        baseline = imu_state.orientation != StickyImuOrientation::Unknown
-                       ? imu_state.orientation
-                       : imu_state.observed_orientation;
+    const StickyImuState imu_state = read_initial_launcher_imu_state();
+    if (imu_state.valid) {
+        prestart.baseline =
+            imu_state.orientation != StickyImuOrientation::Unknown
+                ? imu_state.orientation
+                : imu_state.observed_orientation;
+        prestart.last_settled = imu_state.orientation;
     }
-    sticky_app_router_open(router, baseline);
-    last_settled = imu_state.orientation;
+    prestart.active = true;
+    STICKY_LOGI(kTag,
+                "launcher=imu phase=started_on_press current_app=%s baseline=%s restart=%d result=ok",
+                sticky_app_id_name(s_current_app),
+                sticky_imu_orientation_name(prestart.baseline),
+                prestart.restarted);
+    return true;
+}
+
+bool open_launcher(StickyAppRouterState &router,
+                   StickyImuOrientation &last_settled,
+                   LauncherImuPrestart &prestart)
+{
+    if (!prestart_launcher_imu(prestart)) {
+        return false;
+    }
+
+    sticky_app_router_open(router, prestart.baseline);
+    last_settled = prestart.last_settled;
+
+    const int64_t pause_started_at_us = esp_timer_get_time();
+    const esp_err_t pause_result = pause_app(s_current_app);
+    if (pause_result != ESP_OK) {
+        sticky_app_router_close(router);
+        if (!prestart.restarted) {
+            set_imu_running(false);
+        }
+        resume_app(s_current_app);
+        STICKY_LOGE(kTag,
+                    "launcher=open app=%s pause=%s imu=%s result=failed",
+                    sticky_app_id_name(s_current_app),
+                    esp_err_to_name(pause_result),
+                    prestart.restarted ? "retained" : "stopped");
+        prestart = {};
+        return false;
+    }
+
+    const int64_t display_started_at_us = esp_timer_get_time();
     render_launcher();
     STICKY_LOGI(kTag,
-                "launcher=opened current_app=%s input=touch,rotation,shake baseline=%s imu=started result=ok",
+                "launcher=opened current_app=%s input=touch,rotation,shake baseline=%s imu=started pause_ms=%lld display_ms=%lld total_ms=%lld result=ok",
                 sticky_app_id_name(s_current_app),
                 sticky_imu_orientation_name(
-                    router.baseline_orientation));
+                    router.baseline_orientation),
+                static_cast<long long>(
+                    (display_started_at_us - pause_started_at_us) /
+                    1000LL),
+                static_cast<long long>(
+                    (esp_timer_get_time() - display_started_at_us) /
+                    1000LL),
+                static_cast<long long>(
+                    (esp_timer_get_time() - prestart.started_at_us) /
+                    1000LL));
+    prestart = {};
     return true;
 }
 
@@ -382,6 +458,7 @@ void handle_route(const StickyAppRouteResult &route, const char *source)
 void app_task(void *)
 {
     StickyAppRouterState router = {};
+    LauncherImuPrestart imu_prestart = {};
     StickyImuOrientation last_settled = StickyImuOrientation::Unknown;
     STICKY_LOGI(kTag,
                 "launcher=ready trigger=top_button selection=touch,rotation,shake apps=4 imu=on_demand shake_select_ms=%u current_app=%s result=ok",
@@ -391,13 +468,24 @@ void app_task(void *)
     while (true) {
         StickyButtonEvent button_event = StickyButtonEvent::None;
         if (sticky_button_take_event(button_event)) {
-            if (button_event == StickyButtonEvent::DoubleClick) {
+            if (button_event == StickyButtonEvent::PressDown) {
+                if (!router.launcher_open) {
+                    prestart_launcher_imu(imu_prestart);
+                }
+            } else if (button_event == StickyButtonEvent::DoubleClick) {
                 return_to_desktop_pet(router);
+                if (imu_prestart.active &&
+                    s_current_app == StickyAppId::DesktopPet) {
+                    set_imu_running(false);
+                }
+                imu_prestart = {};
             } else if (button_event == StickyButtonEvent::SingleClick) {
                 if (router.launcher_open) {
                     cancel_launcher(router);
                 } else {
-                    open_launcher(router, last_settled);
+                    open_launcher(router,
+                                  last_settled,
+                                  imu_prestart);
                 }
             }
         }

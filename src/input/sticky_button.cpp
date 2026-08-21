@@ -24,6 +24,13 @@ void queue_event(StickyButtonEvent event)
     xQueueSend(s_event_queue, &event, 0);
 }
 
+void button_press_down_callback(void *button_handle, void *user_data)
+{
+    (void)button_handle;
+    (void)user_data;
+    queue_event(StickyButtonEvent::PressDown);
+}
+
 void button_single_click_callback(void *button_handle, void *user_data)
 {
     (void)button_handle;
@@ -73,6 +80,17 @@ esp_err_t sticky_button_init()
     }
 
     result = iot_button_register_cb(s_button,
+                                    BUTTON_PRESS_DOWN,
+                                    nullptr,
+                                    button_press_down_callback,
+                                    nullptr);
+    if (result != ESP_OK) {
+        iot_button_delete(s_button);
+        s_button = nullptr;
+        return result;
+    }
+
+    result = iot_button_register_cb(s_button,
                                     BUTTON_SINGLE_CLICK,
                                     nullptr,
                                     button_single_click_callback,
@@ -95,7 +113,7 @@ esp_err_t sticky_button_init()
     }
 
     STICKY_LOGI(kTag,
-                "button=ready pin=%d active_level=low single=launcher double=pet_home click_window_ms=%u result=ok",
+                "button=ready pin=%d active_level=low press=imu_start single=launcher double=pet_home click_window_ms=%u result=ok",
                 PIN_TOP_BUTTON,
                 static_cast<unsigned>(kShortPressTimeMs));
     return ESP_OK;
