@@ -67,6 +67,25 @@ int main()
         }
     }
 
+    // Rebuilding a broken streak does not replay an earned milestone.
+    // 连续记录中断后再次达到相同天数，不会重复播放已经获得的里程碑。
+    desktop_pet_state_advance_day(streak_state);
+    desktop_pet_state_advance_day(streak_state);
+    for (uint16_t rebuilt_day = 1U; rebuilt_day <= 7U; ++rebuilt_day) {
+        const DesktopPetActionResult care = desktop_pet_state_apply(
+            streak_state, DesktopPetAction::Pet);
+        assert(care.care_streak == rebuilt_day);
+        if (rebuilt_day == 3U) {
+            assert(care.care_milestone_days == 0U);
+        } else if (rebuilt_day == 7U) {
+            assert(care.care_milestone_days == 7U);
+        }
+        if (rebuilt_day < 7U) {
+            desktop_pet_state_advance_day(streak_state);
+        }
+    }
+    assert(streak_state.pet.best_care_streak == 7U);
+
     DesktopPetState sleep_state = {};
     sleep_state.pet.stage = PetLifeStage::Hatchling;
     sleep_state.pet.needs.energy = 20U;

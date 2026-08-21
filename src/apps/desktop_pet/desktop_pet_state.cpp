@@ -182,6 +182,7 @@ DesktopPetActionResult apply_care(DesktopPetState &state,
                                   DesktopPetAction action)
 {
     const uint16_t previous_streak = state.pet.care_streak;
+    const uint16_t previous_best_streak = state.pet.best_care_streak;
     const PetCoreActionResult core_result = pet_core_apply_action_for_day(
         state.pet,
         core_action(action),
@@ -201,10 +202,14 @@ DesktopPetActionResult apply_care(DesktopPetState &state,
     result.performance = action_performance(action);
     result.care_day_started = state.pet.care_streak != previous_streak;
     result.care_streak = state.pet.care_streak;
-    result.care_milestone_days = result.care_day_started
-                                     ? desktop_pet_daily_milestone(
-                                           state.pet.care_streak)
-                                     : 0U;
+    // A milestone is emitted only while setting a new lifetime streak record.
+    // 只有刷新历史最高连续照料纪录时，才会发出一次里程碑事件。
+    const bool set_new_best_streak =
+        state.pet.care_streak > previous_best_streak;
+    result.care_milestone_days =
+        result.care_day_started && set_new_best_streak
+            ? desktop_pet_daily_milestone(state.pet.care_streak)
+            : 0U;
     const char *stage_message = stage_care_message(state, action);
     result.message = stage_message != nullptr
                          ? stage_message
