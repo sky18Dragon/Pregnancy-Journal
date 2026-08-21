@@ -143,6 +143,10 @@ constexpr BuzzerNote kWakeNotes[] = {
     {1319U, 140U, 0U, 100U},
 };
 
+constexpr BuzzerNote kPowerSleepNotes[] = {
+    {784U, 110U, 0U, 72U},
+};
+
 TaskHandle_t s_buzzer_task = nullptr;
 std::atomic<StickyBuzzerPattern> s_pattern = StickyBuzzerPattern::None;
 std::atomic<uint8_t> s_variant = 0U;
@@ -193,6 +197,8 @@ BuzzerSequence sequence_for_pattern(StickyBuzzerPattern pattern)
         return sequence(kSleepNotes, "sleep");
     case StickyBuzzerPattern::Wake:
         return sequence(kWakeNotes, "wake");
+    case StickyBuzzerPattern::PowerSleep:
+        return sequence(kPowerSleepNotes, "power_sleep");
     case StickyBuzzerPattern::None:
     default:
         return {nullptr, 0U, "none"};
@@ -399,6 +405,32 @@ esp_err_t sticky_buzzer_play_hatch_chime()
                     "buzzer=hatch_chime state=started pattern=gentle_three_note");
     }
     return result;
+}
+
+esp_err_t sticky_buzzer_play_power_sleep_chime()
+{
+    constexpr TickType_t kCompletionPoll = pdMS_TO_TICKS(10);
+    constexpr TickType_t kCompletionTimeout = pdMS_TO_TICKS(300);
+    const esp_err_t result = start_one_shot(
+        StickyBuzzerPattern::PowerSleep, 0U);
+    if (result != ESP_OK) {
+        return result;
+    }
+
+    // Deep sleep turns off the buzzer rail, so this short confirmation tone
+    // must finish before the peripheral shutdown sequence begins.
+    // 深度睡眠会关闭蜂鸣器供电，因此需等待提示音结束后再关闭外设。
+    const TickType_t started_at = xTaskGetTickCount();
+    while (s_pattern.load() == StickyBuzzerPattern::PowerSleep &&
+           xTaskGetTickCount() - started_at < kCompletionTimeout) {
+        vTaskDelay(kCompletionPoll);
+    }
+    if (s_pattern.load() == StickyBuzzerPattern::PowerSleep) {
+        s_pattern.store(StickyBuzzerPattern::None);
+        set_duty(0U);
+        return ESP_ERR_TIMEOUT;
+    }
+    return ESP_OK;
 }
 
 esp_err_t sticky_buzzer_play_pattern(StickyBuzzerPattern pattern,

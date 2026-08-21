@@ -22,4 +22,5 @@ enum class StickyBuzzerPattern : uint8_t {
     VoiceActive,
     Sleep,
     Wake,
+    PowerSleep,
 };

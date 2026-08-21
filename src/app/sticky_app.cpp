@@ -279,6 +279,13 @@ void enter_power_sleep(StickyAppRouterState &router, const char *source)
         return;
     }
 
+    const esp_err_t sleep_chime_result =
+        sticky_buzzer_play_power_sleep_chime();
+    if (sleep_chime_result != ESP_OK) {
+        STICKY_LOGW(kTag,
+                    "power=sleep_chime result=%s",
+                    esp_err_to_name(sleep_chime_result));
+    }
     sticky_buzzer_stop();
     set_imu_running(false);
     const esp_err_t touch_result = sticky_touch_stop();
