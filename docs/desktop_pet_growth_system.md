@@ -166,7 +166,7 @@ The interaction state now emits a semantic pet performance such as eating, recei
 
 The runtime creates one persistent outing decision for each trusted RTC calendar date. The production profile schedules a trip on 40 percent of dates, selects a departure between 09:00 and 16:00, and selects a duration from one through seven hours. A staying-home decision is also persisted, so restarting the device keeps the same decision for that date. The test profile always schedules the first plan 15 through 30 seconds after it is created and keeps the existing 20 through 40 second trip duration. Its `NEXT DAY` action re-arms this accelerated daily decision for repeatable hardware testing. The stored day key, departure timestamp, and return timestamp restore an active away page after a restart or resolve an already completed trip directly to home. An early `CALL HER HOME` completes the stored plan for that date.
 
-The first normal home visit on a new trusted RTC date now displays one absence-aware greeting. The first accepted feed, pet, or play action on each care day advances the streak once. The first lifetime record at 3, 7, 14, and 30 days waits for the visible care action to finish, then plays a two-frame full-screen celebration before returning home. Rebuilding a broken streak preserves the best record and does not replay an earned milestone. The test profile derives its care-day identity from the accelerated `DAY` value, so `NEXT DAY` can validate the complete milestone flow without changing the RTC calendar.
+The first normal home visit on a new trusted RTC date now displays one absence-aware greeting. The first accepted feed, pet, or play action on each care day advances the streak once. The first lifetime record at 3, 7, 30, and 100 days waits for the visible care action to finish, then plays a two-frame full-screen celebration before returning home. Rebuilding a broken streak preserves the best record and does not replay an earned milestone. The test profile derives its care-day identity from the accelerated `DAY` value, so `NEXT DAY` can validate the complete milestone flow without changing the RTC calendar.
 
 The PCF8563 hardware adapter now reads and validates the shared-bus calendar at startup and once per minute. A clock carrying the voltage-low flag is seeded once from the firmware build timestamp using one complete seconds-through-years I2C write; later boots preserve the running calendar. Startup applies a bounded offline catch-up, while runtime reads advance the same pet rules online. The current test build retains accelerated sleep recovery; production sleep uses trusted RTC elapsed time and falls back to the app timer only while no valid RTC reading is available. The runtime stores the complete pet state in two rotating, checksummed NVS records.
 
@@ -223,7 +223,7 @@ The first rewarded interaction of a calendar day records one active care day.
 - Consecutive active dates increase the current streak.
 - A missed date starts a new current streak on the next active day.
 - The longest streak remains as a lifetime record.
-- Milestones at 3, 7, 14, and 30 days unlock one-time dialogue and small celebratory poses.
+- Milestones at 3, 7, 30, and 100 days unlock one-time dialogue and small celebratory poses.
 
 The streak supports positive recognition. Growth and core interactions remain available at every streak value.
 
@@ -361,7 +361,7 @@ The first implementation keeps regression tests for:
 19. A corrupted newest save slot falls back to the previous valid sequence.
 20. Sequence rollover still identifies the newest valid slot.
 21. One calendar date advances the care streak at most once.
-22. Milestones trigger only at 3, 7, 14, and 30 care days.
+22. Milestones trigger only at 3, 7, 30, and 100 care days.
 23. A new RTC date selects one greeting based on the absence length.
 
 ## First Implementation Boundary

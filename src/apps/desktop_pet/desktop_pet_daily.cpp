@@ -26,8 +26,8 @@ uint16_t desktop_pet_daily_milestone(uint16_t care_streak)
     switch (care_streak) {
     case 3U:
     case 7U:
-    case 14U:
     case 30U:
+    case 100U:
         return care_streak;
     default:
         return 0U;

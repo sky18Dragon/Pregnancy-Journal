@@ -26,8 +26,10 @@ int main()
     assert(desktop_pet_daily_milestone(1U) == 0U);
     assert(desktop_pet_daily_milestone(3U) == 3U);
     assert(desktop_pet_daily_milestone(7U) == 7U);
-    assert(desktop_pet_daily_milestone(14U) == 14U);
+    assert(desktop_pet_daily_milestone(14U) == 0U);
     assert(desktop_pet_daily_milestone(30U) == 30U);
     assert(desktop_pet_daily_milestone(31U) == 0U);
+    assert(desktop_pet_daily_milestone(100U) == 100U);
+    assert(desktop_pet_daily_milestone(101U) == 0U);
     return 0;
 }
