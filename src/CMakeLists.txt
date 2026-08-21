@@ -36,6 +36,7 @@ idf_component_register(
         "board/board_shared_spi.cpp"
         "core/app_log.cpp"
         "devices/sticky_buzzer.cpp"
+        "devices/sticky_battery.cpp"
         "devices/sticky_rtc.cpp"
         "display/sticky_display.cpp"
         "input/sticky_touch.cpp"
@@ -50,6 +51,7 @@ idf_component_register(
         "ui/assets/status_bunny_assets.cpp"
         "ui/canvas.cpp"
         "ui/app_pages.cpp"
+        "ui/battery_status_overlay.cpp"
         "ui/font.cpp"
     INCLUDE_DIRS
         "."

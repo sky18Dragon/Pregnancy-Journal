@@ -5,6 +5,7 @@
 #include <new>
 
 #include "app_log.h"
+#include "battery_status_overlay.h"
 #include "canvas.h"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
@@ -30,7 +31,15 @@ uint8_t *s_framebuffer = nullptr;
 uint8_t *s_rotated_framebuffer = nullptr;
 Canvas *s_canvas = nullptr;
 std::atomic<bool> s_fast_app_refresh_armed{false};
+std::atomic<bool> s_battery_overlay_enabled{true};
 uint8_t s_fast_app_transition_count = 0U;
+
+void draw_battery_overlay_if_enabled()
+{
+    if (s_battery_overlay_enabled.load(std::memory_order_acquire)) {
+        battery_status_overlay_draw(*s_canvas);
+    }
+}
 
 uint8_t reverse_pixel_order(uint8_t packed_pixels)
 {
@@ -213,6 +222,7 @@ esp_err_t sticky_display_refresh()
 
     const int64_t refresh_started_us = esp_timer_get_time();
     STICKY_LOGI(kTag, "display=refresh_begin mode=gray4");
+    draw_battery_overlay_if_enabled();
     rotate_framebuffer_180(s_canvas->data(), s_rotated_framebuffer);
 
     const seeed_epaper_area_t full_screen = {
@@ -243,6 +253,7 @@ esp_err_t sticky_display_refresh_partial()
     // so unchanged pixels have identical previous/current values and remain
     // visually untouched. Callers should change only the intended Canvas area.
     // SSD1677局刷仍会应用全屏波形，因此发送完整对比帧来保护没有变化的像素。
+    draw_battery_overlay_if_enabled();
     rotate_framebuffer_180(s_canvas->data(), s_rotated_framebuffer);
     convert_gray4_to_monochrome_in_place(s_rotated_framebuffer);
 
@@ -279,6 +290,7 @@ esp_err_t sticky_display_refresh_monochrome()
         return result;
     }
     STICKY_LOGI(kTag, "display=refresh_begin mode=monochrome_full");
+    draw_battery_overlay_if_enabled();
     rotate_framebuffer_180(s_canvas->data(), s_rotated_framebuffer);
     convert_gray4_to_monochrome_in_place(s_rotated_framebuffer);
 
@@ -322,6 +334,11 @@ bool sticky_display_prepare_app_transition_refresh()
 void sticky_display_cancel_app_transition_refresh()
 {
     s_fast_app_refresh_armed.store(false, std::memory_order_release);
+}
+
+void sticky_display_set_battery_overlay_enabled(bool enabled)
+{
+    s_battery_overlay_enabled.store(enabled, std::memory_order_release);
 }
 
 esp_err_t sticky_display_clear()

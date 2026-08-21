@@ -5,6 +5,7 @@
 #include "board_shared_spi.h"
 #include "canvas.h"
 #include "sticky_app.h"
+#include "sticky_battery.h"
 #include "sticky_buzzer.h"
 #include "sticky_display.h"
 #include "sticky_imu.h"
@@ -202,6 +203,17 @@ extern "C" void app_main()
         STICKY_LOGW(kTag,
                     "component=sticky_rtc result=%s fallback=app_timer",
                     esp_err_to_name(rtc_result));
+    }
+
+    // Read percentage from the same BQ27220 fuel gauge used by the hardware
+    // reference instead of estimating charge from battery voltage.
+    // 使用硬件示例中的BQ27220直接读取百分比，不通过电压估算电量。
+    const esp_err_t battery_result =
+        sticky_battery_init(board_sensor_i2c_bus());
+    if (battery_result != ESP_OK) {
+        STICKY_LOGW(kTag,
+                    "component=sticky_battery result=%s fallback=unknown_percent",
+                    esp_err_to_name(battery_result));
     }
 
     const esp_err_t display_result = sticky_display_init();

@@ -18,6 +18,7 @@
 // Shared sensor bus on I2C1 / I2C1上的共享传感器总线
 #define PIN_SENSOR_SCL 0
 #define PIN_SENSOR_SDA 1
+#define BQ27220_I2C_ADDR 0x55
 #define PCF8563_I2C_ADDR 0x51
 #define LSM6DS3_I2C_ADDR 0x6A
 

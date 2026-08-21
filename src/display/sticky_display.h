@@ -39,6 +39,10 @@ bool sticky_display_prepare_app_transition_refresh();
 // 当APP无法继续启动时，取消已安排的过渡刷新。
 void sticky_display_cancel_app_transition_refresh();
 
+// Enables or hides the global battery overlay before the next refresh.
+// 在下一次刷新前启用或隐藏全局电池状态层。
+void sticky_display_set_battery_overlay_enabled(bool enabled);
+
 // Clears the physical panel to white and clears the framebuffer.
 // 将实体屏幕和内存中的画布同时清成白色。
 esp_err_t sticky_display_clear();
