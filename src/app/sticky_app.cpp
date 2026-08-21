@@ -266,6 +266,33 @@ void complete_selection(StickyAppId selected_app,
                 sticky_app_id_name(previous_app));
 }
 
+void return_to_desktop_pet(StickyAppRouterState &router)
+{
+    if (s_current_app == StickyAppId::DesktopPet &&
+        !router.launcher_open) {
+        STICKY_LOGI(kTag,
+                    "launcher=home input=button_double_click state=already_active result=ok");
+        return;
+    }
+
+    if (router.launcher_open) {
+        sticky_app_router_close(router);
+    } else {
+        const esp_err_t pause_result = pause_app(s_current_app);
+        if (pause_result != ESP_OK) {
+            STICKY_LOGE(kTag,
+                        "launcher=home input=button_double_click app_from=%s pause=%s result=failed",
+                        sticky_app_id_name(s_current_app),
+                        esp_err_to_name(pause_result));
+            return;
+        }
+    }
+
+    complete_selection(StickyAppId::DesktopPet,
+                       "button_double_click",
+                       false);
+}
+
 void handle_launcher_touch(const StickyTouchPress &press,
                            StickyAppRouterState &router)
 {
@@ -339,11 +366,16 @@ void app_task(void *)
                 sticky_app_id_name(s_current_app));
 
     while (true) {
-        if (sticky_button_take_click()) {
-            if (router.launcher_open) {
-                cancel_launcher(router);
-            } else {
-                open_launcher(router, last_settled);
+        StickyButtonEvent button_event = StickyButtonEvent::None;
+        if (sticky_button_take_event(button_event)) {
+            if (button_event == StickyButtonEvent::DoubleClick) {
+                return_to_desktop_pet(router);
+            } else if (button_event == StickyButtonEvent::SingleClick) {
+                if (router.launcher_open) {
+                    cancel_launcher(router);
+                } else {
+                    open_launcher(router, last_settled);
+                }
             }
         }
 
