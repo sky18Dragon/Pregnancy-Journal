@@ -32,6 +32,30 @@ bool sticky_app_display_rotation(StickyAppId app,
     return false;
 }
 
+bool sticky_app_launcher_rotation(StickyImuOrientation orientation,
+                                  CanvasRotation &rotation)
+{
+    switch (orientation) {
+    case StickyImuOrientation::Landscape0:
+        rotation = CanvasRotation::Deg90CounterClockwise;
+        return true;
+    case StickyImuOrientation::Landscape180:
+        rotation = CanvasRotation::Deg90Clockwise;
+        return true;
+    case StickyImuOrientation::Portrait0:
+        rotation = CanvasRotation::Deg180;
+        return true;
+    case StickyImuOrientation::Portrait180:
+        rotation = CanvasRotation::Deg0;
+        return true;
+    case StickyImuOrientation::Unknown:
+    case StickyImuOrientation::FaceUp:
+    case StickyImuOrientation::FaceDown:
+        return false;
+    }
+    return false;
+}
+
 const char *sticky_app_display_rotation_name(CanvasRotation rotation)
 {
     switch (rotation) {

@@ -332,10 +332,23 @@ void enter_power_sleep(StickyAppRouterState &router, const char *source)
     board_power_enter_deep_sleep(timer_wakeup_us);
 }
 
-void render_launcher()
+void render_launcher(StickyImuOrientation orientation)
 {
     sticky_touch_clear_press();
     sticky_touch_clear_interaction();
+
+    CanvasRotation launcher_rotation = s_canvas->rotation();
+    const bool rotation_applied = sticky_app_launcher_rotation(
+        orientation, launcher_rotation);
+    if (rotation_applied) {
+        s_canvas->set_rotation(launcher_rotation);
+    }
+    STICKY_LOGI(kTag,
+                "launcher=orientation imu=%s display_rotation=%s result=%s",
+                sticky_imu_orientation_name(orientation),
+                sticky_app_display_rotation_name(s_canvas->rotation()),
+                rotation_applied ? "applied" : "retained");
+
     app_page_render_launcher(*s_canvas, s_current_app);
     const esp_err_t result = sticky_display_refresh_partial();
     if (result != ESP_OK) {
@@ -441,7 +454,7 @@ bool open_launcher(StickyAppRouterState &router,
     }
 
     const int64_t display_started_at_us = esp_timer_get_time();
-    render_launcher();
+    render_launcher(router.baseline_orientation);
     STICKY_LOGI(kTag,
                 "launcher=opened current_app=%s input=touch,rotation,shake baseline=%s imu=started pause_ms=%lld display_ms=%lld total_ms=%lld result=ok",
                 sticky_app_id_name(s_current_app),

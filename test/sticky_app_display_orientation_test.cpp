@@ -41,5 +41,30 @@ int main()
     assert(!sticky_app_display_rotation(StickyAppId::BookOfAnswers,
                                         StickyImuOrientation::Landscape0,
                                         unchanged));
+
+    CanvasRotation launcher_rotation = CanvasRotation::Deg0;
+    assert(sticky_app_launcher_rotation(
+        StickyImuOrientation::Landscape0, launcher_rotation));
+    assert(launcher_rotation == CanvasRotation::Deg90CounterClockwise);
+    assert(sticky_app_launcher_rotation(
+        StickyImuOrientation::Landscape180, launcher_rotation));
+    assert(launcher_rotation == CanvasRotation::Deg90Clockwise);
+    assert(sticky_app_launcher_rotation(
+        StickyImuOrientation::Portrait0, launcher_rotation));
+    assert(launcher_rotation == CanvasRotation::Deg180);
+    assert(sticky_app_launcher_rotation(
+        StickyImuOrientation::Portrait180, launcher_rotation));
+    assert(launcher_rotation == CanvasRotation::Deg0);
+
+    launcher_rotation = CanvasRotation::Deg180;
+    assert(!sticky_app_launcher_rotation(
+        StickyImuOrientation::Unknown, launcher_rotation));
+    assert(launcher_rotation == CanvasRotation::Deg180);
+    assert(!sticky_app_launcher_rotation(
+        StickyImuOrientation::FaceUp, launcher_rotation));
+    assert(launcher_rotation == CanvasRotation::Deg180);
+    assert(!sticky_app_launcher_rotation(
+        StickyImuOrientation::FaceDown, launcher_rotation));
+    assert(launcher_rotation == CanvasRotation::Deg180);
     return 0;
 }

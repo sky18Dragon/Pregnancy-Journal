@@ -1083,8 +1083,8 @@ void draw_pet_status_header(Canvas &canvas,
                   static_cast<unsigned>(state.pet.bond));
     canvas.draw_text(380, 58, love_label, 2);
 
-    char food_label[16] = {};
-    std::snprintf(food_label, sizeof(food_label), "FOOD %u",
+    char food_label[20] = {};
+    std::snprintf(food_label, sizeof(food_label), "FULLNESS %u",
                   static_cast<unsigned>(state.pet.needs.food));
     canvas.draw_text(24, 118, food_label, 2);
     char energy_label[16] = {};
@@ -1398,7 +1398,7 @@ void desktop_pet_page_render_test(Canvas &canvas,
     }
     draw_centered(canvas, 155, scores, 2);
     std::snprintf(scores, sizeof(scores),
-                  "FOOD %u  ENERGY %u  STREAK %u",
+                  "FULLNESS %u  ENERGY %u  STREAK %u",
                   static_cast<unsigned>(state.pet.needs.food),
                   static_cast<unsigned>(state.pet.needs.energy),
                   static_cast<unsigned>(state.pet.care_streak));
