@@ -7,6 +7,7 @@
 
 #include "canvas.h"
 #include "desktop_pet_pages.h"
+#include "pet_rtc_time.h"
 
 namespace {
 
@@ -181,6 +182,10 @@ int main()
     write_preview(buffer, "/tmp/desktop_pet_name_numbers.ppm");
 
     assert(desktop_pet_state_set_name(state, "BUNNY"));
+    state.pet.day = 4U;
+    const PetRtcDateTime preview_date = {2026U, 8U, 24U, 12U, 0U, 0U};
+    assert(pet_rtc_time_to_epoch(preview_date,
+                                 state.pet.last_rtc_epoch_seconds));
 
     desktop_pet_page_render_home(
         canvas, state, DesktopPetPose::Idle, DesktopPetIdleFrame::Normal,
@@ -195,8 +200,10 @@ int main()
            DesktopPetAction::Play);
     assert(desktop_pet_page_action_at(false, 240, 500) ==
            DesktopPetAction::Pet);
-    assert(desktop_pet_page_action_at(false, 380, 128) ==
+    assert(desktop_pet_page_action_at(false, 380, 95) ==
            DesktopPetAction::Sleep);
+    assert(desktop_pet_page_action_at(false, 380, 145) ==
+           DesktopPetAction::None);
     assert(desktop_pet_page_action_at(false, 120, 35) ==
            DesktopPetAction::OpenNameEditor);
     assert(desktop_pet_page_action_at(false, 440, 35) ==

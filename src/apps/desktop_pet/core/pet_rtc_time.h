@@ -18,3 +18,8 @@ struct PetRtcDateTime {
 bool pet_rtc_time_valid(const PetRtcDateTime &value);
 bool pet_rtc_time_to_epoch(const PetRtcDateTime &value,
                            uint32_t &epoch_seconds);
+
+// Converts Unix seconds back into the calendar fields shown by the pet UI.
+// 将Unix秒数还原为桌宠界面显示的日历字段。
+bool pet_rtc_time_from_epoch(uint32_t epoch_seconds,
+                             PetRtcDateTime &value);

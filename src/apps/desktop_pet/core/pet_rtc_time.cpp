@@ -57,3 +57,38 @@ bool pet_rtc_time_to_epoch(const PetRtcDateTime &value,
                     value.second;
     return true;
 }
+
+bool pet_rtc_time_from_epoch(uint32_t epoch_seconds,
+                             PetRtcDateTime &value)
+{
+    uint32_t remaining_days = epoch_seconds / 86400U;
+    uint32_t remaining_seconds = epoch_seconds % 86400U;
+
+    uint16_t year = 1970U;
+    while (year <= 2099U && remaining_days >= days_in_year(year)) {
+        remaining_days -= days_in_year(year);
+        ++year;
+    }
+    if (year > 2099U) {
+        return false;
+    }
+
+    uint8_t month = 1U;
+    while (month <= 12U &&
+           remaining_days >= days_in_month(year, month)) {
+        remaining_days -= days_in_month(year, month);
+        ++month;
+    }
+    if (month > 12U) {
+        return false;
+    }
+
+    value.year = year;
+    value.month = month;
+    value.day = static_cast<uint8_t>(remaining_days + 1U);
+    value.hour = static_cast<uint8_t>(remaining_seconds / 3600U);
+    remaining_seconds %= 3600U;
+    value.minute = static_cast<uint8_t>(remaining_seconds / 60U);
+    value.second = static_cast<uint8_t>(remaining_seconds % 60U);
+    return true;
+}

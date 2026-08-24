@@ -35,6 +35,14 @@ int main()
     uint32_t rtc_epoch = 0U;
     assert(pet_rtc_time_valid(rtc));
     assert(pet_rtc_time_to_epoch(rtc, rtc_epoch));
+    PetRtcDateTime restored_rtc = {};
+    assert(pet_rtc_time_from_epoch(rtc_epoch, restored_rtc));
+    assert(restored_rtc.year == 2024U);
+    assert(restored_rtc.month == 2U);
+    assert(restored_rtc.day == 29U);
+    assert(restored_rtc.hour == 12U);
+    assert(restored_rtc.minute == 30U);
+    assert(restored_rtc.second == 0U);
     rtc.day = 30U;
     assert(!pet_rtc_time_valid(rtc));
 

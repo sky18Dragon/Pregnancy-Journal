@@ -7,6 +7,7 @@
 #include "canvas.h"
 #include "desktop_pet_assets.h"
 #include "font.h"
+#include "pet_rtc_time.h"
 #include "pixel_asset.h"
 
 namespace {
@@ -33,7 +34,7 @@ constexpr Rect kTalkRect = {160, 600, 160, 170};
 constexpr Rect kPlayRect = {320, 600, 160, 170};
 constexpr Rect kPetBodyRect = {110, 270, 260, 320};
 constexpr Rect kNameRect = {0, 0, 350, 70};
-constexpr Rect kEnergyRestRect = {294, 104, 172, 48};
+constexpr Rect kEnergyRestRect = {294, 86, 172, 48};
 
 constexpr Rect kCloseTestRect = {360, 20, 100, 55};
 constexpr Rect kNextDayRect = {35, 215, 410, 52};
@@ -1059,12 +1060,12 @@ void draw_pet_status_header(Canvas &canvas,
     canvas.draw_text(24, 72, growth_label, 2);
     draw_progress(canvas, state.pet.growth, growth_limit);
 
-    pixel_asset_draw(canvas, 310, 67,
+    pixel_asset_draw(canvas, 310, 49,
                      desktop_pet_asset(DesktopPetAssetId::LoveIcon));
     char love_label[16] = {};
     std::snprintf(love_label, sizeof(love_label), "LOVE %u",
                   static_cast<unsigned>(state.pet.bond));
-    canvas.draw_text(380, 76, love_label, 2);
+    canvas.draw_text(380, 58, love_label, 2);
 
     char food_label[16] = {};
     std::snprintf(food_label, sizeof(food_label), "FOOD %u",
@@ -1086,15 +1087,27 @@ void draw_pet_status_header(Canvas &canvas,
                               GrayLevel::Black);
     } else {
         canvas.draw_text(456 - text_width(energy_label, 2),
-                         118, energy_label, 2);
+                         100, energy_label, 2);
     }
 }
 
 void draw_pet_day_label(Canvas &canvas, const DesktopPetState &state)
 {
-    char day_label[16] = {};
-    std::snprintf(day_label, sizeof(day_label), "DAY %u",
-                  static_cast<unsigned>(state.pet.day));
+    char day_label[32] = {};
+    PetRtcDateTime calendar = {};
+    if (state.pet.last_rtc_epoch_seconds != 0U &&
+        pet_rtc_time_from_epoch(state.pet.last_rtc_epoch_seconds,
+                                calendar)) {
+        std::snprintf(day_label, sizeof(day_label),
+                      "DAY %u  %04u-%02u-%02u",
+                      static_cast<unsigned>(state.pet.day),
+                      static_cast<unsigned>(calendar.year),
+                      static_cast<unsigned>(calendar.month),
+                      static_cast<unsigned>(calendar.day));
+    } else {
+        std::snprintf(day_label, sizeof(day_label), "DAY %u",
+                      static_cast<unsigned>(state.pet.day));
+    }
     draw_centered(canvas, 775, day_label, 2);
 }
 
