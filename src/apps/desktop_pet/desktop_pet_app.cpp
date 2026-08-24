@@ -1622,6 +1622,14 @@ void handle_action(DesktopPetAction action)
         return;
     }
 
+    if (action == DesktopPetAction::Sleep &&
+        s_state.pet.needs.energy >= 100U) {
+        s_home_message = "I'M ALREADY FULL OF ENERGY!";
+        s_message = s_home_message;
+        render_current_page(true);
+        return;
+    }
+
     if (action == DesktopPetAction::TapEgg) {
         const DesktopPetHatchResult hatch_result =
             desktop_pet_state_tap_egg(s_state);

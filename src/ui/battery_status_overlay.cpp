@@ -14,6 +14,11 @@ namespace {
 constexpr char kTag[] = "battery_overlay";
 constexpr int64_t kReadIntervalUs = 60LL * 1000000LL;
 constexpr int64_t kRetryIntervalUs = 10LL * 1000000LL;
+constexpr int kAreaWidth = 98;
+constexpr int kAreaHeight = 28;
+constexpr int kAreaTop = 4;
+constexpr int kNormalRightMargin = 6;
+constexpr int kSleepRightMargin = 55;
 
 bool s_valid = false;
 int s_percent = 0;
@@ -71,7 +76,20 @@ void draw_charging_bolt(Canvas &canvas, int x, int y, GrayLevel color)
 
 }  // namespace
 
-void battery_status_overlay_draw(Canvas &canvas)
+void battery_status_overlay_clear(Canvas &canvas, bool sleep_layout)
+{
+    const int right_margin = sleep_layout ? kSleepRightMargin
+                                          : kNormalRightMargin;
+    const int area_x = static_cast<int>(canvas.width()) -
+                       kAreaWidth - right_margin;
+    canvas.fill_rect(area_x,
+                     kAreaTop,
+                     kAreaWidth,
+                     kAreaHeight,
+                     GrayLevel::White);
+}
+
+void battery_status_overlay_draw(Canvas &canvas, bool sleep_layout)
 {
     if (!s_log_tag_registered) {
         app_log_register_tag(kTag);
@@ -79,20 +97,16 @@ void battery_status_overlay_draw(Canvas &canvas)
     }
     update_reading_if_due();
 
-    constexpr int kAreaWidth = 98;
-    constexpr int kAreaHeight = 28;
-    const int area_x = static_cast<int>(canvas.width()) - kAreaWidth - 6;
-    constexpr int area_y = 4;
-    canvas.fill_rect(area_x,
-                     area_y,
-                     kAreaWidth,
-                     kAreaHeight,
-                     GrayLevel::White);
+    const int right_margin = sleep_layout ? kSleepRightMargin
+                                          : kNormalRightMargin;
+    const int area_x = static_cast<int>(canvas.width()) -
+                       kAreaWidth - right_margin;
+    battery_status_overlay_clear(canvas, sleep_layout);
 
     constexpr int kBatteryWidth = 34;
     constexpr int kBatteryHeight = 16;
     const int battery_x = area_x + 1;
-    const int battery_y = area_y + 6;
+    const int battery_y = kAreaTop + 6;
     canvas.draw_rect(battery_x,
                      battery_y,
                      kBatteryWidth,
@@ -134,7 +148,7 @@ void battery_status_overlay_draw(Canvas &canvas)
                             6 * kLabelScale;
     canvas.draw_text(area_x + kLabelAreaX +
                          (kLabelAreaWidth - label_width) / 2,
-                     area_y + 7,
+                     kAreaTop + 7,
                      label,
                      kLabelScale,
                      GrayLevel::Black);

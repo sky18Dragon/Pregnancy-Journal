@@ -269,7 +269,7 @@ void enter_power_sleep(StickyAppRouterState &router, const char *source)
     s_sleep_context.app = s_current_app;
     s_sleep_context.rotation = s_canvas->rotation();
 
-    sticky_display_set_battery_overlay_enabled(false);
+    sticky_display_set_battery_overlay_sleep_layout(true);
     draw_sleep_indicator();
     // The final frame stays visible throughout deep sleep, so force a full
     // monochrome waveform to clean accumulated partial-refresh ghosting.
@@ -278,7 +278,7 @@ void enter_power_sleep(StickyAppRouterState &router, const char *source)
     const esp_err_t indicator_result =
         sticky_display_refresh_monochrome();
     if (indicator_result != ESP_OK) {
-        sticky_display_set_battery_overlay_enabled(true);
+        sticky_display_set_battery_overlay_sleep_layout(false);
         resume_app(s_current_app);
         STICKY_LOGE(kTag,
                     "power=sleep_indicator refresh=%s result=failed",

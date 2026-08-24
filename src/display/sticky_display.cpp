@@ -32,12 +32,15 @@ uint8_t *s_rotated_framebuffer = nullptr;
 Canvas *s_canvas = nullptr;
 std::atomic<bool> s_fast_app_refresh_armed{false};
 std::atomic<bool> s_battery_overlay_enabled{true};
+std::atomic<bool> s_battery_overlay_sleep_layout{false};
 uint8_t s_fast_app_transition_count = 0U;
 
 void draw_battery_overlay_if_enabled()
 {
     if (s_battery_overlay_enabled.load(std::memory_order_acquire)) {
-        battery_status_overlay_draw(*s_canvas);
+        battery_status_overlay_draw(
+            *s_canvas,
+            s_battery_overlay_sleep_layout.load(std::memory_order_acquire));
     }
 }
 
@@ -339,6 +342,17 @@ void sticky_display_cancel_app_transition_refresh()
 void sticky_display_set_battery_overlay_enabled(bool enabled)
 {
     s_battery_overlay_enabled.store(enabled, std::memory_order_release);
+}
+
+void sticky_display_set_battery_overlay_sleep_layout(bool sleep_layout)
+{
+    if (s_canvas != nullptr) {
+        const bool current_layout =
+            s_battery_overlay_sleep_layout.load(std::memory_order_acquire);
+        battery_status_overlay_clear(*s_canvas, current_layout);
+    }
+    s_battery_overlay_sleep_layout.store(
+        sleep_layout, std::memory_order_release);
 }
 
 esp_err_t sticky_display_clear()

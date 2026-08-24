@@ -195,6 +195,8 @@ int main()
            DesktopPetAction::Play);
     assert(desktop_pet_page_action_at(false, 240, 500) ==
            DesktopPetAction::Pet);
+    assert(desktop_pet_page_action_at(false, 380, 128) ==
+           DesktopPetAction::Sleep);
     assert(desktop_pet_page_action_at(false, 120, 35) ==
            DesktopPetAction::OpenNameEditor);
     assert(desktop_pet_page_action_at(false, 440, 35) ==
@@ -230,6 +232,8 @@ int main()
     assert(black_pixel_count(buffer) > 24000U);
     assert(desktop_pet_page_sleep_action_at(240, 630) ==
            DesktopPetAction::Wake);
+    assert(desktop_pet_page_sleep_action_at(240, 300) ==
+           DesktopPetAction::None);
     write_preview(buffer, "/tmp/desktop_pet_sleep_a.ppm");
     state.pet.needs.energy = 56U;
     desktop_pet_page_render_sleep(canvas, state, true);

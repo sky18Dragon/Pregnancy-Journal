@@ -33,6 +33,7 @@ constexpr Rect kTalkRect = {160, 600, 160, 170};
 constexpr Rect kPlayRect = {320, 600, 160, 170};
 constexpr Rect kPetBodyRect = {110, 270, 260, 320};
 constexpr Rect kNameRect = {0, 0, 350, 70};
+constexpr Rect kEnergyRestRect = {294, 104, 172, 48};
 
 constexpr Rect kCloseTestRect = {360, 20, 100, 55};
 constexpr Rect kNextDayRect = {35, 215, 410, 52};
@@ -47,7 +48,7 @@ constexpr Rect kCareCelebrationMessageRect = {30, 674, 420, 68};
 constexpr Rect kFoodieChoiceRect = {45, 220, 390, 125};
 constexpr Rect kAffectionateChoiceRect = {45, 365, 390, 125};
 constexpr Rect kActiveChoiceRect = {45, 510, 390, 125};
-constexpr Rect kSleepWakeRect = {0, 0, 480, 800};
+constexpr Rect kSleepWakeRect = {35, 594, 410, 76};
 
 constexpr Rect kNameBackRect = {0, 0, 92, 102};
 constexpr Rect kNameInputRect = {25, 112, 430, 112};
@@ -1019,7 +1020,9 @@ void draw_outing_character(Canvas &canvas,
 // Draws the shared identity and care-status area used by the home and outing
 // scenes.
 // 绘制主页与外出场景共用的身份和照料状态区域。
-void draw_pet_status_header(Canvas &canvas, const DesktopPetState &state)
+void draw_pet_status_header(Canvas &canvas,
+                            const DesktopPetState &state,
+                            bool energy_button)
 {
     if (desktop_pet_state_has_name(state)) {
         canvas.draw_text(22, 16, state.name, 3);
@@ -1070,8 +1073,21 @@ void draw_pet_status_header(Canvas &canvas, const DesktopPetState &state)
     char energy_label[16] = {};
     std::snprintf(energy_label, sizeof(energy_label), "ENERGY %u",
                   static_cast<unsigned>(state.pet.needs.energy));
-    canvas.draw_text(456 - text_width(energy_label, 2),
-                     118, energy_label, 2);
+    if (energy_button) {
+        canvas.draw_rect(kEnergyRestRect.x,
+                         kEnergyRestRect.y,
+                         kEnergyRestRect.width,
+                         kEnergyRestRect.height,
+                         GrayLevel::Black);
+        draw_centered_in_rect(canvas,
+                              kEnergyRestRect,
+                              energy_label,
+                              2,
+                              GrayLevel::Black);
+    } else {
+        canvas.draw_text(456 - text_width(energy_label, 2),
+                         118, energy_label, 2);
+    }
 }
 
 void draw_pet_day_label(Canvas &canvas, const DesktopPetState &state)
@@ -1181,7 +1197,7 @@ void desktop_pet_page_render_home(Canvas &canvas,
     canvas.set_rotation(CanvasRotation::Deg90CounterClockwise);
     canvas.clear(GrayLevel::White);
 
-    draw_pet_status_header(canvas, state);
+    draw_pet_status_header(canvas, state, true);
 
     pixel_asset_draw(canvas, 20, 226,
                      desktop_pet_asset(DesktopPetAssetId::Room));
@@ -1255,8 +1271,8 @@ void desktop_pet_page_render_sleep(Canvas &canvas,
     canvas.fill_rect(35, 594, 410, 76, GrayLevel::Black);
     draw_centered_in_rect(canvas, {35, 594, 410, 76},
                           "WAKE UP", 3, GrayLevel::White);
-    draw_centered(canvas, 704, "ENERGY RESTORES WHILE SLEEPING", 2);
-    draw_centered(canvas, 745, "TAP ANYWHERE TO WAKE", 2);
+    draw_centered(canvas, 704, "RESTORES 6% ENERGY PER MINUTE", 2);
+    draw_centered(canvas, 745, "PRESS WAKE UP TO END REST", 1);
 }
 
 void desktop_pet_page_render_outing(
@@ -1268,7 +1284,7 @@ void desktop_pet_page_render_outing(
     canvas.set_rotation(CanvasRotation::Deg90CounterClockwise);
     canvas.clear(GrayLevel::White);
 
-    draw_pet_status_header(canvas, state);
+    draw_pet_status_header(canvas, state, false);
 
     pixel_asset_draw(canvas, 20, 226,
                      desktop_pet_asset(DesktopPetAssetId::Room));
@@ -1718,6 +1734,9 @@ DesktopPetAction desktop_pet_page_action_at(bool test_open, int x, int y)
 #endif
         if (kNameRect.contains(x, y)) {
             return DesktopPetAction::OpenNameEditor;
+        }
+        if (kEnergyRestRect.contains(x, y)) {
+            return DesktopPetAction::Sleep;
         }
         if (kPetBodyRect.contains(x, y)) {
             return DesktopPetAction::Pet;

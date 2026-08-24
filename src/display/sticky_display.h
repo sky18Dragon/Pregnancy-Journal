@@ -43,6 +43,10 @@ void sticky_display_cancel_app_transition_refresh();
 // 在下一次刷新前启用或隐藏全局电池状态层。
 void sticky_display_set_battery_overlay_enabled(bool enabled);
 
+// Moves the battery overlay left to reserve the top-right sleep indicator.
+// 将电量显示向左移动，为右上角的睡眠图标预留空间。
+void sticky_display_set_battery_overlay_sleep_layout(bool sleep_layout);
+
 // Clears the physical panel to white and clears the framebuffer.
 // 将实体屏幕和内存中的画布同时清成白色。
 esp_err_t sticky_display_clear();
