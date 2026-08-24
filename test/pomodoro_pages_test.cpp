@@ -63,11 +63,11 @@ int main()
     assert(canvas.width() == 480U);
     assert(canvas.height() == 800U);
     assert(black_pixel_count(buffer) > 15000U);
-    assert(pomodoro_page_action_at(PomodoroPage::Setup, 92, 552) ==
+    assert(pomodoro_page_action_at(PomodoroPage::Setup, 92, 568) ==
            PomodoroAction::Preset15Minutes);
-    assert(pomodoro_page_action_at(PomodoroPage::Setup, 239, 552) ==
+    assert(pomodoro_page_action_at(PomodoroPage::Setup, 239, 568) ==
            PomodoroAction::Preset25Minutes);
-    assert(pomodoro_page_action_at(PomodoroPage::Setup, 387, 552) ==
+    assert(pomodoro_page_action_at(PomodoroPage::Setup, 387, 568) ==
            PomodoroAction::Preset60Minutes);
     assert(pomodoro_page_action_at(PomodoroPage::Setup, 240, 650) ==
            PomodoroAction::StartFocus);
@@ -85,7 +85,22 @@ int main()
     pomodoro_page_render_custom_time(
         canvas, 0U, 25U, 0U, PomodoroTimeField::Minutes);
     assert(black_pixel_count(buffer) > 10000U);
+    assert(pomodoro_page_action_at(PomodoroPage::CustomTime, 45, 780) ==
+           PomodoroAction::Back);
+    assert(pomodoro_page_action_at(PomodoroPage::CustomTime, 435, 780) ==
+           PomodoroAction::Back);
+    assert(pomodoro_page_action_at(PomodoroPage::CustomTime, 240, 729) ==
+           PomodoroAction::None);
+    assert(pomodoro_custom_action_can_batch(PomodoroAction::Digit2));
+    assert(pomodoro_custom_action_can_batch(PomodoroAction::Clear));
+    assert(pomodoro_custom_action_can_batch(PomodoroAction::Delete));
+    assert(!pomodoro_custom_action_can_batch(PomodoroAction::UseCustomTime));
+    assert(!pomodoro_custom_action_can_batch(PomodoroAction::Back));
     write_preview(buffer, "/tmp/pomodoro_custom_time.ppm");
+
+    pomodoro_page_render_custom_time(
+        canvas, 0U, 0U, 0U, PomodoroTimeField::Minutes);
+    write_preview(buffer, "/tmp/pomodoro_custom_time_cleared.ppm");
 
     pomodoro_page_render_timer(
         canvas, PomodoroPage::Running, 1499U, 1500U);

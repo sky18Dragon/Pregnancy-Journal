@@ -32,9 +32,9 @@ struct Rect {
 };
 
 constexpr Rect kSetupPresetRects[] = {
-    {25, 525, 135, 54},
-    {172, 525, 135, 54},
-    {320, 525, 135, 54},
+    {25, 541, 135, 54},
+    {172, 541, 135, 54},
+    {320, 541, 135, 54},
 };
 constexpr Rect kStartRect = {
     kActionButtonX, 620, kActionButtonWidth, kActionButtonHeight};
@@ -62,6 +62,7 @@ constexpr Rect kKeypadRects[] = {
 constexpr Rect kUseCustomRect = {
     kActionButtonX, 665, kActionButtonWidth, kActionButtonHeight};
 constexpr Rect kBackRect = {140, 738, 200, 50};
+constexpr Rect kBackHitRect = {40, 730, 400, 70};
 
 // Full-width action buttons share one size across every Pomodoro page.
 // 所有番茄钟页面的通栏操作按钮统一使用同一尺寸。
@@ -250,7 +251,9 @@ void draw_timer_content(Canvas &canvas,
                         uint32_t total_seconds)
 {
     draw_pomodoro_mark(canvas);
-    draw_centered_text(canvas, 70, title, 4);
+    if (title != nullptr && title[0] != '\0') {
+        draw_centered_text(canvas, 70, title, 4);
+    }
     draw_segmented_ring(canvas,
                         330,
                         205,
@@ -404,7 +407,7 @@ void pomodoro_page_render_timer(Canvas &canvas,
     begin_page(canvas);
     const bool paused = page == PomodoroPage::Paused;
     draw_timer_content(canvas,
-                       paused ? "PAUSED" : "FOCUSING",
+                       paused ? "PAUSED" : nullptr,
                        remaining_seconds,
                        total_seconds);
     draw_button(canvas,
@@ -509,7 +512,7 @@ PomodoroAction pomodoro_page_action_at(PomodoroPage page, int x, int y)
         if (kUseCustomRect.contains(x, y)) {
             return PomodoroAction::UseCustomTime;
         }
-        if (kBackRect.contains(x, y)) {
+        if (kBackHitRect.contains(x, y)) {
             return PomodoroAction::Back;
         }
     } else if (page == PomodoroPage::Running) {
@@ -539,6 +542,17 @@ PomodoroAction pomodoro_page_action_at(PomodoroPage page, int x, int y)
     }
 
     return PomodoroAction::None;
+}
+
+bool pomodoro_custom_action_can_batch(PomodoroAction action)
+{
+    return (action >= PomodoroAction::Digit0 &&
+            action <= PomodoroAction::Digit9) ||
+           action == PomodoroAction::SelectHours ||
+           action == PomodoroAction::SelectMinutes ||
+           action == PomodoroAction::SelectSeconds ||
+           action == PomodoroAction::Clear ||
+           action == PomodoroAction::Delete;
 }
 
 const char *pomodoro_page_name(PomodoroPage page)

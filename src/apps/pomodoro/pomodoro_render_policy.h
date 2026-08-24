@@ -2,7 +2,9 @@
 
 enum class PomodoroRenderReason {
     InteractiveChange,
+    QueuedInput,
     CountdownTick,
+    MaintenanceCleanup,
 };
 
 // Returns whether a render should discard a press captured during refresh.

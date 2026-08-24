@@ -9,6 +9,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "pomodoro_countdown.h"
+#include "pomodoro_custom_input.h"
 #include "pomodoro_pages.h"
 #include "pomodoro_render_policy.h"
 #include "sticky_app_lifecycle.h"
@@ -23,8 +24,9 @@ constexpr uint32_t kDefaultDurationSeconds = 15U * 60U;
 constexpr TickType_t kPollInterval = pdMS_TO_TICKS(40);
 constexpr uint32_t kTaskStackSize = 6144;
 constexpr UBaseType_t kTaskPriority = 3;
-constexpr uint32_t kSleepSnapshotMagic = 0x504F4D4FU;
+constexpr uint32_t kSleepSnapshotMagic = 0x504F4D50U;
 constexpr uint32_t kIdleSleepTimeoutMs = 5U * 60U * 1000U;
+constexpr int64_t kCustomCleanupDelayUs = 2LL * 1000LL * 1000LL;
 
 struct PomodoroSleepSnapshot {
     uint32_t magic;
@@ -36,7 +38,14 @@ struct PomodoroSleepSnapshot {
     uint8_t custom_minutes;
     uint8_t custom_seconds;
     bool replace_field_on_digit;
+    bool custom_backspace_pending;
     int64_t paused_remaining_us;
+};
+
+enum class CustomActionResult {
+    None,
+    Redraw,
+    PageChanged,
 };
 
 RTC_NOINIT_ATTR PomodoroSleepSnapshot s_sleep_snapshot;
@@ -54,6 +63,8 @@ uint8_t s_custom_hours = 0;
 uint8_t s_custom_minutes = 15;
 uint8_t s_custom_seconds = 0;
 bool s_replace_field_on_digit = true;
+bool s_custom_backspace_pending = false;
+int64_t s_custom_cleanup_deadline_us = 0;
 int64_t s_timer_deadline_us = 0;
 int64_t s_paused_remaining_us = 0;
 uint32_t s_displayed_remaining_seconds = 0;
@@ -127,6 +138,9 @@ void change_page(PomodoroPage target, const char *reason, bool partial = false)
 {
     const PomodoroPage previous = s_page;
     s_page = target;
+    if (target != PomodoroPage::CustomTime) {
+        s_custom_cleanup_deadline_us = 0;
+    }
     STICKY_LOGI(kTag,
                 "pomodoro=page from=%s to=%s reason=%s",
                 pomodoro_page_name(previous),
@@ -152,7 +166,7 @@ void select_custom_field(PomodoroTimeField field)
 {
     s_active_field = field;
     s_replace_field_on_digit = true;
-    render_current_page(true);
+    s_custom_backspace_pending = false;
 }
 
 int action_digit(PomodoroAction action)
@@ -166,15 +180,14 @@ int action_digit(PomodoroAction action)
 void enter_custom_digit(uint8_t digit)
 {
     uint8_t &value = active_custom_value();
-    value = s_replace_field_on_digit
-                ? digit
-                : static_cast<uint8_t>((value % 10U) * 10U + digit);
-    s_replace_field_on_digit = false;
+    pomodoro_custom_enter_digit(digit,
+                                value,
+                                s_replace_field_on_digit,
+                                s_custom_backspace_pending);
     STICKY_LOGD(kTag,
                 "pomodoro=custom_input field=%d value=%u",
                 static_cast<int>(s_active_field),
                 static_cast<unsigned>(value));
-    render_current_page(true);
 }
 
 uint32_t custom_duration_seconds()
@@ -272,6 +285,9 @@ void handle_setup_action(PomodoroAction action)
         selected = 3600;
         break;
     case PomodoroAction::OpenCustomTime:
+        s_active_field = PomodoroTimeField::Minutes;
+        s_replace_field_on_digit = true;
+        s_custom_backspace_pending = false;
         change_page(PomodoroPage::CustomTime, "open_custom_time");
         return;
     case PomodoroAction::StartFocus:
@@ -288,43 +304,45 @@ void handle_setup_action(PomodoroAction action)
     render_current_page(true);
 }
 
-void handle_custom_action(PomodoroAction action)
+CustomActionResult handle_custom_action(PomodoroAction action)
 {
     const int digit = action_digit(action);
     if (digit >= 0) {
         enter_custom_digit(static_cast<uint8_t>(digit));
-        return;
+        return CustomActionResult::Redraw;
     }
 
     switch (action) {
     case PomodoroAction::SelectHours:
         select_custom_field(PomodoroTimeField::Hours);
-        break;
+        return CustomActionResult::Redraw;
     case PomodoroAction::SelectMinutes:
         select_custom_field(PomodoroTimeField::Minutes);
-        break;
+        return CustomActionResult::Redraw;
     case PomodoroAction::SelectSeconds:
         select_custom_field(PomodoroTimeField::Seconds);
-        break;
-    case PomodoroAction::Clear:
-        s_custom_hours = 0;
-        s_custom_minutes = 0;
-        s_custom_seconds = 0;
-        s_active_field = PomodoroTimeField::Minutes;
-        s_replace_field_on_digit = true;
-        STICKY_LOGI(kTag, "pomodoro=custom_input action=clear");
-        render_current_page(true);
-        break;
+        return CustomActionResult::Redraw;
+    case PomodoroAction::Clear: {
+        uint8_t &value = active_custom_value();
+        pomodoro_custom_clear_field(value,
+                                    s_replace_field_on_digit,
+                                    s_custom_backspace_pending);
+        STICKY_LOGI(kTag,
+                    "pomodoro=custom_input action=clear field=%d value=%u",
+                    static_cast<int>(s_active_field),
+                    static_cast<unsigned>(value));
+        return CustomActionResult::Redraw;
+    }
     case PomodoroAction::Delete: {
         uint8_t &value = active_custom_value();
-        value = static_cast<uint8_t>(value / 10U);
-        s_replace_field_on_digit = false;
+        pomodoro_custom_backspace(value,
+                                  s_replace_field_on_digit,
+                                  s_custom_backspace_pending);
         STICKY_LOGD(kTag,
                     "pomodoro=custom_input action=delete field=%d value=%u",
                     static_cast<int>(s_active_field),
                     static_cast<unsigned>(value));
-        render_current_page(true);
-        break;
+        return CustomActionResult::Redraw;
     }
     case PomodoroAction::UseCustomTime:
         if (!custom_time_is_valid()) {
@@ -333,19 +351,19 @@ void handle_custom_action(PomodoroAction action)
                         static_cast<unsigned>(s_custom_hours),
                         static_cast<unsigned>(s_custom_minutes),
                         static_cast<unsigned>(s_custom_seconds));
-            return;
+            return CustomActionResult::None;
         }
         s_selected_seconds = custom_duration_seconds();
         STICKY_LOGI(kTag,
                     "pomodoro=duration source=custom value_s=%lu",
                     static_cast<unsigned long>(s_selected_seconds));
         change_page(PomodoroPage::Setup, "custom_time_accepted");
-        break;
+        return CustomActionResult::PageChanged;
     case PomodoroAction::Back:
         change_page(PomodoroPage::Setup, "custom_time_back");
-        break;
+        return CustomActionResult::PageChanged;
     default:
-        break;
+        return CustomActionResult::None;
     }
 }
 
@@ -358,7 +376,11 @@ void handle_action(PomodoroAction action)
     if (s_page == PomodoroPage::Setup) {
         handle_setup_action(action);
     } else if (s_page == PomodoroPage::CustomTime) {
-        handle_custom_action(action);
+        if (handle_custom_action(action) == CustomActionResult::Redraw) {
+            render_current_page(true, PomodoroRenderReason::QueuedInput);
+            s_custom_cleanup_deadline_us =
+                esp_timer_get_time() + kCustomCleanupDelayUs;
+        }
     } else if (s_page == PomodoroPage::Running) {
         if (action == PomodoroAction::Pause) {
             pause_timer("pause_button");
@@ -424,6 +446,65 @@ void update_running_timer()
     }
 }
 
+PomodoroAction action_for_press(const StickyTouchPress &press)
+{
+    int logical_x = 0;
+    int logical_y = 0;
+    s_canvas->physical_to_logical(
+        press.x, press.y, logical_x, logical_y);
+    const PomodoroAction action =
+        pomodoro_page_action_at(s_page, logical_x, logical_y);
+    if (action != PomodoroAction::None) {
+        STICKY_LOGI(kTag,
+                    "pomodoro=touch page=%s action=%s physical_x=%u physical_y=%u logical_x=%d logical_y=%d",
+                    pomodoro_page_name(s_page),
+                    pomodoro_action_name(action),
+                    static_cast<unsigned>(press.x),
+                    static_cast<unsigned>(press.y),
+                    logical_x,
+                    logical_y);
+    }
+    return action;
+}
+
+void handle_custom_press_batch(StickyTouchPress press)
+{
+    bool redraw_needed = false;
+    unsigned batched_actions = 0U;
+
+    while (s_page == PomodoroPage::CustomTime) {
+        const PomodoroAction action = action_for_press(press);
+        if (action == PomodoroAction::None) {
+            break;
+        }
+
+        const CustomActionResult result = handle_custom_action(action);
+        if (result == CustomActionResult::Redraw) {
+            redraw_needed = true;
+            ++batched_actions;
+        } else if (result == CustomActionResult::PageChanged) {
+            return;
+        }
+
+        if (!pomodoro_custom_action_can_batch(action) ||
+            !sticky_touch_take_press(press)) {
+            break;
+        }
+    }
+
+    if (!redraw_needed || s_page != PomodoroPage::CustomTime) {
+        return;
+    }
+    if (batched_actions > 1U) {
+        STICKY_LOGI(kTag,
+                    "pomodoro=custom_input_batch actions=%u refreshes=1",
+                    batched_actions);
+    }
+    render_current_page(true, PomodoroRenderReason::QueuedInput);
+    s_custom_cleanup_deadline_us =
+        esp_timer_get_time() + kCustomCleanupDelayUs;
+}
+
 void app_task(void *)
 {
     render_current_page(false);
@@ -434,6 +515,7 @@ void app_task(void *)
     while (true) {
         if (sticky_app_lifecycle_checkpoint(s_lifecycle)) {
             sticky_touch_clear_press();
+            s_custom_cleanup_deadline_us = 0;
             if (s_page == PomodoroPage::Running) {
                 s_paused_remaining_us =
                     timer_remaining_us(esp_timer_get_time());
@@ -447,23 +529,22 @@ void app_task(void *)
 
         StickyTouchPress press = {};
         if (sticky_touch_take_press(press)) {
-            int logical_x = 0;
-            int logical_y = 0;
-            s_canvas->physical_to_logical(
-                press.x, press.y, logical_x, logical_y);
-            const PomodoroAction action =
-                pomodoro_page_action_at(s_page, logical_x, logical_y);
-            if (action != PomodoroAction::None) {
-                STICKY_LOGI(kTag,
-                            "pomodoro=touch page=%s action=%s physical_x=%u physical_y=%u logical_x=%d logical_y=%d",
-                            pomodoro_page_name(s_page),
-                            pomodoro_action_name(action),
-                            static_cast<unsigned>(press.x),
-                            static_cast<unsigned>(press.y),
-                            logical_x,
-                            logical_y);
-                handle_action(action);
+            if (s_page == PomodoroPage::CustomTime) {
+                handle_custom_press_batch(press);
+            } else {
+                handle_action(action_for_press(press));
             }
+        }
+
+        const int64_t now_us = esp_timer_get_time();
+        if (s_page == PomodoroPage::CustomTime &&
+            s_custom_cleanup_deadline_us != 0 &&
+            now_us >= s_custom_cleanup_deadline_us) {
+            s_custom_cleanup_deadline_us = 0;
+            STICKY_LOGI(kTag,
+                        "pomodoro=display refresh=full reason=custom_input_cleanup");
+            render_current_page(
+                false, PomodoroRenderReason::MaintenanceCleanup);
         }
 
         vTaskDelay(kPollInterval);
@@ -489,6 +570,8 @@ esp_err_t pomodoro_app_start(Canvas &canvas)
         s_custom_seconds = s_sleep_snapshot.custom_seconds;
         s_replace_field_on_digit =
             s_sleep_snapshot.replace_field_on_digit;
+        s_custom_backspace_pending =
+            s_sleep_snapshot.custom_backspace_pending;
         s_paused_remaining_us = s_sleep_snapshot.paused_remaining_us;
         s_displayed_remaining_seconds = static_cast<uint32_t>(
             (s_paused_remaining_us + 999999LL) / 1000000LL);
@@ -547,6 +630,8 @@ esp_err_t pomodoro_app_prepare_power_sleep()
     s_sleep_snapshot.custom_minutes = s_custom_minutes;
     s_sleep_snapshot.custom_seconds = s_custom_seconds;
     s_sleep_snapshot.replace_field_on_digit = s_replace_field_on_digit;
+    s_sleep_snapshot.custom_backspace_pending =
+        s_custom_backspace_pending;
     s_sleep_snapshot.paused_remaining_us = s_paused_remaining_us;
     s_sleep_snapshot.magic = kSleepSnapshotMagic;
     return ESP_OK;

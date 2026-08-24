@@ -84,5 +84,9 @@ void pomodoro_page_render_alarm(Canvas &canvas, uint32_t focused_seconds);
 // 将竖屏逻辑触摸坐标映射为页面上的操作。
 PomodoroAction pomodoro_page_action_at(PomodoroPage page, int x, int y);
 
+// Returns whether consecutive custom-time actions can share one refresh.
+// 返回连续的自定义时间操作是否可以合并为一次刷新。
+bool pomodoro_custom_action_can_batch(PomodoroAction action);
+
 const char *pomodoro_page_name(PomodoroPage page);
 const char *pomodoro_action_name(PomodoroAction action);
