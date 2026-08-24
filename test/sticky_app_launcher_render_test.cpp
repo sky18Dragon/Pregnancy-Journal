@@ -20,6 +20,56 @@ uint8_t pixel_level(const std::vector<uint8_t> &buffer, int x, int y)
     return static_cast<uint8_t>((buffer[index] >> shift) & 0x03U);
 }
 
+uint8_t logical_pixel_level(const std::vector<uint8_t> &buffer,
+                            CanvasRotation rotation,
+                            int x,
+                            int y)
+{
+    int physical_x = x;
+    int physical_y = y;
+    if (rotation == CanvasRotation::Deg90CounterClockwise) {
+        physical_x = y;
+        physical_y = static_cast<int>(kHeight) - 1 - x;
+    }
+    return pixel_level(buffer, physical_x, physical_y);
+}
+
+// Verifies that visible label pixels have balanced top and bottom margins.
+// 验证标签文字的可见像素拥有均衡的上下留白。
+void assert_label_text_centered(const std::vector<uint8_t> &buffer,
+                                CanvasRotation rotation,
+                                int x,
+                                int y,
+                                int width,
+                                int height,
+                                GrayLevel ink_level)
+{
+    int first_ink_y = -1;
+    int last_ink_y = -1;
+    for (int logical_y = y + 1; logical_y < y + height - 1;
+         ++logical_y) {
+        for (int logical_x = x + 7; logical_x < x + width - 7;
+             ++logical_x) {
+            if (logical_pixel_level(buffer, rotation,
+                                    logical_x, logical_y) !=
+                static_cast<uint8_t>(ink_level)) {
+                continue;
+            }
+            if (first_ink_y < 0) {
+                first_ink_y = logical_y;
+            }
+            last_ink_y = logical_y;
+        }
+    }
+    assert(first_ink_y >= 0);
+    const int top_margin = first_ink_y - y;
+    const int bottom_margin = y + height - 1 - last_ink_y;
+    const int difference = top_margin >= bottom_margin
+                               ? top_margin - bottom_margin
+                               : bottom_margin - top_margin;
+    assert(difference <= 1);
+}
+
 void write_preview(const std::vector<uint8_t> &buffer, const char *path)
 {
     std::ofstream output(path, std::ios::binary);
@@ -77,7 +127,13 @@ int main()
     assert(!app_page_launcher_app_at(
         canvas.width(), canvas.height(), 240, 400, selected_app));
     assert(!app_page_launcher_app_at(
-        canvas.width(), canvas.height(), 132, 406, selected_app));
+        canvas.width(), canvas.height(), 132, 411, selected_app));
+    assert_label_text_centered(
+        buffer, CanvasRotation::Deg90CounterClockwise,
+        31, 354, 190, 54, GrayLevel::White);
+    assert_label_text_centered(
+        buffer, CanvasRotation::Deg90CounterClockwise,
+        259, 354, 190, 54, GrayLevel::Black);
     write_preview(buffer, "/tmp/sticky_launcher_portrait.ppm");
 
     canvas.set_rotation(CanvasRotation::Deg0);
@@ -99,6 +155,12 @@ int main()
     assert(selected_app == StickyAppId::BookOfAnswers);
     assert(!app_page_launcher_app_at(
         canvas.width(), canvas.height(), 206, 256, selected_app));
+    assert_label_text_centered(
+        buffer, CanvasRotation::Deg0,
+        18, 336, 176, 54, GrayLevel::White);
+    assert_label_text_centered(
+        buffer, CanvasRotation::Deg0,
+        214, 336, 176, 54, GrayLevel::Black);
     write_preview(buffer, "/tmp/sticky_launcher_landscape.ppm");
     return 0;
 }

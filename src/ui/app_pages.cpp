@@ -5,6 +5,7 @@
 
 #include "app_launcher_assets.h"
 #include "canvas.h"
+#include "font.h"
 #include "pixel_asset.h"
 
 namespace {
@@ -19,11 +20,68 @@ struct LauncherCard {
     int label_y;
 };
 
+struct LauncherLabel {
+    const char *first_line;
+    const char *second_line;
+};
+
+struct TextInkBounds {
+    int left;
+    int top;
+    int width;
+    int height;
+};
+
 constexpr size_t kCardCount = 4U;
 
 int text_width(const char *text, int scale)
 {
-    return static_cast<int>(std::strlen(text)) * 6 * scale;
+    const size_t length = std::strlen(text);
+    return length == 0U
+               ? 0
+               : (static_cast<int>(length) * 6 - 1) * scale;
+}
+
+TextInkBounds text_ink_bounds(const char *text, int scale)
+{
+    int first_column = -1;
+    int last_column = -1;
+    int first_row = -1;
+    int last_row = -1;
+    int cursor_column = 0;
+    for (const char *character = text; *character != '\0'; ++character) {
+        const FontGlyph &glyph = font_get_glyph(*character);
+        for (int column = 0; column < kFontWidth; ++column) {
+            for (int row = 0; row < kFontHeight; ++row) {
+                if ((glyph.columns[column] & (1U << row)) == 0U) {
+                    continue;
+                }
+                const int visible_column = cursor_column + column;
+                if (first_column < 0 || visible_column < first_column) {
+                    first_column = visible_column;
+                }
+                if (visible_column > last_column) {
+                    last_column = visible_column;
+                }
+                if (first_row < 0 || row < first_row) {
+                    first_row = row;
+                }
+                if (row > last_row) {
+                    last_row = row;
+                }
+            }
+        }
+        cursor_column += kFontWidth + kFontSpacing;
+    }
+    if (first_column < 0 || first_row < 0) {
+        return {0, 0, 0, 0};
+    }
+    return {
+        first_column * scale,
+        first_row * scale,
+        (last_column - first_column + 1) * scale,
+        (last_row - first_row + 1) * scale,
+    };
 }
 
 void draw_centered_text(Canvas &canvas,
@@ -47,7 +105,7 @@ std::array<LauncherCard, kCardCount> launcher_cards(int width, int height)
     const bool portrait = height > width;
     if (portrait) {
         constexpr int kCardWidth = 212;
-        constexpr int kCardHeight = 244;
+        constexpr int kCardHeight = 254;
         constexpr int kColumnGap = 16;
         const int left = (width - kCardWidth * 2 - kColumnGap) / 2;
         constexpr int kTopRowY = 154;
@@ -90,19 +148,19 @@ std::array<LauncherCard, kCardCount> launcher_cards(int width, int height)
               kTop + 22, kTop + 212}}};
 }
 
-const char *app_label(StickyAppId app)
+LauncherLabel app_label(StickyAppId app)
 {
     switch (app) {
     case StickyAppId::DesktopPet:
-        return "PET";
+        return {"Pet", nullptr};
     case StickyAppId::Pomodoro:
-        return "FOCUS";
+        return {"Pomodoro", "Time"};
     case StickyAppId::StatusBoard:
-        return "STATUS";
+        return {"Status", "Board"};
     case StickyAppId::BookOfAnswers:
-        return "ANSWERS";
+        return {"Answers of", "book"};
     }
-    return "APP";
+    return {"App", nullptr};
 }
 
 AppLauncherAssetId launcher_asset_id(StickyAppId app)
@@ -180,6 +238,39 @@ void draw_beveled_label(Canvas &canvas,
                      x + kCut, y, GrayLevel::Black);
 }
 
+void draw_centered_label_text(Canvas &canvas,
+                              int x,
+                              int y,
+                              int width,
+                              int height,
+                              const LauncherLabel &label,
+                              GrayLevel color)
+{
+    constexpr int kScale = 2;
+    constexpr int kLineGap = 5;
+    const TextInkBounds first =
+        text_ink_bounds(label.first_line, kScale);
+    const bool two_lines = label.second_line != nullptr;
+    const TextInkBounds second = two_lines
+                                     ? text_ink_bounds(label.second_line,
+                                                       kScale)
+                                     : TextInkBounds{0, 0, 0, 0};
+    const int content_height = two_lines
+                                   ? first.height + kLineGap + second.height
+                                   : first.height;
+    const int content_top = y + (height - content_height) / 2;
+    const int first_x = x + (width - first.width) / 2 - first.left;
+    const int first_y = content_top - first.top;
+    canvas.draw_text(first_x, first_y, label.first_line, kScale, color);
+    if (!two_lines) {
+        return;
+    }
+    const int second_x = x + (width - second.width) / 2 - second.left;
+    const int second_y = content_top + first.height + kLineGap - second.top;
+    canvas.draw_text(second_x, second_y,
+                     label.second_line, kScale, color);
+}
+
 void draw_title_divider(Canvas &canvas, int y)
 {
     const int half_width = canvas.height() > canvas.width() ? 154 : 204;
@@ -208,22 +299,25 @@ void draw_card(Canvas &canvas,
 {
     const bool active = card.app == current_app;
     const int center_x = card.x + card.width / 2;
-    constexpr int kLabelWidth = 150;
-    constexpr int kLabelHeight = 42;
-    const int label_x = center_x - kLabelWidth / 2;
+    const bool portrait = canvas.height() > canvas.width();
+    const int label_width = portrait ? 190 : 176;
+    constexpr int kLabelHeight = 54;
+    const int label_x = center_x - label_width / 2;
 
     draw_sticker(canvas, card.app, center_x, card.asset_y);
     if (active) {
         draw_selection_marker(canvas, card.x + 14, card.asset_y + 8);
     }
     draw_beveled_label(canvas, label_x, card.label_y,
-                       kLabelWidth, kLabelHeight, active);
-    draw_centered_text(canvas,
-                       center_x,
-                       card.label_y + 9,
-                       app_label(card.app),
-                       2,
-                       active ? GrayLevel::White : GrayLevel::Black);
+                       label_width, kLabelHeight, active);
+    draw_centered_label_text(
+        canvas,
+        label_x,
+        card.label_y,
+        label_width,
+        kLabelHeight,
+        app_label(card.app),
+        active ? GrayLevel::White : GrayLevel::Black);
 }
 
 bool contains(const LauncherCard &card, int x, int y)
