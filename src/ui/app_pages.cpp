@@ -33,6 +33,8 @@ struct TextInkBounds {
 };
 
 constexpr size_t kCardCount = 4U;
+constexpr int kPortraitContentOffsetY = 40;
+constexpr int kLandscapeContentOffsetY = 30;
 
 int text_width(const char *text, int scale)
 {
@@ -108,8 +110,8 @@ std::array<LauncherCard, kCardCount> launcher_cards(int width, int height)
         constexpr int kCardHeight = 254;
         constexpr int kColumnGap = 16;
         const int left = (width - kCardWidth * 2 - kColumnGap) / 2;
-        constexpr int kTopRowY = 154;
-        constexpr int kBottomRowY = 414;
+        constexpr int kTopRowY = 154 + kPortraitContentOffsetY;
+        constexpr int kBottomRowY = 414 + kPortraitContentOffsetY;
         return {{{StickyAppId::DesktopPet,
                   left, kTopRowY, kCardWidth, kCardHeight,
                   kTopRowY + 10, kTopRowY + 200},
@@ -130,7 +132,7 @@ std::array<LauncherCard, kCardCount> launcher_cards(int width, int height)
     constexpr int kCardHeight = 300;
     constexpr int kGap = 12;
     const int left = (width - kCardWidth * 4 - kGap * 3) / 2;
-    constexpr int kTop = 124;
+    constexpr int kTop = 124 + kLandscapeContentOffsetY;
     return {{{StickyAppId::DesktopPet,
               left, kTop, kCardWidth, kCardHeight,
               kTop + 22, kTop + 212},
@@ -333,9 +335,12 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app)
 {
     canvas.clear(GrayLevel::White);
     const bool portrait = canvas.height() > canvas.width();
-    const int title_y = portrait ? 58 : 30;
-    const int sparkle_y = portrait ? 77 : 49;
-    const int divider_y = portrait ? 110 : 82;
+    const int title_y = portrait ? 58 + kPortraitContentOffsetY
+                                 : 30 + kLandscapeContentOffsetY;
+    const int sparkle_y = portrait ? 77 + kPortraitContentOffsetY
+                                    : 49 + kLandscapeContentOffsetY;
+    const int divider_y = portrait ? 110 + kPortraitContentOffsetY
+                                    : 82 + kLandscapeContentOffsetY;
     draw_centered_text(canvas,
                        canvas.width() / 2,
                        title_y,
