@@ -17,6 +17,7 @@
 #include "pomodoro_app.h"
 #include "status_board_app.h"
 #include "sticky_app_display_orientation.h"
+#include "sticky_app_gesture.h"
 #include "sticky_app_id.h"
 #include "sticky_app_router.h"
 #include "sticky_buzzer.h"
@@ -154,6 +155,7 @@ esp_err_t resume_app(StickyAppId app)
 esp_err_t activate_app(StickyAppId app)
 {
     sticky_touch_clear_press();
+    sticky_touch_clear_interaction();
     if (!app_started(app)) {
         const esp_err_t result = start_app(app);
         if (result == ESP_OK) {
@@ -333,6 +335,7 @@ void enter_power_sleep(StickyAppRouterState &router, const char *source)
 void render_launcher()
 {
     sticky_touch_clear_press();
+    sticky_touch_clear_interaction();
     app_page_render_launcher(*s_canvas, s_current_app);
     const esp_err_t result = sticky_display_refresh_partial();
     if (result != ESP_OK) {
@@ -467,6 +470,7 @@ void cancel_launcher(StickyAppRouterState &router)
         }
     }
     sticky_touch_clear_press();
+    sticky_touch_clear_interaction();
     const esp_err_t resume_result = resume_app(s_current_app);
     STICKY_LOGI(kTag,
                 "launcher=cancelled app=%s imu=%s resume=%s result=%s",
@@ -478,6 +482,58 @@ void cancel_launcher(StickyAppRouterState &router)
                 imu_result == ESP_OK && resume_result == ESP_OK
                     ? "ok"
                     : "failed");
+}
+
+void handle_launcher_gesture(
+    const StickyTouchInteraction &interaction,
+    StickyAppRouterState &router,
+    StickyImuOrientation &last_settled,
+    LauncherImuPrestart &imu_prestart)
+{
+    int logical_start_x = 0;
+    int logical_start_y = 0;
+    int logical_end_x = 0;
+    int logical_end_y = 0;
+    s_canvas->physical_to_logical(interaction.start_x,
+                                  interaction.start_y,
+                                  logical_start_x,
+                                  logical_start_y);
+    s_canvas->physical_to_logical(interaction.end_x,
+                                  interaction.end_y,
+                                  logical_end_x,
+                                  logical_end_y);
+    const StickyAppGestureSample sample = {
+        static_cast<int>(s_canvas->width()),
+        static_cast<int>(s_canvas->height()),
+        logical_start_x,
+        logical_start_y,
+        logical_end_x,
+        logical_end_y,
+        interaction.ended_at_ms - interaction.started_at_ms,
+        router.launcher_open,
+    };
+    const StickyAppGestureAction action =
+        sticky_app_gesture_classify(sample);
+    if (action == StickyAppGestureAction::OpenLauncher) {
+        STICKY_LOGI(kTag,
+                    "launcher=gesture action=open start_x=%d start_y=%d end_x=%d end_y=%d duration_ms=%u",
+                    logical_start_x,
+                    logical_start_y,
+                    logical_end_x,
+                    logical_end_y,
+                    static_cast<unsigned>(sample.duration_ms));
+        open_launcher(router, last_settled, imu_prestart);
+    } else if (action == StickyAppGestureAction::CloseLauncher) {
+        STICKY_LOGI(kTag,
+                    "launcher=gesture action=close start_x=%d start_y=%d end_x=%d end_y=%d duration_ms=%u",
+                    logical_start_x,
+                    logical_start_y,
+                    logical_end_x,
+                    logical_end_y,
+                    static_cast<unsigned>(sample.duration_ms));
+        cancel_launcher(router);
+        imu_prestart = {};
+    }
 }
 
 void complete_selection(StickyAppId selected_app,
@@ -670,7 +726,7 @@ void app_task(void *)
     LauncherImuPrestart imu_prestart = {};
     StickyImuOrientation last_settled = StickyImuOrientation::Unknown;
     STICKY_LOGI(kTag,
-                "launcher=ready trigger=top_button selection=touch,rotation,shake apps=4 imu=on_demand shake_select_ms=%u current_app=%s result=ok",
+                "launcher=ready trigger=top_button,bottom_swipe selection=touch,rotation,shake apps=4 imu=on_demand shake_select_ms=%u current_app=%s result=ok",
                 static_cast<unsigned>(kStickyLauncherShakeSelectMs),
                 sticky_app_id_name(s_current_app));
 
@@ -720,6 +776,14 @@ void app_task(void *)
                 STICKY_LOGI(kTag,
                             "power=background_window state=cancelled source=touch result=ok");
             }
+        }
+
+        StickyTouchInteraction interaction = {};
+        while (sticky_touch_take_interaction(interaction)) {
+            handle_launcher_gesture(interaction,
+                                    router,
+                                    last_settled,
+                                    imu_prestart);
         }
 
         if (router.launcher_open) {
