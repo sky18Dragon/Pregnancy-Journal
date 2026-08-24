@@ -183,6 +183,22 @@ void draw_centered_in_rect(Canvas &canvas,
     canvas.draw_text(x, y, text, static_cast<uint8_t>(scale), color);
 }
 
+// Draws a lightweight action hint while keeping the full rectangle tappable.
+// 绘制轻量操作提示，同时保留完整矩形作为触摸热区。
+void draw_underlined_in_rect(Canvas &canvas,
+                             const Rect &rect,
+                             const char *text,
+                             int scale)
+{
+    const int width = text_width(text, scale);
+    const int x = rect.x + (rect.width - width) / 2;
+    const int y = rect.y + (rect.height - 7 * scale) / 2;
+    canvas.draw_text(x, y, text, static_cast<uint8_t>(scale),
+                     GrayLevel::Black);
+    canvas.fill_rect(x, y + 7 * scale + 3, width, 2,
+                     GrayLevel::Black);
+}
+
 // Aligns the visible pixels of a label to the rectangle center.
 // 按文字实际可见像素对齐到矩形中心，消除字符留白造成的视觉偏移。
 void draw_visually_centered_in_rect(Canvas &canvas,
@@ -1075,16 +1091,8 @@ void draw_pet_status_header(Canvas &canvas,
     std::snprintf(energy_label, sizeof(energy_label), "ENERGY %u",
                   static_cast<unsigned>(state.pet.needs.energy));
     if (energy_button) {
-        canvas.draw_rect(kEnergyRestRect.x,
-                         kEnergyRestRect.y,
-                         kEnergyRestRect.width,
-                         kEnergyRestRect.height,
-                         GrayLevel::Black);
-        draw_centered_in_rect(canvas,
-                              kEnergyRestRect,
-                              energy_label,
-                              2,
-                              GrayLevel::Black);
+        draw_underlined_in_rect(canvas, kEnergyRestRect,
+                                energy_label, 2);
     } else {
         canvas.draw_text(456 - text_width(energy_label, 2),
                          100, energy_label, 2);
