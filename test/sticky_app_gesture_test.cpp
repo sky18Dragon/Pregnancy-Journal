@@ -29,7 +29,18 @@ int main()
     assert(sticky_app_gesture_classify(landscape) ==
            StickyAppGestureAction::CloseLauncher);
 
-    portrait.end_y = 470;
+    portrait = {480, 800, 240, 5, 250, 405, 500U, true};
+    assert(sticky_app_gesture_classify(portrait) ==
+           StickyAppGestureAction::CloseLauncher);
+    landscape = {800, 480, 400, 5, 410, 245, 420U, true};
+    assert(sticky_app_gesture_classify(landscape) ==
+           StickyAppGestureAction::CloseLauncher);
+
+    portrait = {480, 800, 240, 570, 250, 760, 360U, true};
+    assert(sticky_app_gesture_classify(portrait) ==
+           StickyAppGestureAction::None);
+
+    portrait = {480, 800, 240, 400, 250, 470, 360U, true};
     assert(sticky_app_gesture_classify(portrait) ==
            StickyAppGestureAction::None);
     portrait = {480, 800, 240, 400, 250, 590, 1700U, true};

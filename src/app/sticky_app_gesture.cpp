@@ -42,9 +42,8 @@ StickyAppGestureAction sticky_app_gesture_classify(
         return StickyAppGestureAction::OpenLauncher;
     }
 
-    const int center_top = sample.height * 3 / 10;
-    const int center_bottom = sample.height * 7 / 10;
-    if (sample.start_y < center_top || sample.start_y > center_bottom ||
+    const int close_start_bottom = sample.height * 7 / 10;
+    if (sample.start_y > close_start_bottom ||
         vertical_delta <= 0 ||
         !valid_vertical_swipe(sample, vertical_delta)) {
         return StickyAppGestureAction::None;
