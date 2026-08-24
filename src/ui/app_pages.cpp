@@ -183,13 +183,18 @@ AppLauncherAssetId launcher_asset_id(StickyAppId app)
 void draw_sticker(Canvas &canvas,
                   StickyAppId app,
                   int center_x,
-                  int top)
+                  int top,
+                  bool active)
 {
-    // Paints gray halftone first so the black silhouette remains crisp.
-    // 先绘制浅灰网点，再覆盖黑色轮廓，保证电子纸上的边缘清晰。
+    // Adds the outer ring only to the selected sticker, then paints its art.
+    // 仅为选中贴纸绘制加粗外圈，再依次绘制浅灰网点与黑色图案。
     const AppLauncherStickerAsset &asset =
         app_launcher_sticker_asset(launcher_asset_id(app));
     const int x = center_x - static_cast<int>(asset.black.width) / 2;
+    if (active) {
+        pixel_asset_draw(canvas, x, top, asset.selection,
+                         1, GrayLevel::Black);
+    }
     pixel_asset_draw(canvas, x, top, asset.gray, 1, GrayLevel::LightGray);
     pixel_asset_draw(canvas, x, top, asset.black, 1, GrayLevel::Black);
 }
@@ -306,7 +311,7 @@ void draw_card(Canvas &canvas,
     constexpr int kLabelHeight = 54;
     const int label_x = center_x - label_width / 2;
 
-    draw_sticker(canvas, card.app, center_x, card.asset_y);
+    draw_sticker(canvas, card.app, center_x, card.asset_y, active);
     if (active) {
         draw_selection_marker(canvas, card.x + 14, card.asset_y + 8);
     }

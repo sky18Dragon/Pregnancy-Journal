@@ -1,9 +1,12 @@
+#include <array>
 #include <cassert>
 #include <cstdint>
 #include <fstream>
+#include <utility>
 #include <vector>
 
 #include "app_pages.h"
+#include "app_launcher_assets.h"
 #include "canvas.h"
 
 namespace {
@@ -130,6 +133,82 @@ size_t count_level(const std::vector<uint8_t> &buffer, GrayLevel level)
     return count;
 }
 
+bool asset_pixel_set(const PixelAsset &asset, int x, int y)
+{
+    const size_t stride = (asset.width + 7U) / 8U;
+    const size_t index = static_cast<size_t>(y) * stride +
+                         static_cast<size_t>(x) / 8U;
+    const uint8_t mask = static_cast<uint8_t>(
+        1U << (7U - static_cast<uint8_t>(x & 0x07)));
+    return (asset.data[index] & mask) != 0U;
+}
+
+AppLauncherAssetId launcher_asset_id(StickyAppId app)
+{
+    switch (app) {
+    case StickyAppId::DesktopPet:
+        return AppLauncherAssetId::Pet;
+    case StickyAppId::Pomodoro:
+        return AppLauncherAssetId::Focus;
+    case StickyAppId::StatusBoard:
+        return AppLauncherAssetId::Status;
+    case StickyAppId::BookOfAnswers:
+        return AppLauncherAssetId::Answers;
+    }
+    return AppLauncherAssetId::Pet;
+}
+
+std::pair<int, int> selection_probe(const AppLauncherStickerAsset &asset)
+{
+    // Uses the right-side outer ring, away from the separate corner marker.
+    // 选取贴纸右侧的外圈像素，避开独立绘制的左上角选择标记。
+    for (int x = static_cast<int>(asset.selection.width) - 1;
+         x >= static_cast<int>(asset.selection.width) / 2;
+         --x) {
+        for (int y = 0; y < static_cast<int>(asset.selection.height); ++y) {
+            if (asset_pixel_set(asset.selection, x, y) &&
+                !asset_pixel_set(asset.gray, x, y) &&
+                !asset_pixel_set(asset.black, x, y)) {
+                return {x, y};
+            }
+        }
+    }
+    assert(false);
+    return {0, 0};
+}
+
+void assert_selection_follows_current_app(
+    Canvas &canvas,
+    const std::vector<uint8_t> &buffer,
+    CanvasRotation rotation,
+    const std::array<std::pair<int, int>, 4> &asset_origins)
+{
+    constexpr std::array<StickyAppId, 4> kApps = {
+        StickyAppId::DesktopPet,
+        StickyAppId::Pomodoro,
+        StickyAppId::StatusBoard,
+        StickyAppId::BookOfAnswers,
+    };
+
+    for (size_t selected_index = 0; selected_index < kApps.size();
+         ++selected_index) {
+        app_page_render_launcher(canvas, kApps[selected_index]);
+        for (size_t card_index = 0; card_index < kApps.size(); ++card_index) {
+            const AppLauncherStickerAsset &asset =
+                app_launcher_sticker_asset(
+                    launcher_asset_id(kApps[card_index]));
+            const auto probe = selection_probe(asset);
+            const int x = asset_origins[card_index].first + probe.first;
+            const int y = asset_origins[card_index].second + probe.second;
+            const GrayLevel expected = card_index == selected_index
+                                           ? GrayLevel::Black
+                                           : GrayLevel::White;
+            assert(logical_pixel_level(buffer, rotation, x, y) ==
+                   static_cast<uint8_t>(expected));
+        }
+    }
+}
+
 }  // namespace
 
 int main()
@@ -168,6 +247,12 @@ int main()
     assert_content_vertically_centered(
         buffer, CanvasRotation::Deg90CounterClockwise,
         canvas.width(), canvas.height());
+    assert_selection_follows_current_app(
+        canvas,
+        buffer,
+        CanvasRotation::Deg90CounterClockwise,
+        {{{38, 204}, {266, 204}, {38, 464}, {266, 464}}});
+    app_page_render_launcher(canvas, StickyAppId::DesktopPet);
     write_preview(buffer, "/tmp/sticky_launcher_portrait.ppm");
 
     canvas.set_rotation(CanvasRotation::Deg0);
@@ -198,6 +283,12 @@ int main()
     assert_content_vertically_centered(
         buffer, CanvasRotation::Deg0,
         canvas.width(), canvas.height());
+    assert_selection_follows_current_app(
+        canvas,
+        buffer,
+        CanvasRotation::Deg0,
+        {{{18, 176}, {214, 176}, {410, 176}, {606, 176}}});
+    app_page_render_launcher(canvas, StickyAppId::DesktopPet);
     write_preview(buffer, "/tmp/sticky_launcher_landscape.ppm");
     return 0;
 }
