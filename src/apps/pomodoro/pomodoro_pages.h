@@ -21,12 +21,9 @@ enum class PomodoroTimeField {
 
 enum class PomodoroAction {
     None,
-    Preset10Seconds,
-    Preset30Seconds,
-    Preset1Minute,
-    Preset3Minutes,
-    Preset5Minutes,
     Preset15Minutes,
+    Preset25Minutes,
+    Preset60Minutes,
     OpenCustomTime,
     StartFocus,
     SelectHours,

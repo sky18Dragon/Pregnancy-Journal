@@ -6,6 +6,8 @@
 #include <cstring>
 
 #include "canvas.h"
+#include "pixel_asset.h"
+#include "pomodoro_assets.h"
 
 namespace {
 
@@ -15,8 +17,6 @@ constexpr int kScreenHeight = 800;
 constexpr int kActionButtonX = 40;
 constexpr int kActionButtonWidth = 400;
 constexpr int kActionButtonHeight = 64;
-constexpr int kPresetHighlightInsetX = 12;
-constexpr int kPresetHighlightTopExtension = 2;
 
 struct Rect {
     int x;
@@ -32,17 +32,13 @@ struct Rect {
 };
 
 constexpr Rect kSetupPresetRects[] = {
-    {25, 515, 135, 38},
-    {172, 515, 135, 38},
-    {320, 515, 135, 38},
-    {25, 559, 135, 38},
-    {172, 559, 135, 38},
-    {320, 559, 135, 38},
+    {25, 525, 135, 54},
+    {172, 525, 135, 54},
+    {320, 525, 135, 54},
 };
-constexpr Rect kCustomTimeRect = {
-    kActionButtonX, 615, kActionButtonWidth, kActionButtonHeight};
 constexpr Rect kStartRect = {
-    kActionButtonX, 696, kActionButtonWidth, kActionButtonHeight};
+    kActionButtonX, 620, kActionButtonWidth, kActionButtonHeight};
+constexpr Rect kCustomTimeRect = {105, 706, 270, 48};
 
 constexpr Rect kTimeFieldRects[] = {
     {90, 205, 90, 135},
@@ -119,14 +115,10 @@ void begin_page(Canvas &canvas)
     canvas.clear(GrayLevel::White);
 }
 
-void draw_tomato_mark(Canvas &canvas)
+void draw_pomodoro_mark(Canvas &canvas)
 {
-    canvas.fill_circle(240, 35, 14, GrayLevel::Black);
-    canvas.draw_line(240, 17, 240, 25, GrayLevel::Black);
-    canvas.draw_line(240, 22, 233, 18, GrayLevel::Black);
-    canvas.draw_line(240, 22, 247, 18, GrayLevel::Black);
-    canvas.fill_circle(245, 31, 2, GrayLevel::White);
-    canvas.fill_circle(247, 38, 2, GrayLevel::White);
+    pixel_asset_draw_centered(
+        canvas, 240, 32, pomodoro_tomato_bunny_asset());
 }
 
 void draw_button(Canvas &canvas,
@@ -257,7 +249,7 @@ void draw_timer_content(Canvas &canvas,
                         uint32_t remaining_seconds,
                         uint32_t total_seconds)
 {
-    draw_tomato_mark(canvas);
+    draw_pomodoro_mark(canvas);
     draw_centered_text(canvas, 70, title, 4);
     draw_segmented_ring(canvas,
                         330,
@@ -286,9 +278,9 @@ void draw_timer_content(Canvas &canvas,
 void pomodoro_page_render_setup(Canvas &canvas, uint32_t selected_seconds)
 {
     begin_page(canvas);
-    draw_tomato_mark(canvas);
-    draw_centered_text(canvas, 70, "CHOOSE A FOCUS TIME", 3);
-    draw_split_ring(canvas, 300, 180);
+    draw_pomodoro_mark(canvas);
+    draw_centered_text(canvas, 88, "STICKY POMODORO TIMER", 3);
+    draw_split_ring(canvas, 325, 180);
 
     char time_text[16] = {};
     format_duration(selected_seconds, time_text, sizeof(time_text));
@@ -299,54 +291,54 @@ void pomodoro_page_render_setup(Canvas &canvas, uint32_t selected_seconds)
     // 将选中时间和说明文字作为一个整体居中显示。
     const int content_height = 7 * scale + kTimeSelectedGap +
                                7 * kSelectedScale;
-    const int time_y = 300 - content_height / 2;
+    const int time_y = 325 - content_height / 2;
     draw_centered_text(canvas, time_y, time_text, scale);
     draw_centered_text(canvas,
                        time_y + 7 * scale + kTimeSelectedGap,
                        "SELECTED",
                        kSelectedScale);
 
-    constexpr const char *kPresetTop[] = {"10", "30", "1", "3", "5", "15"};
-    constexpr const char *kPresetBottom[] = {
-        "SEC", "SEC", "MIN", "MIN", "MIN", "MIN",
-    };
-    constexpr uint32_t kPresetSeconds[] = {10, 30, 60, 180, 300, 900};
-    for (int index = 0; index < 6; ++index) {
+    constexpr const char *kPresetTop[] = {"15", "25", "60"};
+    constexpr uint32_t kPresetSeconds[] = {900, 1500, 3600};
+    for (int index = 0; index < 3; ++index) {
         const Rect &rect = kSetupPresetRects[index];
-        if (selected_seconds == kPresetSeconds[index]) {
-            canvas.fill_rect(rect.x + kPresetHighlightInsetX,
-                             rect.y - kPresetHighlightTopExtension,
-                             rect.width - 2 * kPresetHighlightInsetX,
-                             rect.height + kPresetHighlightTopExtension,
+        const bool selected = selected_seconds == kPresetSeconds[index];
+        if (selected) {
+            canvas.fill_rect(rect.x, rect.y, rect.width, rect.height,
+                             GrayLevel::Black);
+        } else {
+            canvas.draw_rect(rect.x, rect.y, rect.width, rect.height,
+                             GrayLevel::Black);
+            canvas.draw_rect(rect.x + 1, rect.y + 1,
+                             rect.width - 2, rect.height - 2,
                              GrayLevel::Black);
         }
-        const GrayLevel color = selected_seconds == kPresetSeconds[index]
-                                    ? GrayLevel::White
-                                    : GrayLevel::Black;
-        const int number_scale = 3;
-        const int unit_scale = 1;
-        constexpr int kNumberUnitGap = 4;
-        const int number_width = text_width(kPresetTop[index], number_scale);
-        const int unit_width = text_width(kPresetBottom[index], unit_scale);
+        const GrayLevel color = selected ? GrayLevel::White
+                                         : GrayLevel::Black;
+        constexpr int kNumberScale = 3;
+        constexpr int kUnitScale = 2;
+        constexpr int kNumberUnitGap = 5;
+        const int number_width = text_width(kPresetTop[index], kNumberScale);
+        const int unit_width = text_width("MIN", kUnitScale);
         const int label_width = number_width + kNumberUnitGap + unit_width;
         const int label_x = rect.x + (rect.width - label_width) / 2;
-        const int number_y = rect.y + 7;
+        const int number_y = rect.y + 14;
         // Places the smaller unit at the lower-right corner of the number.
         // 将较小的单位放在数字右下角，并将两者作为整体居中。
         canvas.draw_text(label_x,
                          number_y,
                          kPresetTop[index],
-                         number_scale,
+                         kNumberScale,
                          color);
         canvas.draw_text(label_x + number_width + kNumberUnitGap,
-                         number_y + 14,
-                         kPresetBottom[index],
-                         unit_scale,
+                         number_y + 7,
+                         "MIN",
+                         kUnitScale,
                          color);
     }
 
-    draw_button(canvas, kCustomTimeRect, "CUSTOM TIME +", false, 4);
-    draw_button(canvas, kStartRect, "START FOCUS", true, 4);
+    draw_button(canvas, kStartRect, "START", true, 4);
+    draw_button(canvas, kCustomTimeRect, "CUSTOM TIME", false, 3);
 }
 
 void pomodoro_page_render_custom_time(Canvas &canvas,
@@ -356,8 +348,8 @@ void pomodoro_page_render_custom_time(Canvas &canvas,
                                       PomodoroTimeField active_field)
 {
     begin_page(canvas);
-    draw_tomato_mark(canvas);
-    draw_centered_text(canvas, 65, "CUSTOM TIME", 3);
+    draw_pomodoro_mark(canvas);
+    draw_centered_text(canvas, 70, "CUSTOM TIME", 3);
     draw_segmented_ring(canvas, 270, 165, 6);
 
     char time_text[16] = {};
@@ -439,7 +431,7 @@ void pomodoro_page_render_end_confirmation(Canvas &canvas,
 void pomodoro_page_render_alarm(Canvas &canvas, uint32_t focused_seconds)
 {
     begin_page(canvas);
-    draw_tomato_mark(canvas);
+    draw_pomodoro_mark(canvas);
     draw_centered_text(canvas, 78, "TIME'S UP", 4);
     draw_segmented_ring(canvas, 315, 168, 0);
     draw_centered_text(canvas, 280, "00:00", 8);
@@ -469,14 +461,11 @@ PomodoroAction pomodoro_page_action_at(PomodoroPage page, int x, int y)
 
     if (page == PomodoroPage::Setup) {
         constexpr PomodoroAction kPresetActions[] = {
-            PomodoroAction::Preset10Seconds,
-            PomodoroAction::Preset30Seconds,
-            PomodoroAction::Preset1Minute,
-            PomodoroAction::Preset3Minutes,
-            PomodoroAction::Preset5Minutes,
             PomodoroAction::Preset15Minutes,
+            PomodoroAction::Preset25Minutes,
+            PomodoroAction::Preset60Minutes,
         };
-        for (int index = 0; index < 6; ++index) {
+        for (int index = 0; index < 3; ++index) {
             if (kSetupPresetRects[index].contains(x, y)) {
                 return kPresetActions[index];
             }
@@ -575,18 +564,12 @@ const char *pomodoro_page_name(PomodoroPage page)
 const char *pomodoro_action_name(PomodoroAction action)
 {
     switch (action) {
-    case PomodoroAction::Preset10Seconds:
-        return "preset_10_seconds";
-    case PomodoroAction::Preset30Seconds:
-        return "preset_30_seconds";
-    case PomodoroAction::Preset1Minute:
-        return "preset_1_minute";
-    case PomodoroAction::Preset3Minutes:
-        return "preset_3_minutes";
-    case PomodoroAction::Preset5Minutes:
-        return "preset_5_minutes";
     case PomodoroAction::Preset15Minutes:
         return "preset_15_minutes";
+    case PomodoroAction::Preset25Minutes:
+        return "preset_25_minutes";
+    case PomodoroAction::Preset60Minutes:
+        return "preset_60_minutes";
     case PomodoroAction::OpenCustomTime:
         return "open_custom_time";
     case PomodoroAction::StartFocus:

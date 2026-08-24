@@ -48,6 +48,7 @@ idf_component_register(
         "ui/assets/book_of_answers_assets.cpp"
         "ui/assets/app_launcher_assets.cpp"
         "ui/assets/desktop_pet_assets.cpp"
+        "ui/assets/pomodoro_assets.cpp"
         "ui/assets/pet_animation_assets.cpp"
         "ui/assets/status_bunny_assets.cpp"
         "ui/canvas.cpp"

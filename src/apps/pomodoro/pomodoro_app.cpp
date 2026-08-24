@@ -262,23 +262,14 @@ void handle_setup_action(PomodoroAction action)
 {
     uint32_t selected = 0;
     switch (action) {
-    case PomodoroAction::Preset10Seconds:
-        selected = 10;
-        break;
-    case PomodoroAction::Preset30Seconds:
-        selected = 30;
-        break;
-    case PomodoroAction::Preset1Minute:
-        selected = 60;
-        break;
-    case PomodoroAction::Preset3Minutes:
-        selected = 180;
-        break;
-    case PomodoroAction::Preset5Minutes:
-        selected = 300;
-        break;
     case PomodoroAction::Preset15Minutes:
         selected = 900;
+        break;
+    case PomodoroAction::Preset25Minutes:
+        selected = 1500;
+        break;
+    case PomodoroAction::Preset60Minutes:
+        selected = 3600;
         break;
     case PomodoroAction::OpenCustomTime:
         change_page(PomodoroPage::CustomTime, "open_custom_time");
