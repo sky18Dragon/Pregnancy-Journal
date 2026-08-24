@@ -1,6 +1,7 @@
 #include "battery_status_overlay.h"
 
 #include <cstdio>
+#include <cstring>
 
 #include "app_log.h"
 #include "board_charger.h"
@@ -58,9 +59,14 @@ void update_reading_if_due()
 
 void draw_charging_bolt(Canvas &canvas, int x, int y, GrayLevel color)
 {
-    canvas.draw_line(x + 3, y, x, y + 5, color);
-    canvas.draw_line(x, y + 5, x + 4, y + 5, color);
-    canvas.draw_line(x + 4, y + 5, x + 1, y + 10, color);
+    // Draws a two-pixel-wide bolt that remains legible over the larger fill bar.
+    // 绘制两像素宽的闪电，使其在放大的电量填充条上仍然清晰。
+    canvas.draw_line(x + 5, y, x, y + 7, color);
+    canvas.draw_line(x + 6, y, x + 1, y + 7, color);
+    canvas.draw_line(x, y + 7, x + 6, y + 7, color);
+    canvas.draw_line(x + 1, y + 8, x + 7, y + 8, color);
+    canvas.draw_line(x + 6, y + 7, x + 1, y + 15, color);
+    canvas.draw_line(x + 7, y + 8, x + 2, y + 15, color);
 }
 
 }  // namespace
@@ -73,8 +79,8 @@ void battery_status_overlay_draw(Canvas &canvas)
     }
     update_reading_if_due();
 
-    constexpr int kAreaWidth = 68;
-    constexpr int kAreaHeight = 20;
+    constexpr int kAreaWidth = 98;
+    constexpr int kAreaHeight = 28;
     const int area_x = static_cast<int>(canvas.width()) - kAreaWidth - 6;
     constexpr int area_y = 4;
     canvas.fill_rect(area_x,
@@ -83,19 +89,19 @@ void battery_status_overlay_draw(Canvas &canvas)
                      kAreaHeight,
                      GrayLevel::White);
 
-    constexpr int kBatteryWidth = 28;
-    constexpr int kBatteryHeight = 12;
+    constexpr int kBatteryWidth = 34;
+    constexpr int kBatteryHeight = 16;
     const int battery_x = area_x + 1;
-    const int battery_y = area_y + 4;
+    const int battery_y = area_y + 6;
     canvas.draw_rect(battery_x,
                      battery_y,
                      kBatteryWidth,
                      kBatteryHeight,
                      GrayLevel::Black);
     canvas.fill_rect(battery_x + kBatteryWidth,
-                     battery_y + 4,
-                     3,
+                     battery_y + 5,
                      4,
+                     6,
                      GrayLevel::Black);
 
     if (s_valid && s_percent > 0) {
@@ -110,8 +116,8 @@ void battery_status_overlay_draw(Canvas &canvas)
     }
     if (board_charger_external_power_present()) {
         draw_charging_bolt(canvas,
-                           battery_x + 11,
-                           battery_y + 1,
+                           battery_x + 13,
+                           battery_y,
                            s_valid && s_percent >= 50
                                ? GrayLevel::White
                                : GrayLevel::Black);
@@ -121,9 +127,15 @@ void battery_status_overlay_draw(Canvas &canvas)
     if (s_valid) {
         std::snprintf(label, sizeof(label), "%d%%", s_percent);
     }
-    canvas.draw_text(area_x + 37,
+    constexpr int kLabelScale = 2;
+    constexpr int kLabelAreaX = 43;
+    constexpr int kLabelAreaWidth = kAreaWidth - kLabelAreaX;
+    const int label_width = static_cast<int>(std::strlen(label)) *
+                            6 * kLabelScale;
+    canvas.draw_text(area_x + kLabelAreaX +
+                         (kLabelAreaWidth - label_width) / 2,
                      area_y + 7,
                      label,
-                     1,
+                     kLabelScale,
                      GrayLevel::Black);
 }
