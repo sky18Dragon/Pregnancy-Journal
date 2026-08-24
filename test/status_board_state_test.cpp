@@ -8,9 +8,9 @@ int main()
     assert(state.page == StatusBoardPage::Menu);
 
     assert(status_board_state_handle_action(
-        state, StatusBoardAction::SelectFocusing, false));
+        state, StatusBoardAction::SelectBusy, false));
     assert(state.page == StatusBoardPage::Display);
-    assert(state.selected_status == StatusBoardStatus::Focusing);
+    assert(state.selected_status == StatusBoardStatus::Busy);
 
     assert(status_board_state_handle_action(
         state, StatusBoardAction::Back, false));
@@ -19,7 +19,7 @@ int main()
     assert(status_board_state_handle_action(
         state, StatusBoardAction::SelectCustom, false));
     assert(state.page == StatusBoardPage::CustomInput);
-    assert(state.selected_status == StatusBoardStatus::Focusing);
+    assert(state.selected_status == StatusBoardStatus::Busy);
 
     assert(!status_board_state_handle_action(
         state, StatusBoardAction::Apply, false));

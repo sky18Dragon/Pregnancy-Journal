@@ -57,21 +57,21 @@ int main()
 
     pixel_asset_draw(canvas, -1, -1, kAsset, 1, GrayLevel::White);
 
-    const PixelAsset &focusing =
-        status_bunny_asset(StatusBunnyAssetId::Focusing);
+    const PixelAsset &busy =
+        status_bunny_asset(StatusBunnyAssetId::Busy);
     const PixelAsset &meeting =
-        status_bunny_asset(StatusBunnyAssetId::InMeeting);
-    assert(focusing.width == 80U);
-    assert(focusing.height == 80U);
-    assert(focusing.data != nullptr);
-    assert(meeting.data != focusing.data);
+        status_bunny_asset(StatusBunnyAssetId::Meeting);
+    assert(busy.width == 80U);
+    assert(busy.height == 80U);
+    assert(busy.data != nullptr);
+    assert(meeting.data != busy.data);
 
     constexpr StatusBunnyAssetId kStatusIds[] = {
-        StatusBunnyAssetId::Focusing,
-        StatusBunnyAssetId::InMeeting,
-        StatusBunnyAssetId::Welcome,
-        StatusBunnyAssetId::OutForLunch,
-        StatusBunnyAssetId::OffDuty,
+        StatusBunnyAssetId::Busy,
+        StatusBunnyAssetId::Meeting,
+        StatusBunnyAssetId::OnCall,
+        StatusBunnyAssetId::OpenToTalk,
+        StatusBunnyAssetId::Rest,
         StatusBunnyAssetId::Custom,
     };
     for (StatusBunnyAssetId id : kStatusIds) {

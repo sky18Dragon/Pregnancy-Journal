@@ -7,11 +7,11 @@
 class Canvas;
 
 enum class StatusBoardStatus : uint8_t {
-    Focusing,
-    InMeeting,
-    Welcome,
-    OutForLunch,
-    OffDuty,
+    Busy,
+    Meeting,
+    OnCall,
+    OpenToTalk,
+    Rest,
     Custom,
 };
 
@@ -28,11 +28,11 @@ enum class StatusBoardKeyboardMode : uint8_t {
 
 enum class StatusBoardAction : uint8_t {
     None,
-    SelectFocusing,
-    SelectInMeeting,
-    SelectWelcome,
-    SelectOutForLunch,
-    SelectOffDuty,
+    SelectBusy,
+    SelectMeeting,
+    SelectOnCall,
+    SelectOpenToTalk,
+    SelectRest,
     SelectCustom,
     Back,
     KeyA,

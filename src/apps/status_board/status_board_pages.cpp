@@ -74,20 +74,20 @@ constexpr Rect kClearRect = {465, 400, 120, 60};
 constexpr Rect kApplyRect = {595, 400, 185, 60};
 
 constexpr StatusBoardStatus kStatuses[] = {
-    StatusBoardStatus::Focusing,
-    StatusBoardStatus::InMeeting,
-    StatusBoardStatus::Welcome,
-    StatusBoardStatus::OutForLunch,
-    StatusBoardStatus::OffDuty,
+    StatusBoardStatus::Busy,
+    StatusBoardStatus::Meeting,
+    StatusBoardStatus::OnCall,
+    StatusBoardStatus::OpenToTalk,
+    StatusBoardStatus::Rest,
     StatusBoardStatus::Custom,
 };
 
 constexpr StatusBoardAction kActions[] = {
-    StatusBoardAction::SelectFocusing,
-    StatusBoardAction::SelectInMeeting,
-    StatusBoardAction::SelectWelcome,
-    StatusBoardAction::SelectOutForLunch,
-    StatusBoardAction::SelectOffDuty,
+    StatusBoardAction::SelectBusy,
+    StatusBoardAction::SelectMeeting,
+    StatusBoardAction::SelectOnCall,
+    StatusBoardAction::SelectOpenToTalk,
+    StatusBoardAction::SelectRest,
     StatusBoardAction::SelectCustom,
 };
 
@@ -212,16 +212,16 @@ void draw_back_arrow(Canvas &canvas, GrayLevel color)
 StatusBunnyAssetId status_asset_id(StatusBoardStatus status)
 {
     switch (status) {
-    case StatusBoardStatus::Focusing:
-        return StatusBunnyAssetId::Focusing;
-    case StatusBoardStatus::InMeeting:
-        return StatusBunnyAssetId::InMeeting;
-    case StatusBoardStatus::Welcome:
-        return StatusBunnyAssetId::Welcome;
-    case StatusBoardStatus::OutForLunch:
-        return StatusBunnyAssetId::OutForLunch;
-    case StatusBoardStatus::OffDuty:
-        return StatusBunnyAssetId::OffDuty;
+    case StatusBoardStatus::Busy:
+        return StatusBunnyAssetId::Busy;
+    case StatusBoardStatus::Meeting:
+        return StatusBunnyAssetId::Meeting;
+    case StatusBoardStatus::OnCall:
+        return StatusBunnyAssetId::OnCall;
+    case StatusBoardStatus::OpenToTalk:
+        return StatusBunnyAssetId::OpenToTalk;
+    case StatusBoardStatus::Rest:
+        return StatusBunnyAssetId::Rest;
     case StatusBoardStatus::Custom:
         return StatusBunnyAssetId::Custom;
     }
@@ -231,16 +231,16 @@ StatusBunnyAssetId status_asset_id(StatusBoardStatus status)
 const char *status_title(StatusBoardStatus status)
 {
     switch (status) {
-    case StatusBoardStatus::Focusing:
-        return "FOCUSING";
-    case StatusBoardStatus::InMeeting:
-        return "IN A MEETING";
-    case StatusBoardStatus::Welcome:
-        return "WELCOME";
-    case StatusBoardStatus::OutForLunch:
-        return "OUT FOR LUNCH";
-    case StatusBoardStatus::OffDuty:
-        return "OFF DUTY";
+    case StatusBoardStatus::Busy:
+        return "BUSY";
+    case StatusBoardStatus::Meeting:
+        return "MEETING";
+    case StatusBoardStatus::OnCall:
+        return "ON CALL";
+    case StatusBoardStatus::OpenToTalk:
+        return "OPEN TO TALK";
+    case StatusBoardStatus::Rest:
+        return "REST";
     case StatusBoardStatus::Custom:
         return "CUSTOM";
     }
@@ -256,17 +256,11 @@ void draw_status_label(Canvas &canvas,
     const int second_line_y = first_line_y + 22;
     const int single_line_y = rect.y + rect.height - 48;
     switch (status) {
-    case StatusBoardStatus::InMeeting:
+    case StatusBoardStatus::OpenToTalk:
         draw_centered_text_in_rect(
-            canvas, rect, first_line_y, "IN A", 2, color);
+            canvas, rect, first_line_y, "OPEN TO", 2, color);
         draw_centered_text_in_rect(
-            canvas, rect, second_line_y, "MEETING", 2, color);
-        break;
-    case StatusBoardStatus::OutForLunch:
-        draw_centered_text_in_rect(
-            canvas, rect, first_line_y, "OUT FOR", 2, color);
-        draw_centered_text_in_rect(
-            canvas, rect, second_line_y, "LUNCH", 2, color);
+            canvas, rect, second_line_y, "TALK", 2, color);
         break;
     default:
         draw_centered_text_in_rect(
@@ -324,30 +318,19 @@ void draw_display_title(Canvas &canvas,
 {
     constexpr Rect kTextRegion = {20, 76, 440, 328};
 
-    // Preset phrases use deliberate line breaks so both words and artwork can
-    // fill the landscape page. Custom text scales to the same left region.
-    // 预设短语通过固定换行铺满横屏左侧，自定义文字缩放到同一区域。
+    // The invitation uses a deliberate line break to fill the left region.
+    // 邀请状态使用固定换行铺满横屏左侧，其余文字自动缩放。
     switch (status) {
-    case StatusBoardStatus::InMeeting:
+    case StatusBoardStatus::OpenToTalk:
         draw_centered_text_in_rect(
-            canvas, kTextRegion, 150, "IN A", 8, GrayLevel::White);
+            canvas, kTextRegion, 150, "OPEN TO", 8, GrayLevel::White);
         draw_centered_text_in_rect(
-            canvas, kTextRegion, 235, "MEETING", 8, GrayLevel::White);
+            canvas, kTextRegion, 235, "TALK", 9, GrayLevel::White);
         return;
-    case StatusBoardStatus::OutForLunch:
-        draw_centered_text_in_rect(
-            canvas, kTextRegion, 150, "OUT FOR", 8, GrayLevel::White);
-        draw_centered_text_in_rect(
-            canvas, kTextRegion, 235, "LUNCH", 8, GrayLevel::White);
-        return;
-    case StatusBoardStatus::OffDuty:
-        draw_centered_text_in_rect(
-            canvas, kTextRegion, 150, "OFF", 9, GrayLevel::White);
-        draw_centered_text_in_rect(
-            canvas, kTextRegion, 240, "DUTY", 9, GrayLevel::White);
-        return;
-    case StatusBoardStatus::Focusing:
-    case StatusBoardStatus::Welcome:
+    case StatusBoardStatus::Busy:
+    case StatusBoardStatus::Meeting:
+    case StatusBoardStatus::OnCall:
+    case StatusBoardStatus::Rest:
     case StatusBoardStatus::Custom:
         break;
     }
@@ -432,7 +415,7 @@ void status_board_page_render_menu(Canvas &canvas,
     begin_landscape_page(canvas, GrayLevel::White);
     draw_centered_text(canvas,
                        28,
-                       "CHOOSE STATUS",
+                       "STICKY STATUS BOARD",
                        4,
                        GrayLevel::Black);
     draw_centered_text(canvas,
@@ -652,20 +635,20 @@ bool status_board_action_status(StatusBoardAction action,
                                 StatusBoardStatus &status)
 {
     switch (action) {
-    case StatusBoardAction::SelectFocusing:
-        status = StatusBoardStatus::Focusing;
+    case StatusBoardAction::SelectBusy:
+        status = StatusBoardStatus::Busy;
         return true;
-    case StatusBoardAction::SelectInMeeting:
-        status = StatusBoardStatus::InMeeting;
+    case StatusBoardAction::SelectMeeting:
+        status = StatusBoardStatus::Meeting;
         return true;
-    case StatusBoardAction::SelectWelcome:
-        status = StatusBoardStatus::Welcome;
+    case StatusBoardAction::SelectOnCall:
+        status = StatusBoardStatus::OnCall;
         return true;
-    case StatusBoardAction::SelectOutForLunch:
-        status = StatusBoardStatus::OutForLunch;
+    case StatusBoardAction::SelectOpenToTalk:
+        status = StatusBoardStatus::OpenToTalk;
         return true;
-    case StatusBoardAction::SelectOffDuty:
-        status = StatusBoardStatus::OffDuty;
+    case StatusBoardAction::SelectRest:
+        status = StatusBoardStatus::Rest;
         return true;
     case StatusBoardAction::SelectCustom:
         status = StatusBoardStatus::Custom;
@@ -724,16 +707,16 @@ const char *status_board_page_name(StatusBoardPage page)
 const char *status_board_status_name(StatusBoardStatus status)
 {
     switch (status) {
-    case StatusBoardStatus::Focusing:
-        return "focusing";
-    case StatusBoardStatus::InMeeting:
-        return "in_meeting";
-    case StatusBoardStatus::Welcome:
-        return "welcome";
-    case StatusBoardStatus::OutForLunch:
-        return "out_for_lunch";
-    case StatusBoardStatus::OffDuty:
-        return "off_duty";
+    case StatusBoardStatus::Busy:
+        return "busy";
+    case StatusBoardStatus::Meeting:
+        return "meeting";
+    case StatusBoardStatus::OnCall:
+        return "on_call";
+    case StatusBoardStatus::OpenToTalk:
+        return "open_to_talk";
+    case StatusBoardStatus::Rest:
+        return "rest";
     case StatusBoardStatus::Custom:
         return "custom";
     }
@@ -752,16 +735,16 @@ const char *status_board_action_name(StatusBoardAction action)
     }
 
     switch (action) {
-    case StatusBoardAction::SelectFocusing:
-        return "select_focusing";
-    case StatusBoardAction::SelectInMeeting:
-        return "select_in_meeting";
-    case StatusBoardAction::SelectWelcome:
-        return "select_welcome";
-    case StatusBoardAction::SelectOutForLunch:
-        return "select_out_for_lunch";
-    case StatusBoardAction::SelectOffDuty:
-        return "select_off_duty";
+    case StatusBoardAction::SelectBusy:
+        return "select_busy";
+    case StatusBoardAction::SelectMeeting:
+        return "select_meeting";
+    case StatusBoardAction::SelectOnCall:
+        return "select_on_call";
+    case StatusBoardAction::SelectOpenToTalk:
+        return "select_open_to_talk";
+    case StatusBoardAction::SelectRest:
+        return "select_rest";
     case StatusBoardAction::SelectCustom:
         return "select_custom";
     case StatusBoardAction::Back:

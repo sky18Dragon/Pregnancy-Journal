@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "app_log.h"
+#include "battery_status_overlay_theme.h"
 #include "board_charger.h"
 #include "canvas.h"
 #include "esp_timer.h"
@@ -74,19 +75,34 @@ void draw_charging_bolt(Canvas &canvas, int x, int y, GrayLevel color)
     canvas.draw_line(x + 7, y + 8, x + 2, y + 15, color);
 }
 
+int overlay_area_x(const Canvas &canvas, bool sleep_layout)
+{
+    const int right_margin = sleep_layout ? kSleepRightMargin
+                                          : kNormalRightMargin;
+    return static_cast<int>(canvas.width()) -
+           kAreaWidth - right_margin;
+}
+
+void clear_overlay_area(Canvas &canvas,
+                        bool sleep_layout,
+                        GrayLevel background)
+{
+    canvas.fill_rect(overlay_area_x(canvas, sleep_layout),
+                     kAreaTop,
+                     kAreaWidth,
+                     kAreaHeight,
+                     background);
+}
+
 }  // namespace
 
 void battery_status_overlay_clear(Canvas &canvas, bool sleep_layout)
 {
-    const int right_margin = sleep_layout ? kSleepRightMargin
-                                          : kNormalRightMargin;
-    const int area_x = static_cast<int>(canvas.width()) -
-                       kAreaWidth - right_margin;
-    canvas.fill_rect(area_x,
-                     kAreaTop,
-                     kAreaWidth,
-                     kAreaHeight,
-                     GrayLevel::White);
+    const int area_x = overlay_area_x(canvas, sleep_layout);
+    const BatteryStatusOverlayTheme theme =
+        battery_status_overlay_theme(
+            canvas, area_x, kAreaTop, kAreaWidth, kAreaHeight);
+    clear_overlay_area(canvas, sleep_layout, theme.background);
 }
 
 void battery_status_overlay_draw(Canvas &canvas, bool sleep_layout)
@@ -97,11 +113,11 @@ void battery_status_overlay_draw(Canvas &canvas, bool sleep_layout)
     }
     update_reading_if_due();
 
-    const int right_margin = sleep_layout ? kSleepRightMargin
-                                          : kNormalRightMargin;
-    const int area_x = static_cast<int>(canvas.width()) -
-                       kAreaWidth - right_margin;
-    battery_status_overlay_clear(canvas, sleep_layout);
+    const int area_x = overlay_area_x(canvas, sleep_layout);
+    const BatteryStatusOverlayTheme theme =
+        battery_status_overlay_theme(
+            canvas, area_x, kAreaTop, kAreaWidth, kAreaHeight);
+    clear_overlay_area(canvas, sleep_layout, theme.background);
 
     constexpr int kBatteryWidth = 34;
     constexpr int kBatteryHeight = 16;
@@ -111,12 +127,12 @@ void battery_status_overlay_draw(Canvas &canvas, bool sleep_layout)
                      battery_y,
                      kBatteryWidth,
                      kBatteryHeight,
-                     GrayLevel::Black);
+                     theme.foreground);
     canvas.fill_rect(battery_x + kBatteryWidth,
                      battery_y + 5,
                      4,
                      6,
-                     GrayLevel::Black);
+                     theme.foreground);
 
     if (s_valid && s_percent > 0) {
         constexpr int kInnerWidth = kBatteryWidth - 4;
@@ -126,15 +142,15 @@ void battery_status_overlay_draw(Canvas &canvas, bool sleep_layout)
                          battery_y + 2,
                          fill_width,
                          kBatteryHeight - 4,
-                         GrayLevel::Black);
+                         theme.foreground);
     }
     if (board_charger_external_power_present()) {
         draw_charging_bolt(canvas,
                            battery_x + 13,
                            battery_y,
                            s_valid && s_percent >= 50
-                               ? GrayLevel::White
-                               : GrayLevel::Black);
+                               ? theme.background
+                               : theme.foreground);
     }
 
     char label[6] = "--%";
@@ -151,5 +167,5 @@ void battery_status_overlay_draw(Canvas &canvas, bool sleep_layout)
                      kAreaTop + 7,
                      label,
                      kLabelScale,
-                     GrayLevel::Black);
+                     theme.foreground);
 }

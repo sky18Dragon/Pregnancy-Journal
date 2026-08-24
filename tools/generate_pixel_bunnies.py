@@ -27,20 +27,20 @@ class AssetSpec:
 
 
 ASSETS = (
-    AssetSpec("focusing.png", "kFocusingData", "kFocusingDisplayData", "Focusing", (120, 120, 1014, 1014)),
-    AssetSpec("in_meeting.png", "kInMeetingData", "kInMeetingDisplayData", "InMeeting", (90, 210, 1074, 820)),
-    AssetSpec("welcome.png", "kWelcomeData", "kWelcomeDisplayData", "Welcome", (230, 60, 900, 1140)),
-    AssetSpec("out_for_lunch.png", "kOutForLunchData", "kOutForLunchDisplayData", "OutForLunch", (210, 160, 850, 930)),
-    AssetSpec("off_duty.png", "kOffDutyData", "kOffDutyDisplayData", "OffDuty", (180, 100, 900, 1040)),
+    AssetSpec("focusing.png", "kBusyData", "kBusyDisplayData", "Busy", (120, 120, 1014, 1014)),
+    AssetSpec("in_meeting.png", "kMeetingData", "kMeetingDisplayData", "Meeting", (90, 210, 1074, 820)),
+    AssetSpec("on_call.png", "kOnCallData", "kOnCallDisplayData", "OnCall", (180, 120, 900, 1010)),
+    AssetSpec("welcome.png", "kOpenToTalkData", "kOpenToTalkDisplayData", "OpenToTalk", (230, 60, 900, 1140)),
+    AssetSpec("out_for_lunch.png", "kRestData", "kRestDisplayData", "Rest", (210, 160, 850, 930)),
     AssetSpec("custom.png", "kCustomData", "kCustomDisplayData", "Custom", (200, 90, 870, 1080)),
 )
 
 ANIMATION_ASSETS = (
-    AssetSpec("focusing_alt.png", "kFocusingAltData", "kFocusingAltDisplayData", "Focusing", (120, 120, 1014, 1014)),
-    AssetSpec("in_meeting_alt.png", "kInMeetingAltData", "kInMeetingAltDisplayData", "InMeeting", (80, 220, 1100, 820)),
-    AssetSpec("welcome_alt.png", "kWelcomeAltData", "kWelcomeAltDisplayData", "Welcome", (230, 60, 900, 1140)),
-    AssetSpec("out_for_lunch_alt_v2.png", "kOutForLunchAltData", "kOutForLunchAltDisplayData", "OutForLunch", (210, 160, 850, 930)),
-    AssetSpec("off_duty_alt_v2.png", "kOffDutyAltData", "kOffDutyAltDisplayData", "OffDuty", (180, 100, 900, 1040)),
+    AssetSpec("focusing_alt.png", "kBusyAltData", "kBusyAltDisplayData", "Busy", (120, 120, 1014, 1014)),
+    AssetSpec("in_meeting_alt.png", "kMeetingAltData", "kMeetingAltDisplayData", "Meeting", (80, 220, 1100, 820)),
+    AssetSpec("on_call_alt.png", "kOnCallAltData", "kOnCallAltDisplayData", "OnCall", (180, 120, 900, 1010)),
+    AssetSpec("welcome_alt.png", "kOpenToTalkAltData", "kOpenToTalkAltDisplayData", "OpenToTalk", (230, 60, 900, 1140)),
+    AssetSpec("out_for_lunch_alt_v2.png", "kRestAltData", "kRestAltDisplayData", "Rest", (210, 160, 850, 930)),
     AssetSpec("custom_alt.png", "kCustomAltData", "kCustomAltDisplayData", "Custom", (200, 90, 870, 1080)),
 )
 
@@ -51,7 +51,7 @@ MENU_CONTENT_SIZE = 72
 DISPLAY_ASSET_SIZE = 160
 DISPLAY_CONTENT_SIZE = 144
 BLACK_THRESHOLD = 220
-LOCKED_GEOMETRY_STATUSES = frozenset(("OutForLunch", "OffDuty"))
+LOCKED_GEOMETRY_STATUSES = frozenset(("OnCall", "Rest"))
 MAX_BOUND_SIZE_DELTA = 10
 MAX_BOUND_CENTER_DELTA = 6
 

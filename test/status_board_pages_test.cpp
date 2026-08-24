@@ -8,27 +8,27 @@ int main()
                                        StatusBoardKeyboardMode::Letters,
                                        79,
                                        250) ==
-           StatusBoardAction::SelectFocusing);
+           StatusBoardAction::SelectBusy);
     assert(status_board_page_action_at(StatusBoardPage::Menu,
                                        StatusBoardKeyboardMode::Letters,
                                        207,
                                        250) ==
-           StatusBoardAction::SelectInMeeting);
+           StatusBoardAction::SelectMeeting);
     assert(status_board_page_action_at(StatusBoardPage::Menu,
                                        StatusBoardKeyboardMode::Letters,
                                        335,
                                        250) ==
-           StatusBoardAction::SelectWelcome);
+           StatusBoardAction::SelectOnCall);
     assert(status_board_page_action_at(StatusBoardPage::Menu,
                                        StatusBoardKeyboardMode::Letters,
                                        463,
                                        250) ==
-           StatusBoardAction::SelectOutForLunch);
+           StatusBoardAction::SelectOpenToTalk);
     assert(status_board_page_action_at(StatusBoardPage::Menu,
                                        StatusBoardKeyboardMode::Letters,
                                        591,
                                        250) ==
-           StatusBoardAction::SelectOffDuty);
+           StatusBoardAction::SelectRest);
     assert(status_board_page_action_at(StatusBoardPage::Menu,
                                        StatusBoardKeyboardMode::Letters,
                                        719,
@@ -90,10 +90,10 @@ int main()
                                        800,
                                        479) == StatusBoardAction::None);
 
-    StatusBoardStatus status = StatusBoardStatus::Focusing;
+    StatusBoardStatus status = StatusBoardStatus::Busy;
     assert(status_board_action_status(
-        StatusBoardAction::SelectOutForLunch, status));
-    assert(status == StatusBoardStatus::OutForLunch);
+        StatusBoardAction::SelectRest, status));
+    assert(status == StatusBoardStatus::Rest);
     assert(!status_board_action_status(StatusBoardAction::None, status));
 
     char character = '\0';

@@ -54,6 +54,7 @@ idf_component_register(
         "ui/canvas.cpp"
         "ui/app_pages.cpp"
         "ui/battery_status_overlay.cpp"
+        "ui/battery_status_overlay_theme.cpp"
         "ui/font.cpp"
     INCLUDE_DIRS
         "."

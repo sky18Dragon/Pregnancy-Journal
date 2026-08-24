@@ -38,6 +38,7 @@ public:
 
     // Drawing primitives clip coordinates at the canvas boundary.
     // 以下绘图函数会自动裁剪超出画布边界的坐标。
+    GrayLevel pixel_at(int x, int y) const;
     void draw_pixel(int x, int y, GrayLevel color = GrayLevel::Black);
     void draw_line(int x0, int y0, int x1, int y1,
                    GrayLevel color = GrayLevel::Black);

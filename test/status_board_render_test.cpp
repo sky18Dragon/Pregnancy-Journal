@@ -79,7 +79,7 @@ int main()
     Canvas canvas(kWidth, kHeight, buffer.data(), buffer.size());
     canvas.set_rotation(CanvasRotation::Deg180);
 
-    status_board_page_render_menu(canvas, StatusBoardStatus::InMeeting);
+    status_board_page_render_menu(canvas, StatusBoardStatus::Meeting);
     const StatusPetFrame &left_frame = status_pet_frame(0U);
     status_board_page_render_menu_pet(
         canvas, left_frame.pose, left_frame.center_x);
@@ -111,32 +111,32 @@ int main()
     }
 
     status_board_page_render_display(
-        canvas, StatusBoardStatus::Focusing, "");
+        canvas, StatusBoardStatus::Busy, "");
     assert_bottom_band_is_clear(buffer);
     write_preview(buffer, "/tmp/status_board_display.ppm");
 
     constexpr StatusBoardStatus kStatuses[] = {
-        StatusBoardStatus::Focusing,
-        StatusBoardStatus::InMeeting,
-        StatusBoardStatus::Welcome,
-        StatusBoardStatus::OutForLunch,
-        StatusBoardStatus::OffDuty,
+        StatusBoardStatus::Busy,
+        StatusBoardStatus::Meeting,
+        StatusBoardStatus::OnCall,
+        StatusBoardStatus::OpenToTalk,
+        StatusBoardStatus::Rest,
         StatusBoardStatus::Custom,
     };
     constexpr const char *kDisplayPaths[] = {
-        "/tmp/status_display_focusing.ppm",
-        "/tmp/status_display_in_meeting.ppm",
-        "/tmp/status_display_welcome.ppm",
-        "/tmp/status_display_out_for_lunch.ppm",
-        "/tmp/status_display_off_duty.ppm",
+        "/tmp/status_display_busy.ppm",
+        "/tmp/status_display_meeting.ppm",
+        "/tmp/status_display_on_call.ppm",
+        "/tmp/status_display_open_to_talk.ppm",
+        "/tmp/status_display_rest.ppm",
         "/tmp/status_display_custom.ppm",
     };
     constexpr const char *kDisplaySecondaryPaths[] = {
-        "/tmp/status_display_focusing_secondary.ppm",
-        "/tmp/status_display_in_meeting_secondary.ppm",
-        "/tmp/status_display_welcome_secondary.ppm",
-        "/tmp/status_display_out_for_lunch_secondary.ppm",
-        "/tmp/status_display_off_duty_secondary.ppm",
+        "/tmp/status_display_busy_secondary.ppm",
+        "/tmp/status_display_meeting_secondary.ppm",
+        "/tmp/status_display_on_call_secondary.ppm",
+        "/tmp/status_display_open_to_talk_secondary.ppm",
+        "/tmp/status_display_rest_secondary.ppm",
         "/tmp/status_display_custom_secondary.ppm",
     };
     for (size_t index = 0; index < 6U; ++index) {

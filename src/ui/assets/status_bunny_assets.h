@@ -3,11 +3,11 @@
 #include "pixel_asset.h"
 
 enum class StatusBunnyAssetId {
-    Focusing,
-    InMeeting,
-    Welcome,
-    OutForLunch,
-    OffDuty,
+    Busy,
+    Meeting,
+    OnCall,
+    OpenToTalk,
+    Rest,
     Custom,
 };
 

@@ -42,6 +42,42 @@ void Canvas::clear(GrayLevel color)
     }
 }
 
+GrayLevel Canvas::pixel_at(int x, int y) const
+{
+    if (buffer_ == nullptr || x < 0 || y < 0 ||
+        x >= width() || y >= height()) {
+        return GrayLevel::White;
+    }
+
+    // Reads through the same logical rotation used by the drawing functions.
+    // 使用与绘图函数相同的逻辑旋转读取画布像素。
+    int physical_x = x;
+    int physical_y = y;
+    switch (rotation_) {
+    case CanvasRotation::Deg90Clockwise:
+        physical_x = physical_width_ - 1 - y;
+        physical_y = x;
+        break;
+    case CanvasRotation::Deg180:
+        physical_x = physical_width_ - 1 - x;
+        physical_y = physical_height_ - 1 - y;
+        break;
+    case CanvasRotation::Deg90CounterClockwise:
+        physical_x = y;
+        physical_y = physical_height_ - 1 - x;
+        break;
+    case CanvasRotation::Deg0:
+    default:
+        break;
+    }
+
+    const size_t index = static_cast<size_t>(physical_y) * stride_ +
+                         static_cast<size_t>(physical_x) / 4U;
+    const uint8_t shift =
+        static_cast<uint8_t>((3 - (physical_x & 0x03)) * 2);
+    return static_cast<GrayLevel>((buffer_[index] >> shift) & 0x03U);
+}
+
 void Canvas::draw_pixel(int x, int y, GrayLevel color)
 {
     if (buffer_ == nullptr || x < 0 || y < 0 || x >= width() || y >= height()) {

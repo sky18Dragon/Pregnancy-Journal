@@ -4,7 +4,7 @@
 
 struct StatusBoardState {
     StatusBoardPage page = StatusBoardPage::Menu;
-    StatusBoardStatus selected_status = StatusBoardStatus::InMeeting;
+    StatusBoardStatus selected_status = StatusBoardStatus::Meeting;
 };
 
 // Applies navigation and status-selection actions to the app state.
