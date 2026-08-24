@@ -55,7 +55,6 @@ TaskHandle_t s_app_task = nullptr;
 StickyAppLifecycle s_lifecycle = {};
 
 PomodoroPage s_page = PomodoroPage::Setup;
-PomodoroPage s_return_page = PomodoroPage::Running;
 PomodoroTimeField s_active_field = PomodoroTimeField::Minutes;
 uint32_t s_selected_seconds = kDefaultDurationSeconds;
 uint32_t s_total_seconds = kDefaultDurationSeconds;
@@ -235,7 +234,7 @@ void pause_timer(const char *reason)
                 reason);
 }
 
-void resume_timer()
+void resume_timer(const char *reason = "resume", bool partial = false)
 {
     s_timer_deadline_us = esp_timer_get_time() + s_paused_remaining_us;
     s_displayed_remaining_seconds =
@@ -244,7 +243,7 @@ void resume_timer()
                 "pomodoro=timer state=resumed remaining_s=%lu",
                 static_cast<unsigned long>(
                     remaining_seconds_rounded_up(s_paused_remaining_us)));
-    change_page(PomodoroPage::Running, "resume");
+    change_page(PomodoroPage::Running, reason, partial);
 }
 
 void return_to_setup(const char *reason)
@@ -387,26 +386,22 @@ void handle_action(PomodoroAction action)
             change_page(PomodoroPage::Paused, "pause");
         } else if (action == PomodoroAction::EndSession) {
             pause_timer("end_confirmation");
-            s_return_page = PomodoroPage::Running;
-            change_page(PomodoroPage::EndConfirmation, "end_session");
+            change_page(
+                PomodoroPage::EndConfirmation, "end_session", true);
         }
     } else if (s_page == PomodoroPage::Paused) {
         if (action == PomodoroAction::Resume) {
             resume_timer();
         } else if (action == PomodoroAction::EndSession) {
-            s_return_page = PomodoroPage::Paused;
-            change_page(PomodoroPage::EndConfirmation, "end_session");
+            change_page(
+                PomodoroPage::EndConfirmation, "end_session", true);
         }
     } else if (s_page == PomodoroPage::EndConfirmation) {
-        if (action == PomodoroAction::KeepSession) {
-            if (s_return_page == PomodoroPage::Running) {
-                resume_timer();
-            } else {
-                change_page(PomodoroPage::Paused, "keep_session");
-            }
-        } else if (action == PomodoroAction::EndNow) {
+        if (action == PomodoroAction::CancelEnd) {
+            resume_timer("cancel_end", true);
+        } else if (action == PomodoroAction::ConfirmEnd) {
             STICKY_LOGI(kTag, "pomodoro=timer state=ended_early");
-            return_to_setup("end_now");
+            return_to_setup("confirm_end");
         }
     } else if (s_page == PomodoroPage::Alarm &&
                action == PomodoroAction::EndAlarm) {

@@ -69,10 +69,9 @@ constexpr Rect kBackHitRect = {40, 730, 400, 70};
 constexpr Rect kPrimaryTimerRect = {
     kActionButtonX, 600, kActionButtonWidth, kActionButtonHeight};
 constexpr Rect kSecondaryTimerRect = {80, 680, 320, 60};
-constexpr Rect kKeepSessionRect = {
-    kActionButtonX, 620, kActionButtonWidth, kActionButtonHeight};
-constexpr Rect kEndNowRect = {
-    kActionButtonX, 704, kActionButtonWidth, kActionButtonHeight};
+constexpr Rect kEndDialogRect = {60, 245, 360, 190};
+constexpr Rect kCancelEndRect = {80, 350, 150, 58};
+constexpr Rect kConfirmEndRect = {250, 350, 150, 58};
 constexpr Rect kEndAlarmRect = {
     kActionButtonX, 696, kActionButtonWidth, kActionButtonHeight};
 
@@ -248,7 +247,8 @@ uint8_t ring_segments(uint32_t remaining_seconds, uint32_t total_seconds)
 void draw_timer_content(Canvas &canvas,
                         const char *title,
                         uint32_t remaining_seconds,
-                        uint32_t total_seconds)
+                        uint32_t total_seconds,
+                        const char *caption)
 {
     draw_pomodoro_mark(canvas);
     if (title != nullptr && title[0] != '\0') {
@@ -272,7 +272,7 @@ void draw_timer_content(Canvas &canvas,
     draw_centered_text(canvas, time_y, time_text, scale);
     draw_centered_text(canvas,
                        time_y + 7 * scale + kTimeCaptionGap,
-                       "TIME LEFT",
+                       caption,
                        kCaptionScale);
 }
 
@@ -409,7 +409,8 @@ void pomodoro_page_render_timer(Canvas &canvas,
     draw_timer_content(canvas,
                        paused ? "PAUSED" : nullptr,
                        remaining_seconds,
-                       total_seconds);
+                       total_seconds,
+                       "TIME LEFT");
     draw_button(canvas,
                 kPrimaryTimerRect,
                 paused ? "RESUME" : "PAUSE",
@@ -424,21 +425,40 @@ void pomodoro_page_render_end_confirmation(Canvas &canvas,
                                            uint32_t total_seconds)
 {
     begin_page(canvas);
-    draw_timer_content(
-        canvas, "END SESSION?", remaining_seconds, total_seconds);
-    draw_centered_text(canvas, 570, "YOUR PROGRESS WILL END.", 2);
-    draw_button(canvas, kKeepSessionRect, "KEEP SESSION", true, 4);
-    draw_button(canvas, kEndNowRect, "END NOW", false, 4);
+    draw_timer_content(canvas,
+                       nullptr,
+                       remaining_seconds,
+                       total_seconds,
+                       "TIME LEFT");
+
+    // Covers only the center of the active timer with a compact modal.
+    // 仅在当前倒计时中央覆盖一个紧凑确认弹窗。
+    canvas.fill_rect(kEndDialogRect.x,
+                     kEndDialogRect.y,
+                     kEndDialogRect.width,
+                     kEndDialogRect.height,
+                     GrayLevel::White);
+    canvas.draw_rect(kEndDialogRect.x,
+                     kEndDialogRect.y,
+                     kEndDialogRect.width,
+                     kEndDialogRect.height,
+                     GrayLevel::Black);
+    canvas.draw_rect(kEndDialogRect.x + 2,
+                     kEndDialogRect.y + 2,
+                     kEndDialogRect.width - 4,
+                     kEndDialogRect.height - 4,
+                     GrayLevel::Black);
+    draw_centered_text(canvas, 272, "END SESSION?", 3);
+    draw_centered_text(canvas, 312, "ARE YOU SURE?", 2);
+    draw_button(canvas, kCancelEndRect, "CANCEL", false, 3);
+    draw_button(canvas, kConfirmEndRect, "END", true, 3);
 }
 
 void pomodoro_page_render_alarm(Canvas &canvas, uint32_t focused_seconds)
 {
     begin_page(canvas);
-    draw_pomodoro_mark(canvas);
-    draw_centered_text(canvas, 78, "TIME'S UP", 4);
-    draw_segmented_ring(canvas, 315, 168, 0);
-    draw_centered_text(canvas, 280, "00:00", 8);
-    draw_centered_text(canvas, 362, "ALARM SOUNDING", 3);
+    draw_timer_content(
+        canvas, "TIME'S UP", 0U, focused_seconds, "ALARM SOUNDING");
 
     char focused_text[32] = {};
     if (focused_seconds % 60U == 0U) {
@@ -530,11 +550,11 @@ PomodoroAction pomodoro_page_action_at(PomodoroPage page, int x, int y)
             return PomodoroAction::EndSession;
         }
     } else if (page == PomodoroPage::EndConfirmation) {
-        if (kKeepSessionRect.contains(x, y)) {
-            return PomodoroAction::KeepSession;
+        if (kCancelEndRect.contains(x, y)) {
+            return PomodoroAction::CancelEnd;
         }
-        if (kEndNowRect.contains(x, y)) {
-            return PomodoroAction::EndNow;
+        if (kConfirmEndRect.contains(x, y)) {
+            return PomodoroAction::ConfirmEnd;
         }
     } else if (page == PomodoroPage::Alarm &&
                kEndAlarmRect.contains(x, y)) {
@@ -619,10 +639,10 @@ const char *pomodoro_action_name(PomodoroAction action)
         return "resume";
     case PomodoroAction::EndSession:
         return "end_session";
-    case PomodoroAction::KeepSession:
-        return "keep_session";
-    case PomodoroAction::EndNow:
-        return "end_now";
+    case PomodoroAction::CancelEnd:
+        return "cancel_end";
+    case PomodoroAction::ConfirmEnd:
+        return "confirm_end";
     case PomodoroAction::EndAlarm:
         return "end_alarm";
     case PomodoroAction::None:

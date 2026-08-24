@@ -46,8 +46,8 @@ enum class PomodoroAction {
     Pause,
     Resume,
     EndSession,
-    KeepSession,
-    EndNow,
+    CancelEnd,
+    ConfirmEnd,
     EndAlarm,
 };
 

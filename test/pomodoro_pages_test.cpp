@@ -107,8 +107,21 @@ int main()
     assert(black_pixel_count(buffer) > 12000U);
     write_preview(buffer, "/tmp/pomodoro_running.ppm");
 
+    pomodoro_page_render_end_confirmation(canvas, 1499U, 1500U);
+    assert(black_pixel_count(buffer) > 10000U);
+    assert(pomodoro_page_action_at(
+               PomodoroPage::EndConfirmation, 155, 379) ==
+           PomodoroAction::CancelEnd);
+    assert(pomodoro_page_action_at(
+               PomodoroPage::EndConfirmation, 325, 379) ==
+           PomodoroAction::ConfirmEnd);
+    assert(pomodoro_page_action_at(
+               PomodoroPage::EndConfirmation, 240, 430) ==
+           PomodoroAction::None);
+    write_preview(buffer, "/tmp/pomodoro_end_dialog.ppm");
+
     pomodoro_page_render_alarm(canvas, 1500U);
-    assert(black_pixel_count(buffer) > 9000U);
+    assert(black_pixel_count(buffer) > 12000U);
     write_preview(buffer, "/tmp/pomodoro_alarm.ppm");
     return 0;
 }
