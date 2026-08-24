@@ -12,6 +12,23 @@ int main()
     assert(!book_of_answers_shake_qualified(2999U));
     assert(book_of_answers_shake_qualified(3000U));
 
+    BookOfAnswersShakeInputGate input_gate = {};
+    assert(!input_gate.waiting_for_quiet);
+    book_of_answers_shake_input_require_fresh(input_gate);
+    assert(input_gate.waiting_for_quiet);
+    assert(!book_of_answers_shake_input_update(
+        input_gate, true, 1000U));
+    assert(!book_of_answers_shake_input_update(
+        input_gate, false, 1200U));
+    assert(!book_of_answers_shake_input_update(
+        input_gate, false, 1699U));
+    assert(book_of_answers_shake_input_update(
+        input_gate, false, 1700U));
+    assert(!input_gate.waiting_for_quiet);
+    book_of_answers_shake_input_require_fresh(input_gate);
+    book_of_answers_shake_input_allow_current(input_gate);
+    assert(!input_gate.waiting_for_quiet);
+
     assert(book_of_answers_state_handle_action(
         state, BookOfAnswersAction::SelectCrystal));
     assert(state.mode == BookOfAnswersMode::Crystal);

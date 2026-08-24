@@ -29,7 +29,8 @@ constexpr Rect kMessageModeRect = {35, 620, 195, 56};
 constexpr Rect kCrystalModeRect = {250, 620, 195, 56};
 constexpr Rect kTransitionStatusRect = {40, 700, 400, 64};
 constexpr Rect kAskAgainRect = {40, 680, 400, 64};
-constexpr Rect kEndRect = {120, 748, 240, 52};
+constexpr Rect kEndButtonRect = {40, 752, 400, 46};
+constexpr Rect kEndTouchRect = {20, 744, 440, 56};
 constexpr size_t kAnswerMaximumLines = 4U;
 constexpr size_t kAnswerMaximumCharactersPerLine = 23U;
 constexpr size_t kAnswerLineCapacity =
@@ -242,14 +243,13 @@ void draw_transition_footer(Canvas &canvas,
 void draw_result_controls(Canvas &canvas)
 {
     draw_button(canvas, kAskAgainRect, "ASK AGAIN", true, 4);
-    draw_centered_text(canvas, 764, "END", 3);
+    draw_button(canvas, kEndButtonRect, "END", false, 3);
 }
 
 }  // namespace
 
 void book_of_answers_page_render_home(Canvas &canvas,
-                                      BookOfAnswersMode mode,
-                                      BookOfAnswersAnimationFrame frame)
+                                      BookOfAnswersMode mode)
 {
     begin_page(canvas);
     draw_header(canvas);
@@ -260,10 +260,7 @@ void book_of_answers_page_render_home(Canvas &canvas,
         canvas,
         240,
         390,
-        book_of_answers_asset(
-            frame == BookOfAnswersAnimationFrame::Primary
-                ? BookOfAnswersAssetId::Home
-                : BookOfAnswersAssetId::HomeAlt));
+        book_of_answers_asset(BookOfAnswersAssetId::Home));
 
     draw_centered_text(canvas, 590, "ANSWER TYPE", 2);
     draw_button(canvas,
@@ -276,26 +273,22 @@ void book_of_answers_page_render_home(Canvas &canvas,
                 "YES / NO",
                 mode == BookOfAnswersMode::Crystal,
                 3);
-    draw_centered_text(canvas, 716, "SHAKE THE DEVICE", 3);
-    const int sparkle_x =
-        frame == BookOfAnswersAnimationFrame::Primary ? 94 : 386;
-    draw_sparkle(canvas, sparkle_x, 726, 8);
-    canvas.draw_line(145, 760, 335, 760, GrayLevel::Black);
+    draw_centered_text(canvas, 710, "SHAKE GENTLY FOR 3 SEC", 2);
+    draw_centered_text(canvas, 744, "TO RECEIVE YOUR ANSWER", 2);
 }
 
 void book_of_answers_page_render_shaking(Canvas &canvas,
                                          BookOfAnswersShakeFrame frame)
 {
     begin_page(canvas);
-    draw_header(canvas);
-    draw_centered_text(canvas, 116, "THINK OF A QUESTION", 3);
-    draw_centered_text(canvas, 154, "IN YOUR HEART", 3);
+    draw_centered_text(canvas, 74, "THINK OF A QUESTION", 3);
+    draw_centered_text(canvas, 112, "IN YOUR HEART", 3);
 
     const BookOfAnswersAssetId asset =
         frame == BookOfAnswersShakeFrame::Left
             ? BookOfAnswersAssetId::ShakeLeft
             : BookOfAnswersAssetId::ShakeRight;
-    pixel_asset_draw_centered(canvas, 240, 390, book_of_answers_asset(asset));
+    pixel_asset_draw_centered(canvas, 240, 360, book_of_answers_asset(asset));
     draw_transition_footer(canvas, "THE CRYSTAL IS MOVING", "SHAKING...");
 }
 
@@ -304,13 +297,12 @@ void book_of_answers_page_render_thinking(
     BookOfAnswersAnimationFrame frame)
 {
     begin_page(canvas);
-    draw_header(canvas);
-    draw_centered_text(canvas, 116, "HOLD STILL", 3);
-    draw_centered_text(canvas, 154, "LET THE CRYSTAL SETTLE", 2);
+    draw_centered_text(canvas, 74, "HOLD STILL", 3);
+    draw_centered_text(canvas, 112, "LET THE CRYSTAL SETTLE", 2);
     pixel_asset_draw_centered(
         canvas,
         240,
-        390,
+        360,
         book_of_answers_asset(
             frame == BookOfAnswersAnimationFrame::Primary
                 ? BookOfAnswersAssetId::Thinking
@@ -323,13 +315,12 @@ void book_of_answers_page_render_revealing(
     BookOfAnswersAnimationFrame frame)
 {
     begin_page(canvas);
-    draw_header(canvas);
-    draw_centered_text(canvas, 116, "THE CRYSTAL", 3);
-    draw_centered_text(canvas, 154, "HAS DECIDED", 3);
+    draw_centered_text(canvas, 74, "THE CRYSTAL", 3);
+    draw_centered_text(canvas, 112, "HAS DECIDED", 3);
     pixel_asset_draw_centered(
         canvas,
         240,
-        390,
+        360,
         book_of_answers_asset(
             frame == BookOfAnswersAnimationFrame::Primary
                 ? BookOfAnswersAssetId::Revealing
@@ -342,20 +333,16 @@ void book_of_answers_page_render_shake_longer(
     BookOfAnswersAnimationFrame frame)
 {
     begin_page(canvas);
-    draw_header(canvas);
-    draw_centered_text(canvas, 110, "SHAKE A LITTLE LONGER", 3);
-    draw_centered_text(canvas, 151, "KEEP YOUR QUESTION", 2);
-    draw_centered_text(canvas, 178, "IN YOUR HEART", 2);
+    draw_centered_text(canvas, 76, "SHAKE FOR 3 SECONDS", 3);
+    draw_centered_text(canvas, 121, "KEEP YOUR QUESTION IN MIND", 2);
     pixel_asset_draw_centered(
         canvas,
         240,
-        410,
+        380,
         book_of_answers_asset(
             frame == BookOfAnswersAnimationFrame::Primary
                 ? BookOfAnswersAssetId::ShakeLongerPrimary
                 : BookOfAnswersAssetId::ShakeLongerSecondary));
-    draw_transition_footer(
-        canvas, "THE CRYSTAL NEEDS MORE TIME", "TRY AGAIN...");
 }
 
 void book_of_answers_page_render_message_result(Canvas &canvas,
@@ -363,9 +350,8 @@ void book_of_answers_page_render_message_result(Canvas &canvas,
                                                 BookOfAnswersAnimationFrame frame)
 {
     begin_page(canvas);
-    draw_header(canvas);
 
-    constexpr Rect kAnswerPanel = {0, 98, 480, 168};
+    constexpr Rect kAnswerPanel = {0, 58, 480, 192};
     canvas.fill_rect(kAnswerPanel.x,
                      kAnswerPanel.y,
                      kAnswerPanel.width,
@@ -408,8 +394,7 @@ void book_of_answers_page_render_crystal_result(Canvas &canvas,
                                                 BookOfAnswersAnimationFrame frame)
 {
     begin_page(canvas);
-    draw_centered_text(canvas, 24, "BOOK OF ANSWERS", 4);
-    draw_centered_text(canvas, 70, "THE CRYSTAL HAS DECIDED", 2);
+    draw_centered_text(canvas, 64, "THE CRYSTAL HAS DECIDED", 2);
 
     pixel_asset_draw_centered(
         canvas,
@@ -459,7 +444,7 @@ BookOfAnswersAction book_of_answers_page_action_at(BookOfAnswersPage page,
         if (kAskAgainRect.contains(x, y)) {
             return BookOfAnswersAction::AskAgain;
         }
-        if (kEndRect.contains(x, y)) {
+        if (kEndTouchRect.contains(x, y)) {
             return BookOfAnswersAction::End;
         }
     }

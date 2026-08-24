@@ -10,6 +10,10 @@ class Canvas;
 // 启动独立运行的竖屏答案书APP。
 esp_err_t book_of_answers_app_start(Canvas &canvas);
 
+// Prepares whether the next activation must wait for a fresh shake gesture.
+// 设置下一次进入答案书时是否需要等待一次全新的摇晃动作。
+void book_of_answers_app_prepare_entry(bool launcher_shake_consumed);
+
 esp_err_t book_of_answers_app_pause();
 esp_err_t book_of_answers_app_resume();
 

@@ -557,6 +557,7 @@ void complete_selection(StickyAppId selected_app,
     const StickyAppId previous_app = s_current_app;
     esp_err_t imu_result = ESP_OK;
     if (selected_app == StickyAppId::BookOfAnswers) {
+        book_of_answers_app_prepare_entry(preserve_shake_session);
         if (!preserve_shake_session) {
             imu_result = set_imu_running(false);
             if (imu_result == ESP_OK) {
@@ -604,6 +605,7 @@ void complete_selection(StickyAppId selected_app,
 
     sticky_display_cancel_app_transition_refresh();
     if (selected_app == StickyAppId::BookOfAnswers) {
+        book_of_answers_app_prepare_entry(false);
         set_imu_running(false);
     }
     if (previous_app == StickyAppId::BookOfAnswers) {

@@ -1,5 +1,6 @@
 #include "book_of_answers_app.h"
 
+#include <atomic>
 #include <cstdint>
 
 #include "app_log.h"
@@ -26,7 +27,6 @@ constexpr UBaseType_t kTaskPriority = 3;
 constexpr size_t kShakeFrameCount = 4U;
 constexpr size_t kStageFrameCount = 2U;
 constexpr size_t kShakeLongerFrameCount = 4U;
-constexpr int64_t kHomeFrameHoldUs = 700000LL;
 constexpr int64_t kShakeFrameHoldUs = 180000LL;
 constexpr int64_t kThinkingFrameHoldUs = 450000LL;
 constexpr int64_t kRevealingFrameHoldUs = 450000LL;
@@ -53,6 +53,25 @@ size_t s_animation_frame_index = 0U;
 size_t s_message_answer_index = kBookOfAnswersNoIndex;
 size_t s_crystal_answer_index = kBookOfAnswersNoIndex;
 int64_t s_animation_deadline_us = 0;
+BookOfAnswersShakeInputGate s_shake_input_gate = {};
+std::atomic<int> s_entry_shake_policy{-1};
+
+void apply_entry_shake_policy()
+{
+    const int policy =
+        s_entry_shake_policy.exchange(-1, std::memory_order_acq_rel);
+    if (policy < 0) {
+        return;
+    }
+    if (policy == 1) {
+        book_of_answers_shake_input_require_fresh(s_shake_input_gate);
+        STICKY_LOGI(kTag,
+                    "book=input state=waiting_for_fresh_shake quiet_ms=%u reason=launcher_shake_consumed",
+                    static_cast<unsigned>(kBookOfAnswersFreshShakeQuietMs));
+        return;
+    }
+    book_of_answers_shake_input_allow_current(s_shake_input_gate);
+}
 
 esp_err_t refresh_display(bool partial_refresh, bool timing_log = true)
 {
@@ -97,7 +116,7 @@ void schedule_animation_stage()
     const int64_t now = esp_timer_get_time();
     switch (s_state.page) {
     case BookOfAnswersPage::Home:
-        s_animation_deadline_us = now + kHomeFrameHoldUs;
+        s_animation_deadline_us = 0;
         break;
     case BookOfAnswersPage::Shaking:
         s_animation_deadline_us = now + kShakeFrameHoldUs;
@@ -127,10 +146,15 @@ BookOfAnswersAnimationFrame current_animation_frame()
 
 void render_current_page(bool partial_refresh, bool timing_log = true)
 {
+    if (!partial_refresh && s_state.page == BookOfAnswersPage::Home) {
+        // A clean full waveform keeps the static reading page crisp after an
+        // app transition; animated stages continue using partial refreshes.
+        // APP切换后用完整波形保持静态阅读页清晰，动画阶段继续使用局刷。
+        sticky_display_cancel_app_transition_refresh();
+    }
     switch (s_state.page) {
     case BookOfAnswersPage::Home:
-        book_of_answers_page_render_home(
-            *s_canvas, s_state.mode, current_animation_frame());
+        book_of_answers_page_render_home(*s_canvas, s_state.mode);
         break;
     case BookOfAnswersPage::Shaking:
         book_of_answers_page_render_shaking(
@@ -388,17 +412,25 @@ BookOfAnswersAction action_for_press(const StickyTouchPress &press)
 
 void app_task(void *)
 {
+    apply_entry_shake_policy();
     sticky_touch_clear_press();
     render_current_page(false);
     STICKY_LOGI(kTag,
-                "book=ready page=home mode=message input=continuous_imu_shake required_shake_ms=%u message_answers=%u crystal_answers=%u shake_frames=%u animated_pages=7 result=ok",
+                "book=ready page=home mode=message input=fresh_continuous_imu_shake required_shake_ms=%u entry_quiet_ms=%u message_answers=%u crystal_answers=%u shake_frames=%u animated_pages=6 result=ok",
                 static_cast<unsigned>(kBookOfAnswersRequiredShakeMs),
+                static_cast<unsigned>(kBookOfAnswersFreshShakeQuietMs),
                 static_cast<unsigned>(book_message_answer_count()),
                 static_cast<unsigned>(book_crystal_answer_count()),
                 static_cast<unsigned>(kShakeFrameCount));
 
     while (true) {
-        if (sticky_app_lifecycle_checkpoint(s_lifecycle)) {
+        const bool resumed =
+            sticky_app_lifecycle_checkpoint(s_lifecycle);
+        // Apply the launcher handoff after a paused task is released and
+        // before it can consume any IMU events from the new session.
+        // 暂停任务恢复后、读取新会话IMU事件前应用选择器交接策略。
+        apply_entry_shake_policy();
+        if (resumed) {
             sticky_touch_clear_press();
             render_current_page(false);
         }
@@ -408,36 +440,53 @@ void app_task(void *)
             handle_action(action_for_press(press), "touch");
         }
 
-        if (sticky_imu_take_shake_started_event()) {
-            if (s_state.page == BookOfAnswersPage::Home ||
-                s_state.page == BookOfAnswersPage::ShakeLonger) {
-                handle_action(
-                    BookOfAnswersAction::ShakeStarted,
-                    "imu_shake_started");
-            } else {
-                STICKY_LOGI(
-                    kTag,
-                    "book=shake page=%s action=ignored reason=page_busy",
-                    book_of_answers_page_name(s_state.page));
+        const uint32_t now_ms = static_cast<uint32_t>(
+            esp_timer_get_time() / 1000LL);
+        if (s_shake_input_gate.waiting_for_quiet) {
+            // Launcher events are consumed while the old physical gesture
+            // settles, so they cannot leak into the answer request flow.
+            // 等待旧动作停稳时消费选择器事件，避免其流入求答案流程。
+            sticky_imu_take_shake_started_event();
+            sticky_imu_take_shake_stopped_event();
+            if (book_of_answers_shake_input_update(
+                    s_shake_input_gate,
+                    sticky_imu_is_shaking(),
+                    now_ms)) {
+                STICKY_LOGI(kTag,
+                            "book=input state=ready reason=fresh_quiet_window result=ok");
             }
-        }
-
-        if (sticky_imu_take_shake_stopped_event()) {
-            if (s_state.page == BookOfAnswersPage::Shaking) {
-                const uint32_t shake_duration_ms =
-                    sticky_imu_shake_duration_ms();
-                if (book_of_answers_shake_qualified(
-                        shake_duration_ms)) {
-                    complete_shake_stage();
+        } else {
+            if (sticky_imu_take_shake_started_event()) {
+                if (s_state.page == BookOfAnswersPage::Home ||
+                    s_state.page == BookOfAnswersPage::ShakeLonger) {
+                    handle_action(
+                        BookOfAnswersAction::ShakeStarted,
+                        "imu_shake_started");
                 } else {
                     STICKY_LOGI(
                         kTag,
-                        "book=shake qualification=insufficient shake_ms=%u required_ms=%u reason=stopped_early",
-                        static_cast<unsigned>(shake_duration_ms),
-                        static_cast<unsigned>(
-                            kBookOfAnswersRequiredShakeMs));
-                    handle_action(BookOfAnswersAction::ShakeStopped,
-                                  "imu_shake_stopped");
+                        "book=shake page=%s action=ignored reason=page_busy",
+                        book_of_answers_page_name(s_state.page));
+                }
+            }
+
+            if (sticky_imu_take_shake_stopped_event()) {
+                if (s_state.page == BookOfAnswersPage::Shaking) {
+                    const uint32_t shake_duration_ms =
+                        sticky_imu_shake_duration_ms();
+                    if (book_of_answers_shake_qualified(
+                            shake_duration_ms)) {
+                        complete_shake_stage();
+                    } else {
+                        STICKY_LOGI(
+                            kTag,
+                            "book=shake qualification=insufficient shake_ms=%u required_ms=%u reason=stopped_early",
+                            static_cast<unsigned>(shake_duration_ms),
+                            static_cast<unsigned>(
+                                kBookOfAnswersRequiredShakeMs));
+                        handle_action(BookOfAnswersAction::ShakeStopped,
+                                      "imu_shake_stopped");
+                    }
                 }
             }
         }
@@ -446,7 +495,8 @@ void app_task(void *)
         // duration cannot extend or shorten the required shake input.
         // 有效峰值跨度由传感器任务独立计时，屏幕刷新不会延长或缩短摇晃输入。
         const int64_t now_us = esp_timer_get_time();
-        if (s_state.page == BookOfAnswersPage::Shaking &&
+        if (!s_shake_input_gate.waiting_for_quiet &&
+            s_state.page == BookOfAnswersPage::Shaking &&
             book_of_answers_shake_qualified(
                 sticky_imu_shake_duration_ms())) {
             complete_shake_stage();
@@ -485,6 +535,13 @@ esp_err_t book_of_answers_app_start(Canvas &canvas)
         return ESP_ERR_NO_MEM;
     }
     return ESP_OK;
+}
+
+void book_of_answers_app_prepare_entry(bool launcher_shake_consumed)
+{
+    s_entry_shake_policy.store(
+        launcher_shake_consumed ? 1 : 0,
+        std::memory_order_release);
 }
 
 esp_err_t book_of_answers_app_pause()

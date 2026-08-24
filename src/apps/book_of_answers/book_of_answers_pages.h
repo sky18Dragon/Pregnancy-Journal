@@ -15,8 +15,7 @@ enum class BookOfAnswersAnimationFrame {
 };
 
 void book_of_answers_page_render_home(Canvas &canvas,
-                                      BookOfAnswersMode mode,
-                                      BookOfAnswersAnimationFrame frame);
+                                      BookOfAnswersMode mode);
 void book_of_answers_page_render_shaking(Canvas &canvas,
                                          BookOfAnswersShakeFrame frame);
 void book_of_answers_page_render_thinking(

@@ -81,6 +81,47 @@ bool book_of_answers_shake_qualified(uint32_t shake_duration_ms)
     return shake_duration_ms >= kBookOfAnswersRequiredShakeMs;
 }
 
+void book_of_answers_shake_input_require_fresh(
+    BookOfAnswersShakeInputGate &gate)
+{
+    gate.waiting_for_quiet = true;
+    gate.quiet_window_active = false;
+    gate.quiet_started_ms = 0U;
+}
+
+void book_of_answers_shake_input_allow_current(
+    BookOfAnswersShakeInputGate &gate)
+{
+    gate = {};
+}
+
+bool book_of_answers_shake_input_update(
+    BookOfAnswersShakeInputGate &gate,
+    bool shaking,
+    uint32_t now_ms)
+{
+    if (!gate.waiting_for_quiet) {
+        return false;
+    }
+    if (shaking) {
+        gate.quiet_window_active = false;
+        gate.quiet_started_ms = 0U;
+        return false;
+    }
+    if (!gate.quiet_window_active) {
+        gate.quiet_window_active = true;
+        gate.quiet_started_ms = now_ms;
+        return false;
+    }
+    if (now_ms - gate.quiet_started_ms <
+        kBookOfAnswersFreshShakeQuietMs) {
+        return false;
+    }
+
+    gate = {};
+    return true;
+}
+
 size_t book_of_answers_choose_index(uint32_t random_value,
                                     size_t previous_index,
                                     size_t option_count)
