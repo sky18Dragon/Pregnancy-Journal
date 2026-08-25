@@ -35,6 +35,7 @@ constexpr Rect kPlayRect = {320, 600, 160, 170};
 constexpr Rect kPetBodyRect = {110, 270, 260, 320};
 constexpr Rect kNameRect = {0, 0, 350, 70};
 constexpr Rect kEnergyRestRect = {294, 86, 172, 48};
+constexpr Rect kTutorialRect = {390, 130, 90, 110};
 
 constexpr Rect kCloseTestRect = {360, 20, 100, 55};
 constexpr Rect kNextDayRect = {35, 215, 410, 52};
@@ -197,6 +198,31 @@ void draw_underlined_in_rect(Canvas &canvas,
                      GrayLevel::Black);
     canvas.fill_rect(x, y + 7 * scale + 3, width, 2,
                      GrayLevel::Black);
+}
+
+// Draws a compact open-book guide entry with a larger invisible touch target.
+// 绘制紧凑的打开书本入口，并配合更大的隐藏触摸区域。
+void draw_tutorial_entry(Canvas &canvas)
+{
+    constexpr int left = 410;
+    constexpr int top = 150;
+    constexpr int center = 433;
+    constexpr int right = 456;
+    constexpr int bottom = 194;
+
+    canvas.draw_line(left, top + 5, center, top, GrayLevel::Black);
+    canvas.draw_line(center, top, right, top + 5, GrayLevel::Black);
+    canvas.draw_line(left, top + 5, left, bottom, GrayLevel::Black);
+    canvas.draw_line(right, top + 5, right, bottom, GrayLevel::Black);
+    canvas.draw_line(left, bottom, center, bottom - 4, GrayLevel::Black);
+    canvas.draw_line(center, bottom - 4, right, bottom, GrayLevel::Black);
+    canvas.draw_line(center, top, center, bottom - 4, GrayLevel::Black);
+    canvas.draw_line(left + 5, top + 13,
+                     center - 5, top + 10, GrayLevel::Black);
+    canvas.draw_line(left + 5, top + 21,
+                     center - 5, top + 18, GrayLevel::Black);
+    canvas.draw_text(center + 6, top + 10, "?", 2);
+    canvas.draw_text(413, 207, "GUIDE", 1);
 }
 
 // Aligns the visible pixels of a label to the rectangle center.
@@ -1207,6 +1233,11 @@ void desktop_pet_page_render_egg(Canvas &canvas,
                   opened ? "HATCHLING  GROWTH 10  LOVE 18"
                          : "BE GENTLE. A FRIEND IS GROWING.",
                   2);
+    // Show the guide entry only while the egg page accepts normal input.
+    // 仅在蛋页面可以正常交互时显示教程入口。
+    if (frame == DesktopPetHatchFrame::Resting) {
+        draw_tutorial_entry(canvas);
+    }
 }
 
 void desktop_pet_page_render_home(Canvas &canvas,
@@ -1254,6 +1285,7 @@ void desktop_pet_page_render_home(Canvas &canvas,
                                              visible_pose,
                                              visible_idle_frame)));
     draw_speech_bubble(canvas, message);
+    draw_tutorial_entry(canvas);
 
     draw_home_action_bar(canvas);
     draw_pet_day_label(canvas, state);
@@ -1756,6 +1788,9 @@ DesktopPetAction desktop_pet_page_action_at(bool test_open, int x, int y)
         if (kNameRect.contains(x, y)) {
             return DesktopPetAction::OpenNameEditor;
         }
+        if (kTutorialRect.contains(x, y)) {
+            return DesktopPetAction::OpenTutorial;
+        }
         if (kEnergyRestRect.contains(x, y)) {
             return DesktopPetAction::Sleep;
         }
@@ -1808,6 +1843,9 @@ DesktopPetAction desktop_pet_page_egg_action_at(int x, int y)
         return DesktopPetAction::OpenTest;
     }
 #endif
+    if (kTutorialRect.contains(x, y)) {
+        return DesktopPetAction::OpenTutorial;
+    }
     return kEggBodyRect.contains(x, y)
                ? DesktopPetAction::TapEgg
                : DesktopPetAction::None;

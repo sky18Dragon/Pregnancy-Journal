@@ -79,6 +79,8 @@ int main()
 
     assert(onboarding_page_action_at(0U, 60, 760) ==
            OnboardingAction::Skip);
+    assert(onboarding_page_action_at(1U, 60, 760) ==
+           OnboardingAction::Previous);
     assert(onboarding_page_action_at(0U, 420, 760) ==
            OnboardingAction::Next);
     assert(onboarding_page_action_at(7U, 420, 760) ==
@@ -99,6 +101,8 @@ int main()
     assert(logical_y == 760);
     assert(onboarding_page_action_at(0U, logical_x, logical_y) ==
            OnboardingAction::Skip);
+    assert(onboarding_page_action_at(1U, logical_x, logical_y) ==
+           OnboardingAction::Previous);
     canvas.physical_to_logical(760, 59, logical_x, logical_y);
     assert(logical_x == 420);
     assert(logical_y == 760);

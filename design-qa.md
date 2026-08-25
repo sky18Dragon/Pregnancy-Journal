@@ -83,9 +83,9 @@ Passed. The eight portrait tutorial pages have zero P0, P1, and P2 visual issues
 ## Checks
 
 - All eight complete panels are present in the approved order.
-- Titles, illustrations, callouts, borders, page numbers, and footer actions match the approved source.
+- Titles, illustrations, callouts, borders, and page content match the approved source; the runtime footer reflects the current navigation state.
 - Every page keeps its approved 480 x 800 portrait proportions.
 - The monochrome threshold keeps the main outlines, fine callout arrows, and small labels legible.
-- `SKIP`, `NEXT`, and `START` have generous logical touch regions aligned with the visible footer controls.
+- `EXIT`, `BACK`, `NEXT`, and `START` have generous logical touch regions aligned with the visible footer controls.
 
 final result: passed

@@ -31,3 +31,7 @@ esp_err_t desktop_pet_app_pause();
 // Resumes the pet and redraws its preserved current page.
 // 恢复桌宠并重新绘制保留的当前页面。
 esp_err_t desktop_pet_app_resume();
+
+// Takes one user request to reopen the complete firmware tutorial.
+// 取出一次用户主动重新打开完整固件教程的请求。
+bool desktop_pet_app_take_onboarding_request();

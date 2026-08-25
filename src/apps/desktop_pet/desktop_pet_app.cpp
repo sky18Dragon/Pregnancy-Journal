@@ -1,5 +1,6 @@
 #include "desktop_pet_app.h"
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -10,6 +11,7 @@
 #include "desktop_pet_daily.h"
 #include "desktop_pet_outing.h"
 #include "desktop_pet_pages.h"
+#include "desktop_pet_power_policy.h"
 #include "desktop_pet_sound_cues.h"
 #include "desktop_pet_state.h"
 #include "desktop_pet_storage.h"
@@ -91,6 +93,7 @@ PetAnimationQueue s_idle_animation;
 PetIdleAction s_previous_idle_action = PetIdleAction::None;
 PetIdleAction s_second_previous_idle_action = PetIdleAction::None;
 DesktopPetNeedSoundState s_need_sound_state = {};
+std::atomic<bool> s_onboarding_requested{false};
 bool s_evolution_active = false;
 DesktopPetEvolutionFrame s_evolution_frame =
     DesktopPetEvolutionFrame::Starting;
@@ -1565,6 +1568,13 @@ void handle_action(DesktopPetAction action)
     if (action == DesktopPetAction::None) {
         return;
     }
+    if (action == DesktopPetAction::OpenTutorial) {
+        sticky_touch_clear_press();
+        s_onboarding_requested.store(true, std::memory_order_release);
+        STICKY_LOGI(kTag,
+                    "pet=tutorial action=open_requested result=ok");
+        return;
+    }
     if (desktop_pet_outing_active(s_outing)) {
         if (action == DesktopPetAction::CallHome) {
             call_outing_home();
@@ -2102,7 +2112,8 @@ esp_err_t desktop_pet_app_prepare_power_sleep(
     apply_rtc_time(false, false);
     current_epoch_seconds = current_rtc_epoch(esp_timer_get_time());
 #if STICKY_POWER_TEST_MODE
-    if (current_epoch_seconds != 0U) {
+    if (current_epoch_seconds != 0U &&
+        desktop_pet_power_autonomous_wake_allowed(s_state)) {
         const DesktopPetOutingPlanStatus test_status =
             desktop_pet_outing_plan_status(
                 s_state.outing_plan, current_epoch_seconds);
@@ -2127,18 +2138,8 @@ esp_err_t desktop_pet_app_prepare_power_sleep(
         }
     }
 #endif
-    if (current_epoch_seconds != 0U) {
-        const DesktopPetOutingPlanStatus status =
-            desktop_pet_outing_plan_status(
-                s_state.outing_plan, current_epoch_seconds);
-        if (status == DesktopPetOutingPlanStatus::Scheduled) {
-            next_event_epoch_seconds =
-                s_state.outing_plan.departure_epoch_seconds;
-        } else if (status == DesktopPetOutingPlanStatus::Away) {
-            next_event_epoch_seconds =
-                s_state.outing_plan.return_epoch_seconds;
-        }
-    }
+    next_event_epoch_seconds = desktop_pet_power_next_event_epoch(
+        s_state, current_epoch_seconds);
     save_state("power_sleep");
     STICKY_LOGI(kTag,
                 "pet=power_sleep now=%u next_event=%u result=ok",
@@ -2166,4 +2167,10 @@ esp_err_t desktop_pet_app_resume()
     }
     sticky_app_lifecycle_resume(s_lifecycle);
     return ESP_OK;
+}
+
+bool desktop_pet_app_take_onboarding_request()
+{
+    return s_onboarding_requested.exchange(false,
+                                           std::memory_order_acq_rel);
 }

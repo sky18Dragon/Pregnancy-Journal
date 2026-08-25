@@ -21,6 +21,7 @@
 #include "sticky_app_display_orientation.h"
 #include "sticky_app_gesture.h"
 #include "sticky_app_id.h"
+#include "sticky_app_power_policy.h"
 #include "sticky_app_router.h"
 #include "sticky_buzzer.h"
 #include "sticky_button.h"
@@ -247,8 +248,10 @@ void draw_sleep_indicator()
     s_canvas->draw_pixel(left + 34, top + 27, GrayLevel::Black);
 }
 
-void enter_power_sleep(StickyAppRouterState &router, const char *source)
+void enter_power_sleep(StickyAppRouterState &router,
+                       StickyPowerSleepTrigger trigger)
 {
+    const char *source = sticky_power_sleep_trigger_name(trigger);
     if (!power_sleep_allowed()) {
         STICKY_LOGI(kTag,
                     "power=sleep_request source=%s app=%s result=blocked",
@@ -294,12 +297,14 @@ void enter_power_sleep(StickyAppRouterState &router, const char *source)
         return;
     }
 
-    const esp_err_t sleep_chime_result =
-        sticky_buzzer_play_power_sleep_chime();
-    if (sleep_chime_result != ESP_OK) {
-        STICKY_LOGW(kTag,
-                    "power=sleep_chime result=%s",
-                    esp_err_to_name(sleep_chime_result));
+    if (sticky_power_sleep_chime_enabled(trigger)) {
+        const esp_err_t sleep_chime_result =
+            sticky_buzzer_play_power_sleep_chime();
+        if (sleep_chime_result != ESP_OK) {
+            STICKY_LOGW(kTag,
+                        "power=sleep_chime result=%s",
+                        esp_err_to_name(sleep_chime_result));
+        }
     }
     sticky_buzzer_stop();
     set_imu_running(false);
@@ -674,6 +679,34 @@ void return_to_desktop_pet(StickyAppRouterState &router)
                        StickyImuOrientation::Unknown);
 }
 
+// Temporarily gives the display and touch controller to the full tutorial.
+// 临时把屏幕和触摸控制权交给完整教程，结束后恢复桌宠。
+void open_tutorial_from_desktop_pet()
+{
+    const esp_err_t pause_result = pause_app(StickyAppId::DesktopPet);
+    if (pause_result != ESP_OK) {
+        STICKY_LOGE(kTag,
+                    "tutorial=reopen source=desktop_pet pause=%s result=failed",
+                    esp_err_to_name(pause_result));
+        return;
+    }
+
+    set_imu_running(false);
+    sticky_touch_clear_press();
+    sticky_touch_clear_interaction();
+    const esp_err_t tutorial_result = onboarding_app_run(*s_canvas);
+    const esp_err_t resume_result = resume_app(StickyAppId::DesktopPet);
+    s_last_user_activity_ms = static_cast<uint32_t>(
+        esp_timer_get_time() / 1000LL);
+    STICKY_LOGI(kTag,
+                "tutorial=reopen source=desktop_pet tutorial=%s resume=%s result=%s",
+                esp_err_to_name(tutorial_result),
+                esp_err_to_name(resume_result),
+                tutorial_result == ESP_OK && resume_result == ESP_OK
+                    ? "ok"
+                    : "failed");
+}
+
 void handle_launcher_touch(const StickyTouchPress &press,
                            StickyAppRouterState &router)
 {
@@ -798,7 +831,8 @@ void app_task(void *)
                                   imu_prestart);
                 }
             } else if (button_event == StickyButtonEvent::SleepChord) {
-                enter_power_sleep(router, "side_button_chord");
+                enter_power_sleep(
+                    router, StickyPowerSleepTrigger::SideButtonChord);
             }
         }
 
@@ -821,6 +855,12 @@ void app_task(void *)
                                     router,
                                     last_settled,
                                     imu_prestart);
+        }
+
+        if (!router.launcher_open &&
+            s_current_app == StickyAppId::DesktopPet &&
+            desktop_pet_app_take_onboarding_request()) {
+            open_tutorial_from_desktop_pet();
         }
 
         if (router.launcher_open) {
@@ -884,14 +924,17 @@ void app_task(void *)
             esp_timer_get_time() >= s_background_sleep_deadline_us) {
             s_background_timer_wake = false;
             s_background_sleep_deadline_us = 0;
-            enter_power_sleep(router, "scheduled_event_complete");
+            enter_power_sleep(
+                router,
+                StickyPowerSleepTrigger::ScheduledEventComplete);
         }
         const uint32_t idle_sleep_timeout_ms = power_sleep_timeout_ms();
         if (!s_background_timer_wake && !router.launcher_open &&
             !board_charger_external_power_present() &&
             idle_sleep_timeout_ms > 0U && power_sleep_allowed() &&
             now_ms - s_last_user_activity_ms >= idle_sleep_timeout_ms) {
-            enter_power_sleep(router, "app_idle_timeout");
+            enter_power_sleep(
+                router, StickyPowerSleepTrigger::AppIdleTimeout);
         }
 
         vTaskDelay(kPollInterval);

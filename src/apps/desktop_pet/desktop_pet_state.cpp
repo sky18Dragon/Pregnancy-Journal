@@ -459,6 +459,7 @@ DesktopPetActionResult desktop_pet_state_apply(DesktopPetState &state,
                 "LET'S SPEND TODAY TOGETHER."};
     case DesktopPetAction::OpenTest:
     case DesktopPetAction::OpenNameEditor:
+    case DesktopPetAction::OpenTutorial:
     case DesktopPetAction::CloseTest:
     case DesktopPetAction::StartOuting:
     case DesktopPetAction::CallHome:
@@ -649,6 +650,8 @@ const char *desktop_pet_action_name(DesktopPetAction action)
         return "wake";
     case DesktopPetAction::OpenNameEditor:
         return "open_name_editor";
+    case DesktopPetAction::OpenTutorial:
+        return "open_tutorial";
     case DesktopPetAction::OpenTest:
         return "open_test";
     case DesktopPetAction::CloseTest:

@@ -20,6 +20,7 @@ enum class DesktopPetAction : uint8_t {
     Sleep,
     Wake,
     OpenNameEditor,
+    OpenTutorial,
     OpenTest,
     CloseTest,
     NextDay,

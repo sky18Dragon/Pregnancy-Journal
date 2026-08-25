@@ -68,22 +68,28 @@ esp_err_t render_page(Canvas &canvas, uint8_t page_index, bool first_frame)
     return sticky_display_refresh_partial();
 }
 
+const char *action_name(OnboardingAction action)
+{
+    switch (action) {
+    case OnboardingAction::Previous:
+        return "previous";
+    case OnboardingAction::Next:
+        return "next";
+    case OnboardingAction::Skip:
+        return "exit";
+    case OnboardingAction::Finish:
+        return "start";
+    case OnboardingAction::None:
+    default:
+        return "none";
+    }
+}
+
 }  // namespace
 
-esp_err_t onboarding_app_run_if_needed(Canvas &canvas)
+esp_err_t onboarding_app_run(Canvas &canvas)
 {
     app_log_register_tag(kTag);
-    bool completed = false;
-    const esp_err_t read_result = read_completion(completed);
-    if (read_result != ESP_OK) {
-        STICKY_LOGW(kTag,
-                    "tutorial=completion_read result=%s fallback=show",
-                    esp_err_to_name(read_result));
-    } else if (completed) {
-        STICKY_LOGI(kTag, "tutorial=boot action=skip reason=completed");
-        return ESP_OK;
-    }
-
     sticky_display_set_battery_overlay_enabled(false);
     sticky_touch_clear_press();
     sticky_touch_clear_interaction();
@@ -119,7 +125,7 @@ esp_err_t onboarding_app_run_if_needed(Canvas &canvas)
             const esp_err_t save_result = write_completion();
             STICKY_LOGI(kTag,
                         "tutorial=completed action=%s page=%u save=%s",
-                        action == OnboardingAction::Skip ? "skip" : "start",
+                        action_name(action),
                         static_cast<unsigned>(previous_page + 1U),
                         esp_err_to_name(save_result));
             result = save_result;
@@ -127,9 +133,10 @@ esp_err_t onboarding_app_run_if_needed(Canvas &canvas)
         }
 
         STICKY_LOGI(kTag,
-                    "tutorial=navigate page_from=%u page_to=%u action=next",
+                    "tutorial=navigate page_from=%u page_to=%u action=%s",
                     static_cast<unsigned>(previous_page + 1U),
-                    static_cast<unsigned>(state.page_index + 1U));
+                    static_cast<unsigned>(state.page_index + 1U),
+                    action_name(action));
         result = render_page(canvas, state.page_index, false);
         if (result != ESP_OK) {
             break;
@@ -140,6 +147,22 @@ esp_err_t onboarding_app_run_if_needed(Canvas &canvas)
     sticky_touch_clear_interaction();
     sticky_display_set_battery_overlay_enabled(true);
     return result;
+}
+
+esp_err_t onboarding_app_run_if_needed(Canvas &canvas)
+{
+    app_log_register_tag(kTag);
+    bool completed = false;
+    const esp_err_t read_result = read_completion(completed);
+    if (read_result != ESP_OK) {
+        STICKY_LOGW(kTag,
+                    "tutorial=completion_read result=%s fallback=show",
+                    esp_err_to_name(read_result));
+    } else if (completed) {
+        STICKY_LOGI(kTag, "tutorial=boot action=skip reason=completed");
+        return ESP_OK;
+    }
+    return onboarding_app_run(canvas);
 }
 
 esp_err_t onboarding_app_reset_completion()

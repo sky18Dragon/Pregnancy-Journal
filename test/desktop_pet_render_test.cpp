@@ -114,10 +114,14 @@ int main()
     assert(black_pixel_count(buffer) > 7000U);
     assert(desktop_pet_page_egg_action_at(240, 350) ==
            DesktopPetAction::TapEgg);
+    assert(desktop_pet_page_egg_action_at(435, 180) ==
+           DesktopPetAction::OpenTutorial);
     assert(desktop_pet_page_egg_action_at(440, 35) ==
            DesktopPetAction::OpenTest);
     assert(desktop_pet_page_egg_action_at(20, 760) ==
            DesktopPetAction::None);
+    assert(logical_black_pixel_count(buffer, 400, 140, 470, 225) >
+           100U);
     write_preview(buffer, "/tmp/desktop_pet_egg_intact.ppm");
 
     state.hatch_taps = 1U;
@@ -204,10 +208,14 @@ int main()
            DesktopPetAction::Sleep);
     assert(desktop_pet_page_action_at(false, 380, 145) ==
            DesktopPetAction::None);
+    assert(desktop_pet_page_action_at(false, 435, 180) ==
+           DesktopPetAction::OpenTutorial);
     assert(desktop_pet_page_action_at(false, 120, 35) ==
            DesktopPetAction::OpenNameEditor);
     assert(desktop_pet_page_action_at(false, 440, 35) ==
            DesktopPetAction::OpenTest);
+    assert(logical_black_pixel_count(buffer, 400, 140, 470, 225) >
+           100U);
     write_preview(buffer, "/tmp/desktop_pet_home.ppm");
 
     state.pet.needs.energy = 9U;
