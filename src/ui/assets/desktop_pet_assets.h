@@ -127,6 +127,7 @@ enum class DesktopPetAssetId : uint8_t {
     TalkIcon,
     PlayIcon,
     LoveIcon,
+    GuideBook,
 };
 
 // Returns one generated desktop-pet bitmap.

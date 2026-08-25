@@ -86,6 +86,6 @@ Passed. The eight portrait tutorial pages have zero P0, P1, and P2 visual issues
 - Titles, illustrations, callouts, borders, and page content match the approved source; the runtime footer reflects the current navigation state.
 - Every page keeps its approved 480 x 800 portrait proportions.
 - The monochrome threshold keeps the main outlines, fine callout arrows, and small labels legible.
-- `EXIT`, `BACK`, `NEXT`, and `START` have generous logical touch regions aligned with the visible footer controls.
+- The primary `BACK`, page, and `NEXT / START` row is visually separated from the secondary underlined `SKIP TUTORIAL` row; all touch regions remain distinct and the footer border stays continuous.
 
 final result: passed

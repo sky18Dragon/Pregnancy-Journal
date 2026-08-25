@@ -200,29 +200,21 @@ void draw_underlined_in_rect(Canvas &canvas,
                      GrayLevel::Black);
 }
 
-// Draws a compact open-book guide entry with a larger invisible touch target.
-// 绘制紧凑的打开书本入口，并配合更大的隐藏触摸区域。
+// Draws the generated instruction-book bitmap while the larger nearby area
+// remains tappable.
+// 绘制生成的说明书位图，同时保留周围更大的触摸区域。
 void draw_tutorial_entry(Canvas &canvas)
 {
-    constexpr int left = 410;
-    constexpr int top = 150;
-    constexpr int center = 433;
-    constexpr int right = 456;
-    constexpr int bottom = 194;
-
-    canvas.draw_line(left, top + 5, center, top, GrayLevel::Black);
-    canvas.draw_line(center, top, right, top + 5, GrayLevel::Black);
-    canvas.draw_line(left, top + 5, left, bottom, GrayLevel::Black);
-    canvas.draw_line(right, top + 5, right, bottom, GrayLevel::Black);
-    canvas.draw_line(left, bottom, center, bottom - 4, GrayLevel::Black);
-    canvas.draw_line(center, bottom - 4, right, bottom, GrayLevel::Black);
-    canvas.draw_line(center, top, center, bottom - 4, GrayLevel::Black);
-    canvas.draw_line(left + 5, top + 13,
-                     center - 5, top + 10, GrayLevel::Black);
-    canvas.draw_line(left + 5, top + 21,
-                     center - 5, top + 18, GrayLevel::Black);
-    canvas.draw_text(center + 6, top + 10, "?", 2);
-    canvas.draw_text(413, 207, "GUIDE", 1);
+    constexpr int center_x = 435;
+    pixel_asset_draw_centered(
+        canvas,
+        center_x,
+        174,
+        desktop_pet_asset(DesktopPetAssetId::GuideBook));
+    canvas.draw_text(center_x - text_width("MANUAL", 2) / 2,
+                     207,
+                     "MANUAL",
+                     2);
 }
 
 // Aligns the visible pixels of a label to the rectangle center.

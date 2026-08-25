@@ -37,6 +37,23 @@ size_t black_pixel_count(const std::vector<uint8_t> &buffer)
     return count;
 }
 
+size_t logical_black_pixel_count(const Canvas &canvas,
+                                 int left,
+                                 int top,
+                                 int right,
+                                 int bottom)
+{
+    size_t count = 0U;
+    for (int y = top; y <= bottom; ++y) {
+        for (int x = left; x <= right; ++x) {
+            if (canvas.pixel_at(x, y) == GrayLevel::Black) {
+                ++count;
+            }
+        }
+    }
+    return count;
+}
+
 void write_preview(const Canvas &canvas, const std::string &path)
 {
     std::ofstream output(path, std::ios::binary);
@@ -72,20 +89,30 @@ int main()
         assert(canvas.height() == 800U);
         ink_counts[page] = black_pixel_count(buffer);
         assert(ink_counts[page] > 10000U);
+        assert(logical_black_pixel_count(canvas, 8, 714, 18, 798) >
+               120U);
+        assert(logical_black_pixel_count(canvas, 461, 714, 471, 798) >
+               120U);
         write_preview(canvas,
                       "/tmp/onboarding_" + std::to_string(page + 1U) +
                           ".ppm");
     }
 
-    assert(onboarding_page_action_at(0U, 60, 760) ==
-           OnboardingAction::Skip);
-    assert(onboarding_page_action_at(1U, 60, 760) ==
+    assert(onboarding_page_action_at(0U, 60, 750) ==
+           OnboardingAction::None);
+    assert(onboarding_page_action_at(1U, 60, 750) ==
            OnboardingAction::Previous);
-    assert(onboarding_page_action_at(0U, 420, 760) ==
+    assert(onboarding_page_action_at(0U, 240, 780) ==
+           OnboardingAction::Skip);
+    assert(onboarding_page_action_at(1U, 240, 780) ==
+           OnboardingAction::Skip);
+    assert(onboarding_page_action_at(0U, 60, 780) ==
+           OnboardingAction::None);
+    assert(onboarding_page_action_at(0U, 420, 750) ==
            OnboardingAction::Next);
-    assert(onboarding_page_action_at(7U, 420, 760) ==
+    assert(onboarding_page_action_at(7U, 420, 750) ==
            OnboardingAction::Finish);
-    assert(onboarding_page_action_at(0U, 240, 760) ==
+    assert(onboarding_page_action_at(0U, 240, 750) ==
            OnboardingAction::None);
     assert(onboarding_page_action_at(0U, 420, 700) ==
            OnboardingAction::None);
@@ -96,16 +123,23 @@ int main()
 
     int logical_x = 0;
     int logical_y = 0;
-    canvas.physical_to_logical(760, 419, logical_x, logical_y);
-    assert(logical_x == 60);
-    assert(logical_y == 760);
+    canvas.physical_to_logical(780, 239, logical_x, logical_y);
+    assert(logical_x == 240);
+    assert(logical_y == 780);
     assert(onboarding_page_action_at(0U, logical_x, logical_y) ==
            OnboardingAction::Skip);
     assert(onboarding_page_action_at(1U, logical_x, logical_y) ==
+           OnboardingAction::Skip);
+    canvas.physical_to_logical(750, 419, logical_x, logical_y);
+    assert(logical_x == 60);
+    assert(logical_y == 750);
+    assert(onboarding_page_action_at(0U, logical_x, logical_y) ==
+           OnboardingAction::None);
+    assert(onboarding_page_action_at(1U, logical_x, logical_y) ==
            OnboardingAction::Previous);
-    canvas.physical_to_logical(760, 59, logical_x, logical_y);
+    canvas.physical_to_logical(750, 59, logical_x, logical_y);
     assert(logical_x == 420);
-    assert(logical_y == 760);
+    assert(logical_y == 750);
     assert(onboarding_page_action_at(7U, logical_x, logical_y) ==
            OnboardingAction::Finish);
     return 0;

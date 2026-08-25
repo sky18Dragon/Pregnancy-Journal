@@ -76,7 +76,7 @@ const char *action_name(OnboardingAction action)
     case OnboardingAction::Next:
         return "next";
     case OnboardingAction::Skip:
-        return "exit";
+        return "skip";
     case OnboardingAction::Finish:
         return "start";
     case OnboardingAction::None:
