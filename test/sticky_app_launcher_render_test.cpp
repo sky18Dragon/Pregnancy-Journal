@@ -215,6 +215,12 @@ int main()
 {
     std::vector<uint8_t> buffer(kStride * kHeight, 0xFFU);
     Canvas canvas(kWidth, kHeight, buffer.data(), buffer.size());
+
+#if STICKY_ONBOARDING_TEST_MODE
+    assert(app_page_launcher_tutorial_at(480, 800, 455, 112));
+    assert(app_page_launcher_tutorial_at(800, 480, 775, 74));
+    assert(!app_page_launcher_tutorial_at(480, 800, 240, 112));
+#endif
     StickyAppId selected_app = StickyAppId::DesktopPet;
 
     canvas.set_rotation(CanvasRotation::Deg90CounterClockwise);

@@ -8,6 +8,10 @@
 #include "font.h"
 #include "pixel_asset.h"
 
+#ifndef STICKY_ONBOARDING_TEST_MODE
+#define STICKY_ONBOARDING_TEST_MODE 0
+#endif
+
 namespace {
 
 struct LauncherCard {
@@ -363,6 +367,12 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app)
     for (const LauncherCard &card : cards) {
         draw_card(canvas, card, current_app);
     }
+#if STICKY_ONBOARDING_TEST_MODE
+    const int guide_x = canvas.width() - 28;
+    const int guide_y = portrait ? 112 : 74;
+    canvas.draw_circle(guide_x, guide_y, 14);
+    draw_centered_text(canvas, guide_x, guide_y - 8, "?", 2);
+#endif
 }
 
 bool app_page_launcher_app_at(int width,
@@ -379,4 +389,20 @@ bool app_page_launcher_app_at(int width,
         }
     }
     return false;
+}
+
+bool app_page_launcher_tutorial_at(int width, int height, int x, int y)
+{
+#if STICKY_ONBOARDING_TEST_MODE
+    const bool portrait = height > width;
+    const int center_y = portrait ? 112 : 74;
+    return x >= width - 78 &&
+           y >= center_y - 44 && y < center_y + 44;
+#else
+    (void)width;
+    (void)height;
+    (void)x;
+    (void)y;
+    return false;
+#endif
 }

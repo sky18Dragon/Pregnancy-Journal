@@ -15,3 +15,7 @@ bool app_page_launcher_app_at(int width,
                               int x,
                               int y,
                               StickyAppId &selected_app);
+
+// Maps the Debug-only guide icon while keeping a generous invisible hit area.
+// 映射仅Debug版显示的教程图标，并保留较大的透明触发区域。
+bool app_page_launcher_tutorial_at(int width, int height, int x, int y);

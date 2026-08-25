@@ -4,6 +4,8 @@
 
 当前`feature/ui-experience`分支上电后进入桌宠主页，顶部AI/OK按键负责唤起统一应用选择窗口。桌宠、答案书、番茄钟与状态牌通过同一个屏幕和触摸生命周期管理器运行。
 
+新设备首次启动时先显示八页图文教程，依次介绍桌宠照料与成长、番茄钟、状态板、答案书、APP选择器、睡眠组合键和IMU旋转选择。用户点击`START`或`SKIP`后，完成状态写入独立NVS标记，后续启动直接进入桌宠。Debug固件的APP选择器右上角保留`?`入口，用于清除教程标记并重启复测；Release固件隐藏该入口。
+
 IMU平时保持停止状态。单击顶部按键或从屏幕底部边缘向上滑动后，当前APP在安全边界暂停，屏幕中央显示桌宠、番茄钟、状态牌和答案书四个入口，同时启动本次IMU选择会话。用户可以直接触摸图标，也可以把设备从实际横置转为实际竖置进入番茄钟、从实际竖置转为实际横置进入状态牌，或持续摇晃进入答案书；番茄钟和状态牌会按设备放稳后的最终方向显示正向画面并同步触摸坐标。再次单击顶部按键或从选择窗口顶部至70%高度区域向下滑动会取消选择并恢复原APP。快速双击顶部按键会从任意APP直接返回桌宠，已在桌宠时保持当前页面。摇晃选择答案书时，同一次动作会继续用于完成答案书的三秒持续摇晃检测。
 
 GPIO5和GPIO6两个侧键在500毫秒内同时按下并保持2秒，会让当前安全页面进入深度睡眠；系统先用全屏黑白波形清理局刷积累的残影，并在当前画面右上角保留月亮图标，然后由蜂鸣器播放一声短促的休眠确认音，顶部AI键负责唤醒。使用电池时，桌宠在Debug固件中空闲60秒、Release固件中空闲10分钟后自动休眠；状态牌展示页为1分钟、状态牌菜单与番茄钟安全页及答案书稳定页为5分钟；APP选择窗口空闲30秒会自动收起。外接电源时保持活跃。桌宠会把已经保存的下一次外出或回家时间转换为唯一的定时唤醒目标，在事件前15秒自动启动，完成事件画面后再次休眠。
@@ -11,6 +13,16 @@ GPIO5和GPIO6两个侧键在500毫秒内同时按下并保持2秒，会让当前
 各APP页面右上角常驻电池图标和BQ27220提供的0～100%真实剩余电量；组件会根据页面底色自动使用黑底白线或白底黑线，外接电源存在时，电池内部显示闪电标记。电量最多每60秒重新读取一次，并随下一次电子纸页面刷新一起更新，避免为了一个缓慢变化的数字额外频繁刷新屏幕。进入深度睡眠时，电量显示向左移动，右上角同时保留独立的月亮图标。
 
 ## 当前功能
+
+### 首次开机教程
+
+- 教程固定使用竖屏八页像素漫画。固件将已确认的480×800完整设计稿直接转换为黑白位图，页面中的编号、标题、兔子、操作指示、边框和底栏保持为同一张图片。
+- 八页内容依次为欢迎页、桌宠数值、成长结果、番茄钟、状态板、答案书、APP选择器和旋转/摇晃选择。
+- APP选择器页完整说明顶部AI键或上滑打开、下滑关闭、双击AI键返回桌宠，以及同时按住上下两个侧键进入睡眠。
+- 旋转选择页只描述选择器打开后的动作：实际横置转为实际竖置进入番茄钟，实际竖置转为实际横置进入状态板，持续摇晃进入答案书。
+- `SKIP`和最后一页的`START`都会保存完成标记；重新上电和深度睡眠唤醒后直接进入正常APP流程。
+- Debug固件在APP选择器右上角显示`?`，触摸其周围的大热区会清除教程完成标记并自动重启，便于在同一台设备上重复验收。
+- 最终逐页设计稿保存在`assets/onboarding/redraws/`，转换后的逐页预览位于`assets/onboarding/previews/`，固件位图位于`src/ui/assets/onboarding_assets.cpp`，页面切换和交互逻辑位于`src/apps/onboarding/`。
 
 ### 应用选择器
 
@@ -231,6 +243,32 @@ clang++ -std=c++17 -Wall -Wextra -Werror \
 ```
 
 命令成功后会同时验证八个贴纸触摸点、三个入口间隙、横竖屏整组内容的上下留白、标签文字上下留白、黑色和浅灰素材层，以及四个APP选中外圈能否正确移动，并生成`/tmp/sticky_launcher_portrait.ppm`和`/tmp/sticky_launcher_landscape.ppm`，分别用于检查竖屏和横屏布局。
+
+首次开机教程的页码状态、八页绘制和底栏触摸区域可以脱离硬件验证：
+
+```bash
+python3 tools/generate_onboarding_assets.py
+
+clang++ -std=c++17 -Wall -Wextra -Werror \
+  -Isrc/apps/onboarding \
+  test/onboarding_state_test.cpp \
+  src/apps/onboarding/onboarding_state.cpp \
+  -o /tmp/onboarding_state_test
+/tmp/onboarding_state_test
+
+clang++ -std=c++17 -O0 -Wall -Wextra -Werror \
+  -Isrc/apps/onboarding -Isrc/ui -Isrc/ui/assets \
+  test/onboarding_pages_test.cpp \
+  src/apps/onboarding/onboarding_pages.cpp \
+  src/apps/onboarding/onboarding_state.cpp \
+  src/ui/canvas.cpp src/ui/font.cpp \
+  src/ui/assets/pixel_asset.cpp \
+  src/ui/assets/onboarding_assets.cpp \
+  -o /tmp/onboarding_pages_test
+/tmp/onboarding_pages_test
+```
+
+生成命令会从八张最终设计稿重新生成黑白预览和固件位图。两条测试命令正常结束且没有输出，表示页码边界、跳过、完成、八页竖屏位图和底栏热区均通过；页面测试会生成`/tmp/onboarding_1.ppm`至`/tmp/onboarding_8.ppm`用于逐页视觉检查。
 
 番茄钟主页布局、三个预设时间和操作按钮可以脱离硬件验证：
 

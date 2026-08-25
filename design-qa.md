@@ -65,3 +65,27 @@ No actionable P0, P1, or P2 differences remain.
 - [x] Sticky Debug firmware build.
 
 final result: passed
+
+---
+
+# First-boot tutorial visual QA
+
+## Result
+
+Passed. The eight portrait tutorial pages have zero P0, P1, and P2 visual issues.
+
+## Compared artifacts
+
+- References: approved page images in `assets/onboarding/redraws/`
+- Firmware previews: `assets/onboarding/previews/tutorial-page-1.png` through `tutorial-page-8.png`
+- Host-rendered frames: `/tmp/onboarding_1.ppm` through `/tmp/onboarding_8.ppm`
+
+## Checks
+
+- All eight complete panels are present in the approved order.
+- Titles, illustrations, callouts, borders, page numbers, and footer actions match the approved source.
+- Every page keeps its approved 480 x 800 portrait proportions.
+- The monochrome threshold keeps the main outlines, fine callout arrows, and small labels legible.
+- `SKIP`, `NEXT`, and `START` have generous logical touch regions aligned with the visible footer controls.
+
+final result: passed

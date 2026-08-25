@@ -12,8 +12,10 @@
 #include "esp_timer.h"
 #include "esp_attr.h"
 #include "esp_sleep.h"
+#include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "onboarding_app.h"
 #include "pomodoro_app.h"
 #include "status_board_app.h"
 #include "sticky_app_display_orientation.h"
@@ -25,6 +27,10 @@
 #include "sticky_display.h"
 #include "sticky_imu.h"
 #include "sticky_touch.h"
+
+#ifndef STICKY_ONBOARDING_TEST_MODE
+#define STICKY_ONBOARDING_TEST_MODE 0
+#endif
 
 namespace {
 
@@ -675,6 +681,22 @@ void handle_launcher_touch(const StickyTouchPress &press,
     int logical_y = 0;
     s_canvas->physical_to_logical(
         press.x, press.y, logical_x, logical_y);
+#if STICKY_ONBOARDING_TEST_MODE
+    if (app_page_launcher_tutorial_at(s_canvas->width(),
+                                      s_canvas->height(),
+                                      logical_x,
+                                      logical_y)) {
+        const esp_err_t reset_result = onboarding_app_reset_completion();
+        STICKY_LOGI(kTag,
+                    "launcher=tutorial action=reset_and_restart result=%s",
+                    esp_err_to_name(reset_result));
+        if (reset_result == ESP_OK) {
+            vTaskDelay(pdMS_TO_TICKS(80));
+            esp_restart();
+        }
+        return;
+    }
+#endif
     StickyAppId selected_app = StickyAppId::DesktopPet;
     if (!app_page_launcher_app_at(s_canvas->width(),
                                   s_canvas->height(),

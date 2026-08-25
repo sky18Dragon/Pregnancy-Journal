@@ -4,6 +4,7 @@
 #include "board_sensor_bus.h"
 #include "board_shared_spi.h"
 #include "canvas.h"
+#include "onboarding_app.h"
 #include "sticky_app.h"
 #include "sticky_battery.h"
 #include "sticky_buzzer.h"
@@ -260,6 +261,16 @@ extern "C" void app_main()
     const esp_err_t nvs_result = nvs_flash_init();
     if (nvs_result != ESP_OK) {
         halt_after_error("nvs_flash_init", nvs_result);
+    }
+
+    // Presents the eight-page first-boot guide before background app tasks run.
+    // 在后台APP任务启动前展示八页首次开机教程。
+    const esp_err_t onboarding_result =
+        onboarding_app_run_if_needed(*canvas);
+    if (onboarding_result != ESP_OK) {
+        STICKY_LOGW(kTag,
+                    "onboarding=start result=%s fallback=continue",
+                    esp_err_to_name(onboarding_result));
     }
 
     // Starts the default pet and top-button application launcher.
