@@ -6,6 +6,8 @@
 
 <p align="center">
   <a href="README_CN.md">简体中文</a> ·
+  <a href="https://www.seeedstudio.com/sticky/">Sticky official site</a> ·
+  <a href="https://www.seeedstudio.com/reTerminal-Sticky-p-6861.html">Product page</a> ·
   <a href="#quick-start">Get started</a> ·
   <a href="#complete-visual-tour">Visual tour</a> ·
   <a href="CHANGELOG.md">Changelog</a>
@@ -27,6 +29,8 @@
 </p>
 
 reTerminal Sticky Bunny turns the Seeed Studio **reTerminal Sticky** into a small, persistent world: raise a rabbit that remembers your care, start a Pomodoro session, show your availability, or ask the Book of Answers. Touch, buttons, swipe gestures, device rotation, continuous shaking, RTC scheduling, and low-power ePaper behavior are designed as one coherent firmware experience.
+
+Learn more about the device on the [Sticky official website](https://www.seeedstudio.com/sticky/) and the [reTerminal Sticky product page](https://www.seeedstudio.com/reTerminal-Sticky-p-6861.html).
 
 This repository contains the complete PlatformIO/ESP-IDF firmware, original monochrome artwork, host-side behavior and rendering tests, release packaging, and developer documentation.
 

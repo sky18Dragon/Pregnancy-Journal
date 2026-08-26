@@ -6,6 +6,8 @@
 
 <p align="center">
   <a href="README.md">English</a> ·
+  <a href="https://www.seeedstudio.com/sticky/">Sticky 官网</a> ·
+  <a href="https://www.seeedstudio.com/reTerminal-Sticky-p-6861.html">商品详情</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#完整视觉导览">视觉导览</a> ·
   <a href="CHANGELOG.md">更新日志</a>
@@ -27,6 +29,8 @@
 </p>
 
 reTerminal Sticky Bunny 把 Seeed Studio **reTerminal Sticky** 变成一个持续存在的小世界：养育一只会记住照料过程的兔子，开始一次番茄专注，展示当前状态，或者向答案书提出心中的问题。触摸、实体按键、上下滑动、设备旋转、持续摇晃、RTC 定时和电子纸低功耗策略被整合成一套连贯的固件体验。
+
+你可以通过 [Sticky 官方网站](https://www.seeedstudio.com/sticky/) 和 [reTerminal Sticky 商品详情页](https://www.seeedstudio.com/reTerminal-Sticky-p-6861.html)进一步了解设备。
 
 仓库包含完整 PlatformIO/ESP-IDF 源码、原创黑白像素素材、可在电脑运行的状态与渲染测试、发布文件生成方式，以及面向用户和开发者的说明文档。
 
