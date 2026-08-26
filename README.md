@@ -1,8 +1,8 @@
 # Sticky Firmware
 
-这是 reTerminal Sticky 的新固件工程。工程使用 PlatformIO 管理构建、烧录和串口监视，底层框架采用 ESP-IDF。`Sticky_dashboard_demo`是硬件驱动的参考来源。
+这是 reTerminal Sticky 的新固件工程。工程使用 PlatformIO 管理构建、烧录和串口监视，底层框架采用 ESP-IDF。`Sticky_dashboard_demo`是硬件驱动的参考来源。当前发布版本为`0.1.0`。
 
-当前`feature/ui-experience`分支上电后进入桌宠主页，顶部AI/OK按键负责唤起统一应用选择窗口。桌宠、答案书、番茄钟与状态牌通过同一个屏幕和触摸生命周期管理器运行。
+固件上电后进入桌宠主页，顶部AI/OK按键负责唤起统一应用选择窗口。桌宠、答案书、番茄钟与状态牌通过同一个屏幕和触摸生命周期管理器运行。
 
 新设备首次启动时先显示六页图文教程，依次介绍桌宠基础、桌宠数值、成长结果、四个内置APP、APP选择器操作和IMU旋转选择。底栏第一行使用左侧`BACK`、居中页码和右侧`NEXT / START`承载主导航，第二行居中显示`SKIP TUTORIAL`作为独立的次要操作；完成状态写入独立NVS标记，后续启动直接进入桌宠。宠物蛋和桌宠主页的对话框右侧常驻书本图片和`MANUAL`入口，可在不重启设备的情况下重新打开完整教程。Debug固件的APP选择器右上角仍保留`?`入口，用于清除教程标记并重启复测。
 
@@ -218,7 +218,7 @@ GPIO5和GPIO6两个侧键在500毫秒内同时按下并保持2秒，会让当前
 开发版保留详细诊断日志：
 
 ```bash
-/Users/mengdu/.local/bin/pio run -e sticky-debug
+pio run -e sticky-debug
 ```
 
 `sticky-debug`保留调试日志，桌面宠物使用正式成长时间、每日上限和外出规则。
@@ -226,8 +226,27 @@ GPIO5和GPIO6两个侧键在500毫秒内同时按下并保持2秒，会让当前
 发布版在编译时移除调试与追踪日志：
 
 ```bash
-/Users/mengdu/.local/bin/pio run -e sticky-release
+pio run -e sticky-release
 ```
+
+`sticky-release`是默认构建环境，直接运行`pio run`也会生成正式版固件。
+
+将正式版烧录到设备：
+
+```bash
+pio run -e sticky-release -t upload
+```
+
+烧录成功后，设备首次启动会进行一次电子纸全屏刷新，并显示首次使用教程。教程完成状态、桌宠成长记录和用户设置保存在NVS中。
+
+## 发布产物
+
+正式版构建完成后，应用固件位于`.pio/build/sticky-release/firmware.bin`。发布包同时提供两种文件：
+
+- `sticky-0.1.0-app.bin`：应用固件，适合已有引导程序和分区表的设备升级；从`0x10000`烧录并保留现有NVS用户数据。
+- `sticky-0.1.0-full.bin`：包含引导程序、分区表和应用的完整固件，适合首次安装；从`0x0`烧录并初始化用户数据。
+
+发布包生成在`dist/sticky-firmware-0.1.0/`，并使用`SHA256SUMS.txt`记录文件校验值。`dist/`属于本地构建产物，不纳入Git版本管理。
 
 应用选择窗口的横竖屏布局和触摸区域可以脱离硬件验证：
 
@@ -436,8 +455,8 @@ clang++ -std=c++17 -Wall -Wextra -Werror \
 连接Sticky后执行：
 
 ```bash
-/Users/mengdu/.local/bin/pio run -e sticky-debug -t upload
-/Users/mengdu/.local/bin/pio device monitor -b 115200
+pio run -e sticky-debug -t upload
+pio device monitor -b 115200
 ```
 
 启动成功时会看到这些关键日志：

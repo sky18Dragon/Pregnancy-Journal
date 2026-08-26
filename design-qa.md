@@ -62,7 +62,7 @@ No actionable P0, P1, or P2 differences remain.
 - [x] Dynamic selected application styling.
 - [x] Large invisible touch targets aligned with visible entries.
 - [x] Host render and hit-area regression coverage.
-- [x] Sticky Debug firmware build.
+- [x] Sticky Debug and Release firmware builds.
 
 final result: passed
 

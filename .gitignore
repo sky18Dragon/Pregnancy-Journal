@@ -2,6 +2,7 @@
 .pio/
 sdkconfig.sticky-*
 build/
+dist/
 sdkconfig
 sdkconfig.old
 managed_components/
