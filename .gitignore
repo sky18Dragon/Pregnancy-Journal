@@ -26,3 +26,4 @@ dependencies.lock
 *.log
 *.tmp
 *.bak
+.trash/

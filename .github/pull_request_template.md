@@ -13,6 +13,6 @@ Describe the user-visible behavior and the modules it affects.
 
 ## Documentation
 
-- [ ] README or Wiki reflects the current behavior
+- [ ] English and Chinese README content reflects the current behavior
 - [ ] Generated assets and their editable sources are both included
 - [ ] No documentation update is required because the public behavior is unchanged

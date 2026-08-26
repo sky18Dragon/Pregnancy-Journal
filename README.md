@@ -6,8 +6,8 @@
 
 <p align="center">
   <a href="README_CN.md">简体中文</a> ·
-  <a href="docs/wiki/Getting-Started.md">Get started</a> ·
-  <a href="docs/wiki/Home.md">Documentation</a> ·
+  <a href="#quick-start">Get started</a> ·
+  <a href="#complete-visual-tour">Visual tour</a> ·
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
@@ -66,7 +66,16 @@ The pet is the home screen and the emotional center of the firmware. Its state i
 4. **Youth** — the rabbit becomes `FOODIE`, `AFFECTIONATE`, or `ACTIVE`.
 5. **Adult** — each branch receives its own proportions, actions, dialogue and keepsake.
 
-Growth, love, fullness, energy, daily care streaks, mood, recent actions, recent dialogue, personality evidence and scheduled outings persist across restarts. Detailed rules live in the [pet system guide](docs/wiki/Pet-Growth-System.md).
+Growth, love, fullness, energy, daily care streaks, mood, recent actions, recent dialogue, personality evidence and scheduled outings persist across restarts. The balancing model and audited upstream inspirations are documented in [the pet growth design](docs/desktop_pet_growth_system.md).
+
+| Value | What it means |
+| --- | --- |
+| `GROWTH` | Long-term progress earned through valid daily care |
+| `LOVE` | Bond level that changes dialogue and reactions |
+| `FULLNESS` | Hunger state restored by feeding |
+| `ENERGY` | Activity capacity restored at 6% per sleeping minute |
+
+Care is deliberately paced. Each day can award up to 10 growth and 8 love; milestone celebrations happen once at 3, 7, 30, and 100 consecutive care days. The rabbit can leave home on some days, remains away for a scheduled 1–7 hours, and can be called back from the outing page.
 
 ## Launcher and physical interaction
 
@@ -83,7 +92,7 @@ Growth, love, fullness, energy, daily care streaks, mood, recent actions, recent
 - Shake while the launcher is open to enter the Book of Answers.
 - Hold both non-AI side keys to enter deep sleep.
 
-Orientation is accepted only after motion settles and the final placement is stable. Shake routing has priority once a qualified shake session starts. See [Launcher and Gestures](docs/wiki/App-Launcher-and-Gestures.md) for thresholds and state transitions.
+Orientation is accepted only after motion settles and the final placement is stable. Five stable samples qualify a rotation; a continuous 800 ms launcher shake selects the Book of Answers, whose own question flow requires three seconds of effective shaking.
 
 ## ePaper, power and time
 
@@ -91,7 +100,79 @@ The display keeps its last image without power, so the firmware treats every ref
 
 The pet schedules its next meaningful event before sleep. The PCF8563 RTC can wake the ESP32-S3 shortly before an outing or another autonomous event instead of waking at a fixed interval. Battery percentage comes from the BQ27220 fuel gauge, and the UI keeps charging and sleep indicators visible without covering app content.
 
-Read [Power and RTC](docs/wiki/Power-and-RTC.md) and [Hardware and Drivers](docs/wiki/Hardware-and-Drivers.md) for the complete lifecycle.
+Deep sleep can also be requested by holding the two non-AI side keys. Before sleeping, the active app saves a stable page, input peripherals stop safely, the display is cleaned when required, and the RTC receives the next meaningful wake time.
+
+## Complete visual tour
+
+Every screen below is either rendered from the firmware's real `Canvas` and one-bit assets or retained as clearly labeled design history. These are the same layouts and assets used by the device build.
+
+### Desktop pet: from egg to an individual companion
+
+| Egg and home | Child and youth |
+| --- | --- |
+| <img src="docs/images/desktop-pet/egg.png" alt="Pet egg page" width="235"> <img src="docs/images/desktop-pet/home-firmware-render.png" alt="Firmware-rendered pet home" width="235"> | <img src="docs/images/desktop-pet/child.png" alt="Child rabbit" width="235"> <img src="docs/images/desktop-pet/youth.png" alt="Youth rabbit" width="235"> |
+
+| Personality and adulthood | Sleep and outings |
+| --- | --- |
+| <img src="docs/images/desktop-pet/personality-choice.png" alt="Personality choice page" width="235"> <img src="docs/images/desktop-pet/adult.png" alt="Adult rabbit" width="235"> | <img src="docs/images/desktop-pet/sleep.png" alt="Pet sleeping page" width="235"> <img src="docs/images/desktop-pet/outing.png" alt="Pet outing page" width="235"> |
+
+The pet model is independent from the display code. RTC time advances needs and age, interactions update a versioned state object, two checksummed NVS slots protect saves, and the UI chooses a stage- and personality-specific pose. Dialogue selection filters by stage, bond, activity, and recent history so another valid sentence is preferred over an immediate repeat.
+
+### Pomodoro: setup, focus, and finish
+
+<p align="center">
+  <img src="docs/images/pomodoro/setup.png" alt="Pomodoro setup" width="145">
+  <img src="docs/images/pomodoro/custom-time.png" alt="Custom time keypad" width="145">
+  <img src="docs/images/pomodoro/running.png" alt="Running countdown" width="145">
+  <img src="docs/images/pomodoro/end-dialog.png" alt="End confirmation" width="145">
+  <img src="docs/images/pomodoro/alarm.png" alt="Time-up alarm" width="145">
+</p>
+
+The home page keeps only the three practical presets: 15, 25, and 60 minutes. Custom input supports separate hour, minute, and second fields; `CLEAR` resets the active field, while `DELETE` behaves as backspace. The countdown uses real elapsed time, keeps touch responsive during refresh, supports pause and an in-place end confirmation, and repeats a gentle alarm until `END` is tapped.
+
+### Status Board: one glance, one clear state
+
+| Menu | Full status |
+| --- | --- |
+| <img src="docs/images/status-board/menu.png" alt="Status Board menu" width="380"> | <img src="docs/images/status-board/status.png" alt="Full-screen status" width="380"> |
+
+| Open to talk | On-device custom text |
+| --- | --- |
+| <img src="docs/images/status-board/open-to-talk.png" alt="Open to talk status" width="380"> | <img src="docs/images/status-board/custom.png" alt="Custom status keyboard" width="380"> |
+
+`BUSY`, `MEETING`, `ON CALL`, `OPEN TO TALK`, `REST`, and `CUSTOM` each open a full landscape second-level page. Preset pages use a matching rabbit scene; the custom page provides a responsive letters/numbers keyboard and stores the selected text for the current session.
+
+### Book of Answers: ask, shake, think, reveal
+
+<p align="center">
+  <img src="docs/images/book-of-answers/home.png" alt="Book of Answers home" width="145">
+  <img src="docs/images/book-of-answers/thinking.png" alt="Thinking animation" width="145">
+  <img src="docs/images/book-of-answers/shake-longer.png" alt="Shake longer instruction" width="145">
+  <img src="docs/images/book-of-answers/message-result.png" alt="Message answer" width="145">
+  <img src="docs/images/book-of-answers/crystal-result.png" alt="Crystal answer" width="145">
+</p>
+
+`MESSAGE` is selected by default and draws from 350 embedded answers. `YES OR NO` uses the crystal ball and returns `YES`, `NO`, or `UNCLEAR`. The home page stays visually quiet so the three-second instruction remains easy to read. A short shake opens an exact retry message; a qualified shake continues through thinking and reveal animations before showing the result.
+
+### Launcher in both physical orientations
+
+| Portrait layout | Landscape layout |
+| --- | --- |
+| <img src="docs/images/launcher/launcher-portrait.png" alt="Portrait app launcher" width="245"> | <img src="docs/images/launcher/launcher-landscape.png" alt="Landscape app launcher" width="500"> |
+
+The launcher starts IMU monitoring as soon as the AI key is physically pressed, before the ePaper refresh begins. Touch selection and motion selection remain available together. The selected app receives the device's final placement so both drawing and touch coordinates use the same visible direction.
+
+### Six-page first-boot guide
+
+The guide appears once for a new NVS state and can be reopened from the illustrated book on the pet home screen.
+
+| Welcome | Care values | Growth results |
+| --- | --- | --- |
+| <img src="docs/images/onboarding/tutorial-page-1.png" alt="Tutorial welcome page" width="220"> | <img src="docs/images/onboarding/tutorial-page-2.png" alt="Pet values tutorial" width="220"> | <img src="docs/images/onboarding/tutorial-page-3.png" alt="Pet growth outcomes tutorial" width="220"> |
+
+| Applications | Launcher controls | Rotation and shake |
+| --- | --- | --- |
+| <img src="docs/images/onboarding/tutorial-page-4.png" alt="Applications tutorial" width="220"> | <img src="docs/images/onboarding/tutorial-page-5.png" alt="Launcher controls tutorial" width="220"> | <img src="docs/images/onboarding/tutorial-page-6.png" alt="Rotation and shake tutorial" width="220"> |
 
 ## Hardware target
 
@@ -147,7 +228,12 @@ pio run -e sticky-debug -t upload
 pio device monitor -e sticky-debug
 ```
 
-The monitor runs at `115200` baud. See [Getting Started](docs/wiki/Getting-Started.md) for download-mode recovery, complete-image flashing, NVS reset and first-boot expectations.
+The monitor runs at `115200` baud. A successful boot reaches `sticky_boot: phase=ready result=ok` and then reports the active app. To start from a completely new pet and replay onboarding, erase the flash and upload again:
+
+```bash
+pio run -e sticky-release -t erase
+pio run -e sticky-release -t upload
+```
 
 ## Build profiles
 
@@ -177,13 +263,24 @@ src/
 └── ui/                  # Canvas, font, overlays and generated pixel assets
 
 assets/                  # Original art, firmware-ready images and QA renders
-docs/wiki/               # User and developer documentation
+docs/images/             # Curated README screenshots and design history
+docs/desktop_pet_growth_system.md
+                         # Detailed pet rules and source audit
 test/                    # Native state, policy and rendering tests
 tools/                   # Deterministic asset and database generators
 third_party/             # License notices for adapted open-source ideas
 ```
 
-The [firmware architecture guide](docs/wiki/Firmware-Architecture.md) follows execution from `app_main()` through hardware initialization, onboarding, app ownership, display refresh and deep sleep.
+### Firmware execution flow
+
+1. `app_main()` holds the battery-power latch and initializes the board power paths.
+2. Shared SPI and I²C owners start before display, touch, RTC, battery, buzzer, buttons, and IMU clients.
+3. New devices enter the six-page tutorial; completed devices restore the pet save and open the correct root page.
+4. The app coordinator gives exactly one app input and display ownership at a time.
+5. The launcher pauses the active app, captures touch and IMU choices, then resumes or switches ownership.
+6. Before deep sleep, stable state is saved, peripherals stop, the display is prepared, and the RTC alarm is programmed.
+
+Public hardware and app interfaces use concise bilingual comments. Pure C++ state, policy, routing, storage-record, and rendering modules remain independent from ESP-IDF wherever possible so behavior can be verified on a development computer.
 
 ## Tests and visual QA
 
@@ -201,29 +298,82 @@ The native tests exercise state machines and render pages into PPM files without
 python3 tools/check_markdown_links.py
 ```
 
-The complete command matrix and expected preview files are documented in [Testing and Debugging](docs/wiki/Testing-and-Debugging.md). Hardware release checks are in [Flashing and Releases](docs/wiki/Flashing-and-Releases.md).
+Rendering tests write PPM previews to `/tmp`, including pet, Pomodoro, Status Board, Book of Answers, launcher, and all onboarding pages. These previews use the firmware's actual canvas, font, touch maps, and generated pixel assets.
 
-## Documentation
+### Asset regeneration
 
-| Guide | What it explains |
+```bash
+python3 -m pip install -r requirements-dev.txt
+python3 tools/generate_desktop_pet_assets.py
+python3 tools/generate_pomodoro_assets.py
+python3 tools/generate_app_launcher_assets.py
+python3 tools/generate_book_of_answers_assets.py
+python3 tools/generate_onboarding_assets.py
+python3 tools/generate_pixel_bunnies.py
+```
+
+Generated C++ assets are written under `src/ui/assets/`. Re-running the generators with unchanged inputs produces no source diff.
+
+## Hardware and driver map
+
+<p align="center">
+  <img src="docs/images/hardware/sticky-button-layout.png" alt="reTerminal Sticky button and SD card layout" width="620">
+</p>
+
+| Hardware path | Firmware owner |
 | --- | --- |
-| [Documentation home](docs/wiki/Home.md) | Find the right user or developer guide |
-| [Getting Started](docs/wiki/Getting-Started.md) | Build, upload and complete first boot |
-| [Desktop Pet](docs/wiki/Desktop-Pet.md) | Daily interactions and visible behavior |
-| [Pet Growth System](docs/wiki/Pet-Growth-System.md) | Stages, personality, values and persistence |
-| [Pomodoro Timer](docs/wiki/Pomodoro-Timer.md) | Presets, custom time, countdown and alarm |
-| [Status Board](docs/wiki/Status-Board.md) | Preset and custom landscape status pages |
-| [Book of Answers](docs/wiki/Book-of-Answers.md) | Message and crystal-ball answer modes |
-| [Launcher and Gestures](docs/wiki/App-Launcher-and-Gestures.md) | Touch, button, rotation and shake routing |
-| [Power and RTC](docs/wiki/Power-and-RTC.md) | Sleep policy, scheduled events and battery UI |
-| [Firmware Architecture](docs/wiki/Firmware-Architecture.md) | Modules, ownership and execution flow |
-| [Asset Pipeline](docs/wiki/Asset-Pipeline.md) | Artwork sources and deterministic conversion |
-| [Testing and Debugging](docs/wiki/Testing-and-Debugging.md) | Native tests, logs and visual QA |
-| [Troubleshooting](docs/wiki/Troubleshooting.md) | Common build, flash, display, touch and RTC checks |
+| ePaper and microSD shared SPI | `src/board/board_shared_spi.*` serializes display and SD ownership |
+| GT911 at `0x14` | `src/input/sticky_touch.*` records released taps and complete swipe paths |
+| LSM6DS3TR-C at `0x6A` | `src/sensors/sticky_imu.*` reports observed motion, stable placement, and shake sessions |
+| PCF8563 at `0x51` | `src/devices/sticky_rtc.*` supplies date, elapsed time, and alarm wake |
+| BQ27220 at `0x55` | `src/devices/sticky_battery.*` supplies charge percentage |
+| GPIO 48 buzzer | `src/devices/sticky_buzzer.*` plays non-blocking app and pet patterns |
+
+## Troubleshooting
+
+| Symptom | Check |
+| --- | --- |
+| Upload cannot connect | Use a data-capable cable, close the serial monitor, select the current `/dev/cu.*` or COM port, then retry upload. |
+| Old pet values remain | Run the erase and upload commands above; uploading alone preserves NVS by design. |
+| Display works but touch does not | Use `sticky-debug` and confirm `GT911` reports ID `911`, address `0x14`, sensor `480x800`, and `touch=polling_ready`. |
+| Screen contains an old ghost image | Confirm boot performs a white full clear and that periodic cleanup refreshes still occur. |
+| Rotation selects the wrong page | Compare the settled `from` and `to` orientation log with the device's physical final placement. |
+| Short shake immediately reveals an answer | Confirm a fresh quiet gate is armed and effective peaks span the complete three-second question window. |
+| Battery operation stops after USB removal | Confirm the boot log reports the power latch and charger path before display initialization. |
 
 ## Design history
 
-The firmware grew through physical-device testing and many ePaper-specific UI iterations. The Wiki keeps selected concept sheets beside final code-rendered screens so future contributors can understand the visual system without mistaking experiments for shipped behavior. Visit [Design and Asset Gallery](docs/wiki/Design-and-Asset-Gallery.md).
+The project grew through physical-device testing and repeated ePaper UI studies. The current code-rendered screens above are the shipped source of truth; the selected concepts below show how the rabbit, launcher, tutorial, and focus language developed.
+
+<details>
+<summary><strong>Open the design and asset gallery</strong></summary>
+
+### Desktop pet home direction
+
+<p align="center">
+  <img src="docs/images/design-history/desktop-pet-home-concept.png" alt="Desktop pet home concept" width="420">
+  <img src="docs/images/design-history/pet-home-reference-comparison.png" alt="Pet home reference and firmware comparison" width="420">
+</p>
+
+### App launcher direction
+
+<p align="center">
+  <img src="docs/images/design-history/app-launcher-concept.png" alt="App launcher visual concept" width="650">
+</p>
+
+### First-boot tutorial direction
+
+<p align="center">
+  <img src="docs/images/design-history/onboarding-concept.png" alt="First-boot tutorial concept" width="760">
+</p>
+
+### Pomodoro guidance direction
+
+<p align="center">
+  <img src="docs/images/design-history/pomodoro-guide-concept.png" alt="Pomodoro guide concept" width="520">
+</p>
+
+</details>
 
 ## Contributing
 

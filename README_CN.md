@@ -6,8 +6,8 @@
 
 <p align="center">
   <a href="README.md">English</a> ·
-  <a href="docs/wiki/Getting-Started.md">快速开始</a> ·
-  <a href="docs/wiki/Home.md">完整文档</a> ·
+  <a href="#快速开始">快速开始</a> ·
+  <a href="#完整视觉导览">视觉导览</a> ·
   <a href="CHANGELOG.md">更新日志</a>
 </p>
 
@@ -66,7 +66,16 @@ reTerminal Sticky Bunny 把 Seeed Studio **reTerminal Sticky** 变成一个持�
 4. `YOUTH`：形成 `FOODIE`、`AFFECTIONATE` 或 `ACTIVE` 性格。
 5. `ADULT`：三种路线拥有不同外形、互动动作、台词和外出纪念品。
 
-成长值、亲密值、饱腹值、能量、心情、连续照料天数、最近动作、最近台词、性格证据和计划外出时间都会跨重启保存。完整规则见 [桌宠成长系统](docs/wiki/Pet-Growth-System.md)。
+成长值、亲密值、饱腹值、能量、心情、连续照料天数、最近动作、最近台词、性格证据和计划外出时间都会跨重启保存。平衡规则与开源方案审计记录位于 [桌宠成长系统设计](docs/desktop_pet_growth_system.md)。
+
+| 数值 | 实际作用 |
+| --- | --- |
+| `GROWTH` | 通过每天的有效照料积累长期成长进度 |
+| `LOVE` | 亲密等级，会改变兔子的对白和反应 |
+| `FULLNESS` | 饱腹状态，通过喂食恢复 |
+| `ENERGY` | 活动能力，睡眠时每分钟恢复 6% |
+
+照料奖励采用稳定节奏：每天最多获得 10 点成长和 8 点亲密；连续照料达到 3、7、30 和 100 天时，每个里程碑只庆祝一次。兔子不是每天都会外出；生成外出计划时，它会离开 1～7 小时，用户也可以在外出页面提前叫它回家。
 
 ## 应用选择与设备交互
 
@@ -83,7 +92,7 @@ reTerminal Sticky Bunny 把 Seeed Studio **reTerminal Sticky** 变成一个持�
 - 应用选择器打开时持续摇晃：进入答案书。
 - 同时按住两个非 AI 侧键：进入深度睡眠。
 
-旋转路由会等待设备停止移动并确认最终稳定方向；一旦检测到合格的持续摇晃，会优先锁定答案书。详细状态和阈值见 [应用选择器与手势](docs/wiki/App-Launcher-and-Gestures.md)。
+旋转路由会等待设备停止移动并确认最终稳定方向：连续 5 个稳定样本才接受旋转；应用选择器内持续有效摇晃 800 毫秒会选择答案书，进入答案书后完整求答案过程仍要求 3 秒有效摇晃。
 
 ## 电子纸、低功耗与 RTC
 
@@ -91,7 +100,79 @@ reTerminal Sticky Bunny 把 Seeed Studio **reTerminal Sticky** 变成一个持�
 
 桌宠在进入睡眠前会安排下一项有意义的自主事件。PCF8563 RTC 可以在外出或其他计划事件前唤醒设备，而不是每隔固定时间盲目唤醒。电池百分比来自 BQ27220 电量计，充电、电量和睡眠标志会根据页面留白自动选择位置。
 
-进一步阅读：[低功耗与 RTC](docs/wiki/Power-and-RTC.md)、[硬件与驱动](docs/wiki/Hardware-and-Drivers.md)。
+同时按住两个非 AI 侧键也可以主动进入深度睡眠。休眠前，当前 APP 会保存稳定页面，输入外设按顺序停止，显示屏按需要清理残影，RTC 则记录下一次有意义的唤醒时间。
+
+## 完整视觉导览
+
+下面展示的画面，要么直接由固件真实的 `Canvas`、字体和 1 位素材渲染生成，要么明确标注为设计过程素材。正式页面与实际设备编译使用同一套布局和素材。
+
+### 桌宠：从宠物蛋成长为独一无二的伙伴
+
+| 宠物蛋与主页 | 儿童期与青年期 |
+| --- | --- |
+| <img src="docs/images/desktop-pet/egg.png" alt="宠物蛋页面" width="235"> <img src="docs/images/desktop-pet/home-firmware-render.png" alt="固件实际渲染的桌宠主页" width="235"> | <img src="docs/images/desktop-pet/child.png" alt="儿童期兔子" width="235"> <img src="docs/images/desktop-pet/youth.png" alt="青年期兔子" width="235"> |
+
+| 性格选择与成年期 | 睡眠与外出 |
+| --- | --- |
+| <img src="docs/images/desktop-pet/personality-choice.png" alt="性格选择页面" width="235"> <img src="docs/images/desktop-pet/adult.png" alt="成年期兔子" width="235"> | <img src="docs/images/desktop-pet/sleep.png" alt="兔子睡眠页面" width="235"> <img src="docs/images/desktop-pet/outing.png" alt="兔子外出页面" width="235"> |
+
+桌宠规则与显示代码彼此独立：RTC 推进需求与年龄，用户交互更新带版本的状态对象，两个带校验值的 NVS 槽位保护存档，页面再根据成长阶段和性格选择专属兔子姿势。对白会按阶段、亲密、当前活动和最近历史筛选；存在其他候选时，优先避开刚说过的句子。
+
+### 番茄钟：设置、专注与结束
+
+<p align="center">
+  <img src="docs/images/pomodoro/setup.png" alt="番茄钟设置页面" width="145">
+  <img src="docs/images/pomodoro/custom-time.png" alt="自定义时间键盘" width="145">
+  <img src="docs/images/pomodoro/running.png" alt="倒计时页面" width="145">
+  <img src="docs/images/pomodoro/end-dialog.png" alt="结束确认弹窗" width="145">
+  <img src="docs/images/pomodoro/alarm.png" alt="时间到页面" width="145">
+</p>
+
+主页只保留 15、25 和 60 分钟三个实用预设。自定义时间提供独立的时、分、秒字段：`CLEAR` 清空当前字段，`DELETE` 按退格规则删除。倒计时按照真实经过时间计算，刷新电子纸时仍继续接收触摸；支持暂停、原页面结束确认，以及需要用户点击 `END` 才停止的柔和循环提示音。
+
+### 状态板：一眼看懂当前状态
+
+| 状态菜单 | 全屏状态 |
+| --- | --- |
+| <img src="docs/images/status-board/menu.png" alt="状态板菜单" width="380"> | <img src="docs/images/status-board/status.png" alt="全屏状态页面" width="380"> |
+
+| 欢迎交流 | 设备端自定义文字 |
+| --- | --- |
+| <img src="docs/images/status-board/open-to-talk.png" alt="OPEN TO TALK 状态" width="380"> | <img src="docs/images/status-board/custom.png" alt="自定义状态键盘" width="380"> |
+
+`BUSY`、`MEETING`、`ON CALL`、`OPEN TO TALK`、`REST` 和 `CUSTOM` 都会打开横屏全尺寸二级页面。预设状态拥有对应的兔子场景；自定义状态提供跟手的字母/数字键盘，并在当前会话中保留输入内容。
+
+### 答案书：提问、摇晃、思考、揭晓
+
+<p align="center">
+  <img src="docs/images/book-of-answers/home.png" alt="答案书主页" width="145">
+  <img src="docs/images/book-of-answers/thinking.png" alt="思考动画" width="145">
+  <img src="docs/images/book-of-answers/shake-longer.png" alt="继续摇晃提示" width="145">
+  <img src="docs/images/book-of-answers/message-result.png" alt="一句话答案" width="145">
+  <img src="docs/images/book-of-answers/crystal-result.png" alt="水晶球答案" width="145">
+</p>
+
+默认选择 `MESSAGE`，内置 350 条答案；`YES OR NO` 使用水晶球返回 `YES`、`NO` 或 `UNCLEAR`。主页保持安静，让三秒使用指示更容易阅读。摇晃时间不足会显示准确的重试提示；达标后会正常播放思考与揭晓动画，再显示结果。
+
+### 横竖方向都能使用的应用选择器
+
+| 竖屏布局 | 横屏布局 |
+| --- | --- |
+| <img src="docs/images/launcher/launcher-portrait.png" alt="竖屏应用选择器" width="245"> | <img src="docs/images/launcher/launcher-landscape.png" alt="横屏应用选择器" width="500"> |
+
+AI 键发生实体按下时，IMU 会立即启动，不等待电子纸画完应用选择器。触摸选择与旋转、摇晃选择始终同时存在。目标 APP 会收到设备最终的放置方向，绘图和触摸坐标因此保持同一个正向画面。
+
+### 六页首次开机教程
+
+新 NVS 状态只会自动显示一次教程；之后可以从桌宠主页的小书图标重新打开。
+
+| 欢迎页 | 照料数值 | 成长结果 |
+| --- | --- | --- |
+| <img src="docs/images/onboarding/tutorial-page-1.png" alt="教程欢迎页" width="220"> | <img src="docs/images/onboarding/tutorial-page-2.png" alt="桌宠数值教程" width="220"> | <img src="docs/images/onboarding/tutorial-page-3.png" alt="成长结果教程" width="220"> |
+
+| 应用介绍 | 启动器操作 | 旋转与摇晃 |
+| --- | --- | --- |
+| <img src="docs/images/onboarding/tutorial-page-4.png" alt="应用介绍教程" width="220"> | <img src="docs/images/onboarding/tutorial-page-5.png" alt="应用选择器教程" width="220"> | <img src="docs/images/onboarding/tutorial-page-6.png" alt="旋转和摇晃教程" width="220"> |
 
 ## 快速开始
 
@@ -132,7 +213,12 @@ pio run -e sticky-debug -t upload
 pio device monitor -e sticky-debug
 ```
 
-串口波特率为 `115200`。下载模式恢复、完整固件烧录、NVS 清空和首次启动现象见 [快速开始](docs/wiki/Getting-Started.md)。
+串口波特率为 `115200`。成功启动时会看到 `sticky_boot: phase=ready result=ok`，随后记录当前 APP。需要清空旧桌宠存档并重新播放首次教程时，先完整擦除再上传：
+
+```bash
+pio run -e sticky-release -t erase
+pio run -e sticky-release -t upload
+```
 
 ## 构建环境
 
@@ -162,13 +248,24 @@ src/
 └── ui/                  # 画布、字体、电量叠层和像素素材
 
 assets/                  # 原始素材、固件图片与视觉验收图
-docs/wiki/               # 用户与开发者文档
+docs/images/             # README 使用的正式截图与设计演进素材
+docs/desktop_pet_growth_system.md
+                         # 桌宠规则与开源方案审计
 test/                    # 状态、策略和页面渲染测试
 tools/                   # 可重复运行的素材与数据库生成工具
 third_party/             # 上游开源方案的许可证与使用说明
 ```
 
-程序从 `app_main()` 到硬件初始化、首次教程、应用所有权、电子纸刷新和深度睡眠的完整顺序见 [固件架构](docs/wiki/Firmware-Architecture.md)。
+### 固件执行顺序
+
+1. `app_main()` 首先保持电池供电锁存并初始化板级电源路径。
+2. 共享 SPI 和 I²C 管理器先启动，随后初始化显示、触摸、RTC、电池、蜂鸣器、按键和 IMU。
+3. 新设备进入六页教程；已经完成教程的设备读取桌宠存档并打开对应根页面。
+4. APP 协调器在同一时间只把输入和显示所有权交给一个 APP。
+5. 应用选择器暂停当前 APP，接收触摸与 IMU 选择，然后恢复原 APP 或切换所有权。
+6. 深度睡眠前保存稳定状态、停止外设、整理显示画面并设置 RTC 唤醒时间。
+
+公开硬件接口和 APP 接口已经补充简洁的中英双语注释。状态、策略、路由、存档记录和页面渲染尽量保持为不依赖 ESP-IDF 的纯 C++ 模块，方便直接在电脑上验证。
 
 ## 测试
 
@@ -186,29 +283,82 @@ third_party/             # 上游开源方案的许可证与使用说明
 python3 tools/check_markdown_links.py
 ```
 
-完整命令与输出文件见 [测试与调试](docs/wiki/Testing-and-Debugging.md)，真机发布检查见 [烧录与发布](docs/wiki/Flashing-and-Releases.md)。
+页面渲染测试会在 `/tmp` 输出桌宠、番茄钟、状态板、答案书、应用选择器和六页教程的 PPM 预览。这些预览直接使用固件真实的画布、字体、触摸映射和像素素材。
 
-## 文档入口
+### 重新生成固件素材
 
-| 文档 | 内容 |
+```bash
+python3 -m pip install -r requirements-dev.txt
+python3 tools/generate_desktop_pet_assets.py
+python3 tools/generate_pomodoro_assets.py
+python3 tools/generate_app_launcher_assets.py
+python3 tools/generate_book_of_answers_assets.py
+python3 tools/generate_onboarding_assets.py
+python3 tools/generate_pixel_bunnies.py
+```
+
+生成后的 C++ 素材位于 `src/ui/assets/`。输入图片没有改变时，重复生成不会产生源码差异。
+
+## 硬件与驱动对应关系
+
+<p align="center">
+  <img src="docs/images/hardware/sticky-button-layout.png" alt="reTerminal Sticky 按键与 SD 卡位置" width="620">
+</p>
+
+| 硬件路径 | 固件管理模块 |
 | --- | --- |
-| [文档主页](docs/wiki/Home.md) | 用户和开发者文档总入口 |
-| [快速开始](docs/wiki/Getting-Started.md) | 编译、烧录与首次启动 |
-| [桌宠使用说明](docs/wiki/Desktop-Pet.md) | 日常互动与可见行为 |
-| [桌宠成长系统](docs/wiki/Pet-Growth-System.md) | 阶段、性格、数值和存档 |
-| [番茄钟](docs/wiki/Pomodoro-Timer.md) | 预设、自定义时间、倒计时和提示音 |
-| [状态板](docs/wiki/Status-Board.md) | 预设状态与自定义横屏展示 |
-| [答案书](docs/wiki/Book-of-Answers.md) | 一句话与水晶球答案模式 |
-| [应用选择器与手势](docs/wiki/App-Launcher-and-Gestures.md) | 触摸、按键、旋转和摇晃路由 |
-| [低功耗与 RTC](docs/wiki/Power-and-RTC.md) | 睡眠策略、计划事件和电池显示 |
-| [固件架构](docs/wiki/Firmware-Architecture.md) | 模块、所有权和运行顺序 |
-| [素材生成](docs/wiki/Asset-Pipeline.md) | 原图、固件位图和生成工具 |
-| [测试与调试](docs/wiki/Testing-and-Debugging.md) | 原生测试、日志和视觉验收 |
-| [常见问题](docs/wiki/Troubleshooting.md) | 构建、烧录、显示、触摸与 RTC 排查 |
+| 电子纸与 microSD 共享 SPI | `src/board/board_shared_spi.*` 统一协调显示和 SD 使用权 |
+| 地址 `0x14` 的 GT911 | `src/input/sticky_touch.*` 记录抬手点击与完整滑动轨迹 |
+| 地址 `0x6A` 的 LSM6DS3TR-C | `src/sensors/sticky_imu.*` 输出即时运动、稳定方向和摇晃会话 |
+| 地址 `0x51` 的 PCF8563 | `src/devices/sticky_rtc.*` 提供日期、经过时间和闹钟唤醒 |
+| 地址 `0x55` 的 BQ27220 | `src/devices/sticky_battery.*` 提供真实剩余电量 |
+| GPIO 48 蜂鸣器 | `src/devices/sticky_buzzer.*` 非阻塞播放 APP 和桌宠音型 |
+
+## 常见问题
+
+| 现象 | 检查方式 |
+| --- | --- |
+| 上传时无法连接 | 使用支持数据的线，关闭串口监视器，选择当前 `/dev/cu.*` 或 COM 端口，再重新上传。 |
+| 上传后仍保留旧桌宠数值 | 执行上面的擦除与上传命令；普通上传按设计保留 NVS。 |
+| 屏幕正常但触摸无效 | 烧录 `sticky-debug`，确认 `GT911` 日志包含 ID `911`、地址 `0x14`、传感器 `480x800` 和 `touch=polling_ready`。 |
+| 出现历史画面残影 | 确认开机先全屏清白，并且周期性清理刷新仍然执行。 |
+| 旋转进入了错误页面 | 把日志中的稳定 `from`、`to` 方向与设备最终真实放置方向对应检查。 |
+| 短促摇晃就直接出答案 | 确认新的静止门控已经重新开启，有效峰值完整覆盖三秒提问窗口。 |
+| 拔掉 USB 后设备停止工作 | 确认显示初始化之前已经记录电源锁存和充电路径日志。 |
 
 ## 设计演进
 
-项目经历了多轮真机测试和电子纸 UI 调整。Wiki 将部分概念图与代码实际渲染页面并列保存，让后续开发者了解视觉体系，同时明确区分探索方案和正式效果。参见 [设计与素材画廊](docs/wiki/Design-and-Asset-Gallery.md)。
+项目经历了多轮真机测试和电子纸 UI 调整。上面的代码渲染页面是正式效果；下面保留的概念素材用于说明兔子、应用选择器、首次教程和专注界面的视觉语言如何逐步形成。
+
+<details>
+<summary><strong>展开设计与素材画廊</strong></summary>
+
+### 桌宠主页方向
+
+<p align="center">
+  <img src="docs/images/design-history/desktop-pet-home-concept.png" alt="桌宠主页概念图" width="420">
+  <img src="docs/images/design-history/pet-home-reference-comparison.png" alt="桌宠主页参考与固件效果对比" width="420">
+</p>
+
+### 应用选择器方向
+
+<p align="center">
+  <img src="docs/images/design-history/app-launcher-concept.png" alt="应用选择器视觉概念" width="650">
+</p>
+
+### 首次开机教程方向
+
+<p align="center">
+  <img src="docs/images/design-history/onboarding-concept.png" alt="首次开机教程概念" width="760">
+</p>
+
+### 番茄钟引导方向
+
+<p align="center">
+  <img src="docs/images/design-history/pomodoro-guide-concept.png" alt="番茄钟引导概念" width="520">
+</p>
+
+</details>
 
 ## 参与贡献
 

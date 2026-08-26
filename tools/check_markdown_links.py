@@ -12,13 +12,14 @@ from urllib.parse import unquote
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MARKDOWN_LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
+HTML_TARGET = re.compile(r'(?:src|href)="([^"]+)"')
 EXTERNAL_SCHEMES = ("http://", "https://", "mailto:", "tel:", "data:")
 
 
 def markdown_files() -> list[Path]:
     """Return first-party Markdown files while skipping generated directories."""
 
-    excluded = {".git", ".pio", "build", "dist"}
+    excluded = {".git", ".pio", ".trash", "build", "dist"}
     return sorted(
         path
         for path in PROJECT_ROOT.rglob("*.md")
@@ -47,8 +48,14 @@ def main() -> int:
 
     for markdown_path in markdown_files():
         content = markdown_path.read_text(encoding="utf-8")
-        for match in MARKDOWN_LINK.finditer(content):
-            target = local_target(match.group(1))
+        raw_targets = [
+            match.group(1) for match in MARKDOWN_LINK.finditer(content)
+        ]
+        raw_targets.extend(
+            match.group(1) for match in HTML_TARGET.finditer(content)
+        )
+        for raw_target in raw_targets:
+            target = local_target(raw_target)
             if target is None:
                 continue
             checked_links += 1
