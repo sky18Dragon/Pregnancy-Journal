@@ -13,6 +13,7 @@
 #include "freertos/task.h"
 #include "gt911.h"
 #include "pin_config.h"
+#include "sticky_touch_recovery_policy.h"
 
 namespace {
 
@@ -28,12 +29,15 @@ constexpr UBaseType_t kPressQueueLength = 8;
 constexpr UBaseType_t kInteractionQueueLength = 8;
 constexpr TickType_t kStopTimeout = pdMS_TO_TICKS(1000);
 constexpr uint16_t kTapMoveTolerance = 24U;
+constexpr uint32_t kRecoveryRetryDelayMs = 1000U;
 
 i2c_master_bus_handle_t s_touch_bus = nullptr;
 GT911 s_controller;
 TaskHandle_t s_touch_task = nullptr;
 bool s_touching = false;
 bool s_read_error_reported = false;
+uint32_t s_consecutive_read_failures = 0U;
+uint32_t s_next_recovery_attempt_ms = 0U;
 uint16_t s_last_x = 0;
 uint16_t s_last_y = 0;
 uint16_t s_start_x = 0;
@@ -43,6 +47,88 @@ QueueHandle_t s_press_queue = nullptr;
 QueueHandle_t s_interaction_queue = nullptr;
 std::atomic<bool> s_stop_requested{false};
 std::atomic<uint32_t> s_last_activity_ms{0U};
+
+uint32_t monotonic_ms()
+{
+    return static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
+}
+
+bool time_reached(uint32_t now_ms, uint32_t target_ms)
+{
+    return static_cast<int32_t>(now_ms - target_ms) >= 0;
+}
+
+// Starts GT911 with the same reset and address-selection flow as the Sticky demo.
+// 使用Sticky示例相同的复位和地址选择流程启动GT911。
+bool start_touch_controller(const char *reason)
+{
+    if (!s_controller.begin(PIN_TOUCH_INT,
+                            PIN_TOUCH_RST,
+                            kDisplayWidth,
+                            kDisplayHeight,
+                            s_touch_bus)) {
+        STICKY_LOGW(kTag,
+                    "touch=controller_start reason=%s result=failed",
+                    reason);
+        return false;
+    }
+
+    uint16_t reported_width = 0U;
+    uint16_t reported_height = 0U;
+    const bool resolution_read =
+        s_controller.readResolution(reported_width, reported_height);
+    const StickyTouchSensorResolution resolution =
+        sticky_touch_select_sensor_resolution(
+            resolution_read, reported_width, reported_height);
+
+    // The reference hardware reports 480x800. The fallback changes only the
+    // software mapping and leaves the controller configuration untouched.
+    // 示例硬件分辨率为480x800；兜底只调整软件映射，不修改控制器配置。
+    s_controller.setSensorResolution(resolution.width, resolution.height);
+    s_consecutive_read_failures = 0U;
+    s_read_error_reported = false;
+    s_next_recovery_attempt_ms = 0U;
+
+    STICKY_LOGI(kTag,
+                "touch=controller_ready reason=%s address=0x%02X reported_width=%u reported_height=%u map_width=%u map_height=%u fallback=%u result=ok",
+                reason,
+                s_controller.address(),
+                static_cast<unsigned>(reported_width),
+                static_cast<unsigned>(reported_height),
+                static_cast<unsigned>(resolution.width),
+                static_cast<unsigned>(resolution.height),
+                static_cast<unsigned>(resolution.used_fallback));
+    return true;
+}
+
+// Repeats the reference reset flow after persistent polling faults.
+// 连续轮询异常后重新执行示例复位流程。
+bool recover_touch_controller(const char *reason, uint32_t now_ms)
+{
+    if (s_next_recovery_attempt_ms != 0U &&
+        !time_reached(now_ms, s_next_recovery_attempt_ms)) {
+        return false;
+    }
+
+    STICKY_LOGW(kTag,
+                "touch=recovery reason=%s failures=%u state=started",
+                reason,
+                static_cast<unsigned>(s_consecutive_read_failures));
+    s_touching = false;
+    if (start_touch_controller(reason)) {
+        STICKY_LOGI(kTag,
+                    "touch=recovery reason=%s state=finished result=ok",
+                    reason);
+        return true;
+    }
+
+    s_next_recovery_attempt_ms = now_ms + kRecoveryRetryDelayMs;
+    STICKY_LOGW(kTag,
+                "touch=recovery reason=%s retry_ms=%u state=finished result=failed",
+                reason,
+                static_cast<unsigned>(kRecoveryRetryDelayMs));
+    return false;
+}
 
 uint16_t scale_coordinate(uint16_t value,
                           uint16_t source_max,
@@ -142,36 +228,50 @@ void touch_task(void *)
     while (!s_stop_requested.load(std::memory_order_acquire)) {
         GTPoint point = {};
         const int8_t count = s_controller.read_points(&point, 1);
+        const uint32_t now_ms = monotonic_ms();
         if (count > 0) {
+            s_consecutive_read_failures = 0U;
+            s_read_error_reported = false;
+            if (s_touching &&
+                sticky_touch_contact_stuck(s_started_at_ms, now_ms)) {
+                (void)recover_touch_controller("contact_stuck", now_ms);
+                vTaskDelayUntil(&next_poll, kPollInterval);
+                continue;
+            }
+
             transform_touch_coordinate(point.x,
                                        point.y,
                                        s_last_x,
                                        s_last_y);
             if (!s_touching) {
                 s_touching = true;
-                const uint32_t captured_at_ms = static_cast<uint32_t>(
-                    esp_timer_get_time() / 1000LL);
                 s_start_x = s_last_x;
                 s_start_y = s_last_y;
-                s_started_at_ms = captured_at_ms;
-                s_last_activity_ms.store(captured_at_ms,
+                s_started_at_ms = now_ms;
+                s_last_activity_ms.store(now_ms,
                                          std::memory_order_release);
             }
-            s_read_error_reported = false;
         } else if (count == 0) {
+            s_consecutive_read_failures = 0U;
+            s_read_error_reported = false;
             if (s_touching) {
-                const uint32_t ended_at_ms = static_cast<uint32_t>(
-                    esp_timer_get_time() / 1000LL);
-                s_last_activity_ms.store(ended_at_ms,
+                s_last_activity_ms.store(now_ms,
                                          std::memory_order_release);
-                finish_touch_interaction(ended_at_ms);
+                finish_touch_interaction(now_ms);
                 s_touching = false;
             }
         } else if (count < 0) {
             s_touching = false;
+            ++s_consecutive_read_failures;
             if (!s_read_error_reported) {
-                STICKY_LOGW(kTag, "touch=read result=failed");
+                STICKY_LOGW(kTag,
+                            "touch=read failures=%u result=failed",
+                            static_cast<unsigned>(s_consecutive_read_failures));
                 s_read_error_reported = true;
+            }
+            if (sticky_touch_recovery_required(
+                    s_consecutive_read_failures)) {
+                (void)recover_touch_controller("read_failures", now_ms);
             }
         }
 
@@ -224,21 +324,9 @@ esp_err_t sticky_touch_init()
         return result;
     }
 
-    if (!s_controller.begin(PIN_TOUCH_INT,
-                            PIN_TOUCH_RST,
-                            kDisplayWidth,
-                            kDisplayHeight,
-                            s_touch_bus)) {
+    if (!start_touch_controller("boot")) {
         return ESP_FAIL;
     }
-    uint16_t sensor_width = 0;
-    uint16_t sensor_height = 0;
-    s_controller.readResolution(sensor_width, sensor_height);
-    STICKY_LOGI(kTag,
-                "touch=controller_ready address=0x%02X sensor_width=%u sensor_height=%u result=ok",
-                s_controller.address(),
-                static_cast<unsigned>(sensor_width),
-                static_cast<unsigned>(sensor_height));
 
     // Stores up to eight ordered press events in a FreeRTOS queue.
     // 使用FreeRTOS队列按顺序保存最多8个按下事件。

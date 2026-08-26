@@ -22,6 +22,10 @@ constexpr uint32_t kResetReleaseHighMs = 20;
 constexpr uint32_t kResetAddressSettleMs = 80;
 constexpr uint32_t kResetRetryDelayMs = 20;
 constexpr int kResetRetryCount = 3;
+constexpr int kI2COperationRetryCount = 3;
+constexpr uint32_t kI2COperationRetryDelayMs = 2;
+constexpr uint64_t kHealthLogIntervalMs = 2000;
+constexpr uint64_t kActiveLogIntervalMs = 100;
 
 uint64_t monotonic_ms()
 {
@@ -66,6 +70,8 @@ bool GT911::begin(int intPin, int rstPin, uint16_t width, uint16_t height, i2c_m
     rotation_ = 0;
     statusCached_ = false;
     cachedStatus_ = 0;
+    nextHealthLogMs_ = 0;
+    nextActiveLogMs_ = 0;
     ready_ = false;
 
     gpio_set_direction(static_cast<gpio_num_t>(intPin_), GPIO_MODE_OUTPUT);
@@ -131,23 +137,32 @@ void GT911::setRotation(uint8_t rotation)
     rotation_ = static_cast<uint8_t>(rotation & 0x03U);
 }
 
-void GT911::readResolution(uint16_t& maxX, uint16_t& maxY)
+bool GT911::readResolution(uint16_t& maxX, uint16_t& maxY)
 {
     uint8_t buf[4] = {};
     if(readRegisters(GT911_REG_COORD_RES, buf, sizeof(buf)))
     {
-        uint16_t x = static_cast<uint16_t>((static_cast<uint16_t>(buf[1]) << 8) | buf[0]);
-        uint16_t y = static_cast<uint16_t>((static_cast<uint16_t>(buf[3]) << 8) | buf[2]);
-        if(x != 0)
+        const uint16_t x = static_cast<uint16_t>((static_cast<uint16_t>(buf[1]) << 8) | buf[0]);
+        const uint16_t y = static_cast<uint16_t>((static_cast<uint16_t>(buf[3]) << 8) | buf[2]);
+        if(x != 0 && y != 0)
         {
             maxXSensor_ = x;
-        }
-        if(y != 0)
-        {
             maxYSensor_ = y;
+            maxX = maxXSensor_;
+            maxY = maxYSensor_;
+            APP_TOUCH_DEBUG_LOGI(kTag,
+                     "resolution register: raw=%02X %02X %02X %02X sensor=%ux%u",
+                     buf[0],
+                     buf[1],
+                     buf[2],
+                     buf[3],
+                     static_cast<unsigned>(maxXSensor_),
+                     static_cast<unsigned>(maxYSensor_));
+            return true;
         }
-        APP_TOUCH_DEBUG_LOGI(kTag,
-                 "resolution register: raw=%02X %02X %02X %02X sensor=%ux%u",
+
+        APP_TOUCH_DEBUG_LOGW(kTag,
+                 "resolution register invalid: raw=%02X %02X %02X %02X keep sensor=%ux%u",
                  buf[0],
                  buf[1],
                  buf[2],
@@ -165,6 +180,20 @@ void GT911::readResolution(uint16_t& maxX, uint16_t& maxY)
 
     maxX = maxXSensor_;
     maxY = maxYSensor_;
+    return false;
+}
+
+void GT911::setSensorResolution(uint16_t maxX, uint16_t maxY)
+{
+    if(maxX == 0 || maxY == 0)
+    {
+        return;
+    }
+
+    // Updates only the software coordinate mapping used by read_points().
+    // 只更新read_points()使用的软件坐标映射，不写触摸控制器寄存器。
+    maxXSensor_ = maxX;
+    maxYSensor_ = maxY;
 }
 
 bool GT911::is_available()
@@ -241,14 +270,31 @@ int8_t GT911::read_points(GTPoint* points, uint8_t maxPoints)
         }
     }
 
-    APP_TOUCH_DEBUG_LOGI(kTag,
-             "read_points: addr=0x%02X status=0x%02X cached=%u ready=%u count=%u max=%u",
-             addr_,
-             status,
-             static_cast<unsigned>(used_cached_status),
-             static_cast<unsigned>((status & 0x80U) != 0U),
-             static_cast<unsigned>(status & 0x0FU),
-             static_cast<unsigned>(maxPoints));
+    const uint64_t now_ms = monotonic_ms();
+    const bool data_ready = (status & 0x80U) != 0U;
+    const bool health_log_due = now_ms >= nextHealthLogMs_;
+    const bool active_log_due = data_ready && now_ms >= nextActiveLogMs_;
+    const bool log_sample = health_log_due || active_log_due;
+    if(log_sample)
+    {
+        APP_TOUCH_DEBUG_LOGI(kTag,
+                 "poll: addr=0x%02X status=0x%02X cached=%u ready=%u count=%u map=%ux%u",
+                 addr_,
+                 status,
+                 static_cast<unsigned>(used_cached_status),
+                 static_cast<unsigned>(data_ready),
+                 static_cast<unsigned>(status & 0x0FU),
+                 static_cast<unsigned>(maxXSensor_),
+                 static_cast<unsigned>(maxYSensor_));
+        if(health_log_due)
+        {
+            nextHealthLogMs_ = now_ms + kHealthLogIntervalMs;
+        }
+        if(active_log_due)
+        {
+            nextActiveLogMs_ = now_ms + kActiveLogIntervalMs;
+        }
+    }
 
     if((status & 0x80U) == 0U)
     {
@@ -318,22 +364,26 @@ int8_t GT911::read_points(GTPoint* points, uint8_t maxPoints)
             points[i].id = id;
             points[i].size = size;
 
-            APP_TOUCH_DEBUG_LOGI(kTag,
-                     "point[%u]: raw{x=%u y=%u size=%u id=%u} mapped{x=%u y=%u} rotation=%u",
-                     static_cast<unsigned>(i),
-                     static_cast<unsigned>(x),
-                     static_cast<unsigned>(y),
-                     static_cast<unsigned>(size),
-                     static_cast<unsigned>(id),
-                     static_cast<unsigned>(finalX),
-                     static_cast<unsigned>(finalY),
-                     static_cast<unsigned>(rotation_));
+            if(log_sample)
+            {
+                APP_TOUCH_DEBUG_LOGI(kTag,
+                         "point[%u]: raw{x=%u y=%u size=%u id=%u} mapped{x=%u y=%u} rotation=%u",
+                         static_cast<unsigned>(i),
+                         static_cast<unsigned>(x),
+                         static_cast<unsigned>(y),
+                         static_cast<unsigned>(size),
+                         static_cast<unsigned>(id),
+                         static_cast<unsigned>(finalX),
+                         static_cast<unsigned>(finalY),
+                         static_cast<unsigned>(rotation_));
+            }
         }
     }
 
     if(!clearStatus())
     {
         APP_TOUCH_DEBUG_LOGW(kTag, "read_points: clear status failed after %u point(s)", static_cast<unsigned>(outCount));
+        return -1;
     }
     return static_cast<int8_t>(outCount);
 }
@@ -467,18 +517,28 @@ bool GT911::writeRegister(uint16_t reg, uint8_t val)
         static_cast<uint8_t>(reg & 0xFFU),
         val,
     };
-    const esp_err_t err = i2c_master_transmit(i2c_dev_, payload, sizeof(payload), kI2CTimeoutMs);
-    if(err != ESP_OK)
+    esp_err_t err = ESP_FAIL;
+    for(int attempt = 0; attempt < kI2COperationRetryCount; ++attempt)
     {
-        APP_TOUCH_DEBUG_LOGW(kTag,
-                 "writeRegister failed addr=0x%02X reg=0x%04X val=0x%02X err=%s",
-                 addr_,
-                 reg,
-                 val,
-                 esp_err_to_name(err));
-        return false;
+        err = i2c_master_transmit(i2c_dev_, payload, sizeof(payload), kI2CTimeoutMs);
+        if(err == ESP_OK)
+        {
+            return true;
+        }
+        if(attempt + 1 < kI2COperationRetryCount)
+        {
+            vTaskDelay(pdMS_TO_TICKS(kI2COperationRetryDelayMs));
+        }
     }
-    return true;
+
+    APP_TOUCH_DEBUG_LOGW(kTag,
+             "writeRegister failed addr=0x%02X reg=0x%04X val=0x%02X attempts=%d err=%s",
+             addr_,
+             reg,
+             val,
+             kI2COperationRetryCount,
+             esp_err_to_name(err));
+    return false;
 }
 
 bool GT911::readRegister(uint16_t reg, uint8_t& val)
@@ -503,19 +563,29 @@ bool GT911::readRegisters(uint16_t reg, uint8_t* buffer, uint8_t len)
         static_cast<uint8_t>(reg >> 8),
         static_cast<uint8_t>(reg & 0xFFU),
     };
-    const esp_err_t err =
-        i2c_master_transmit_receive(i2c_dev_, reg_buf, sizeof(reg_buf), buffer, len, kI2CTimeoutMs);
-    if(err != ESP_OK)
+    esp_err_t err = ESP_FAIL;
+    for(int attempt = 0; attempt < kI2COperationRetryCount; ++attempt)
     {
-        APP_TOUCH_DEBUG_LOGW(kTag,
-                 "readRegisters failed addr=0x%02X reg=0x%04X len=%u err=%s",
-                 addr_,
-                 reg,
-                 static_cast<unsigned>(len),
-                 esp_err_to_name(err));
-        return false;
+        err = i2c_master_transmit_receive(
+            i2c_dev_, reg_buf, sizeof(reg_buf), buffer, len, kI2CTimeoutMs);
+        if(err == ESP_OK)
+        {
+            return true;
+        }
+        if(attempt + 1 < kI2COperationRetryCount)
+        {
+            vTaskDelay(pdMS_TO_TICKS(kI2COperationRetryDelayMs));
+        }
     }
-    return true;
+
+    APP_TOUCH_DEBUG_LOGW(kTag,
+             "readRegisters failed addr=0x%02X reg=0x%04X len=%u attempts=%d err=%s",
+             addr_,
+             reg,
+             static_cast<unsigned>(len),
+             kI2COperationRetryCount,
+             esp_err_to_name(err));
+    return false;
 }
 
 bool GT911::attachDevice(uint8_t address)

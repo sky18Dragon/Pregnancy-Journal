@@ -222,9 +222,14 @@ compile_and_run sticky_battery_protocol_test \
     -Isrc/devices \
     test/sticky_battery_protocol_test.cpp
 
+compile_and_run sticky_touch_recovery_policy_test \
+    -Isrc/input \
+    test/sticky_touch_recovery_policy_test.cpp \
+    src/input/sticky_touch_recovery_policy.cpp
+
 compile_and_run sticky_shake_detector_test \
     -Isrc/sensors \
     test/sticky_shake_detector_test.cpp \
     src/sensors/sticky_shake_detector.cpp
 
-echo "[host-test] PASS ${passed_count}/29"
+echo "[host-test] PASS ${passed_count}/30"

@@ -40,7 +40,7 @@ This repository contains the complete PlatformIO/ESP-IDF firmware, original mono
 - **Four polished on-device experiences.** The desktop pet, Pomodoro timer, status board, and Book of Answers share one launcher and one visual language.
 - **The device itself is the controller.** Open the launcher by button or swipe, select by touch, rotate into portrait or landscape apps, and shake to enter the Book of Answers.
 - **Designed for ePaper.** Stable screens use full or quality refreshes; time-sensitive views use bounded partial updates; input remains responsive while a refresh is in flight.
-- **Built around real hardware behavior.** The firmware manages the shared display/SD SPI bus, GT911 touch controller, LSM6DS3TR-C IMU, PCF8563 RTC, BQ27220 fuel gauge, buzzer, side buttons, battery operation, and deep sleep.
+- **Built around real hardware behavior.** The firmware manages the shared display/SD SPI bus, GT911 touch controller with the verified Sticky `480 x 800` sensor mapping and reference reset recovery, LSM6DS3TR-C IMU, PCF8563 RTC, BQ27220 fuel gauge, buzzer, side buttons, battery operation, and deep sleep.
 
 ## Application gallery
 

@@ -40,7 +40,8 @@ public:
     int8_t read_points(GTPoint* points, uint8_t maxPoints = kMaxTouchPoints);
 
     void setRotation(uint8_t rotation);
-    void readResolution(uint16_t& maxX, uint16_t& maxY);
+    bool readResolution(uint16_t& maxX, uint16_t& maxY);
+    void setSensorResolution(uint16_t maxX, uint16_t maxY);
 
     bool isReady() const { return ready_; }
     uint8_t address() const { return addr_; }
@@ -78,4 +79,6 @@ private:
     bool ready_ = false;
     bool statusCached_ = false;
     uint8_t cachedStatus_ = 0;
+    uint64_t nextHealthLogMs_ = 0;
+    uint64_t nextActiveLogMs_ = 0;
 };

@@ -46,6 +46,7 @@ idf_component_register(
         "devices/sticky_rtc.cpp"
         "display/sticky_display.cpp"
         "input/sticky_touch.cpp"
+        "input/sticky_touch_recovery_policy.cpp"
         "input/sticky_button.cpp"
         "sensors/sticky_imu.cpp"
         "sensors/sticky_shake_detector.cpp"
