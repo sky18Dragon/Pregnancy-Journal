@@ -263,8 +263,8 @@ extern "C" void app_main()
         halt_after_error("nvs_flash_init", nvs_result);
     }
 
-    // Presents the eight-page first-boot guide before background app tasks run.
-    // 在后台APP任务启动前展示八页首次开机教程。
+    // Presents the six-page first-boot guide before background app tasks run.
+    // 在后台APP任务启动前展示六页首次开机教程。
     const esp_err_t onboarding_result =
         onboarding_app_run_if_needed(*canvas);
     if (onboarding_result != ESP_OK) {

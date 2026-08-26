@@ -89,10 +89,30 @@ int main()
         assert(canvas.height() == 800U);
         ink_counts[page] = black_pixel_count(buffer);
         assert(ink_counts[page] > 10000U);
+        assert(logical_black_pixel_count(canvas, 8, 18, 18, 713) >
+               1500U);
+        assert(logical_black_pixel_count(canvas, 461, 18, 471, 713) >
+               1500U);
         assert(logical_black_pixel_count(canvas, 8, 714, 18, 798) >
                120U);
         assert(logical_black_pixel_count(canvas, 461, 714, 471, 798) >
                120U);
+        if (page == 2U) {
+            assert(logical_black_pixel_count(canvas, 78, 703, 402, 713) <
+                   50U);
+        }
+        if (page == 1U) {
+            assert(logical_black_pixel_count(canvas, 138, 373, 184, 394) >
+                   35U);
+            assert(logical_black_pixel_count(canvas, 173, 382, 184, 394) >
+                   7U);
+        }
+        if (page == 3U) {
+            assert(logical_black_pixel_count(canvas, 24, 30, 80, 86) >
+                   500U);
+            assert(logical_black_pixel_count(canvas, 20, 100, 460, 680) >
+                   5000U);
+        }
         write_preview(canvas,
                       "/tmp/onboarding_" + std::to_string(page + 1U) +
                           ".ppm");
@@ -110,7 +130,7 @@ int main()
            OnboardingAction::None);
     assert(onboarding_page_action_at(0U, 420, 750) ==
            OnboardingAction::Next);
-    assert(onboarding_page_action_at(7U, 420, 750) ==
+    assert(onboarding_page_action_at(5U, 420, 750) ==
            OnboardingAction::Finish);
     assert(onboarding_page_action_at(0U, 240, 750) ==
            OnboardingAction::None);
@@ -140,7 +160,7 @@ int main()
     canvas.physical_to_logical(750, 59, logical_x, logical_y);
     assert(logical_x == 420);
     assert(logical_y == 750);
-    assert(onboarding_page_action_at(7U, logical_x, logical_y) ==
+    assert(onboarding_page_action_at(5U, logical_x, logical_y) ==
            OnboardingAction::Finish);
     return 0;
 }

@@ -72,17 +72,17 @@ final result: passed
 
 ## Result
 
-Passed. The eight portrait tutorial pages have zero P0, P1, and P2 visual issues.
+Passed. The six portrait tutorial pages have zero P0, P1, and P2 visual issues.
 
 ## Compared artifacts
 
 - References: approved page images in `assets/onboarding/redraws/`
-- Firmware previews: `assets/onboarding/previews/tutorial-page-1.png` through `tutorial-page-8.png`
-- Host-rendered frames: `/tmp/onboarding_1.ppm` through `/tmp/onboarding_8.ppm`
+- Firmware previews: `assets/onboarding/previews/tutorial-page-1.png` through `tutorial-page-6.png`
+- Host-rendered frames: `/tmp/onboarding_1.ppm` through `/tmp/onboarding_6.ppm`
 
 ## Checks
 
-- All eight complete panels are present in the approved order.
+- All six complete panels are present in the approved order.
 - Titles, illustrations, callouts, borders, and page content match the approved source; the runtime footer reflects the current navigation state.
 - Every page keeps its approved 480 x 800 portrait proportions.
 - The monochrome threshold keeps the main outlines, fine callout arrows, and small labels legible.

@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-constexpr uint8_t kOnboardingPageCount = 8U;
+constexpr uint8_t kOnboardingPageCount = 6U;
 
 enum class OnboardingAction : uint8_t {
     None,
