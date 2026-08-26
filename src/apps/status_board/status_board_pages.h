@@ -130,6 +130,8 @@ bool status_board_action_character(StatusBoardAction action, char &character);
 // 返回连续操作是否可以共用一次屏幕刷新。
 bool status_board_action_can_batch(StatusBoardAction action);
 
+// Returns stable English labels used by diagnostics and host tests.
+// 返回诊断日志和主机测试共用的稳定英文名称。
 const char *status_board_page_name(StatusBoardPage page);
 const char *status_board_status_name(StatusBoardStatus status);
 const char *status_board_action_name(StatusBoardAction action);

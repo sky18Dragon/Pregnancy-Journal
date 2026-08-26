@@ -142,6 +142,8 @@ DesktopPetNameAction desktop_pet_page_name_action_at(
     int x,
     int y);
 
+// Converts editor actions into characters and refresh-batching decisions.
+// 将编辑操作转换为字符，并判断是否可以合并屏幕刷新。
 bool desktop_pet_name_action_character(DesktopPetNameAction action,
                                        char &character);
 bool desktop_pet_name_action_can_batch(DesktopPetNameAction action);

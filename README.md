@@ -1,769 +1,240 @@
-# Sticky Firmware
+# reTerminal Sticky Bunny
 
-这是 reTerminal Sticky 的新固件工程。工程使用 PlatformIO 管理构建、烧录和串口监视，底层框架采用 ESP-IDF。`Sticky_dashboard_demo`是硬件驱动的参考来源。当前发布版本为`0.1.0`。
+<p align="center">
+  <strong>A living virtual pet and an interactive ePaper app collection for reTerminal Sticky.</strong>
+</p>
 
-固件上电后进入桌宠主页，顶部AI/OK按键负责唤起统一应用选择窗口。桌宠、答案书、番茄钟与状态牌通过同一个屏幕和触摸生命周期管理器运行。
+<p align="center">
+  <a href="README_CN.md">简体中文</a> ·
+  <a href="docs/wiki/Getting-Started.md">Get started</a> ·
+  <a href="docs/wiki/Home.md">Documentation</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
 
-新设备首次启动时先显示六页图文教程，依次介绍桌宠基础、桌宠数值、成长结果、四个内置APP、APP选择器操作和IMU旋转选择。底栏第一行使用左侧`BACK`、居中页码和右侧`NEXT / START`承载主导航，第二行居中显示`SKIP TUTORIAL`作为独立的次要操作；完成状态写入独立NVS标记，后续启动直接进入桌宠。宠物蛋和桌宠主页的对话框右侧常驻书本图片和`MANUAL`入口，可在不重启设备的情况下重新打开完整教程。Debug固件的APP选择器右上角仍保留`?`入口，用于清除教程标记并重启复测。
+<p align="center">
+  <img alt="ESP32-S3" src="https://img.shields.io/badge/MCU-ESP32--S3-000000?style=flat-square">
+  <img alt="ESP-IDF 5.4.1" src="https://img.shields.io/badge/ESP--IDF-5.4.1-000000?style=flat-square">
+  <img alt="PlatformIO" src="https://img.shields.io/badge/build-PlatformIO-000000?style=flat-square">
+  <img alt="Firmware 0.1.0" src="https://img.shields.io/badge/firmware-0.1.0-000000?style=flat-square">
+  <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-000000?style=flat-square">
+  <a href="https://github.com/limengdu/reTerminal_Sticky_Bunny/actions/workflows/build.yml"><img alt="Build and test" src="https://github.com/limengdu/reTerminal_Sticky_Bunny/actions/workflows/build.yml/badge.svg"></a>
+</p>
 
-IMU平时保持停止状态。单击顶部按键或从屏幕底部边缘向上滑动后，当前APP在安全边界暂停，屏幕中央显示桌宠、番茄钟、状态牌和答案书四个入口，同时启动本次IMU选择会话。用户可以直接触摸图标，也可以把设备从实际横置转为实际竖置进入番茄钟、从实际竖置转为实际横置进入状态牌，或持续摇晃进入答案书；番茄钟和状态牌会按设备放稳后的最终方向显示正向画面并同步触摸坐标。再次单击顶部按键或从选择窗口顶部至70%高度区域向下滑动会取消选择并恢复原APP。快速双击顶部按键会从任意APP直接返回桌宠，已在桌宠时保持当前页面。摇晃选择答案书时，同一次动作会继续用于完成答案书的三秒持续摇晃检测。
+<p align="center">
+  <img src="docs/images/desktop-pet/home.png" alt="Sticky Bunny virtual pet home" width="245">
+  &nbsp;&nbsp;
+  <img src="docs/images/launcher/launcher-portrait.png" alt="Sticky Bunny portrait app launcher" width="245">
+</p>
 
-GPIO5和GPIO6两个侧键在500毫秒内同时按下并保持2秒，会让当前安全页面进入深度睡眠；系统先用全屏黑白波形清理局刷积累的残影，并在当前画面右上角保留月亮图标，然后由蜂鸣器播放一声短促的休眠确认音，顶部AI键负责唤醒。系统自动进入深度睡眠时保持静音。使用电池时，桌宠在普通Debug和Release固件中空闲10分钟后自动休眠；专用`sticky-power-test`环境将该时间缩短为60秒。状态牌展示页为1分钟、状态牌菜单与番茄钟安全页及答案书稳定页为5分钟；APP选择窗口空闲30秒会自动收起。外接电源时保持活跃。完成孵化后，桌宠会把已经保存的下一次外出或回家时间转换为唯一的定时唤醒目标，在事件前15秒自动启动，完成事件画面后静音休眠。宠物蛋阶段不创建也不读取自主唤醒计划，会持续休眠直至用户按顶部AI键唤醒。
+reTerminal Sticky Bunny turns the Seeed Studio **reTerminal Sticky** into a small, persistent world: raise a rabbit that remembers your care, start a Pomodoro session, show your availability, or ask the Book of Answers. Touch, buttons, swipe gestures, device rotation, continuous shaking, RTC scheduling, and low-power ePaper behavior are designed as one coherent firmware experience.
 
-各APP页面右上角常驻电池图标和BQ27220提供的0～100%真实剩余电量；组件会根据页面底色自动使用黑底白线或白底黑线，外接电源存在时，电池内部显示闪电标记。电量最多每60秒重新读取一次，并随下一次电子纸页面刷新一起更新，避免为了一个缓慢变化的数字额外频繁刷新屏幕。进入深度睡眠时，电量显示向左移动，右上角同时保留独立的月亮图标。
+This repository contains the complete PlatformIO/ESP-IDF firmware, original monochrome artwork, host-side behavior and rendering tests, release packaging, and developer documentation.
 
-## 当前功能
+## Why this project is different
 
-### 首次开机教程
+- **A pet with continuity, not a static mascot.** It hatches, grows through five life stages, develops one of three personalities, remembers care, sleeps, speaks, plays, and occasionally goes outside.
+- **Four polished on-device experiences.** The desktop pet, Pomodoro timer, status board, and Book of Answers share one launcher and one visual language.
+- **The device itself is the controller.** Open the launcher by button or swipe, select by touch, rotate into portrait or landscape apps, and shake to enter the Book of Answers.
+- **Designed for ePaper.** Stable screens use full or quality refreshes; time-sensitive views use bounded partial updates; input remains responsive while a refresh is in flight.
+- **Built around real hardware behavior.** The firmware manages the shared display/SD SPI bus, GT911 touch controller, LSM6DS3TR-C IMU, PCF8563 RTC, BQ27220 fuel gauge, buzzer, side buttons, battery operation, and deep sleep.
 
-- 教程固定使用竖屏六页像素漫画。固件将已确认的480×800完整设计稿转换为黑白位图，并在绘制时加入动态底栏，让返回、前进和完成状态始终与当前页一致。
-- 六页内容依次为欢迎页、桌宠数值、成长结果、APP总览、APP选择器和旋转/摇晃选择。APP总览直接展示桌宠、番茄钟、状态板和答案书，不展开各APP内部操作。
-- APP选择器页完整说明顶部AI键或上滑打开、下滑关闭、双击AI键返回桌宠，以及同时按住上下两个侧键进入睡眠。
-- 旋转选择页只描述选择器打开后的动作：实际横置转为实际竖置进入番茄钟，实际竖置转为实际横置进入状态板，持续摇晃进入答案书。
-- 底栏第一行固定为主导航：第2～6页左侧显示`BACK`，中间显示页码，右侧使用`NEXT`并在最后一页显示`START`；第一页左侧留白。第二行居中显示带下划线的`SKIP TUTORIAL`，与返回、前进触摸区域完全分开。底栏文字使用与页面标题一致的粗像素字重。`SKIP TUTORIAL`和`START`都会保存完成标记；重新上电和深度睡眠唤醒后直接进入正常APP流程。运行时统一重绘页面外框和底栏，六页的顶部、左右、底边与转角粗细一致。
-- 宠物蛋和桌宠主页在对话框右侧显示独立绘制并转换为固件位图的说明书图片，下方使用较大的`MANUAL`文字；图片保持低视觉权重，实际触摸区域向四周扩展。触摸后暂停桌宠、立即打开教程，跳过或完成后恢复原桌宠页面。
-- Debug固件在APP选择器右上角显示`?`，触摸其周围的大热区会清除教程完成标记并自动重启，便于在同一台设备上重复验收。
-- 最终逐页设计稿保存在`assets/onboarding/redraws/`，转换后的逐页预览位于`assets/onboarding/previews/`，固件位图位于`src/ui/assets/onboarding_assets.cpp`，页面切换和交互逻辑位于`src/apps/onboarding/`。
+## Application gallery
 
-### 应用选择器
+| Virtual pet | Pomodoro timer |
+| --- | --- |
+| <img src="docs/images/desktop-pet/home.png" alt="Rabbit pet home showing growth, love, fullness and energy" width="330"> | <img src="docs/images/pomodoro/setup.png" alt="Sticky Pomodoro Timer setup screen" width="330"> |
+| Hatch, name, feed, pet, talk to and play with a rabbit whose stage, personality and dialogue change over time. | Pick 15, 25 or 60 minutes, enter a custom duration, pause or end a session, and receive a gentle repeating alarm. |
 
-- 顶部AI/OK按键沿用硬件示例的GPIO4、低电平有效和180毫秒点击窗口；单击打开或取消应用选择，快速双击从四个APP的任意页面返回桌宠根页面。桌宠内部的命名、测试、性格选择和过场页也使用同一快捷键。
-- 顶部按键第一次物理按下时立即启动IMU会话，单击确认后再等待当前APP暂停和选择页刷新；单击判定和电子纸刷新期间的旋转与摇晃都会被记录。
-- 屏幕底部八分之一区域支持向上滑动打开选择窗口；选择窗口从顶部至70%高度的区域均可作为向下滑动的起点。手势按当前横竖画面方向换算，纵向移动至少达到屏幕高度的五分之一时生效。
-- 普通轻触在手指抬起时生成点击；拖动轨迹单独交给手势识别，因此从APP按钮或选择贴纸附近开始滑动时只执行对应的滑动操作。
-- 应用选择窗口打开时按照当前IMU姿态确定画面方向：设备横置使用单行布局，设备竖置使用2×2布局，两个相反放置方向都会保持画面正向；设备平放时沿用当前APP方向。两种布局的整组内容都保持上下留白均衡，四个入口分别显示`Pet`、`Pomodoro Time`、`Status Board`和`Answers of book`，单行与双行文字均按照实际点亮像素在标签框内居中。浅灰网点保留素材层次，当前APP使用动态加粗的贴纸外圈、黑色标签和闪光标记。
-- 四张贴纸周围的完整留白范围都是触摸区，触摸坐标先按照当前页面方向转换，再与画面使用的同一套入口位置匹配。
-- 选择窗口同时读取稳定横竖变化和持续摇晃：旋转在连续5次、约500毫秒的独立安静窗口后生效；摇晃期间暂停旋转选择，持续摇晃达到800毫秒后选择答案书。
-- 番茄钟支持两个竖放方向，状态牌支持两个横放方向；路由器把最终IMU方向交给目标APP，绘图和触摸共用同一个旋转值。
-- 答案书沿用选择窗口正在进行的摇晃会话，用户保持同一次动作满3秒即可继续进入思考和答案动画。
-- 当前APP暂停后保留内部状态；恢复时重新绘制当前页面。番茄钟使用真实截止时间，因此切换期间倒计时继续准确推进。
-- 每次完成选择后，只有目标APP读取触摸和刷新屏幕，其余APP停在安全循环边界等待。
-- 目标APP的首帧使用黑白快刷，每完成5次快速切换后，下一次使用全刷清理电子纸残影。
+| Status board | Book of Answers |
+| --- | --- |
+| <img src="docs/images/status-board/menu.png" alt="Sticky Status Board menu" width="390"> | <img src="docs/images/book-of-answers/home.png" alt="Book of Answers home screen" width="245"> |
+| Display `BUSY`, `MEETING`, `ON CALL`, `OPEN TO TALK`, `REST`, or a custom on-device message in landscape. | Hold a question in mind and shake for three seconds to reveal a message, `YES`, `NO`, or `UNCLEAR`. |
 
-### 桌宠养成系统（宠物蛋、幼兔、儿童、青年与成年期）
+## The virtual pet
 
-- 桌宠采用一条共同童年和三条性格成长路线：贪吃型、亲密型和活力型。
-- 用户每天通过喂饭、直接触摸兔子和陪玩积累成长值与亲密度，日奖励上限让完整成长过程保持稳定节奏。
-- 青年期根据长期互动习惯确定成长路线；分数接近时由用户完成一次最终陪伴动作选择路线。
-- 成长阶段、每日奖励、亲密等级、温和回归、台词筛选、存档字段和电脑端测试矩阵已经形成完整规则。
-- 当前Debug和Release固件都使用正式成长节奏：RTC自然日期、1倍成长奖励、1倍亲密奖励、每日最多10点成长和8点亲密。
-- 正式界面使用完整桌宠主页和日常交互入口；`TEST`开发面板属于单独的加速验证配置。宠物数值、成长阶段、名字与每日计数继续保存到桌宠自己的NVS存档。
-- 角色成长设定图位于`assets/desktop_pet/concepts/growth_lineage_v1.png`，详细系统设计位于`docs/desktop_pet_growth_system.md`。
-- 当前实现切片覆盖宠物蛋、幼兔、儿童期、三种青年期和三种成年期，包含三次轻触孵化、破壳音效、成长过场、分支判定、最终选择页、各路线独立动作与台词、每日结算、持久化和可加速测试时间。
-- 第三次轻触完成破壳动画后进入宠物命名页；竖屏键盘支持大写字母、数字、空格、删除、清空以及`ABC/123`切换，名字最长10个字符。
-- 主页左上角显示宠物名字和成长阶段；点击名字可随时重新命名，返回会保留原名。名字随成长存档保存；已有宠物的旧存档会直接返回原主页，可点击左上角补充名字。
-- 宠物蛋放置在完整的像素编织孵化窝中，编织边缘、软垫缝线、羽毛、草叶和蛋壳碎片会随孵化阶段变化；破壳页面使用独立的庆祝场景。
-- 主页使用独立的一位位图素材库：房间、待机兔子、喂食兔子、抚摸兔子、扑球兔子、三种操作图标和爱心图标均可单独更新。
-- 主页现在同时显示饱腹值`FULLNESS`和带下划线操作提示的`ENERGY`。`FULLNESS`越高表示兔子越饱。能量低于100时，点击`ENERGY`可以进入休息；能量大于0时，点击兔子始终保留抚摸互动。陪玩会消耗精力。能量为1到9时进入低能量状态，兔子在互动间隙保持困倦趴卧并暂停随机动作，但仍可正常互动。精力归零后固定保持趴下状态并停止其他动作，轻触兔子或`ENERGY`均可入睡。
-- 提前唤醒后只要精力大于0，喂食、抚摸、聊天和陪玩立即恢复，不需要等到精力充满。
-- 睡眠页使用完整的月夜房间、编织宠物床和盖被兔子场景，两帧动画通过被子起伏与耳朵变化表现呼吸，不使用整只兔子缩放。页面明确提示每分钟恢复6%能量，只有黑色`WAKE UP`按钮会提前唤醒，精力恢复到100后会自然醒来。
-- 睡眠使用PCF8563真实经过时间恢复精力，RTC暂时不可用时由每分钟一次的应用定时器继续推进。睡眠开始与醒来都会保存状态，断电重启后能够补算离线时间并恢复正确页面。
-- 点击画面中央的兔子会直接抚摸；底部三个入口为`FEED`、`TALK`和`PLAY`。
-- 喂食、抚摸和陪玩显示约1.3秒的专属姿势；`TALK`对白显示约4秒。互动期间的触摸由独立触摸任务继续采集。
-- 宠物声音跟随已经显示在屏幕上的表演：进食、被抚摸、玩耍、说话、入睡和醒来分别使用独立音型。进入一次连续饥饿状态时自主提醒一次，能量降到0时提醒一次；对应数值恢复前保持安静。说话音型会继续结合饥饿、疲劳、低落、亲密度和成长后的性格路线变化；伸懒腰、眨眼、抖耳、转头和自主疲劳动作保持安静。
-- 桌宠每天按照RTC自然日期生成一次外出决定。40%的日期安排外出，出发时间随机分布在09:00～16:00，单次持续1～7小时。计划、出发时间和回家时间随宠物存档保存，重启后继续原来的行程。
-- RTC进入新的自然日期后，宠物会在当天第一次回到普通主页时给出一次问候；问候会根据离开1天、2～3天或更长时间调整语气。同一天重启不会重复显示。
-- 每个日期的第一次有效照料会推进连续陪伴天数。首次刷新历史最高纪录并达到3、7、30和100天时，当前互动播放完成后进入两帧全屏庆祝页；每档成就终身触发一次。
-- 兔子外出时会收拾小包、朝右走出画面并留下脚印，再带着纪念品回家。外出页面沿用主页的名字、成长和照料状态，底部交互栏切换为`CALL HER HOME`；提前召回会完成本次行程，当天保持在家。测试面板继续提供`GO OUT`入口，用于随时重复检查整套视觉流程。
-- 幼兔和儿童期兔子都有独立的眨眼、连续抖耳、转头观察、伸懒腰、饥饿和疲劳素材。青年与成年期按照贪吃、亲密和活力路线使用独立形象、招牌待机、喂食、抚摸、陪玩姿势和专属对白。
-- 正式版每12～28秒尝试一次自主动作；选择时避开最近两个动作。用户触摸会立即中断自主动作并执行对应交互。
-- 上电先对白屏执行一次全刷，主页首次显示使用黑白全刷，动作和数值变化使用黑白局部快刷。
-- 启动时先保持GPIO45和GPIO46的板级电源锁存，再将GPIO39拉低启用BQ25616充电路径，让设备可以充电并在拔掉USB后继续使用内置电池。
-- 使用共享传感器I2C总线上的BQ27220电量计读取真实剩余电量，并在所有APP当前逻辑方向的右上角显示自动适配页面底色的电池轮廓、百分比和外接电源标记。
-- 电池供电下空闲进入深度睡眠时，桌宠保存当前状态与RTC外出日程，将电池与百分比向左移动，并在右上角并排绘制月亮标记；随后关闭电子纸控制器、GT911、IMU、SD和蜂鸣器供电，并保持电子纸最后一帧。下一项已安排的出门或回家事件会成为唯一的定时唤醒时间。
+The pet is the home screen and the emotional center of the firmware. Its state is advanced by real RTC time and stored in two checksummed NVS slots so a damaged save can fall back to the previous valid record.
 
-#### 新桌宠核心框架
+<p align="center">
+  <img src="docs/images/desktop-pet/growth-lineage.png" alt="Rabbit growth lineage from egg to adult personalities" width="640">
+</p>
 
-`src/apps/desktop_pet/core/`已经建立一套与屏幕和触摸分离的宠物规则框架，当前包含：
+### Life and personality
 
-- `pet_core`：成长阶段、饥饿、快乐、精力、睡眠、心情、亲密、连续照料和进化条件。
-- `pet_dialogue`：按宠物状态、成长阶段和亲密度筛选台词，并避开最近五条重复内容。
-- `pet_idle_scheduler`：根据食物、精力和最近动作选择下一段自主行为。
-- `pet_animation_queue`：最多16个节点的非阻塞动画队列，播放动画时仍可继续处理触摸。
-- `pet_save_record`：带版本、校验值和写入序号的双槽存档记录，损坏一个槽时可选择另一个有效槽。
-- `desktop_pet_storage_record`：把名字、成长、照料状态、性格、RTC时间和外出计划一起封装进A/B双槽记录；每次保存写入较旧的槽位。
-- `pet_rtc_time`：在Sticky的PCF8563 RTC日历与宠物系统使用的连续时间之间双向换算。
-- `desktop_pet_outing`：管理每日外出决定、RTC出发与回家时间、断电恢复，以及准备、离开、外出、返回和团聚阶段。
-- `desktop_pet_daily`：生成每天一次的回归问候，并识别3、7、30和100天连续照料里程碑。
+1. **Egg** — three deliberate taps hatch the pet.
+2. **Hatchling** — care establishes the first bond.
+3. **Child** — feeding, affection and play begin shaping personality evidence.
+4. **Youth** — the rabbit becomes `FOODIE`, `AFFECTIONATE`, or `ACTIVE`.
+5. **Adult** — each branch receives its own proportions, actions, dialogue and keepsake.
 
-`desktop_pet_sound_cues`把状态机输出的宠物表演转换为声音提示。应用先刷新对应的兔子姿势，再在后台播放声音，触摸采集和电子纸刷新不会等待整段声音结束。
+Growth, love, fullness, energy, daily care streaks, mood, recent actions, recent dialogue, personality evidence and scheduled outings persist across restarts. Detailed rules live in the [pet system guide](docs/wiki/Pet-Growth-System.md).
 
-饥饿值由经过的时间逐步降低，`FEED`会直接补充食物值，形成完整且可独立测试的喂食循环。电池电量不参与宠物饥饿计算。RTC只负责日期、昼夜、连续照料和离线时间推进。
+## Launcher and physical interaction
 
-`TALK`会优先表达饥饿、低落或疲劳等当前状态；普通状态下会按亲密值分为初识、熟悉和亲密三组语气。对白选择器记录最近五句，存在其他候选时会优先选择新的内容。聊天只表达陪伴状态，不改变成长值、亲密值和每日奖励次数。
+<p align="center">
+  <img src="docs/images/launcher/launcher-landscape.png" alt="Landscape launcher" width="700">
+</p>
 
-开源素材审计结果、精确版本和许可证保存在`third_party/virtual_pet/`。完整台词源档和规则源档保存在`assets/desktop_pet/library/`；固件只编译筛选后的定长C++数据表，源档不会占用设备Flash或RAM。当前桌宠已经接入共享核心的成长、亲密、食物、心情、状态台词和PCF8563硬件时间；Debug和Release环境现在使用同一套正式宠物规则。
+- Tap the **AI key** or swipe up from the lower screen to open the launcher.
+- Tap an app card to launch it.
+- Swipe down from the upper half to close the launcher.
+- Double-tap the AI key from any page to return to the pet.
+- Rotate from landscape to portrait while the launcher is open to enter Pomodoro.
+- Rotate from portrait to landscape while the launcher is open to enter the Status Board.
+- Shake while the launcher is open to enter the Book of Answers.
+- Hold both non-AI side keys to enter deep sleep.
 
-桌宠运行存档使用NVS中的`state_a`和`state_b`两个槽位轮流写入。每份记录都带有内容校验值和递增序号；启动时选择序号最新且校验完整的一份。升级前使用`state`键保存的版本2至版本7记录会先正常读取，并在下一次保存时进入双槽结构。
+Orientation is accepted only after motion settles and the final placement is stable. Shake routing has priority once a qualified shake session starts. See [Launcher and Gestures](docs/wiki/App-Launcher-and-Gestures.md) for thresholds and state transitions.
 
-#### 当前正式版玩法规则
+## ePaper, power and time
 
-新存档从全屏宠物蛋开始。轻触蛋三次会依次出现摇摆、第一道裂纹、露出双耳和破壳幼兔；第三次完成后播放一次轻柔上行三音，进入命名页。保存名字后进入`DAY 1`、`GROWTH 10 / 30`、`LOVE 18`和`FULLNESS 80`的幼兔主页。每次有效轻触都会立即保存，断电后从已完成的裂纹阶段继续。成长值达到30且食物、快乐和精力均不低于40时，幼兔会自动播放三段成长过场并进入`CHILD`。儿童期成长值达到120时，系统比较贪吃、亲密和活力分数；第一名领先第二名至少6分时自动进入对应青年路线，分数接近时由用户在全屏页面完成最后一次选择。青年期成长目标为`GROWTH 120 / 280`，达到280且三项照料状态均不低于40后，会沿着已经确定的性格路线进化为对应成年兔。
+The display keeps its last image without power, so the firmware treats every refresh as a limited resource. Static pages receive a clean baseline; countdown digits and animation regions use smaller refresh policies; periodic full refreshes restore contrast.
 
-成年期保持`GROWTH 280 / 280`，喂食、抚摸、陪玩和聊天仍然有效；成长值保持封顶，亲密值、食物和心情继续按照日常照料变化。
+The pet schedules its next meaningful event before sleep. The PCF8563 RTC can wake the ESP32-S3 shortly before an outing or another autonomous event instead of waking at a fixed interval. Battery percentage comes from the BQ27220 fuel gauge, and the UI keeps charging and sleep indicators visible without covering app content.
 
-正式版的每日奖励如下：
+Read [Power and RTC](docs/wiki/Power-and-RTC.md) and [Hardware and Drivers](docs/wiki/Hardware-and-Drivers.md) for the complete lifecycle.
 
-| 操作 | 每天有奖励的次数 | 每次成长值 | 每次亲密值 | 性格记录 |
-| --- | ---: | ---: | ---: | ---: |
-| `FEED` | 2次 | 第一次+4，第二次+2 | 每次+1 | 每次贪吃+3 |
-| 点击兔子 | 3次 | 每次+1 | 每次+2 | 每次亲密+2 |
-| `PLAY` | 1次 | +3 | +3 | 活力+6 |
+## Hardware target
 
-成长值会分别在幼兔的30点、儿童期的120点和青年期的280点边界停止，亲密值最高为100。每天最多获得10点成长值和8点亲密值。超过当天奖励次数后仍然可以看动作和对白，但奖励数值保持不变。
+| Component | Firmware use |
+| --- | --- |
+| ESP32-S3R8 | Application, graphics, input routing and low-power control |
+| 800 × 480 monochrome ePaper | Portrait and landscape application UI |
+| GT911 | Capacitive touch and swipe input |
+| LSM6DS3TR-C | Stable orientation, motion sessions and continuous shake detection |
+| PCF8563 | Calendar time and scheduled wake-up |
+| BQ27220 | Battery state of charge |
+| Buzzer | Context-aware pet sounds and Pomodoro alarm |
+| MicroSD slot | Shared SPI hardware path prepared safely at boot |
 
-每天的喂食、抚摸、陪玩和奖励计数由RTC自然日期换日；总成长值、亲密值和性格记录持续保留。
+The implementation follows the board initialization and driver behavior demonstrated by Seeed Studio's Sticky hardware examples.
 
-主页顶部右侧依次显示`LOVE`和带下划线操作提示的`ENERGY`，下划线背后保留便于触摸的大热区；底部把陪伴天数与RTC日期合并显示为`DAY 4  YYYY-MM-DD`。主页在成长条下方显示饱腹值`FULLNESS`和当前心情，数值越高表示兔子越饱。初始饱腹值为80；清醒状态依据RTC真实经过时间降低饱腹值，`PLAY`还会消耗4点。每次`FEED`都会恢复30点饱腹值，最高为100，即使当天成长奖励已经用完，喂食仍然有效。饱腹值不高于30时心情优先显示`HUNGRY`，对白会切换到饥饿语境。
+## Quick start
 
-所有数值变化都会写入桌宠自己的NVS存档。重新烧录普通应用固件或重启设备后会继续读取存档。
+### Requirements
 
-当前存档版本为`7`。已有版本`2`至`6`存档会自动迁移，成长值、亲密值、日期、当天奖励次数、三种性格分数、青年路线、成年阶段、孵化进度和名字继续保留；版本7同时保存RTC外出计划。
+- reTerminal Sticky
+- USB-C data cable
+- PlatformIO Core 6.1 or PlatformIO IDE
+- Python 3
+- macOS, Linux, or Windows
 
-### 答案书
+The project pins `espressif32@6.11.0` and builds against ESP-IDF 5.4.1.
 
-- 主页面可以选择`MESSAGE`或`YES / NO`两种答案类型，返回主页时保留刚才的选择。
-- 默认选中`MESSAGE`；用户可以直接摇晃设备开始提问，也可以先点击`YES / NO`切换答案类型。
-- 第一次明显摇晃会启动答案动画；用户持续摇晃满3秒即通过资格，随后可以停止动作并等待思考和揭晓动画正常播放完成。
-- 摇晃会话通过连续加速度峰值保持有效；动作停止超过允许间隔后立即判定为摇晃不足，普通缓慢拿起或转向不会进入提问流程。
-- 摇晃页面交替播放左右两个大幅动作，兔子的身体、耳朵、手臂和水晶球位置都会明显变化。
-- 主页、摇晃、思考、揭晓、摇晃不足、文字答案和水晶球答案七类页面都拥有独立动作帧。
-- 三秒摇晃阶段提前停下会进入`SHAKE A LITTLE LONGER`提示页；摇晃达标后依次播放`THINKING...`和`REVEALING...`，完成后才显示答案。
-- `MESSAGE`模式使用来源CSV中的前350条英文答案，按原始顺序生成固件答案表；结果页会根据句子长度自动排成一至四行，并且不会连续重复同一条。
-- `YES / NO`模式严格使用`YES`、`NO`和`UNCLEAR`三个结果；答案按水晶球圆心进行水平和垂直居中。
-- 水晶球结果页使用完整双层玻璃轮廓、内部星光、装饰底座和互动兔子，两帧动画会改变高光、星尘、兔子眼睛与手部动作。
-- 两类结果页都提供`ASK AGAIN`和`END`；再次提问返回保留答案类型的主页，重新持续摇晃后开始下一轮。
-- 上电后先使用白色全屏波形清除电子纸旧画面，再完整刷新答案书主页；后续页面切换和动画使用黑白局部快刷。
-- 触摸使用现有有序事件队列，动画期间产生的触摸会被当前动画页面消费，结果页不会收到遗留点击。
-- 答案书插画拥有独立素材库，设计源图、固件预览与生成脚本集中存放在`assets/book_of_answers/`。
-
-### 横屏状态板
-
-- 原生使用800×480横屏坐标，一级菜单标题为`STICKY STATUS BOARD`，横向排列`BUSY`、`MEETING`、`ON CALL`、`OPEN TO TALK`、`REST`和`CUSTOM`六张状态卡片；卡片只包住兔子与英文名称，`CUSTOM`固定在最后。
-- 一级菜单底部是完整的宠物巡场区域：一条横跨底部的地面线标出行走路径，兔子在左侧挥手和蓄力，分段跳到右侧庆祝，再分段走回左侧循环。
-- 宠物动画每帧只重绘底部区域并使用黑白局部快刷；应用每轮先处理触摸，再更新动画。
-- 点击预设状态后进入二级展示页，状态文字和像素兔子场景共同铺满整个屏幕。
-- 二级展示页只表达当前状态，不显示固定时间或补充信息。
-- 六个二级展示页各自拥有符合状态的兔子动作：忙碌敲键盘、会议交流、佩戴耳麦通话、挥手欢迎交流、抬勺休息和倾斜自定义状态牌。
-- 子页动画使用160×160高精度素材以2倍绘制，保持兔子占屏尺寸的同时细化线条和动作。
-- 子页动画仅替换右侧兔子区域，主帧停留450毫秒，次帧停留250毫秒；左侧状态文字和返回箭头保持不变。
-- 六种状态使用完整轮廓、表情和动作的像素兔子素材；菜单与全屏页共用同一张1位位图，黑白背景自动切换绘制颜色。
-- 二级展示页和自定义输入页左上角使用统一的返回箭头，整个左上角145×120区域均可触发返回。
-- 点击`CUSTOM`进入设备端全键盘，可直接输入最多20个大写字母、数字或空格。
-- 自定义键盘提供`123`/`ABC`切换、空格、删除、清空和应用操作；有效内容应用后进入全屏展示页。
-- 首次显示使用黑白全屏刷新，菜单选择、页面跳转和键盘输入使用黑白局部快刷。
-- 触摸使用8个事件的有序队列，电子纸刷新期间检测到的点击会在刷新结束后继续处理。
-- 连续字母、数字、空格、删除和清空操作会合并为一次画面刷新，提高连续输入速度。
-
-### 番茄钟主页
-
-- 页面标题为全大写的`STICKY POMODORO TIMER`，顶部使用桌宠童年角色双手抱番茄的半身像素标志。
-- 默认选择15分钟，预设时间只保留同一行的`15 MIN`、`25 MIN`和`60 MIN`。
-- 支持自定义小时、分钟和秒钟。
-- 圆环和当前时间是页面的主要视觉元素；底部使用通栏黑色`START`按钮，较小的`CUSTOM TIME`描边按钮居中排列在其下方。
-- 番茄兔的设计参考、固件预览和生成脚本集中存放在`assets/pomodoro/`与`tools/generate_pomodoro_assets.py`，固件只编译64×64的一位位图。
-
-### 自定义时间
-
-- 使用固定数字键盘，适合电子纸的低刷新特性。
-- 点击`HR`、`MIN`或`SEC`选择输入位置。
-- `CLEAR`将当前选中的小时、分钟或秒钟字段清为`00`。
-- `DELETE`执行固定两位退格，例如`23`依次退格为`20`和`00`；退格一次后输入`4`会得到`24`。
-- 自定义时间页底部整条区域均可触发`BACK`返回。
-- 连续数字、字段选择、清除和退格会合并为一次画面刷新；停止输入2秒后执行一次黑白全刷，恢复对比度并清理局刷残影。
-- `USE THIS TIME`保存有效时间并返回主页。
-
-### 运行与结束
-
-- 支持开始、暂停、继续和提前结束确认。
-- 点击`END SESSION`后在当前倒计时画面中央显示小型确认弹窗；`CANCEL`直接继续倒计时，`END`结束本轮并返回主页。
-- `TIME'S UP`与倒计时页面共用同一套圆环、时间字号和中心布局。
-- 所有预设时间和自定义时间都会从开始到结束逐秒更新数字与进度圆环。
-- 提前结束后直接返回主页，并保留刚才选择的时长。
-- 时间到后循环播放C6、E6、G6上升三音提示，按下`END`立即停止并返回主页，同时保留刚才选择的时长。
-
-### 电子纸显示策略
-
-- 页面切换使用黑白全屏刷新。
-- 时间选择、数字输入和逐秒倒计时使用黑白局部快刷。
-- 圆环的浅色部分使用黑白点阵模拟，使其在局部刷新后保持稳定。
-- 计时使用真实截止时间计算，刷新耗时不会累加到剩余时间。
-- 倒计时刷新期间记录的触摸会在刷新结束后继续处理，暂停和结束操作不会丢失。
-
-## 硬件接口
-
-- SSD1677 800×480电子纸屏幕。
-- GT911触摸控制器。
-- LSM6DS3TR-C加速度计，104Hz、正负2g量程。
-- GPIO4顶部AI/OK按键，单击打开或取消触摸式应用选择窗口。
-- PCF8563实时时钟，使用共享I2C1总线和`0x51`地址；首次低电压状态使用固件构建时间完成一次校时，之后启动时补算离线时间，运行中每分钟读取一次。
-- GPIO48无源蜂鸣器，使用10位LEDC输出；番茄钟使用循环三音，桌宠按照当前可见动作、情绪、亲密度和性格播放短促电子宠物声。
-- 电子纸与MicroSD共享SPI2，启动时先将MicroSD控制脚设置为确定的空闲状态。
-- GPIO45和GPIO46负责板级供电锁存。
-
-桌宠APP位于`src/apps/desktop_pet/`，答案书、番茄钟和状态牌分别位于对应的`src/apps/`子目录。`src/app/`中的统一管理器负责按键入口、触摸与动作选择、IMU会话以及APP暂停和恢复。
-
-## 环境
-
-- PlatformIO Core 6.1.19
-- `espressif32` Platform 6.11.0
-- ESP-IDF 5.4.1
-- `espressif/button` 4.1.6
-- 目标芯片：ESP32-S3
-
-工程固定使用`espressif32@6.11.0`，与硬件参考工程的ESP-IDF 5.4驱动接口保持一致。
-
-## 编译
-
-开发版保留详细诊断日志：
+### Clone and build
 
 ```bash
-pio run -e sticky-debug
+git clone https://github.com/limengdu/reTerminal_Sticky_Bunny.git
+cd reTerminal_Sticky_Bunny
+pio run
 ```
 
-`sticky-debug`保留调试日志，桌面宠物使用正式成长时间、每日上限和外出规则。
+`sticky-release` is the default environment. A successful build creates:
 
-发布版在编译时移除调试与追踪日志：
-
-```bash
-pio run -e sticky-release
+```text
+.pio/build/sticky-release/firmware.bin
 ```
 
-`sticky-release`是默认构建环境，直接运行`pio run`也会生成正式版固件。
-
-将正式版烧录到设备：
+### Upload the release firmware
 
 ```bash
 pio run -e sticky-release -t upload
 ```
 
-烧录成功后，设备首次启动会进行一次电子纸全屏刷新，并显示首次使用教程。教程完成状态、桌宠成长记录和用户设置保存在NVS中。
-
-## 发布产物
-
-正式版构建完成后，应用固件位于`.pio/build/sticky-release/firmware.bin`。发布包同时提供两种文件：
-
-- `sticky-0.1.0-app.bin`：应用固件，适合已有引导程序和分区表的设备升级；从`0x10000`烧录并保留现有NVS用户数据。
-- `sticky-0.1.0-full.bin`：包含引导程序、分区表和应用的完整固件，适合首次安装；从`0x0`烧录并初始化用户数据。
-
-发布包生成在`dist/sticky-firmware-0.1.0/`，并使用`SHA256SUMS.txt`记录文件校验值。`dist/`属于本地构建产物，不纳入Git版本管理。
-
-应用选择窗口的横竖屏布局和触摸区域可以脱离硬件验证：
-
-```bash
-clang++ -std=c++17 -Wall -Wextra -Werror \
-  -Isrc/app -Isrc/ui -Isrc/ui/assets \
-  test/sticky_app_launcher_render_test.cpp \
-  src/ui/app_pages.cpp src/ui/canvas.cpp src/ui/font.cpp \
-  src/ui/assets/pixel_asset.cpp \
-  src/ui/assets/app_launcher_assets.cpp \
-  src/app/sticky_app_id.cpp \
-  -o /tmp/sticky_app_launcher_render_test
-/tmp/sticky_app_launcher_render_test
-```
-
-命令成功后会同时验证八个贴纸触摸点、三个入口间隙、横竖屏整组内容的上下留白、标签文字上下留白、黑色和浅灰素材层，以及四个APP选中外圈能否正确移动，并生成`/tmp/sticky_launcher_portrait.ppm`和`/tmp/sticky_launcher_landscape.ppm`，分别用于检查竖屏和横屏布局。
-
-首次开机教程的页码状态、六页绘制和底栏触摸区域可以脱离硬件验证：
-
-```bash
-python3 tools/generate_onboarding_assets.py
-
-clang++ -std=c++17 -Wall -Wextra -Werror \
-  -Isrc/apps/onboarding \
-  test/onboarding_state_test.cpp \
-  src/apps/onboarding/onboarding_state.cpp \
-  -o /tmp/onboarding_state_test
-/tmp/onboarding_state_test
-
-clang++ -std=c++17 -O0 -Wall -Wextra -Werror \
-  -Isrc/apps/onboarding -Isrc/ui -Isrc/ui/assets \
-  test/onboarding_pages_test.cpp \
-  src/apps/onboarding/onboarding_pages.cpp \
-  src/apps/onboarding/onboarding_state.cpp \
-  src/ui/canvas.cpp src/ui/font.cpp \
-  src/ui/assets/pixel_asset.cpp \
-  src/ui/assets/onboarding_assets.cpp \
-  -o /tmp/onboarding_pages_test
-/tmp/onboarding_pages_test
-
-clang++ -std=c++17 -Wall -Wextra -Werror \
-  -Isrc/apps/desktop_pet -Isrc/apps/desktop_pet/core \
-  test/desktop_pet_power_policy_test.cpp \
-  src/apps/desktop_pet/desktop_pet_power_policy.cpp \
-  src/apps/desktop_pet/desktop_pet_outing.cpp \
-  -o /tmp/desktop_pet_power_policy_test
-/tmp/desktop_pet_power_policy_test
-
-clang++ -std=c++17 -Wall -Wextra -Werror \
-  -Isrc/app \
-  test/sticky_app_power_policy_test.cpp \
-  src/app/sticky_app_power_policy.cpp \
-  -o /tmp/sticky_app_power_policy_test
-/tmp/sticky_app_power_policy_test
-```
-
-生成命令会从六张最终设计稿重新生成黑白预览和固件位图。四条测试命令正常结束且没有输出，表示页码边界、跳过、返回、完成、六页竖屏位图、粗体底栏、独立触摸热区、统一页面外框、第三页重复说明清理、APP总览页、宠物蛋自主唤醒隔离和休眠提示音触发策略均通过；页面测试会生成`/tmp/onboarding_1.ppm`至`/tmp/onboarding_6.ppm`用于逐页视觉检查。
-
-番茄钟主页布局、三个预设时间和操作按钮可以脱离硬件验证：
-
-```bash
-clang++ -std=c++17 -Wall -Wextra -Werror \
-  -Isrc/apps/pomodoro -Isrc/ui -Isrc/ui/assets \
-  test/pomodoro_pages_test.cpp \
-  src/apps/pomodoro/pomodoro_pages.cpp \
-  src/ui/canvas.cpp src/ui/font.cpp \
-  src/ui/assets/pixel_asset.cpp \
-  src/ui/assets/pomodoro_assets.cpp \
-  -o /tmp/pomodoro_pages_test
-/tmp/pomodoro_pages_test
-```
-
-命令正常结束且没有输出，表示`15 MIN`、`25 MIN`、`60 MIN`、`START`和`CUSTOM TIME`触摸映射均已覆盖，并生成三个预设状态的页面预览。
-
-自定义时间的清除规则可以脱离硬件验证：
-
-```bash
-clang++ -std=c++17 -Wall -Wextra -Werror \
-  -Isrc/apps/pomodoro \
-  test/pomodoro_custom_input_test.cpp \
-  -o /tmp/pomodoro_custom_input_test
-/tmp/pomodoro_custom_input_test
-```
-
-命令正常结束且没有输出，表示`CLEAR`会将当前字段清为`00`，`DELETE`支持`23 → 20 → 00`，并支持在退格后继续输入得到`24`。
-
-应用选择窗口的上下滑动规则可以脱离硬件验证：
-
-```bash
-clang++ -std=c++17 -Wall -Wextra -Werror \
-  -Isrc/app \
-  test/sticky_app_gesture_test.cpp \
-  src/app/sticky_app_gesture.cpp \
-  -o /tmp/sticky_app_gesture_test
-/tmp/sticky_app_gesture_test
-```
-
-命令正常结束且没有输出，表示横竖屏的底部上滑、顶部至中部下滑、起点区域、最短距离、方向、横向漂移和最长持续时间均已覆盖。
-
-应用选择动作规则可以脱离硬件验证：
-
-```bash
-clang++ -std=c++17 -Wall -Wextra -Werror \
-  -Isrc/app -Isrc/sensors \
-  test/sticky_app_router_test.cpp \
-  src/app/sticky_app_router.cpp \
-  -o /tmp/sticky_app_router_test
-/tmp/sticky_app_router_test
-```
-
-命令正常结束且没有输出，表示实际横转竖、实际竖转横、5次快速稳定门槛、摇晃优先锁定、800毫秒摇晃门槛和取消会话均通过。
-
-最终放置方向与APP画面旋转的四种映射可以脱离硬件验证：
-
-```bash
-clang++ -std=c++17 -Wall -Wextra -Werror \
-  -Isrc/app -Isrc/sensors -Isrc/ui \
-  test/sticky_app_display_orientation_test.cpp \
-  src/app/sticky_app_display_orientation.cpp \
-  -o /tmp/sticky_app_display_orientation_test
-/tmp/sticky_app_display_orientation_test
-```
-
-命令正常结束且没有输出，表示番茄钟的两个竖屏方向、状态牌的两个横屏方向，以及选择器四个放置方向的画面映射均已覆盖。
-
-桌宠核心规则可以脱离硬件在电脑上验证：
-
-```bash
-clang++ -std=c++17 -Wall -Wextra -Werror \
-  -Isrc/apps/desktop_pet/core \
-  test/desktop_pet_core_test.cpp \
-  src/apps/desktop_pet/core/pet_core.cpp \
-  src/apps/desktop_pet/core/pet_dialogue.cpp \
-  src/apps/desktop_pet/core/pet_idle_scheduler.cpp \
-  src/apps/desktop_pet/core/pet_animation_queue.cpp \
-  src/apps/desktop_pet/core/pet_save_record.cpp \
-  src/apps/desktop_pet/core/pet_rtc_time.cpp \
-  -o /tmp/desktop_pet_core_test
-/tmp/desktop_pet_core_test
-```
-
-命令正常结束且没有输出表示全部断言通过。当前测试覆盖RTC日期、在线与离线时间推进、饥饿衰减、喂食恢复、睡眠、换日、幼兔到成年期进化、青年自动分支和最终选择、成年互动、心情、台词防重复、自主动作防重复、动画队列和双槽存档校验。
-
-完整桌宠存档封装可以独立验证：
-
-```bash
-clang++ -std=c++17 -Wall -Wextra -Werror \
-  -Isrc/apps/desktop_pet \
-  -Isrc/apps/desktop_pet/core \
-  test/desktop_pet_storage_record_test.cpp \
-  src/apps/desktop_pet/desktop_pet_storage_record.cpp \
-  src/apps/desktop_pet/core/pet_save_record.cpp \
-  -o /tmp/desktop_pet_storage_record_test
-/tmp/desktop_pet_storage_record_test
-```
-
-命令正常结束且没有输出，表示完整存档校验、最新槽位选择、损坏槽位回退、下一写入槽位和序号回绕均正确。
-
-每日问候和连续照料里程碑可以独立验证：
-
-```bash
-clang++ -std=c++17 -Wall -Wextra -Werror \
-  -Isrc/apps/desktop_pet \
-  test/desktop_pet_daily_test.cpp \
-  src/apps/desktop_pet/desktop_pet_daily.cpp \
-  -o /tmp/desktop_pet_daily_test
-/tmp/desktop_pet_daily_test
-```
-
-命令正常结束且没有输出，表示同日不重复问候、不同离开时长和四个里程碑判断均正确。
-
-桌宠的动作与声音选择可以单独验证：
-
-```bash
-clang++ -std=c++17 -Wall -Wextra -Werror \
-  -Isrc/apps/desktop_pet \
-  -Isrc/apps/desktop_pet/core \
-  -Isrc/devices \
-  test/desktop_pet_sound_cues_test.cpp \
-  src/apps/desktop_pet/desktop_pet_sound_cues.cpp \
-  src/apps/desktop_pet/desktop_pet_state.cpp \
-  src/apps/desktop_pet/desktop_pet_daily.cpp \
-  src/apps/desktop_pet/core/pet_core.cpp \
-  src/apps/desktop_pet/core/pet_dialogue.cpp \
-  -o /tmp/desktop_pet_sound_cues_test
-/tmp/desktop_pet_sound_cues_test
-```
-
-命令正常结束且没有输出，表示进食、抚摸、玩耍、说话、状态情绪、成长性格、自主动作、睡眠声音，以及饥饿和能量归零的一次性提醒均选择正确。
-
-外出阶段和两个时长范围可以单独验证：
-
-```bash
-clang++ -std=c++17 -Wall -Wextra -Werror \
-  -Isrc/apps/desktop_pet \
-  test/desktop_pet_outing_test.cpp \
-  src/apps/desktop_pet/desktop_pet_outing.cpp \
-  -o /tmp/desktop_pet_outing_test
-/tmp/desktop_pet_outing_test
-```
-
-命令正常结束且没有输出，表示阶段顺序、提前叫回、每天只决定一次、发布版40%出行概率与09:00～16:00时间窗、测试版加速计划、正式版1～7小时边界和重启恢复数据均正确。
-
-## 烧录和查看日志
-
-连接Sticky后执行：
+For development logs:
 
 ```bash
 pio run -e sticky-debug -t upload
-pio device monitor -b 115200
+pio device monitor -e sticky-debug
 ```
 
-启动成功时会看到这些关键日志：
+The monitor runs at `115200` baud. See [Getting Started](docs/wiki/Getting-Started.md) for download-mode recovery, complete-image flashing, NVS reset and first-boot expectations.
+
+## Build profiles
+
+| Environment | Purpose | Runtime rules | Logging |
+| --- | --- | --- | --- |
+| `sticky-release` | Daily use and releases | Production time, limits and outing schedule | Essential warnings and lifecycle events |
+| `sticky-debug` | Hardware and interaction diagnosis | Production gameplay rules | Detailed app, input and storage logs |
+| `sticky-power-test` | Accelerated sleep/wake validation | Shortened power timing only | Power-focused diagnostics |
+
+Build every profile before a release:
+
+```bash
+pio run -e sticky-release -e sticky-debug -e sticky-power-test
+```
+
+## Repository map
 
 ```text
-phase=start
-charger=ready enable_pin=39 enable_level=0 external_power_pin=9 external_power=1 result=ok
-shared_spi=prepare_done result=ok
-display=panel_ready
-display=framebuffer_ready
-display=clear_begin color=white mode=full
-display=clear_done color=white mode=full
-touch=controller_ready
-touch=polling_ready
-buzzer=ready
-sensor_bus=ready
-phase=ready result=ok
-pet=ready page=egg profile=production save=new stage=egg day=1 growth=10 love=18 food=80 mood=happy result=ok
+src/
+├── app/                 # App manager, launcher, routing and lifecycle
+├── apps/                # Pet, Pomodoro, Status Board, Answers and onboarding
+├── board/               # Power, charger, shared buses and pin configuration
+├── devices/             # Battery, RTC and buzzer drivers
+├── display/             # ePaper ownership and refresh operations
+├── input/               # Buttons and GT911 touch queue
+├── sensors/             # IMU orientation and shake sessions
+└── ui/                  # Canvas, font, overlays and generated pixel assets
+
+assets/                  # Original art, firmware-ready images and QA renders
+docs/wiki/               # User and developer documentation
+test/                    # Native state, policy and rendering tests
+tools/                   # Deterministic asset and database generators
+third_party/             # License notices for adapted open-source ideas
 ```
 
-## 日志设计
+The [firmware architecture guide](docs/wiki/Firmware-Architecture.md) follows execution from `app_main()` through hardware initialization, onboarding, app ownership, display refresh and deep sleep.
 
-`src/core/app_log.h`提供五个编译级别：
+## Tests and visual QA
 
-- Error：必要组件无法继续运行。
-- Warn：输入无效或功能结果不完整。
-- Info：页面切换、触摸操作、计时和蜂鸣器状态。
-- Debug：自定义时间字段和输入值。
-- Trace：心跳和高频时序数据。
+The native tests exercise state machines and render pages into PPM files without requiring the device. Coverage includes:
 
-`platformio.ini`负责选择开发版和发布版的整体日志级别。高频类别继续由独立宏控制：
+- pet progression, offline time, dialogue, animation scheduling and dual-slot saves;
+- Pomodoro input, countdown policy, page layout and alarm states;
+- status selection, custom text and status-specific animation;
+- answer selection, three-second shake qualification and result layouts;
+- launcher touch zones, swipe gestures, orientation routing and power policy;
+- onboarding navigation and all six final pages.
 
-- `STICKY_LOG_BOOT_DETAILS_ENABLED`
-- `STICKY_LOG_POWER_DETAILS_ENABLED`
-- `STICKY_LOG_HEARTBEAT_ENABLED`
-- `STICKY_LOG_DISPLAY_TIMING_ENABLED`
-- `STICKY_LOG_TOUCH_SAMPLES_ENABLED`
-- `STICKY_LOG_TOUCH_DRIVER_OUTPUT_ENABLED`
-- `STICKY_LOG_MOTION_SAMPLES_ENABLED`
-- `STICKY_LOG_PET_ANIMATION_ENABLED`
-- `STICKY_LOG_STATUS_ANIMATION_ENABLED`
-- `STICKY_LOG_BOOK_ANIMATION_ENABLED`
-- `STICKY_LOG_DESKTOP_PET_ENABLED`
-- `STICKY_LOG_TIMER_TICKS_ENABLED`
-
-宠物动画默认只记录一次启动信息，不使用通用刷新耗时日志逐帧刷屏。需要查看每帧动作、位置和刷新耗时时，将`STICKY_LOG_PET_ANIMATION_ENABLED`设为`1`。
-子页兔子动画采用同样的安静日志策略，需要逐帧调试时将`STICKY_LOG_STATUS_ANIMATION_ENABLED`设为`1`。
-答案书默认记录页面切换、答案类型、随机结果、有效触摸和摇晃检测结果。开发版会记录三次有效摇晃峰值；需要查看所有页面逐帧序号时，将`STICKY_LOG_BOOK_ANIMATION_ENABLED`设为`1`。
-桌宠开发版记录有效触摸、操作、奖励变化和存档。刷新时序通过`STICKY_LOG_DISPLAY_TIMING_ENABLED`单独控制，默认关闭以保持串口安静；发布版通过`STICKY_LOG_DESKTOP_PET_ENABLED=0`关闭详细触摸与存档日志。
-电源详细日志由`STICKY_LOG_POWER_DETAILS_ENABLED`控制；开发版记录初始化参数，发布版仅保留一次充电路径就绪或错误结果。
-PCF8563默认只记录一次初始化和一次启动时间；需要观察每分钟读数时，将`STICKY_LOG_RTC_READS_ENABLED`设为`1`重新编译。时间无效后每5分钟重试一次，不会持续刷屏。
-
-## 工程结构
-
-```text
-boards/                    Sticky的PlatformIO板卡定义
-components/seeed_epaper    SSD1677/UC8179电子纸驱动
-components/debug_logging   编译期详细日志开关
-src/apps/pomodoro/         已完成的独立番茄钟页面、触摸映射和状态机
-src/apps/status_board/     横屏状态牌页面、状态机、自定义键盘和交互任务
-src/apps/book_of_answers/  答案书页面、答案池、触摸映射和动画状态机
-src/apps/desktop_pet/      桌宠主页、成长状态、NVS存档、触摸映射和应用任务
-src/apps/desktop_pet/core/ 独立宠物规则、台词、动画队列、RTC换算和双槽存档格式
-assets/book_of_answers/    答案书设计源图与固件黑白素材预览
-assets/pixel_bunnies/      像素兔子设计源图、状态与宠物动画固件预览
-assets/desktop_pet/        桌宠成长路线、阶段与动作素材
-third_party/virtual_pet/   桌宠开源来源、固定版本和许可证
-docs/                      桌宠养成规则与后续产品设计文档
-src/board/                 电源、引脚和共享SPI准备
-src/core/                  日志基础设施
-src/devices/               蜂鸣器、PCF8563实时时钟等独立设备接口
-src/display/               屏幕初始化和刷新
-src/input/                 GT911触摸初始化、坐标转换和采样
-src/sensors/               答案书使用的姿态监测与连续摇晃检测
-src/ui/                    画布、字体、公共1位像素素材接口和已保留页面源码
-src/main.cpp               统一APP管理器与默认桌宠启动入口
-test/                      可在电脑上运行的回归测试
-platformio.ini             开发版与发布版构建配置
+```bash
+./tools/run_host_tests.sh
+python3 tools/check_markdown_links.py
 ```
 
-## 应用选择器真机验收
+The complete command matrix and expected preview files are documented in [Testing and Debugging](docs/wiki/Testing-and-Debugging.md). Hardware release checks are in [Flashing and Releases](docs/wiki/Flashing-and-Releases.md).
 
-1. 使用`sticky-debug`烧录并打开串口，等待桌宠主页出现；确认日志包含`button=ready ai_pin=4 side_pins=5,6`和`launcher=ready trigger=top_button,bottom_swipe`。按键第一次压下后应立即出现`launcher=imu phase=started_on_press`，之后才出现`launcher=opened`；后者的`pause_ms`和`display_ms`分别表示APP暂停与电子纸刷新耗时。
-2. 将设备实际横置后单击顶部按键；确认选择器直接显示四张贴纸的横屏单行布局，画面没有上下颠倒。日志应包含`launcher=orientation imu=portrait_0 display_rotation=180 result=applied`或`imu=portrait_180 display_rotation=0 result=applied`，随后记录`input=touch,rotation,shake`和`imu=started`。
-3. 把设备连续转为实际竖置并放稳；确认约500毫秒后进入番茄钟，番茄钟画面朝向你并且触摸正常。日志应包含`app_to=pomodoro`、`display_rotation=90_counter_clockwise`或`90_clockwise`和`imu=stopped`。
-4. 保持实际竖置，在番茄钟中打开选择窗口；确认选择器直接显示竖屏2×2布局且画面正向。再把设备转为实际横置并放稳，确认进入状态牌，状态牌画面朝向你并且触摸正常。日志应包含选择器的`display_rotation=90_counter_clockwise`或`90_clockwise`，随后包含`app_to=status_board`和`display_rotation=180`或`0`。
-5. 在状态牌中打开选择窗口并持续摇晃3秒；确认约800毫秒后进入答案书，并由同一次摇晃继续完成答案书的三秒资格、思考和答案动画。
-6. 从答案书打开选择窗口，直接点击`Pet`；确认停止本次IMU会话并进入桌宠。
-7. 再次打开选择窗口，依次点击`Pomodoro Time`、`Status Board`和`Answers of book`；确认完整名称在横竖页面中都位于标签框中央，并且四张卡片都可以直接触摸选择。
-8. 打开窗口后只快速转动一下或短促晃动后立即停下；确认不会进入答案书，再次按顶部按键可以取消并恢复原APP。
-9. 在番茄钟使用自定义时间启动30秒倒计时，切到桌宠停留几秒，再切回番茄钟；确认倒计时按照真实经过时间继续，并且暂停、结束触摸正常响应。
-10. 连续完成5次APP切换，确认前5次日志为`mode=monochrome_fast`；第6次记录`reason=periodic_cleanup`并使用全刷清理残影。
-11. 在番茄钟的设置、运行、暂停和响铃页，状态牌的菜单、展示和自定义页，以及答案书的主页、动画和结果页分别快速双击AI键；确认都返回桌宠，日志记录`input=button_double_click app_to=desktop_pet`。
-12. 在应用选择窗口，以及桌宠的主页、命名、测试、性格选择和过场页分别快速双击AI键；确认都回到当前宠物状态对应的根页面，日志记录`page=root`。
-13. 分别在竖屏桌宠和横屏状态牌中，从屏幕底部边缘向上滑动；确认选择窗口出现、IMU启动，并记录`launcher=gesture action=open`。
-14. 在横竖两种选择窗口中，分别从画面顶部拉到中间、从中部继续向下滑动；确认两种动作都会关闭窗口、恢复原APP并停止IMU，同时记录`launcher=gesture action=close`和`launcher=cancelled`。
-15. 从选择贴纸中部向下滑，再在原页面按钮附近做明显拖动；确认前者只关闭选择窗口，后者只作为拖动轨迹处理。随后轻触按钮，确认抬手后正常响应。
+## Documentation
 
-一句话总结：顶部按键或底部上滑打开四个APP入口，中部下滑关闭入口，快速双击顶部按键直接返回桌宠。
+| Guide | What it explains |
+| --- | --- |
+| [Documentation home](docs/wiki/Home.md) | Find the right user or developer guide |
+| [Getting Started](docs/wiki/Getting-Started.md) | Build, upload and complete first boot |
+| [Desktop Pet](docs/wiki/Desktop-Pet.md) | Daily interactions and visible behavior |
+| [Pet Growth System](docs/wiki/Pet-Growth-System.md) | Stages, personality, values and persistence |
+| [Pomodoro Timer](docs/wiki/Pomodoro-Timer.md) | Presets, custom time, countdown and alarm |
+| [Status Board](docs/wiki/Status-Board.md) | Preset and custom landscape status pages |
+| [Book of Answers](docs/wiki/Book-of-Answers.md) | Message and crystal-ball answer modes |
+| [Launcher and Gestures](docs/wiki/App-Launcher-and-Gestures.md) | Touch, button, rotation and shake routing |
+| [Power and RTC](docs/wiki/Power-and-RTC.md) | Sleep policy, scheduled events and battery UI |
+| [Firmware Architecture](docs/wiki/Firmware-Architecture.md) | Modules, ownership and execution flow |
+| [Asset Pipeline](docs/wiki/Asset-Pipeline.md) | Artwork sources and deterministic conversion |
+| [Testing and Debugging](docs/wiki/Testing-and-Debugging.md) | Native tests, logs and visual QA |
+| [Troubleshooting](docs/wiki/Troubleshooting.md) | Common build, flash, display, touch and RTC checks |
 
-## 电池电量显示真机验收
+## Design history
 
-1. 使用`sticky-debug`烧录并打开串口，确认启动日志包含`battery=ready address=0x55 device_id=0x0220 result=ok`。
-2. 等待桌宠主页出现，确认右上角显示电池轮廓和百分比；日志包含`battery=display valid=1 percent=...`，画面数字应与日志一致。
-3. 插入USB，触发一次页面刷新，确认电池内部出现闪电标记；拔掉USB并再次刷新，确认闪电标记消失。
-4. 分别进入番茄钟、状态板白底菜单、状态板黑底全屏页、答案书和APP选择窗口；确认电池始终位于当前画面方向的右上角，白底页面使用黑线，黑底页面使用白线，背景与页面自然衔接。
-5. 同时按住两个侧键进入休眠，确认电池图标和百分比向左移动，月亮独立显示在最右侧；使用AI键唤醒后，电池图标回到右上角常规位置。
-6. 如果电量计暂时读取失败，画面显示`--%`，日志每10秒最多重试一次；恢复读取后应自动显示有效百分比。
+The firmware grew through physical-device testing and many ePaper-specific UI iterations. The Wiki keeps selected concept sheets beside final code-rendered screens so future contributors can understand the visual system without mistaking experiments for shipped behavior. Visit [Design and Asset Gallery](docs/wiki/Design-and-Asset-Gallery.md).
 
-成功标准是电量来源为BQ27220、数值保持在0～100%、横竖屏位置一致、黑白背景配色自动适配、外接电源标记正确，并且休眠画面同时完整显示电池、百分比和月亮。
+## Contributing
 
-## 深度睡眠与桌宠计划唤醒真机验收
+Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), keep hardware behavior traceable to the Sticky reference implementation, add a native regression test for behavior changes, and include a device validation plan when hardware is required.
 
-1. 使用`sticky-debug`烧录并打开串口，确认日志包含`button=ready ai_pin=4 side_pins=5,6`。
-2. 单独长按任意一个侧键超过2秒，确认设备继续运行且没有出现`button=sleep_chord`。
-3. 在500毫秒内同时按下两个侧键并保持2秒；确认出现`button=sleep_chord state=detected`，松开两键后屏幕执行一次完整黑白刷新，右上角显示月亮且历史画面残影明显消失，然后播放一声短促提示音；随后日志出现`power=deep_sleep ... result=entering`并停止心跳。
-4. 休眠期间触摸、旋转和单独按侧键，确认画面保持且设备不响应；按顶部AI键，确认启动日志显示`reset=deep_sleep wake=ext1`，启动时跳过白屏清除，并恢复状态牌选择、番茄钟设置或暂停时间、答案书模式和当前结果等稳定页面内容。
-5. 使用普通`sticky-debug`返回宠物蛋页面并拔掉USB；保持无触摸10分钟，确认设备静音绘制月亮并进入休眠，日志中的`pet=power_sleep`保持`next_event=0`。继续等待，确认设备不会定时唤醒；按顶部AI键后才恢复画面。
-6. 使用`sticky-power-test`烧录已经孵化的桌宠；保持无触摸60秒，确认设备静音绘制月亮并进入休眠。第一次准备休眠时，日志会生成`pet=power_test schedule=outing`，出发时间约为2分钟后、返回时间约为5分钟后；确认休眠日志中的`next_event`和`wake_at`分别对应出发事件及提前15秒的唤醒时间。
-7. 等待定时唤醒，确认日志显示`wake=timer`，兔子在计划时间出门；约20秒无操作后月亮重新出现，并把回家时间设置为下一次唯一唤醒目标。
-8. 等待第二次定时唤醒，确认兔子播放返回和团聚过程，计划完成后不再重复同一次外出。
-9. 在番茄钟倒计时、提前结束确认和响铃页面同时长按侧键，确认日志记录`result=blocked`，倒计时或响铃继续运行；答案书摇晃、思考和揭晓页面同样不会被休眠打断。
-10. 使用电池分别停留在状态牌展示页、状态牌菜单、番茄钟设置或暂停页、答案书首页或结果页，确认达到各自空闲时间后自动休眠；状态牌自定义输入、番茄钟自定义时间输入和答案书动画期间保持运行。打开APP选择窗口后不操作30秒，确认窗口自动关闭并回到原APP。
+## Credits and licenses
 
-成功标准是双侧键不会误触发、月亮在断电屏幕上清晰可见、AI键能够稳定唤醒、启动不先清白，以及计划出门和回家各执行一次。
+Sticky Bunny is released under the [MIT License](LICENSE).
 
-## PCF8563真实时间验收
+The pet architecture adapts small MIT-licensed ideas from TamaPoke, esp32-artoria-tamagotchi, openclaw-tamagotchi and ESP32-TamaPetchi. The original notices and exact audited commits are recorded in [third_party/virtual_pet/NOTICE.md](third_party/virtual_pet/NOTICE.md). Rabbit artwork in this repository is original to this project.
 
-1. 烧录`sticky-debug`并打开串口，确认启动阶段出现`rtc=ready address=0x51 frequency_hz=400000 result=ok`。
-2. 首次出现`rtc=read validity=low_voltage result=invalid`时，确认紧接着出现`rtc=seed source=firmware_build time=... result=ok`；这是RTC首次校时，后续启动不会再次覆盖时间。
-3. 确认桌宠启动前出现`pet=rtc source=boot time=YYYY-MM-DDTHH:MM:SS elapsed_min=... offline=1 day=... result=ok`，其中日期和时间应与固件构建时间接近。
-4. 保持设备运行65秒，确认桌宠正常响应触摸，串口不会每分钟打印普通RTC读数。需要逐分钟观察时，把`STICKY_LOG_RTC_READS_ENABLED`设为`1`重新编译。
-5. 记录当前`FULLNESS`和`ENERGY`，关闭设备至少2分钟后重新开机，确认启动RTC日志中的`elapsed_min`不小于2，并且桌宠根据经过时间更新照料值。
-6. 在睡眠页面关闭设备，等待至少2分钟再开机，确认精力按离线时间恢复；达到100时直接回到主页，未达到100时继续显示睡眠页面。
-7. RTC写入或日历校验失败时，日志会显示`retry_s=300`；桌宠继续启动，发布版睡眠使用应用定时器作为时间后备来源。
+The Book of Answers message database is derived from `DBinK/The-Book-of-Answers-Interpreter` under the Apache License 2.0; its complete notice is stored with the source database.
 
-成功标准是启动时间有效、断电时间能够补算、触摸保持响应，并且普通运行日志保持安静。
-
-## 电池供电真机验收
-
-1. 连接USB并烧录`sticky-debug`，打开串口后确认出现`charger=ready enable_pin=39 enable_level=0`。
-2. 保持USB连接一段时间，让已经耗尽的内置电池恢复基本电量。
-3. 在桌宠主页拔掉USB，确认电子纸画面保留，触摸兔子或底部按钮后仍会刷新动作。
-4. 无USB时继续操作约1分钟，确认触摸、屏幕和自主动作持续正常。
-5. 再次连接USB并查看串口，确认设备继续运行，并可在下次重启时再次读到充电路径就绪日志。
-
-## 桌宠正式版真机验收
-
-1. 烧录`sticky-debug`并打开串口，确认启动日志包含`profile=production`，屏幕呈现完整桌宠主页和正式交互入口。
-2. 确认当前存档的宠物名字、阶段、成长、亲密、食物和精力继续显示，切换正式规则不会清空存档。
-3. 分别执行`FEED`、点击兔子、`TALK`和`PLAY`，确认动作、声音、对白和数值刷新正常。
-4. 停留主页约30秒，确认自主动作使用12～28秒的正式间隔。
-5. 重启设备，确认日志继续显示`profile=production save=loaded`，页面与数值从双槽存档恢复。
-6. 通过顶部按键切换到其他APP，再点击`PET`回来，确认桌宠首帧快速显示且交互状态保留。
-
-## 桌宠加速生命周期真机验收
-
-以下流程使用`STICKY_DESKTOP_PET_TEST_MODE=1`编译的加速验证固件，用于在几分钟内检查全部成长阶段。
-
-以下动作连续执行，方便把屏幕变化、成长数值和串口日志对应起来。
-
-1. 烧录`sticky-debug`并打开串口，确认屏幕先完整清白，再显示当前存档对应的竖屏桌宠主页。
-2. 进入`TEST`面板，连续点击两次`RESET PET`，确认面板显示`EGG`和`HATCH 0 / 3`；关闭测试面板后回到完整宠物蛋页面。
-3. 轻触蛋一次，确认蛋先左右摇摆，再出现第一道裂纹，顶部进度点变为一个实心点；串口出现`pet=hatch tap=1`。
-4. 此时断电重启，确认仍显示第一道裂纹和一个实心点；再次轻触，确认裂纹扩大并露出两只耳朵，顶部变为两个实心点。
-5. 第三次轻触蛋，确认先明显左右摇摆，再显示破壳幼兔并播放一次轻柔上行三音；欢迎画面结束后进入`HATCHLING`主页，数值为`DAY 1`、`GROWTH 10 / 30`、`LOVE 18`和`FULLNESS 80`。
-6. 进入`TEST`面板点击一次`+30 GROWTH`，确认测试面板自动关闭，并依次出现幼兔发光、黑色成长剪影和儿童期揭晓三个全屏画面。
-7. 等待过场结束，确认主页标题为`CHILD`，成长目标为`GROWTH 30 / 120`，兔子变得更高、耳朵更长并戴有小围巾。
-8. 点击儿童期兔子，确认显示专属抚摸姿势；分别点击`FEED`和`PLAY`，确认显示儿童期独立的吃胡萝卜和离地扑球姿势。
-9. 连续点击`TALK`，确认出现儿童期语气的对白，并且成长、亲密和食物值不会因为聊天变化。
-10. 停留在儿童期主页约30秒，确认会看到儿童期独立的眨眼、抖耳、转头、伸懒腰、饥饿或疲劳姿势，连续动作不会重复最近两种。
-11. 在任意自主动作显示期间点击兔子或底部按钮，确认当前动作会切换为对应用户互动，触摸不会失效。
-12. 重新进入`TEST`面板，确认前面三种互动已把成长值累计到110，点击一次`+30 GROWTH`后成长值在120封顶；由于三种互动分数接近，页面自动切换为三选一。
-13. 点击`STAY CLOSE`，确认先播放青年进化过场，然后主页标题变为`HEART YOUTH`，成长目标为`GROWTH 120 / 280`，角色带有爱心脸颊和吊坠。
-14. 分别点击`FEED`、屏幕中间的兔子、`PLAY`和`TALK`，确认显示亲密型青年兔的四类独立动作和台词。
-15. 进入`TEST`面板连续点击六次`+30 GROWTH`，确认成长值在280封顶，并播放青年成长为成年兔的三段全屏过场。
-16. 等待过场结束，确认主页标题为`HEART ADULT`、成长值为`GROWTH 280 / 280`，兔子体型、爱心吊坠和拥抱姿态明显升级。
-17. 分别点击`FEED`、成年兔身体、`PLAY`和`TALK`，确认显示亲密型成年兔的四类动作和成年专属台词；成长值继续保持280。
-18. 断电重启，确认日志显示`save=loaded stage=adult`，主页继续显示`HEART ADULT`和断电前的数值。
-19. 验证自动路线：重置后先完成三次孵化，再点击一次`+30 GROWTH`进入`CHILD`；在儿童期连续点击两次`FEED`，再在`TEST`面板点击一次`+30 GROWTH`。确认不出现选择页，直接进化为`FOODIE YOUTH`。
-20. 在`TEST`面板连续点击两次`RESET PET`，关闭面板并完成三次孵化，再返回测试面板连续点击三次`NEXT DAY`，确认到`DAY 4`时食物值为20且心情为`HUNGRY`。
-21. 此时点击`+30 GROWTH`并退出测试面板，确认成长值达到30但仍为`HATCHLING`，对白提示继续照料以帮助成长。
-22. 点击一次`FEED`，确认食物从20恢复到50，并立即播放成长过场；过场结束后进入`CHILD`。这一步验证成长同时需要成长值和良好照料状态。
-23. 点击测试面板的`+20 LOVE`把亲密值增加到100，确认继续点击后不会超过100。
-24. 返回主页后点击`TALK`，确认高亲密度儿童期台词生效；连续聊天时优先避开最近五句。
-25. 再次断电重启，确认儿童期阶段和全部数值继续保留。
-26. 在任意已孵化阶段进入`TEST`面板，连续点击`-30 ENERGY`直到`ENERGY 0`，再关闭面板。
-27. 确认兔子落在地毯上并保持趴卧；停留至少15秒，画面不再切换到眨眼、抖耳、伸懒腰或其他自主动作。
-28. 分别点击`FEED`、`TALK`和`PLAY`，确认兔子继续保持趴卧，并提示先让它休息。
-29. 点击主页右上方的`ENERGY`按钮进入睡眠页，确认页面显示`RESTORES 6% ENERGY PER MINUTE`；等待一帧睡眠动画后点击黑色`WAKE UP`按钮，确认主页显示的能量已经大于0。
-30. 再次点击屏幕中央的兔子，确认这次播放正常抚摸动作，不会重新进入睡眠页；`FEED`、`TALK`和`PLAY`也恢复响应。
-31. 在能量为1到9时返回主页，确认兔子在互动间隙保持趴卧且不播放随机动作；点击兔子仍然执行抚摸，点击`ENERGY`按钮进入睡眠恢复。睡眠页点击按钮外区域保持睡眠，点击黑色`WAKE UP`按钮才提前醒来。
-32. 在正常能量下依次执行`FEED`、触摸兔子和`PLAY`，确认每次都是对应兔子姿势先显示，随后才播放进食声、回应声和玩耍声。
-33. 连续点击`TALK`并观察对白，确认声音跟随兔子的说话表演；通过`+20 LOVE`改变亲密等级后，声音语气会从短促谨慎逐步变得温暖明亮。
-34. 通过`NEXT DAY`把`FULLNESS`降到30或以下，再点击`TALK`，确认兔子显示饥饿对白并播放饥饿音型；把饱腹值恢复后，普通对白和对应声音恢复。
-35. 通过`-30 ENERGY`把能量降到35或以下但保持大于0，再点击`TALK`，确认兔子显示疲劳对白并播放较慢、较低的疲劳音型。
-36. 把能量降到0并关闭测试面板，确认疲劳提醒只播放一次；保持能量为0至少15秒，确认不再重复。点击`FEED`、`TALK`或`PLAY`，确认没有出现对应表演和声音；点击兔子进入睡眠页，确认睡眠场景显示后才播放由触摸触发的入睡音型。
-37. 提前唤醒，确认主页显示后播放上行醒来音型；让兔子连续保持饥饿至少60秒，确认只有第一次饥饿动作发声。把食物恢复到30以上再降回饥饿区间，确认新一轮饥饿再次只提醒一次；能量为0时采用相同的一次性提醒规则。
-38. 进入`TEST`面板点击`GO OUT`，确认面板关闭；兔子收拾背包后朝右走出画面，回来时朝左进入房间。
-39. 确认兔子离开后，页面继续显示名字、成长值、亲密值、食物值、精力值和日期；房间里没有兔子，地面保留一串通向画面边缘的脚印。
-40. 点击房间区域，确认页面保持不变；点击底部`CALL HER HOME`，确认兔子立即从画面边缘回来，展示带回的纪念品，并在团聚画面结束后返回主页。
-41. 再次点击`GO OUT`且不进行操作，等待纸条显示的时间，确认兔子到时自动回家。整个自动外出和回家过程保持安静。
-42. 分别在贪吃型、亲密型和活力型青年或成年兔上触发外出，确认回家时分别使用浆果、小花和树叶纪念品造型。
-43. 烧录新的`sticky-debug`后停留在桌宠主页，不打开`TEST`面板；确认日志出现`pet=outing schedule=scheduled source=rtc`，并在15～30秒后自动进入收拾背包和离开画面。同一天需要重新测试时，在`TEST`面板点击一次`NEXT DAY`并立即返回主页即可生成新的加速计划。
-44. 兔子离开后立即重启设备；若仍在计划回家时间之前，确认启动日志出现`pet=outing phase=away source=automatic`并直接恢复外出页面；若已经到达回家时间，确认设备直接显示兔子在家的主页。
-45. 在自动外出页面点击`CALL HER HOME`，等待回家动画完成后再次重启，确认当天保持在家且不会重新生成第二次外出。
-46. 保持`sticky-debug`串口打开，连续完成两次会改变数值的互动，例如点击`FEED`后再抚摸兔子；确认日志中的`pet_storage=save`先后写入`slot_a`和`slot_b`，且`sequence`逐次增加。
-47. 记下当前名字、成长值、亲密值和食物值，然后重新启动设备；确认日志出现`pet_storage=load source=slot_a`或`source=slot_b`，并带有`peer_valid=1`。
-48. 确认重启后的名字、阶段和各项数值与重启前一致，再执行一次互动；确认系统继续写入较旧的另一个槽位，而不是覆盖刚刚读出的最新槽位。
-49. 进入`TEST`面板查看当前`STREAK`，点击一次`NEXT DAY`并关闭面板，然后抚摸兔子；确认日志中的`care_day_started=1`，同一天再次喂食时变为`care_day_started=0`且连续天数不再增加。
-50. 再连续完成两轮“`NEXT DAY`→关闭面板→抚摸兔子”；当`STREAK`到达3时，先完整显示抚摸动作，再进入`3 DAYS TOGETHER`全屏庆祝页。
-51. 确认庆祝页先显示兔子接受亲近的姿势，随后切换为明显离地的陪玩姿势，最后自动返回主页；播放期间的触摸不会遗留到主页。
-52. 在同一个模拟日再次互动并重启设备，确认3天庆祝不会重复。继续完成四轮“`NEXT DAY`→抚摸”，确认第7天只庆祝一次。
-53. 在下一个真实RTC自然日期首次进入普通主页时，确认出现一次回归问候和`pet=daily_greeting absence_days=... result=shown`；当天再次重启不再重复问候。
-
-新存档启动时会出现`pet=ready page=egg profile=production save=new stage=egg`。三次有效轻触依次记录`pet=hatch tap=1`、`tap=2`和`tap=3`，破壳完成记录`pet=hatch state=complete stage=hatchling`；之后每次照料会出现带`stage`、`food`、`mood`、`streak`和`milestone`的`pet=care`。RTC生成外出计划时记录`pet=outing schedule=... source=rtc`，自动出发和重启恢复分别记录对应的`phase=packing`或`phase=away`。双槽存档会记录`pet_storage=save target=slot_a|slot_b sequence=...`；重启读取时记录`pet_storage=load source=slot_a|slot_b sequence=... peer_valid=... result=ok`。连续照料庆祝记录`pet=care_milestone days=...`，每日回归问候记录`pet=daily_greeting absence_days=... result=shown`。
-
-## 答案书真机验收
-
-以下操作连续执行，方便把画面变化与串口日志对应起来。
-
-1. 烧录`sticky-debug`并打开串口，观察屏幕先执行一次完整白屏刷新；从其他APP进入答案书时，日志确认主页使用`mode=monochrome_full`完整刷新。
-2. 确认旧页面残影已经清除、黑色内容清晰且没有变淡，主页默认选中`MESSAGE`，并显示静态的兔子、水晶球和桌面。
-3. 在主页停留2秒，确认画面保持静止、没有自动切换动画帧，底部清楚显示`SHAKE GENTLY FOR 3 SEC`和`TO RECEIVE YOUR ANSWER`。
-4. 点击`YES / NO`，确认右侧选项变成黑底；再点击`MESSAGE`，确认选择恢复到左侧。
-5. 缓慢拿起设备并旋转90度，确认答案流程不会启动。
-6. 用力摇动一次后立即停下，确认答案动画虽然启动，但随后进入摇晃不足提示页，并且没有显示或记录任何答案。
-7. 确认提示页只显示`SHAKE FOR 3 SECONDS`和`KEEP YOUR QUESTION IN MIND`两组必要说明，兔子与水晶球左右摆动，没有重复的底部状态文字。
-8. 等待提示页自动返回主页；再重复一次摇晃不足，并在提示页重新开始持续摇晃，确认可以直接重启答案动画。
-9. 持续、明确地左右摇晃设备约3秒，直到页面进入`HOLD STILL`和`THINKING...`阶段后停止动作。
-10. 停止摇晃后确认思考动画和`REVEALING...`揭晓动画继续正常播放，各自至少出现一次动作变化；摇晃、思考和揭晓页面顶部不再显示`BOOK OF ANSWERS`。
-11. 确认揭晓动画完成后才进入一句话答案页，结果页顶部不再显示`BOOK OF ANSWERS`，兔子的眼睛、爪子和答案卡片会持续变化。
-12. 点击`ASK AGAIN`，确认回到仍选中`MESSAGE`的主页；重新持续摇晃后获得新答案。
-13. 确认相邻两次一句话答案不同；确认`END`具有清楚的描边按钮，在按钮边缘点击也能直接返回主页，并且仍选中`MESSAGE`。
-14. 选择`YES / NO`并持续摇晃3秒，进入思考页后停止，确认最终结果只能是`YES`、`NO`或`UNCLEAR`。
-15. 确认分类结果页使用完整的双层玻璃球轮廓、星尘、带切面的底座和抱球兔子。
-16. 分别获得`YES`、`NO`或`UNCLEAR`时，确认答案在玻璃球内部水平和垂直居中。
-17. 在分类结果页停留2秒，确认兔子的眼睛、耳朵、爪子以及球内高光和星尘会持续变化。
-18. 点击`ASK AGAIN`返回主页并完成下一轮持续摇晃，确认相邻两次结果不同。
-19. 点击`END`返回主页，确认仍选中`YES / NO`。
-20. 在动画期间点击屏幕，确认动画继续完成，结果页不会收到遗留点击。
-21. 返回其他APP并打开应用选择器，持续摇晃约0.8秒进入答案书；确认进入后停留在静态主页，没有直接开始求答案动画。停止动作并放稳设备，日志依次出现`book=input state=waiting_for_fresh_shake`和`book=input state=ready`。
-22. 在出现`state=ready`后重新摇晃设备，确认这次全新的摇晃才进入`SHAKING...`，并且仍需持续满3秒才能获得答案。
-
-摇晃不足时，日志会出现`imu=shake state=stopped`和`book=shake qualification=insufficient`；持续满3秒会出现`book=shake qualification=passed`，随后继续播放思考和揭晓动画，动画完成后才出现`book=answer selected`。开发版默认不会逐帧打印动画；需要逐帧观察时，把`STICKY_LOG_BOOK_ANIMATION_ENABLED`设为`1`重新编译。
-
-## 状态牌真机验收（切换独立入口后使用）
-
-以下动作按顺序连续执行，方便将页面现象与串口日志一一对应。
-
-1. 烧录`sticky-debug`并打开串口，等待横屏状态牌显示。
-2. 确认一级菜单标题显示`STICKY STATUS BOARD`，下方依次显示`BUSY`、`MEETING`、`ON CALL`、`OPEN TO TALK`、`REST`和`CUSTOM`；默认选中的`MEETING`为黑底白兔线稿，其余状态为白底黑兔线稿。
-3. 确认底部有一条左右各留20像素边距的细地面线；兔子在左边挥手后蓄力，分三段跳到右边，右边举手庆祝，再沿地面线分三段走回左边，然后自动重复。
-4. 在兔子跳跃或走动时点击任意状态卡片，确认当前刷新结束后只需一次点击就能进入对应二级页。
-5. 点击`BUSY`，确认进入黑底全屏展示页，左侧大字和右侧敲键盘的兔子共同铺满画面，页面不显示固定时间。
-6. 点击左上角返回箭头及箭头周围区域，确认都能返回一级菜单，并且`BUSY`保持为黑底选中状态。
-7. 按顺序打开`MEETING`、`ON CALL`、`OPEN TO TALK`和`REST`；确认画面分别对应会议交流、耳麦通话、挥手邀请和用餐休息，每次都使用左上角返回一级菜单。
-8. 在六个状态子页分别停留3秒，确认兔子执行对应动作，左侧文字与返回箭头在动画期间保持不变。
-9. 点击`CUSTOM`，确认进入设备端QWERTY全键盘，输入框显示`TYPE STATUS_`和`0 / 20`。
-10. 连续输入`DEEP WORK MODE`，确认输入框与字符计数随每次按键更新。
-11. 点击`123`，输入数字`2`，再点击`DELETE`删除该数字，确认数字键盘和删除操作都有效。
-12. 点击`APPLY`，确认进入黑底全屏展示页并居中显示`DEEP WORK MODE`。
-13. 点击左上角返回箭头返回一级菜单，再进入`CUSTOM`，确认刚才的自定义文字仍然保留。
-14. 点击`CLEAR`后直接点击`APPLY`，确认页面保留在输入界面并显示至少输入一个字符的提示。
-15. 连续输入20个字符后再点击任意字符，确认计数保持`20 / 20`，已输入内容不被覆盖。
-16. 点击`CLEAR`，快速连续输入`STICKY`，确认六个字母按顺序完整出现；日志可出现`status_board=input_batch actions=... refreshes=1`。
-17. 在自定义输入页点击一个字母，并在电子纸仍在刷新时点击一次左上角返回箭头，确认前一次刷新完成后自动返回一级菜单，无需重复点击。
-18. 进入任一预设状态的二级展示页，点击一次左上角箭头或其周围区域，确认页面完成一次局刷后返回一级菜单。
-
-主流程成功时，日志会按操作出现`status_board=touch`、`status_board=custom_input`和`status_board=transition`，并且触摸轮询保持安静。
-开发版日志中的`queue_latency_ms`表示点击从触摸队列到应用处理所等待的时间，`status_board=refresh state=done`中的`elapsed_ms`表示电子纸完成本次刷新的时间。
-
-## 番茄钟回归验收
-
-以下动作按顺序连续执行，方便将页面现象与串口日志一一对应。
-
-### 主流程
-
-1. 烧录`sticky-debug`并打开串口，等待番茄钟主页显示。
-2. 确认默认时间为`15:00`，15分钟预设为选中状态。
-3. 依次点击15分钟、25分钟和60分钟，确认页面时间和选中项同步变化，并且三个预设始终保持在同一行。
-4. 点击`CUSTOM TIME`，依次选择小时、分钟和秒钟，使用数字键输入`00:01:30`。
-5. 点击`USE THIS TIME`，确认主页显示`01:30`。
-6. 点击`START`，确认进入倒计时页面，顶部不显示额外状态标题。
-7. 点击`PAUSE`，等待数秒后点击`RESUME`，确认剩余时间从暂停位置继续。
-8. 点击`END SESSION`，确认当前倒计时画面中央覆盖`END SESSION?`小弹窗；点击`CANCEL`后应直接继续倒计时，无需再次点击`RESUME`。
-9. 再次点击`END SESSION`，然后点击弹窗中的`END`，确认返回主页并保留本次选择的时长。
-
-### 时间到与蜂鸣器
-
-10. 在`CUSTOM TIME`中输入10秒并开始计时。
-11. 确认时间数字从`00:10`开始逐秒快刷并递减。
-12. 时间到后确认页面显示`TIME'S UP`、`00:00`和`ALARM SOUNDING`，并且圆环、时间字号和中心位置与正常倒计时页面一致；蜂鸣器循环播放上升三音提示。
-13. 保持10秒不操作，确认三音提示持续循环，并且每组声音之间存在安静间隔。
-14. 点击`END`，确认蜂鸣器立即停止，随后页面返回主页并保留本次选择的时长。
-
-### 边缘情况
-
-15. 进入自定义时间，输入`00:00:00`并点击`USE THIS TIME`，确认页面保持在自定义时间页，日志出现`result=invalid`。
-16. 输入`00:23:01`，选择分钟并点击`DELETE`，确认时间变为`00:20:01`；再次点击确认变为`00:00:01`。
-17. 重新输入`23`，点击一次`DELETE`后输入`4`，确认分钟字段变为`24`；点击`CLEAR`，确认仅分钟字段变为`00`，秒钟仍为`01`。
-18. 快速连续点击多个数字，确认输入顺序完整且不丢键；停止输入2秒后确认页面执行一次完整刷新，文字恢复为清晰黑色且没有旧数字残影。
-19. 分钟或秒钟输入60至99，再点击`USE THIS TIME`，确认页面保持不变并记录无效输入。
-20. 分别点击`BACK`文字、文字左右两侧和页面底部两角，确认都能返回主页。
-21. 在运行、暂停、提前结束确认和响铃页面点击空白区域，确认状态保持不变。
-22. 连续完成三次自定义10秒计时，确认每次`END`都能停止蜂鸣器，并继续保持10秒为选中时间。
-23. 分别启动15分钟、25分钟、60分钟和一个自定义时间，确认每一种时长都从开始后的第一秒持续逐秒变化。
-24. 在数字逐秒刷新过程中连续点击`PAUSE`和`END SESSION`，确认每次点击都会在当前刷新完成后生效。
-
-主流程成功时，日志会按操作出现`pomodoro=touch`、`pomodoro=page`、`pomodoro=timer`和`buzzer=alarm`，并且触摸轮询保持安静。
+reTerminal Sticky is a product of Seeed Studio. This is a community firmware project and is not presented as the device's factory firmware.

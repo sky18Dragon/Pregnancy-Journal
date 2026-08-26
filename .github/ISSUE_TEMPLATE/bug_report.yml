@@ -1,0 +1,62 @@
+name: Bug report
+description: Report a repeatable firmware, UI, power or hardware behavior issue.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve Sticky Bunny. A precise hardware sequence makes issues much easier to reproduce.
+  - type: input
+    id: version
+    attributes:
+      label: Firmware version or commit
+      placeholder: 0.1.0 or a commit hash
+    validations:
+      required: true
+  - type: dropdown
+    id: profile
+    attributes:
+      label: Build profile
+      options:
+        - sticky-release
+        - sticky-debug
+        - sticky-power-test
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: List the physical orientation, touches, buttons and timing in order.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Serial log and photos
+      description: Attach the relevant log section and a clear screen photo when available.
+  - type: dropdown
+    id: power
+    attributes:
+      label: Power source
+      options:
+        - USB
+        - Internal battery
+        - Reproduces on both
+        - Not applicable
+    validations:
+      required: true

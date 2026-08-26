@@ -1,0 +1,2 @@
+# Image conversion used by the deterministic firmware asset generators.
+Pillow==11.3.0

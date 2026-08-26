@@ -4,12 +4,16 @@
 
 #include "esp_err.h"
 
+// One released tap in logical display coordinates.
+// 一次已经抬起的轻触，坐标采用逻辑屏幕方向。
 struct StickyTouchPress {
     uint16_t x = 0;
     uint16_t y = 0;
     uint32_t captured_at_ms = 0;
 };
 
+// One complete contact path used to recognize launcher swipe gestures.
+// 一条完整接触轨迹，用于识别应用选择器滑动手势。
 struct StickyTouchInteraction {
     uint16_t start_x = 0;
     uint16_t start_y = 0;

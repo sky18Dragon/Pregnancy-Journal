@@ -14,12 +14,16 @@ enum class StickyAppRouteAction {
     AppSelected,
 };
 
+// Mutable state for one launcher session; the baseline is captured once.
+// 单次应用选择会话的可变状态；起始姿态只记录一次。
 struct StickyAppRouterState {
     bool launcher_open = false;
     StickyImuOrientation baseline_orientation =
         StickyImuOrientation::Unknown;
 };
 
+// Pure routing decision returned to the application coordinator.
+// 返回给应用协调器的纯路由判定结果。
 struct StickyAppRouteResult {
     StickyAppRouteAction action = StickyAppRouteAction::None;
     StickyAppId selected_app = StickyAppId::DesktopPet;
@@ -64,4 +68,6 @@ StickyAppRouteResult sticky_app_router_shaking(
     StickyAppRouterState &state,
     uint32_t shake_duration_ms);
 
+// Returns the stable English name used by diagnostics and tests.
+// 返回诊断日志和测试共用的稳定英文操作名称。
 const char *sticky_app_route_action_name(StickyAppRouteAction action);

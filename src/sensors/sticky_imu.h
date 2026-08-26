@@ -6,6 +6,8 @@
 #include "esp_err.h"
 #include "sticky_orientation.h"
 
+// Latest accelerometer sample plus both observed and settled orientations.
+// 最近一次加速度采样，以及快速观察姿态和最终稳定姿态。
 struct StickyImuState {
     float acceleration_x_g = 0.0F;
     float acceleration_y_g = 0.0F;

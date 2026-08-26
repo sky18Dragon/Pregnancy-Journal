@@ -132,7 +132,12 @@ struct PetCoreActionResult {
     PetActivity activity = PetActivity::Idle;
 };
 
+// Returns the real-time profile used by release firmware.
+// 返回正式固件使用的真实时间配置。
 const PetCoreProfile &pet_core_production_profile();
+
+// Returns the accelerated profile used for hardware acceptance testing.
+// 返回硬件验收测试使用的加速时间配置。
 const PetCoreProfile &pet_core_test_profile();
 
 // Applies an RTC reading and advances bounded offline pet simulation.
@@ -166,9 +171,17 @@ void pet_core_advance_minutes(PetCoreState &state,
 // 推进一个模拟日期，并重置当天奖励计数。
 void pet_core_advance_day(PetCoreState &state);
 
+// Derives the visible mood from the four care needs and current activity.
+// 根据四项照料需求和当前活动计算界面情绪。
 PetMood pet_core_mood(const PetCoreState &state);
+
+// Reports whether the current growth threshold and branch rules are satisfied.
+// 返回当前成长阈值和分支规则是否已经满足。
 bool pet_core_can_evolve(const PetCoreState &state,
                          const PetCoreProfile &profile);
+
+// Applies one permitted stage transition and resets transition-only flags.
+// 执行一次允许的阶段成长，并重置仅用于过场的标记。
 bool pet_core_evolve(PetCoreState &state,
                      const PetCoreProfile &profile);
 
@@ -177,10 +190,18 @@ bool pet_core_evolve(PetCoreState &state,
 PetPersonalityDecision pet_core_personality_decision(
     const PetCoreState &state);
 
+// Stores a valid manual branch when the accumulated scores require a choice.
+// 当累计分数需要用户选择时，保存一个有效的手动性格分支。
 bool pet_core_choose_personality(PetCoreState &state,
                                  PetPersonalityBranch branch);
+
+// Clamps persisted fields to the supported schema and profile limits.
+// 将持久化字段约束到当前结构版本和配置允许的范围。
 void pet_core_sanitize(PetCoreState &state,
                        const PetCoreProfile &profile);
+
+// Returns stable English labels used by UI, logs, and persistence diagnostics.
+// 返回界面、日志和存档诊断共用的稳定英文名称。
 const char *pet_core_stage_name(PetLifeStage stage);
 const char *pet_core_activity_name(PetActivity activity);
 const char *pet_core_mood_name(PetMood mood);

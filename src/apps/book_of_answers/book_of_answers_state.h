@@ -80,6 +80,8 @@ size_t book_of_answers_choose_index(uint32_t random_value,
                                     size_t previous_index,
                                     size_t option_count);
 
+// Returns stable English labels used by diagnostics and host tests.
+// 返回诊断日志和主机测试共用的稳定英文名称。
 const char *book_of_answers_page_name(BookOfAnswersPage page);
 const char *book_of_answers_mode_name(BookOfAnswersMode mode);
 const char *book_of_answers_action_name(BookOfAnswersAction action);

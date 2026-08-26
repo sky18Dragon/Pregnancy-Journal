@@ -11,7 +11,12 @@ esp_err_t pomodoro_app_start(Canvas &canvas);
 // 保存番茄钟绘图与触摸换算共用的竖屏方向。
 void pomodoro_app_set_display_rotation(CanvasRotation rotation);
 
+// Suspends timer input and animation while preserving the current session.
+// 暂停计时器输入和动画，同时保留当前专注会话。
 esp_err_t pomodoro_app_pause();
+
+// Restores the preserved session and redraws the active timer page.
+// 恢复已保留的专注会话，并重新绘制当前计时页面。
 esp_err_t pomodoro_app_resume();
 
 // Reports whether deep sleep can preserve the current timer experience.

@@ -167,6 +167,8 @@ bool desktop_pet_state_requires_sleep(const DesktopPetState &state);
 // 返回清醒宠物是否只剩1到9点能量，并应在互动间隙保持休息。
 bool desktop_pet_state_is_low_energy(const DesktopPetState &state);
 
+// Returns the next stage threshold and stable English UI labels.
+// 返回下一成长阶段阈值，以及界面使用的稳定英文名称。
 uint16_t desktop_pet_state_growth_limit(const DesktopPetState &state);
 const char *desktop_pet_state_stage_label(const DesktopPetState &state);
 

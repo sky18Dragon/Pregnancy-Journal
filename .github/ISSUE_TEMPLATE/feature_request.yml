@@ -1,0 +1,41 @@
+name: Feature request
+description: Propose a focused improvement to the pet, apps, launcher or platform layer.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: user_need
+    attributes:
+      label: User need
+      description: Describe the real situation and the outcome the user wants.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Desktop Pet
+        - Pomodoro Timer
+        - Status Board
+        - Book of Answers
+        - App Launcher
+        - Power and RTC
+        - Hardware driver
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed experience
+      description: Explain the interaction, screen states and expected result.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Hardware or ePaper constraints
+      description: Note orientation, refresh, power, memory or input considerations.

@@ -14,7 +14,12 @@ esp_err_t book_of_answers_app_start(Canvas &canvas);
 // 设置下一次进入答案书时是否需要等待一次全新的摇晃动作。
 void book_of_answers_app_prepare_entry(bool launcher_shake_consumed);
 
+// Suspends input and page animation while preserving the current stable page.
+// 暂停输入和页面动画，同时保留当前稳定页面。
 esp_err_t book_of_answers_app_pause();
+
+// Restores the preserved page and rearms the appropriate shake-input gate.
+// 恢复已保留页面，并重新配置对应的摇晃输入门控。
 esp_err_t book_of_answers_app_resume();
 
 // Reports whether no shake or reveal animation is currently in progress.

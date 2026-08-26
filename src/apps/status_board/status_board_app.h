@@ -11,7 +11,12 @@ esp_err_t status_board_app_start(Canvas &canvas);
 // 保存状态牌绘图与触摸换算共用的横屏方向。
 void status_board_app_set_display_rotation(CanvasRotation rotation);
 
+// Suspends status-page input and animation without changing the selection.
+// 暂停状态页输入和动画，同时保持当前选择不变。
 esp_err_t status_board_app_pause();
+
+// Restores the selected status page and its lightweight animation loop.
+// 恢复已选择的状态页面及其轻量动画循环。
 esp_err_t status_board_app_resume();
 
 // Pauses the app and saves the stable status page in RTC memory.

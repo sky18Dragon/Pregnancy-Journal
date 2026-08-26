@@ -88,5 +88,7 @@ PomodoroAction pomodoro_page_action_at(PomodoroPage page, int x, int y);
 // 返回连续的自定义时间操作是否可以合并为一次刷新。
 bool pomodoro_custom_action_can_batch(PomodoroAction action);
 
+// Returns stable English labels used by diagnostics and host tests.
+// 返回诊断日志和主机测试共用的稳定英文名称。
 const char *pomodoro_page_name(PomodoroPage page);
 const char *pomodoro_action_name(PomodoroAction action);

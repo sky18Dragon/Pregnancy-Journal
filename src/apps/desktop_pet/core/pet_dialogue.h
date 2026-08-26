@@ -41,6 +41,14 @@ const PetDialogueEntry *pet_dialogue_pick(PetCoreState &state,
                                           PetDialogueContext context,
                                           uint32_t random_value);
 
+// Derives the most relevant dialogue context from the current pet state.
+// 根据当前宠物状态推导最合适的对白场景。
 PetDialogueContext pet_dialogue_context_for_state(const PetCoreState &state);
+
+// Returns the immutable dialogue table and its number of entries.
+// 返回不可变对白表及其条目数量。
 const PetDialogueEntry *pet_dialogue_entries(size_t &count);
+
+// Returns the flash bytes occupied by dialogue text, excluding table metadata.
+// 返回对白文本占用的Flash字节数，不包含表结构元数据。
 size_t pet_dialogue_text_bytes();
