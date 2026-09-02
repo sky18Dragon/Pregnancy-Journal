@@ -6,6 +6,7 @@
 
 <p align="center">
   <a href="README_CN.md">简体中文</a> ·
+  <a href="README_JA.md">日本語</a> ·
   <a href="https://www.seeedstudio.com/sticky/">Sticky official site</a> ·
   <a href="https://www.seeedstudio.com/reTerminal-Sticky-p-6861.html">Product page</a> ·
   <a href="#quick-start">Get started</a> ·

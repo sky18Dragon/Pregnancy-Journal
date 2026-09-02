@@ -61,7 +61,7 @@ python3 -m pip install -r requirements-dev.txt
 
 ## Documentation
 
-Update `README.md` and `README_CN.md` whenever a user-visible workflow, build command, configuration, screenshot, or architecture boundary changes. Use current code-rendered images for feature documentation and keep concept art in the README design-history gallery.
+Update `README.md`, `README_CN.md`, and `README_JA.md` whenever a user-visible workflow, build command, configuration, screenshot, or architecture boundary changes. Use current code-rendered images for feature documentation and keep concept art in the README design-history gallery.
 
 ## Pull requests
 
