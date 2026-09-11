@@ -85,8 +85,8 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app)
 {
     canvas.set_rotation(CanvasRotation::Deg0);
     canvas.clear(GrayLevel::White);
-    canvas.draw_text(46, 32, "STICKY CORE", 3, GrayLevel::Black);
-    canvas.draw_text(46, 78, "CHOOSE AN APP", 4, GrayLevel::Black);
+    canvas.draw_text(46, 32, ui_text("STICKY CORE"), 3, GrayLevel::Black);
+    canvas.draw_text(46, 78, ui_text("CHOOSE AN APP"), 4, GrayLevel::Black);
     const char *language = ui_language_is_chinese() ? "EN" : "中文";
     canvas.draw_rect(704, 34, 64, 42, GrayLevel::Black);
     canvas.draw_text(720, 47, language, 2, GrayLevel::Black);
@@ -107,7 +107,7 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app)
         const int label_width = ui_text_width(label, 3U);
         canvas.draw_text(cx - label_width / 2, 315, label, 3, color);
     }
-    canvas.draw_text(46, 410, "TAP A CARD  /  SWIPE DOWN TO CLOSE", 2,
+    canvas.draw_text(46, 410, ui_text("TAP A CARD  /  SWIPE DOWN TO CLOSE"), 2,
                      GrayLevel::Black);
 }
 

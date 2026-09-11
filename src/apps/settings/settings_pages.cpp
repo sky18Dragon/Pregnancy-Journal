@@ -65,10 +65,11 @@ void bevel(Canvas &canvas, const Rect &rect)
 
 void centered(Canvas &canvas, const Rect &rect, const char *text, int scale)
 {
+    const char *localized = ui_text(text);
     const int width = ui_text_width(text, static_cast<uint8_t>(scale));
     canvas.draw_text(rect.x + (rect.width - width) / 2,
                      rect.y + (rect.height - 7 * scale) / 2,
-                     text, scale, GrayLevel::Black);
+                     localized, scale, GrayLevel::Black);
 }
 
 void button(Canvas &canvas, const Rect &rect, const char *text, int scale)
@@ -83,8 +84,8 @@ void settings_page_render_main(Canvas &canvas, bool rtc_ready)
 {
     canvas.set_rotation(CanvasRotation::Deg0);
     canvas.clear(GrayLevel::White);
-    canvas.draw_text(36, 28, "SETTINGS", 5, GrayLevel::Black);
-    canvas.draw_text(36, 82, "DEVICE AND FRAMEWORK CONTROLS", 2,
+    canvas.draw_text(36, 28, ui_text("SETTINGS"), 5, GrayLevel::Black);
+    canvas.draw_text(36, 82, ui_text("DEVICE AND FRAMEWORK CONTROLS"), 2,
                      GrayLevel::Black);
     button(canvas, kLanguage,
            ui_language_is_chinese() ? "语言：中文" : "LANGUAGE: ENGLISH", 3);
@@ -92,7 +93,7 @@ void settings_page_render_main(Canvas &canvas, bool rtc_ready)
     button(canvas, kRefresh, "DISPLAY CLEAN REFRESH", 3);
     button(canvas, kBack, "RETURN HOME", 3);
     canvas.draw_text(36, 430,
-                     rtc_ready ? "RTC READY" : "RTC UNAVAILABLE",
+                     ui_text(rtc_ready ? "RTC READY" : "RTC UNAVAILABLE"),
                      2, GrayLevel::Black);
 }
 

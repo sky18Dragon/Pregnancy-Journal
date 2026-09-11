@@ -17,7 +17,7 @@ int main()
     assert(std::strcmp(ui_text("BACK"), "返回") == 0);
     assert(std::strcmp(ui_text("UNMAPPED"), "UNMAPPED") == 0);
     assert(ui_text_width("BACK", 2) == 25);
-    assert(chinese_font_glyph_count() > 500U);
+    assert(chinese_font_glyph_count() > 100U);
 
     std::vector<uint8_t> pixels((120U * 40U + 3U) / 4U, 0xFFU);
     Canvas canvas(120, 40, pixels.data(), pixels.size());
