@@ -1,5 +1,10 @@
 # Sticky Core Framework refactor baseline
 
+> Historical note: this document records the pre-refactor system and the
+> original removal plan. The final product decision retained Pregnancy as the
+> third application alongside Home and Settings. See `migration-report.md` for
+> the implemented result.
+
 Date: 2026-09-11
 
 ## REFACTOR ANALYSIS
@@ -258,4 +263,3 @@ Concrete Pet/System coupling found:
 
 Every phase uses the same build gate. A failed gate is fixed before the next
 phase begins.
-

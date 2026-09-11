@@ -12,12 +12,13 @@ The refactor was executed as granular commits from the checkpoint at
 | Business removal | Desktop Pet, Answers, Status Board, Pomodoro and onboarding code/assets/tests removed. |
 | Pregnancy retention | Pregnancy app restored as the third registered app with its setup/dashboard tests. |
 
-Final release build after Pregnancy retention: 482,032 B linked flash and
-16,916 B RAM. The final host suite has 14 focused tests covering manager
+Final release build after Pregnancy retention: 427,576 B flash, 16,916 B RAM,
+and a 428,240 B `firmware.bin`. The final host suite has 14 focused tests covering manager
 fallback/switching, launcher hit testing, persistence, scheduling, Home,
 Settings, Pregnancy and hardware-independent input policies.
 
-Hardware flashing is intentionally a separate action from compilation. The
-device port previously detected in this workspace is
-`/dev/cu.usbmodem5C843369951`; after the final build it should be flashed and
-checked using the checklist below.
+Firmware `1.0.0` at commit `fdc6be6` was flashed through
+`/dev/cu.usbmodem5C843369951` and verified on 2026-09-12. Serial logs reached
+`phase=ready`, reported `apps=3 default=home current=home`, and confirmed the
+RTC, battery, display, touch, IMU and button paths. The user completed the
+physical interaction checklist without finding a problem.
