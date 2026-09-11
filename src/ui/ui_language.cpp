@@ -23,6 +23,7 @@ constexpr Translation kTranslations[] = {
     {"TAP A CARD  /  SWIPE DOWN TO CLOSE", "点击卡片 / 下滑关闭"},
         {"Home", "主页"},
         {"Settings", "设置"},
+        {"Baby Week", "孕周"},
         {"SETTINGS", "设置"},
         {"DEVICE AND FRAMEWORK CONTROLS", "设备与框架控制"},
         {"LANGUAGE: ENGLISH", "语言：英文"},

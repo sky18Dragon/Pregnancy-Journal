@@ -37,6 +37,18 @@ compile_and_run settings_pages_test -Isrc/apps/settings -Isrc/ui -Isrc/ui/assets
     test/settings_pages_test.cpp src/apps/settings/settings_pages.cpp \
     src/ui/canvas.cpp src/ui/font.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp
+compile_and_run pregnancy_state_test -Isrc/apps/pregnancy \
+    test/pregnancy_state_test.cpp src/apps/pregnancy/pregnancy_state.cpp
+compile_and_run pregnancy_storage_record_test -Isrc/apps/pregnancy \
+    test/pregnancy_storage_record_test.cpp \
+    src/apps/pregnancy/pregnancy_storage_record.cpp \
+    src/apps/pregnancy/pregnancy_state.cpp
+compile_and_run pregnancy_pages_test \
+    -Isrc/apps/pregnancy -Isrc/app -Isrc/ui -Isrc/ui/assets \
+    test/pregnancy_pages_test.cpp src/apps/pregnancy/pregnancy_pages.cpp \
+    src/apps/pregnancy/pregnancy_state.cpp src/ui/canvas.cpp src/ui/font.cpp \
+    src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp \
+    src/ui/assets/pixel_asset.cpp src/ui/assets/app_launcher_assets.cpp
 compile_and_run sticky_app_gesture_test -Isrc/app \
     test/sticky_app_gesture_test.cpp src/app/sticky_app_gesture.cpp
 compile_and_run sticky_battery_protocol_test -Isrc/devices \

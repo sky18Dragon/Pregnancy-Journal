@@ -13,7 +13,9 @@ int main()
     StickyAppId selected = StickyAppId::Settings;
     assert(app_page_launcher_app_at(800, 480, 120, 180, selected));
     assert(selected == StickyAppId::Home);
-    assert(app_page_launcher_app_at(800, 480, 500, 180, selected));
+    assert(app_page_launcher_app_at(800, 480, 360, 180, selected));
+    assert(selected == StickyAppId::Pregnancy);
+    assert(app_page_launcher_app_at(800, 480, 600, 180, selected));
     assert(selected == StickyAppId::Settings);
     assert(!app_page_launcher_app_at(800, 480, 400, 400, selected));
     assert(app_page_launcher_language_at(800, 480, 730, 50));

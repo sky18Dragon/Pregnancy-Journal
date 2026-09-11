@@ -15,8 +15,9 @@ struct Card {
 };
 
 constexpr Card kCards[] = {
-    {StickyAppId::Home, 72, 142, 300, 220, "Home"},
-    {StickyAppId::Settings, 428, 142, 300, 220, "Settings"},
+    {StickyAppId::Home, 45, 142, 220, 220, "Home"},
+    {StickyAppId::Pregnancy, 290, 142, 220, 220, "Baby Week"},
+    {StickyAppId::Settings, 535, 142, 220, 220, "Settings"},
 };
 
 void bevel(Canvas &canvas, const Card &card, bool selected)
@@ -67,6 +68,17 @@ void draw_settings_icon(Canvas &canvas, int cx, int cy, GrayLevel color)
     canvas.fill_rect(cx + 50, cy - 3, 20, 16, color);
 }
 
+void draw_pregnancy_icon(Canvas &canvas, int cx, int cy, GrayLevel color)
+{
+    canvas.draw_circle(cx, cy, 48, color);
+    canvas.draw_circle(cx - 15, cy - 8, 4, color);
+    canvas.draw_circle(cx + 15, cy - 8, 4, color);
+    canvas.draw_line(cx - 18, cy + 17, cx, cy + 30, color);
+    canvas.draw_line(cx, cy + 30, cx + 18, cy + 17, color);
+    canvas.draw_line(cx - 18, cy + 17, cx - 10, cy + 8, color);
+    canvas.draw_line(cx + 18, cy + 17, cx + 10, cy + 8, color);
+}
+
 }  // namespace
 
 void app_page_render_launcher(Canvas &canvas, StickyAppId current_app)
@@ -86,6 +98,8 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app)
         const int cx = card.x + card.width / 2;
         if (card.app == StickyAppId::Home) {
             draw_home_icon(canvas, cx, 220, color);
+        } else if (card.app == StickyAppId::Pregnancy) {
+            draw_pregnancy_icon(canvas, cx, 220, color);
         } else {
             draw_settings_icon(canvas, cx, 218, color);
         }

@@ -3,6 +3,7 @@
 enum class StickyAppId {
     Home,
     Settings,
+    Pregnancy,
 };
 
 bool sticky_app_id_valid(StickyAppId app);
