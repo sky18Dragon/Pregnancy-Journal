@@ -5,6 +5,8 @@ const char *sticky_app_id_name(StickyAppId app)
     switch (app) {
     case StickyAppId::Home:
         return "home";
+    case StickyAppId::Settings:
+        return "settings";
     case StickyAppId::DesktopPet:
         return "desktop_pet";
     case StickyAppId::Pomodoro:
@@ -17,4 +19,19 @@ const char *sticky_app_id_name(StickyAppId app)
         return "pregnancy";
     }
     return "unknown";
+}
+
+bool sticky_app_id_valid(StickyAppId app)
+{
+    switch (app) {
+    case StickyAppId::Home:
+    case StickyAppId::Settings:
+    case StickyAppId::DesktopPet:
+    case StickyAppId::Pomodoro:
+    case StickyAppId::StatusBoard:
+    case StickyAppId::BookOfAnswers:
+    case StickyAppId::Pregnancy:
+        return true;
+    }
+    return false;
 }

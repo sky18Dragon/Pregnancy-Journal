@@ -181,6 +181,8 @@ LauncherLabel app_label(StickyAppId app)
     switch (app) {
     case StickyAppId::Home:
         return {"Home", nullptr};
+    case StickyAppId::Settings:
+        return {"Settings", nullptr};
     case StickyAppId::DesktopPet:
         return {"Pet", nullptr};
     case StickyAppId::Pomodoro:
@@ -200,6 +202,8 @@ AppLauncherAssetId launcher_asset_id(StickyAppId app)
     switch (app) {
     case StickyAppId::Home:
         return AppLauncherAssetId::Pet;
+    case StickyAppId::Settings:
+        return AppLauncherAssetId::Status;
     case StickyAppId::DesktopPet:
         return AppLauncherAssetId::Pet;
     case StickyAppId::Pomodoro:

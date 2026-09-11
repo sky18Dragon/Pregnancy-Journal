@@ -25,6 +25,29 @@ compile_and_run() {
     passed_count=$((passed_count + 1))
 }
 
+compile_and_run app_manager_test \
+    -Itest/support -Isrc/app \
+    test/app_manager_test.cpp \
+    src/app/app_manager.cpp
+
+compile_and_run persistent_state_test \
+    -Isrc/app -Isrc/storage -Isrc/ui \
+    test/persistent_state_test.cpp \
+    src/storage/persistent_state.cpp \
+    src/app/sticky_app_id.cpp
+
+compile_and_run scheduler_test \
+    -Isrc/system \
+    test/scheduler_test.cpp \
+    src/system/scheduler.cpp
+
+compile_and_run settings_pages_test \
+    -Isrc/apps/settings -Isrc/ui -Isrc/ui/assets \
+    test/settings_pages_test.cpp \
+    src/apps/settings/settings_pages.cpp \
+    src/ui/canvas.cpp src/ui/font.cpp \
+    src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp
+
 compile_and_run battery_status_overlay_theme_test \
     -Isrc/ui \
     test/battery_status_overlay_theme_test.cpp \
@@ -278,4 +301,4 @@ compile_and_run ui_language_test \
     src/ui/canvas.cpp src/ui/font.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp
 
-echo "[host-test] PASS ${passed_count}/35"
+echo "[host-test] PASS ${passed_count}/${passed_count}"

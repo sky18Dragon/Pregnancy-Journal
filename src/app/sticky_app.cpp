@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "app_log.h"
+#include "app_registry.h"
 #include "app_pages.h"
 #include "board_charger.h"
 #include "board_power.h"
@@ -15,10 +16,10 @@
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "home_app.h"
 #include "onboarding_app.h"
 #include "pomodoro_app.h"
 #include "pregnancy_app.h"
+#include "settings_app.h"
 #include "status_board_app.h"
 #include "sticky_app_display_orientation.h"
 #include "sticky_app_gesture.h"
@@ -52,21 +53,11 @@ constexpr uint32_t kLauncherIdleCloseMs = 30000U;
 #ifndef STICKY_POWER_TEST_MODE
 #define STICKY_POWER_TEST_MODE 0
 #endif
-#if STICKY_POWER_TEST_MODE
-constexpr uint32_t kPetIdleSleepMs = 60000U;
-#else
-constexpr uint32_t kPetIdleSleepMs = 10U * 60U * 1000U;
-#endif
 
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
 StickyAppId s_current_app = StickyAppId::Home;
-bool s_home_started = false;
-bool s_pet_started = false;
-bool s_status_started = false;
-bool s_pomodoro_started = false;
-bool s_book_started = false;
-bool s_pregnancy_started = false;
+bool s_started_apps[7] = {};
 bool s_background_timer_wake = false;
 int64_t s_background_sleep_deadline_us = 0;
 uint32_t s_last_user_activity_ms = 0U;
@@ -89,102 +80,36 @@ struct LauncherImuPrestart {
 
 bool app_started(StickyAppId app)
 {
-    switch (app) {
-    case StickyAppId::Home:
-        return s_home_started;
-    case StickyAppId::DesktopPet:
-        return s_pet_started;
-    case StickyAppId::Pomodoro:
-        return s_pomodoro_started;
-    case StickyAppId::StatusBoard:
-        return s_status_started;
-    case StickyAppId::BookOfAnswers:
-        return s_book_started;
-    case StickyAppId::Pregnancy:
-        return s_pregnancy_started;
-    }
-    return false;
+    const size_t index = static_cast<size_t>(app);
+    return index < sizeof(s_started_apps) / sizeof(s_started_apps[0]) &&
+           s_started_apps[index];
 }
 
 void mark_app_started(StickyAppId app)
 {
-    switch (app) {
-    case StickyAppId::Home:
-        s_home_started = true;
-        break;
-    case StickyAppId::DesktopPet:
-        s_pet_started = true;
-        break;
-    case StickyAppId::Pomodoro:
-        s_pomodoro_started = true;
-        break;
-    case StickyAppId::StatusBoard:
-        s_status_started = true;
-        break;
-    case StickyAppId::BookOfAnswers:
-        s_book_started = true;
-        break;
-    case StickyAppId::Pregnancy:
-        s_pregnancy_started = true;
-        break;
+    const size_t index = static_cast<size_t>(app);
+    if (index < sizeof(s_started_apps) / sizeof(s_started_apps[0])) {
+        s_started_apps[index] = true;
     }
 }
 
 esp_err_t pause_app(StickyAppId app)
 {
-    switch (app) {
-    case StickyAppId::Home:
-        return home_app_pause();
-    case StickyAppId::DesktopPet:
-        return desktop_pet_app_pause();
-    case StickyAppId::Pomodoro:
-        return pomodoro_app_pause();
-    case StickyAppId::StatusBoard:
-        return status_board_app_pause();
-    case StickyAppId::BookOfAnswers:
-        return book_of_answers_app_pause();
-    case StickyAppId::Pregnancy:
-        return pregnancy_app_pause();
-    }
-    return ESP_ERR_INVALID_ARG;
+    const StickyAppDescriptor *descriptor = sticky_app_registry_find(app);
+    return descriptor == nullptr ? ESP_ERR_INVALID_ARG : descriptor->pause();
 }
 
 esp_err_t start_app(StickyAppId app)
 {
-    switch (app) {
-    case StickyAppId::Home:
-        return home_app_start(*s_canvas);
-    case StickyAppId::DesktopPet:
-        return desktop_pet_app_start(*s_canvas);
-    case StickyAppId::Pomodoro:
-        return pomodoro_app_start(*s_canvas);
-    case StickyAppId::StatusBoard:
-        return status_board_app_start(*s_canvas);
-    case StickyAppId::BookOfAnswers:
-        return book_of_answers_app_start(*s_canvas);
-    case StickyAppId::Pregnancy:
-        return pregnancy_app_start(*s_canvas);
-    }
-    return ESP_ERR_INVALID_ARG;
+    const StickyAppDescriptor *descriptor = sticky_app_registry_find(app);
+    return descriptor == nullptr ? ESP_ERR_INVALID_ARG
+                                 : descriptor->start(*s_canvas);
 }
 
 esp_err_t resume_app(StickyAppId app)
 {
-    switch (app) {
-    case StickyAppId::Home:
-        return home_app_resume();
-    case StickyAppId::DesktopPet:
-        return desktop_pet_app_resume();
-    case StickyAppId::Pomodoro:
-        return pomodoro_app_resume();
-    case StickyAppId::StatusBoard:
-        return status_board_app_resume();
-    case StickyAppId::BookOfAnswers:
-        return book_of_answers_app_resume();
-    case StickyAppId::Pregnancy:
-        return pregnancy_app_resume();
-    }
-    return ESP_ERR_INVALID_ARG;
+    const StickyAppDescriptor *descriptor = sticky_app_registry_find(app);
+    return descriptor == nullptr ? ESP_ERR_INVALID_ARG : descriptor->resume();
 }
 
 esp_err_t activate_app(StickyAppId app)
@@ -209,71 +134,23 @@ esp_err_t set_imu_running(bool running)
 
 bool power_sleep_allowed()
 {
-    if (s_current_app == StickyAppId::Home) {
-        return true;
-    }
-    if (s_current_app == StickyAppId::DesktopPet) {
-        return desktop_pet_app_power_sleep_allowed();
-    }
-    if (s_current_app == StickyAppId::Pomodoro) {
-        return pomodoro_app_power_sleep_allowed();
-    }
-    if (s_current_app == StickyAppId::BookOfAnswers) {
-        return book_of_answers_app_power_sleep_allowed();
-    }
-    return true;
+    const StickyAppDescriptor *descriptor = sticky_app_registry_find(s_current_app);
+    return descriptor != nullptr && descriptor->sleep_allowed();
 }
 
 uint32_t power_sleep_timeout_ms()
 {
-    if (s_current_app == StickyAppId::Home) {
-        return home_app_power_sleep_timeout_ms();
-    }
-    if (s_current_app == StickyAppId::DesktopPet) {
-        return kPetIdleSleepMs;
-    }
-    if (s_current_app == StickyAppId::StatusBoard) {
-        return status_board_app_power_sleep_timeout_ms();
-    }
-    if (s_current_app == StickyAppId::Pomodoro) {
-        return pomodoro_app_power_sleep_timeout_ms();
-    }
-    if (s_current_app == StickyAppId::BookOfAnswers) {
-        return book_of_answers_app_power_sleep_timeout_ms();
-    }
-    if (s_current_app == StickyAppId::Pregnancy) {
-        return pregnancy_app_power_sleep_timeout_ms();
-    }
-    return 0U;
+    const StickyAppDescriptor *descriptor = sticky_app_registry_find(s_current_app);
+    return descriptor == nullptr ? 0U : descriptor->sleep_timeout_ms();
 }
 
 esp_err_t prepare_app_power_sleep(uint32_t &current_epoch,
                                   uint32_t &next_event_epoch)
 {
-    current_epoch = 0U;
-    next_event_epoch = 0U;
-    if (s_current_app == StickyAppId::Home) {
-        return home_app_prepare_power_sleep(
-            current_epoch, next_event_epoch);
-    }
-    if (s_current_app == StickyAppId::DesktopPet) {
-        return desktop_pet_app_prepare_power_sleep(
-            current_epoch, next_event_epoch);
-    }
-    if (s_current_app == StickyAppId::StatusBoard) {
-        return status_board_app_prepare_power_sleep();
-    }
-    if (s_current_app == StickyAppId::Pomodoro) {
-        return pomodoro_app_prepare_power_sleep();
-    }
-    if (s_current_app == StickyAppId::BookOfAnswers) {
-        return book_of_answers_app_prepare_power_sleep();
-    }
-    if (s_current_app == StickyAppId::Pregnancy) {
-        return pregnancy_app_prepare_power_sleep(
-            current_epoch, next_event_epoch);
-    }
-    return ESP_ERR_INVALID_ARG;
+    const StickyAppDescriptor *descriptor = sticky_app_registry_find(s_current_app);
+    return descriptor == nullptr
+               ? ESP_ERR_INVALID_ARG
+               : descriptor->prepare_sleep(current_epoch, next_event_epoch);
 }
 
 void draw_sleep_indicator()
@@ -914,6 +791,11 @@ void app_task(void *)
             desktop_pet_app_take_onboarding_request()) {
             open_tutorial_from_desktop_pet();
         }
+        if (!router.launcher_open &&
+            s_current_app == StickyAppId::Settings &&
+            settings_app_take_home_request()) {
+            return_to_home(router);
+        }
 
         if (router.launcher_open) {
             StickyTouchPress press = {};
@@ -1008,7 +890,9 @@ esp_err_t sticky_app_start(Canvas &canvas)
     const bool restore_sleep_context =
         wake_cause != ESP_SLEEP_WAKEUP_UNDEFINED &&
         s_sleep_context.magic == kSleepContextMagic;
-    const StickyAppId initial_app = restore_sleep_context
+    const StickyAppId initial_app = restore_sleep_context &&
+                                            sticky_app_registry_find(
+                                                s_sleep_context.app) != nullptr
                                         ? s_sleep_context.app
                                         : StickyAppId::Home;
     const CanvasRotation initial_rotation = restore_sleep_context

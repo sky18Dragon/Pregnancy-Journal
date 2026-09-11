@@ -2,12 +2,15 @@
 
 enum class StickyAppId {
     Home,
+    Settings,
     DesktopPet,
     Pomodoro,
     StatusBoard,
     BookOfAnswers,
     Pregnancy,
 };
+
+bool sticky_app_id_valid(StickyAppId app);
 
 // Returns the stable English identifier used by launcher logs.
 // 返回应用选择日志使用的稳定英文标识。

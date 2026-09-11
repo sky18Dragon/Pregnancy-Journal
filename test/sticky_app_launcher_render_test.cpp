@@ -149,6 +149,8 @@ AppLauncherAssetId launcher_asset_id(StickyAppId app)
     switch (app) {
     case StickyAppId::Home:
         return AppLauncherAssetId::Pet;
+    case StickyAppId::Settings:
+        return AppLauncherAssetId::Status;
     case StickyAppId::DesktopPet:
         return AppLauncherAssetId::Pet;
     case StickyAppId::Pomodoro:

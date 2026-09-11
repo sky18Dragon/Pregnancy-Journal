@@ -6,6 +6,7 @@ bool sticky_app_display_rotation(StickyAppId app,
 {
     switch (app) {
     case StickyAppId::Home:
+    case StickyAppId::Settings:
         rotation = CanvasRotation::Deg0;
         return true;
     case StickyAppId::Pomodoro:
