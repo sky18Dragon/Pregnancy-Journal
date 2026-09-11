@@ -5,10 +5,6 @@
 #include "pixel_asset.h"
 
 enum class AppLauncherAssetId : uint8_t {
-    Pet,
-    Focus,
-    Status,
-    Answers,
     Pregnancy,
 };
 

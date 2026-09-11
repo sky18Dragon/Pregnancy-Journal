@@ -23,10 +23,6 @@ class AssetSpec:
 
 
 ASSETS = (
-    AssetSpec("pet.png", "Pet", "kPet"),
-    AssetSpec("focus.png", "Focus", "kFocus"),
-    AssetSpec("status.png", "Status", "kStatus"),
-    AssetSpec("answers.png", "Answers", "kAnswers"),
     AssetSpec("pregnancy.png", "Pregnancy", "kPregnancy"),
 )
 
@@ -184,7 +180,7 @@ def write_cpp(layers: dict[str, tuple[bytes, bytes, bytes]]) -> None:
                 f"        return {spec.symbol_prefix}Asset;\n",
             ]
         )
-    sections.extend(["    }\n", "    return kPetAsset;\n", "}\n"])
+    sections.extend(["    }\n", "    return kPregnancyAsset;\n", "}\n"])
     OUTPUT_CPP.write_text("".join(sections), encoding="utf-8")
 
 
