@@ -8,6 +8,7 @@
 #include "canvas.h"
 #include "pixel_asset.h"
 #include "status_bunny_assets.h"
+#include "ui_language.h"
 
 namespace {
 
@@ -121,11 +122,7 @@ constexpr StatusBoardAction kDigitActions[] = {
 
 int text_width(const char *text, int scale)
 {
-    const size_t length = std::strlen(text);
-    if (length == 0U) {
-        return 0;
-    }
-    return (static_cast<int>(length) * 6 - 1) * scale;
+    return ui_text_width(text, static_cast<uint8_t>(scale));
 }
 
 void draw_centered_text_in_rect(Canvas &canvas,

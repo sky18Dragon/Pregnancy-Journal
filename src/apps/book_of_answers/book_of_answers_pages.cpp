@@ -5,7 +5,9 @@
 
 #include "book_of_answers_assets.h"
 #include "canvas.h"
+#include "font.h"
 #include "pixel_asset.h"
+#include "ui_language.h"
 
 namespace {
 
@@ -33,8 +35,7 @@ constexpr Rect kEndButtonRect = {40, 752, 400, 46};
 constexpr Rect kEndTouchRect = {20, 744, 440, 56};
 constexpr size_t kAnswerMaximumLines = 4U;
 constexpr size_t kAnswerMaximumCharactersPerLine = 23U;
-constexpr size_t kAnswerLineCapacity =
-    kAnswerMaximumCharactersPerLine + 1U;
+constexpr size_t kAnswerLineCapacity = 72U;
 
 struct WrappedAnswer {
     char lines[kAnswerMaximumLines][kAnswerLineCapacity] = {};
@@ -43,10 +44,7 @@ struct WrappedAnswer {
 
 int text_width(const char *text, int scale)
 {
-    if (text == nullptr || text[0] == '\0') {
-        return 0;
-    }
-    return (static_cast<int>(std::strlen(text)) * 6 - 1) * scale;
+    return ui_text_width(text, static_cast<uint8_t>(scale));
 }
 
 int fitted_text_scale(const char *text, int maximum_scale, int width)
@@ -64,6 +62,34 @@ WrappedAnswer wrap_answer_text(const char *answer)
     if (answer == nullptr || answer[0] == '\0') {
         std::memcpy(wrapped.lines[0], "?", 2U);
         wrapped.line_count = 1U;
+        return wrapped;
+    }
+
+    answer = ui_text(answer);
+    if (ui_language_is_chinese()) {
+        constexpr size_t kChineseCharactersPerLine = 8U;
+        const char *cursor = answer;
+        while (*cursor != '\0' && wrapped.line_count < kAnswerMaximumLines) {
+            char *line = wrapped.lines[wrapped.line_count++];
+            size_t byte_count = 0U;
+            size_t character_count = 0U;
+            while (*cursor != '\0' &&
+                   character_count < kChineseCharactersPerLine) {
+                const char *start = cursor;
+                uint32_t codepoint = 0U;
+                if (!font_decode_utf8(cursor, codepoint)) {
+                    break;
+                }
+                const size_t bytes = static_cast<size_t>(cursor - start);
+                if (byte_count + bytes >= kAnswerLineCapacity) {
+                    break;
+                }
+                std::memcpy(line + byte_count, start, bytes);
+                byte_count += bytes;
+                ++character_count;
+            }
+            line[byte_count] = '\0';
+        }
         return wrapped;
     }
 

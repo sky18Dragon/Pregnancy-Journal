@@ -1,6 +1,9 @@
 #include "font.h"
 
+#include <algorithm>
 #include <cstddef>
+
+#include "assets/chinese_font_assets.h"
 
 namespace {
 
@@ -122,4 +125,70 @@ const FontGlyph &font_get_glyph(char character)
         return kAsciiGlyphs[kFallbackCharacter - kFirstCharacter];
     }
     return kAsciiGlyphs[code - static_cast<unsigned char>(kFirstCharacter)];
+}
+
+bool font_decode_utf8(const char *&text, uint32_t &codepoint)
+{
+    if (text == nullptr || *text == '\0') {
+        return false;
+    }
+    const auto first = static_cast<uint8_t>(*text++);
+    if ((first & 0x80U) == 0U) {
+        codepoint = first;
+        return true;
+    }
+
+    uint8_t continuation_count = 0U;
+    if ((first & 0xE0U) == 0xC0U) {
+        codepoint = first & 0x1FU;
+        continuation_count = 1U;
+    } else if ((first & 0xF0U) == 0xE0U) {
+        codepoint = first & 0x0FU;
+        continuation_count = 2U;
+    } else if ((first & 0xF8U) == 0xF0U) {
+        codepoint = first & 0x07U;
+        continuation_count = 3U;
+    } else {
+        codepoint = '?';
+        return true;
+    }
+
+    for (uint8_t index = 0U; index < continuation_count; ++index) {
+        const auto next = static_cast<uint8_t>(*text);
+        if ((next & 0xC0U) != 0x80U) {
+            codepoint = '?';
+            return true;
+        }
+        ++text;
+        codepoint = (codepoint << 6U) | (next & 0x3FU);
+    }
+    return true;
+}
+
+uint8_t font_cjk_scale(uint8_t latin_scale)
+{
+    return std::max<uint8_t>(1U,
+                             static_cast<uint8_t>((latin_scale + 1U) / 2U));
+}
+
+int font_text_width(const char *text, uint8_t scale)
+{
+    if (text == nullptr || *text == '\0' || scale == 0U) {
+        return 0;
+    }
+    int width = 0;
+    int trailing_spacing = 0;
+    const char *cursor = text;
+    uint32_t codepoint = 0U;
+    while (font_decode_utf8(cursor, codepoint)) {
+        if (codepoint <= 0x7FU || chinese_font_glyph(codepoint) == nullptr) {
+            width += (kFontWidth + kFontSpacing) * scale;
+            trailing_spacing = kFontSpacing * scale;
+        } else {
+            const uint8_t cjk_scale = font_cjk_scale(scale);
+            width += (kChineseFontWidth + kChineseFontSpacing) * cjk_scale;
+            trailing_spacing = kChineseFontSpacing * cjk_scale;
+        }
+    }
+    return width - trailing_spacing;
 }

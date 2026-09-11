@@ -9,6 +9,7 @@
 #include "font.h"
 #include "pet_rtc_time.h"
 #include "pixel_asset.h"
+#include "ui_language.h"
 
 namespace {
 
@@ -114,10 +115,7 @@ constexpr DesktopPetNameAction kNameDigitActions[] = {
 
 int text_width(const char *text, int scale)
 {
-    if (text == nullptr || text[0] == '\0') {
-        return 0;
-    }
-    return (static_cast<int>(std::strlen(text)) * 6 - 1) * scale;
+    return ui_text_width(text, static_cast<uint8_t>(scale));
 }
 
 struct TextInkBounds {
@@ -131,6 +129,9 @@ TextInkBounds text_ink_bounds(const char *text, int scale)
 {
     if (text == nullptr || text[0] == '\0' || scale <= 0) {
         return {0, 0};
+    }
+    if (ui_language_is_chinese()) {
+        return {0, ui_text_width(text, static_cast<uint8_t>(scale))};
     }
 
     int first_visible_column = -1;
@@ -307,8 +308,34 @@ void draw_speech_bubble(Canvas &canvas, const char *message)
     canvas.draw_line(x + 132, y + height, x + 145, y + height + 24);
     canvas.draw_line(x + 145, y + height + 24, x + 158, y + height);
 
-    char first_line[25] = {};
-    char second_line[25] = {};
+    const char *localized = ui_text(message);
+    if (ui_language_is_chinese() && localized == message) {
+        localized = "今天也要一起开心！";
+    }
+
+    char first_line[96] = {};
+    char second_line[96] = {};
+    if (ui_language_is_chinese()) {
+        const char *cursor = localized;
+        char *lines[] = {first_line, second_line};
+        for (char *line : lines) {
+            size_t bytes_written = 0U;
+            for (size_t count = 0U;
+                 count < 10U && *cursor != '\0';
+                 ++count) {
+                const char *start = cursor;
+                uint32_t codepoint = 0U;
+                if (!font_decode_utf8(cursor, codepoint)) {
+                    break;
+                }
+                const size_t bytes = static_cast<size_t>(cursor - start);
+                std::memcpy(line + bytes_written, start, bytes);
+                bytes_written += bytes;
+            }
+            line[bytes_written] = '\0';
+        }
+    } else {
+        message = localized;
     const size_t length = std::strlen(message);
     if (length <= 20U) {
         std::snprintf(first_line, sizeof(first_line), "%s", message);
@@ -327,6 +354,7 @@ void draw_speech_bubble(Canvas &canvas, const char *message)
             ++remaining;
         }
         std::snprintf(second_line, sizeof(second_line), "%s", remaining);
+    }
     }
 
     const int first_y = second_line[0] == '\0' ? y + 35 : y + 22;
@@ -1086,9 +1114,10 @@ void draw_pet_status_header(Canvas &canvas,
     canvas.draw_text(419, 27, "TEST", 2);
 #endif
 
-    char growth_label[24] = {};
+    char growth_label[40] = {};
     const uint16_t growth_limit = desktop_pet_state_growth_limit(state);
-    std::snprintf(growth_label, sizeof(growth_label), "GROWTH %u / %u",
+    std::snprintf(growth_label, sizeof(growth_label),
+                  ui_language_is_chinese() ? "成长 %u / %u" : "GROWTH %u / %u",
                   static_cast<unsigned>(state.pet.growth),
                   static_cast<unsigned>(growth_limit));
     canvas.draw_text(24, 72, growth_label, 2);
@@ -1096,17 +1125,20 @@ void draw_pet_status_header(Canvas &canvas,
 
     pixel_asset_draw(canvas, 310, 49,
                      desktop_pet_asset(DesktopPetAssetId::LoveIcon));
-    char love_label[16] = {};
-    std::snprintf(love_label, sizeof(love_label), "LOVE %u",
+    char love_label[24] = {};
+    std::snprintf(love_label, sizeof(love_label),
+                  ui_language_is_chinese() ? "亲密 %u" : "LOVE %u",
                   static_cast<unsigned>(state.pet.bond));
     canvas.draw_text(380, 58, love_label, 2);
 
-    char food_label[20] = {};
-    std::snprintf(food_label, sizeof(food_label), "FULLNESS %u",
+    char food_label[28] = {};
+    std::snprintf(food_label, sizeof(food_label),
+                  ui_language_is_chinese() ? "饱腹 %u" : "FULLNESS %u",
                   static_cast<unsigned>(state.pet.needs.food));
     canvas.draw_text(24, 118, food_label, 2);
     char energy_label[16] = {};
-    std::snprintf(energy_label, sizeof(energy_label), "ENERGY %u",
+    std::snprintf(energy_label, sizeof(energy_label),
+                  ui_language_is_chinese() ? "精力 %u" : "ENERGY %u",
                   static_cast<unsigned>(state.pet.needs.energy));
     if (energy_button) {
         draw_underlined_in_rect(canvas, kEnergyRestRect,
@@ -1119,19 +1151,22 @@ void draw_pet_status_header(Canvas &canvas,
 
 void draw_pet_day_label(Canvas &canvas, const DesktopPetState &state)
 {
-    char day_label[32] = {};
+    char day_label[48] = {};
     PetRtcDateTime calendar = {};
     if (state.pet.last_rtc_epoch_seconds != 0U &&
         pet_rtc_time_from_epoch(state.pet.last_rtc_epoch_seconds,
                                 calendar)) {
         std::snprintf(day_label, sizeof(day_label),
-                      "DAY %u  %04u-%02u-%02u",
+                      ui_language_is_chinese()
+                          ? "第 %u 天  %04u-%02u-%02u"
+                          : "DAY %u  %04u-%02u-%02u",
                       static_cast<unsigned>(state.pet.day),
                       static_cast<unsigned>(calendar.year),
                       static_cast<unsigned>(calendar.month),
                       static_cast<unsigned>(calendar.day));
     } else {
-        std::snprintf(day_label, sizeof(day_label), "DAY %u",
+        std::snprintf(day_label, sizeof(day_label),
+                      ui_language_is_chinese() ? "第 %u 天" : "DAY %u",
                       static_cast<unsigned>(state.pet.day));
     }
     draw_centered(canvas, 775, day_label, 2);
@@ -1296,8 +1331,9 @@ void desktop_pet_page_render_sleep(Canvas &canvas,
     draw_centered(canvas, 30, name, 3);
     draw_centered(canvas, 72, "SLEEPING PEACEFULLY", 3);
 
-    char energy_label[24] = {};
-    std::snprintf(energy_label, sizeof(energy_label), "ENERGY %u / 100",
+    char energy_label[32] = {};
+    std::snprintf(energy_label, sizeof(energy_label),
+                  ui_language_is_chinese() ? "精力 %u / 100" : "ENERGY %u / 100",
                   static_cast<unsigned>(state.pet.needs.energy));
     draw_centered(canvas, 119, energy_label, 2);
     canvas.draw_rect(40, 155, 400, 18, GrayLevel::Black);
@@ -1574,10 +1610,16 @@ void desktop_pet_page_render_evolution(
             }
             draw_centered(canvas, 650, path_line, 2);
         } else {
-            char stage_line[32] = {};
-            std::snprintf(stage_line, sizeof(stage_line),
-                          "WELCOME TO THE %s STAGE!",
-                          desktop_pet_state_stage_label(state));
+            char stage_line[64] = {};
+            if (ui_language_is_chinese()) {
+                std::snprintf(stage_line, sizeof(stage_line),
+                              "欢迎来到%s！",
+                              ui_text(desktop_pet_state_stage_label(state)));
+            } else {
+                std::snprintf(stage_line, sizeof(stage_line),
+                              "WELCOME TO THE %s STAGE!",
+                              desktop_pet_state_stage_label(state));
+            }
             draw_centered(canvas, 650, stage_line, 2);
         }
     }

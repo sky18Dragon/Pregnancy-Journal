@@ -18,7 +18,7 @@
   <img alt="ESP32-S3" src="https://img.shields.io/badge/MCU-ESP32--S3-000000?style=flat-square">
   <img alt="ESP-IDF 5.4.1" src="https://img.shields.io/badge/ESP--IDF-5.4.1-000000?style=flat-square">
   <img alt="PlatformIO" src="https://img.shields.io/badge/build-PlatformIO-000000?style=flat-square">
-  <img alt="Firmware 0.1.0" src="https://img.shields.io/badge/firmware-0.1.0-000000?style=flat-square">
+  <img alt="Firmware 0.2.0" src="https://img.shields.io/badge/firmware-0.2.0-000000?style=flat-square">
   <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-000000?style=flat-square">
   <a href="https://github.com/limengdu/reTerminal_Sticky_Bunny/actions/workflows/build.yml"><img alt="Build and test" src="https://github.com/limengdu/reTerminal_Sticky_Bunny/actions/workflows/build.yml/badge.svg"></a>
 </p>
@@ -29,7 +29,7 @@
   <img src="docs/images/launcher/launcher-portrait.png" alt="Sticky Bunny 竖屏应用选择器" width="245">
 </p>
 
-reTerminal Sticky Bunny 把 Seeed Studio **reTerminal Sticky** 变成一个持续存在的小世界：养育一只会记住照料过程的兔子，开始一次番茄专注，展示当前状态，或者向答案书提出心中的问题。触摸、实体按键、上下滑动、设备旋转、持续摇晃、RTC 定时和电子纸低功耗策略被整合成一套连贯的固件体验。
+reTerminal Sticky Bunny 把 Seeed Studio **reTerminal Sticky** 变成一个持续存在的小世界：养育一只会记住照料过程的兔子，开始一次番茄专注，展示当前状态，查看孕周进度，或者向答案书提出心中的问题。触摸、实体按键、上下滑动、设备旋转、持续摇晃、RTC 定时和电子纸低功耗策略被整合成一套连贯的固件体验。
 
 你可以通过 [Sticky 官方网站](https://www.seeedstudio.com/sticky/) 和 [reTerminal Sticky 商品详情页](https://www.seeedstudio.com/reTerminal-Sticky-p-6861.html)进一步了解设备。
 
@@ -38,12 +38,12 @@ reTerminal Sticky Bunny 把 Seeed Studio **reTerminal Sticky** 变成一个持�
 ## 项目亮点
 
 - **桌宠不是静态吉祥物。** 它会破壳、经历五个成长阶段、形成三种性格之一，并持续记住用户的照料、对话、睡眠和外出。
-- **四个统一设计的设备端应用。** 桌宠、番茄钟、状态板和答案书共享同一个启动器与视觉语言。
+- **五个统一设计的设备端应用。** 桌宠、番茄钟、状态板、孕周看板和答案书共享同一个启动器与视觉语言。
 - **设备本身就是控制器。** 用户可以用按键、触摸、滑动、旋转和摇晃选择功能。
 - **按照电子纸特性设计。** 稳定页面重视清晰度，倒计时和动画使用受控局刷，刷新过程中仍继续接收输入。
 - **围绕真实硬件实现。** 固件管理显示屏与 SD 卡共享 SPI、GT911 触摸、LSM6DS3TR-C IMU、PCF8563 RTC、BQ27220 电量计、蜂鸣器、侧边按键、电池供电和深度睡眠。
 
-## 四个应用
+## 五个应用
 
 | 成长型桌宠 | Sticky Pomodoro Timer |
 | --- | --- |
@@ -54,6 +54,11 @@ reTerminal Sticky Bunny 把 Seeed Studio **reTerminal Sticky** 变成一个持�
 | --- | --- |
 | <img src="docs/images/status-board/menu.png" alt="横屏状态板菜单" width="390"> | <img src="docs/images/book-of-answers/home.png" alt="答案书主页" width="245"> |
 | 横屏展示 `BUSY`、`MEETING`、`ON CALL`、`OPEN TO TALK`、`REST` 或设备端输入的自定义状态。 | 心中默念问题并持续摇晃三秒，获得一句话答案，或 `YES`、`NO`、`UNCLEAR`。 |
+
+| 孕周看板 |
+| --- |
+| <img src="docs/images/pregnancy/dashboard.png" alt="显示当前孕周、孕期阶段和四十周进度的横屏看板" width="700"> |
+| 首次进入时先确认设备日期时间并设置预产期；之后会按照 RTC 日期自动计算孕周、孕期阶段、已完成比例和距离预产期天数。 |
 
 ## 桌宠成长系统
 
@@ -90,6 +95,7 @@ reTerminal Sticky Bunny 把 Seeed Studio **reTerminal Sticky** 变成一个持�
 
 - 单击 AI 键或从屏幕底部上滑：打开应用选择器。
 - 点击 APP 卡片：直接进入对应应用。
+- 启动器右上角点击 `中文` / `EN`：切换整机界面语言，设置会保存在设备中。
 - 从屏幕上半部分下滑：关闭应用选择器。
 - 在任意页面双击 AI 键：返回桌宠。
 - 应用选择器打开时，从横屏旋转到竖屏：进入番茄钟。
@@ -146,6 +152,16 @@ reTerminal Sticky Bunny 把 Seeed Studio **reTerminal Sticky** 变成一个持�
 | <img src="docs/images/status-board/open-to-talk.png" alt="OPEN TO TALK 状态" width="380"> | <img src="docs/images/status-board/custom.png" alt="自定义状态键盘" width="380"> |
 
 `BUSY`、`MEETING`、`ON CALL`、`OPEN TO TALK`、`REST` 和 `CUSTOM` 都会打开横屏全尺寸二级页面。预设状态拥有对应的兔子场景；自定义状态提供跟手的字母/数字键盘，并在当前会话中保留输入内容。
+
+### 孕周看板：第一次设置，之后每天自动推进
+
+<p align="center">
+  <img src="docs/images/pregnancy/clock-setup.png" alt="首次使用时设置设备日期和时间" width="250">
+  <img src="docs/images/pregnancy/due-date-setup.png" alt="首次使用时设置预产期" width="250">
+  <img src="docs/images/pregnancy/dashboard.png" alt="孕周横屏主页" width="500">
+</p>
+
+首次进入分两步完成配置：确认或输入设备当前日期时间，然后输入预产期。配置经过校验后存入 NVS，后续启动直接显示横屏主页。主页依据 RTC 自动计算当前孕周与天数、早中晚孕阶段、40 周进度及距离预产期天数；跨过午夜后会自动更新，也可以点击 `EDIT` 重新设置。
 
 ### 答案书：提问、摇晃、思考、揭晓
 
@@ -288,7 +304,7 @@ third_party/             # 上游开源方案的许可证与使用说明
 python3 tools/check_markdown_links.py
 ```
 
-页面渲染测试会在 `/tmp` 输出桌宠、番茄钟、状态板、答案书、应用选择器和六页教程的 PPM 预览。这些预览直接使用固件真实的画布、字体、触摸映射和像素素材。
+页面渲染测试会在 `/tmp` 输出桌宠、番茄钟、状态板、孕周看板、答案书、应用选择器和六页教程的 PPM 预览。这些预览直接使用固件真实的画布、字体、触摸映射和像素素材。
 
 ### 重新生成固件素材
 

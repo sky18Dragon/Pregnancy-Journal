@@ -11,6 +11,8 @@ const char *sticky_app_id_name(StickyAppId app)
         return "status_board";
     case StickyAppId::BookOfAnswers:
         return "book_of_answers";
+    case StickyAppId::Pregnancy:
+        return "pregnancy";
     }
     return "unknown";
 }

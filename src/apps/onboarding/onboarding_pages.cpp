@@ -8,6 +8,7 @@
 #include "font.h"
 #include "onboarding_assets.h"
 #include "pixel_asset.h"
+#include "ui_language.h"
 
 namespace {
 
@@ -62,12 +63,7 @@ void draw_page_frame(Canvas &canvas)
 
 int text_width(const char *text, uint8_t scale)
 {
-    if (text == nullptr || text[0] == '\0') {
-        return 0;
-    }
-    return static_cast<int>(std::strlen(text)) *
-               (kFontWidth + kFontSpacing) * scale -
-           kFontSpacing * scale;
+    return ui_text_width(text, scale);
 }
 
 void draw_centered(Canvas &canvas,
@@ -226,12 +222,12 @@ void draw_page_three_copy(Canvas &canvas)
     draw_centered(canvas, 348, 682, "ACTIVE", 2);
 }
 
-// Draws the app names under the four redrawn launcher illustrations.
-// 在四个重绘的启动器插画下方绘制应用名称。
+// Draws representative app names under the redrawn launcher illustrations.
+// 在重绘的启动器插画下方绘制代表性应用名称。
 void draw_page_four_copy(Canvas &canvas)
 {
     draw_centered(canvas, 278, 38, "CHOOSE AN APP", 3);
-    draw_centered(canvas, 240, 86, "FOUR WAYS TO USE STICKY", 1);
+    draw_centered(canvas, 240, 86, "EXPLORE STICKY APPS", 1);
 
     draw_centered(canvas, 128, 365, "Pet", 2);
     draw_centered(canvas, 128, 387, "YOUR LITTLE ONE IS HERE", 1);

@@ -5,8 +5,10 @@
 
 #include "app_launcher_assets.h"
 #include "canvas.h"
+#include "chinese_font_assets.h"
 #include "font.h"
 #include "pixel_asset.h"
+#include "ui_language.h"
 
 #ifndef STICKY_ONBOARDING_TEST_MODE
 #define STICKY_ONBOARDING_TEST_MODE 0
@@ -36,20 +38,24 @@ struct TextInkBounds {
     int height;
 };
 
-constexpr size_t kCardCount = 4U;
-constexpr int kPortraitContentOffsetY = 40;
+constexpr size_t kCardCount = 5U;
+constexpr int kPortraitContentOffsetY = -26;
 constexpr int kLandscapeContentOffsetY = 30;
 
 int text_width(const char *text, int scale)
 {
-    const size_t length = std::strlen(text);
-    return length == 0U
-               ? 0
-               : (static_cast<int>(length) * 6 - 1) * scale;
+    return ui_text_width(text, static_cast<uint8_t>(scale));
 }
 
 TextInkBounds text_ink_bounds(const char *text, int scale)
 {
+    if (ui_language_is_chinese()) {
+        return {0,
+                0,
+                ui_text_width(text, static_cast<uint8_t>(scale)),
+                static_cast<int>(kChineseFontHeight) *
+                    font_cjk_scale(static_cast<uint8_t>(scale))};
+    }
     int first_column = -1;
     int last_column = -1;
     int first_row = -1;
@@ -111,47 +117,56 @@ std::array<LauncherCard, kCardCount> launcher_cards(int width, int height)
     const bool portrait = height > width;
     if (portrait) {
         constexpr int kCardWidth = 212;
-        constexpr int kCardHeight = 254;
+        constexpr int kCardHeight = 198;
         constexpr int kColumnGap = 16;
         const int left = (width - kCardWidth * 2 - kColumnGap) / 2;
-        constexpr int kTopRowY = 154 + kPortraitContentOffsetY;
-        constexpr int kBottomRowY = 414 + kPortraitContentOffsetY;
+        constexpr int kTopRowY = 124;
+        constexpr int kMiddleRowY = 352;
+        constexpr int kBottomRowY = 580;
+        const int centered = (width - kCardWidth) / 2;
         return {{{StickyAppId::DesktopPet,
                   left, kTopRowY, kCardWidth, kCardHeight,
-                  kTopRowY + 10, kTopRowY + 200},
+                  kTopRowY + 4, kTopRowY + 142},
                  {StickyAppId::Pomodoro,
                   left + kCardWidth + kColumnGap,
                   kTopRowY, kCardWidth, kCardHeight,
-                  kTopRowY + 10, kTopRowY + 200},
+                  kTopRowY + 4, kTopRowY + 142},
                  {StickyAppId::StatusBoard,
-                  left, kBottomRowY, kCardWidth, kCardHeight,
-                  kBottomRowY + 10, kBottomRowY + 200},
+                  left, kMiddleRowY, kCardWidth, kCardHeight,
+                  kMiddleRowY + 4, kMiddleRowY + 142},
                  {StickyAppId::BookOfAnswers,
                   left + kCardWidth + kColumnGap,
-                  kBottomRowY, kCardWidth, kCardHeight,
-                  kBottomRowY + 10, kBottomRowY + 200}}};
+                  kMiddleRowY, kCardWidth, kCardHeight,
+                  kMiddleRowY + 4, kMiddleRowY + 142},
+                 {StickyAppId::Pregnancy,
+                  centered, kBottomRowY, kCardWidth, kCardHeight,
+                  kBottomRowY + 4, kBottomRowY + 142}}};
     }
 
-    constexpr int kCardWidth = 184;
+    constexpr int kCardWidth = 148;
     constexpr int kCardHeight = 300;
-    constexpr int kGap = 12;
-    const int left = (width - kCardWidth * 4 - kGap * 3) / 2;
+    constexpr int kGap = 6;
+    const int left = (width - kCardWidth * 5 - kGap * 4) / 2;
     constexpr int kTop = 124 + kLandscapeContentOffsetY;
     return {{{StickyAppId::DesktopPet,
               left, kTop, kCardWidth, kCardHeight,
-              kTop + 22, kTop + 212},
+              kTop + 36, kTop + 212},
              {StickyAppId::Pomodoro,
               left + (kCardWidth + kGap), kTop,
               kCardWidth, kCardHeight,
-              kTop + 22, kTop + 212},
+              kTop + 36, kTop + 212},
              {StickyAppId::StatusBoard,
               left + (kCardWidth + kGap) * 2, kTop,
               kCardWidth, kCardHeight,
-              kTop + 22, kTop + 212},
+              kTop + 36, kTop + 212},
              {StickyAppId::BookOfAnswers,
               left + (kCardWidth + kGap) * 3, kTop,
               kCardWidth, kCardHeight,
-              kTop + 22, kTop + 212}}};
+              kTop + 36, kTop + 212},
+             {StickyAppId::Pregnancy,
+              left + (kCardWidth + kGap) * 4, kTop,
+              kCardWidth, kCardHeight,
+              kTop + 36, kTop + 212}}};
 }
 
 LauncherLabel app_label(StickyAppId app)
@@ -165,6 +180,8 @@ LauncherLabel app_label(StickyAppId app)
         return {"Status", "Board"};
     case StickyAppId::BookOfAnswers:
         return {"Answers of", "book"};
+    case StickyAppId::Pregnancy:
+        return {"Baby", "Week"};
     }
     return {"App", nullptr};
 }
@@ -180,6 +197,8 @@ AppLauncherAssetId launcher_asset_id(StickyAppId app)
         return AppLauncherAssetId::Status;
     case StickyAppId::BookOfAnswers:
         return AppLauncherAssetId::Answers;
+    case StickyAppId::Pregnancy:
+        return AppLauncherAssetId::Pregnancy;
     }
     return AppLauncherAssetId::Pet;
 }
@@ -311,7 +330,7 @@ void draw_card(Canvas &canvas,
     const bool active = card.app == current_app;
     const int center_x = card.x + card.width / 2;
     const bool portrait = canvas.height() > canvas.width();
-    const int label_width = portrait ? 190 : 176;
+    const int label_width = portrait ? 190 : 142;
     constexpr int kLabelHeight = 54;
     const int label_x = center_x - label_width / 2;
 
@@ -363,6 +382,22 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app)
                        canvas.width() / 2 + title_sparkle_offset,
                        sparkle_y);
     draw_title_divider(canvas, divider_y);
+
+    constexpr int kLanguageWidth = 74;
+    constexpr int kLanguageHeight = 34;
+    const int language_x = canvas.width() - kLanguageWidth - 12;
+    const int language_y = portrait ? 32 : 60;
+    canvas.draw_rect(language_x,
+                     language_y,
+                     kLanguageWidth,
+                     kLanguageHeight,
+                     GrayLevel::Black);
+    draw_centered_text(canvas,
+                       language_x + kLanguageWidth / 2,
+                       language_y + 9,
+                       ui_language_is_chinese() ? "EN" : "中文",
+                       2);
+
     const auto cards = launcher_cards(canvas.width(), canvas.height());
     for (const LauncherCard &card : cards) {
         draw_card(canvas, card, current_app);
@@ -373,6 +408,20 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app)
     canvas.draw_circle(guide_x, guide_y, 14);
     draw_centered_text(canvas, guide_x, guide_y - 8, "?", 2);
 #endif
+}
+
+bool app_page_launcher_language_at(int width,
+                                   int height,
+                                   int x,
+                                   int y)
+{
+    (void)height;
+    constexpr int kWidth = 74;
+    constexpr int kHeight = 34;
+    const int left = width - kWidth - 12;
+    const int top = height > width ? 32 : 60;
+    return x >= left && x < left + kWidth &&
+           y >= top && y < top + kHeight;
 }
 
 bool app_page_launcher_app_at(int width,

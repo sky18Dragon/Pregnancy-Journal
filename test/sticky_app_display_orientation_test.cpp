@@ -29,6 +29,12 @@ int main()
     expect_rotation(StickyAppId::StatusBoard,
                     StickyImuOrientation::Portrait180,
                     CanvasRotation::Deg0);
+    expect_rotation(StickyAppId::Pregnancy,
+                    StickyImuOrientation::Portrait0,
+                    CanvasRotation::Deg180);
+    expect_rotation(StickyAppId::Pregnancy,
+                    StickyImuOrientation::Portrait180,
+                    CanvasRotation::Deg0);
 
     CanvasRotation unchanged = CanvasRotation::Deg180;
     assert(!sticky_app_display_rotation(StickyAppId::Pomodoro,

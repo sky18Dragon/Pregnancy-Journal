@@ -16,6 +16,7 @@ bool sticky_app_display_rotation(StickyAppId app,
         }
         return false;
     case StickyAppId::StatusBoard:
+    case StickyAppId::Pregnancy:
         if (orientation == StickyImuOrientation::Portrait0) {
             rotation = CanvasRotation::Deg180;
             return true;

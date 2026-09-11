@@ -18,7 +18,7 @@
   <img alt="ESP32-S3" src="https://img.shields.io/badge/MCU-ESP32--S3-000000?style=flat-square">
   <img alt="ESP-IDF 5.4.1" src="https://img.shields.io/badge/ESP--IDF-5.4.1-000000?style=flat-square">
   <img alt="PlatformIO" src="https://img.shields.io/badge/build-PlatformIO-000000?style=flat-square">
-  <img alt="Firmware 0.1.2" src="https://img.shields.io/badge/firmware-0.1.2-000000?style=flat-square">
+  <img alt="Firmware 0.2.0" src="https://img.shields.io/badge/firmware-0.2.0-000000?style=flat-square">
   <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-000000?style=flat-square">
   <a href="https://github.com/limengdu/reTerminal_Sticky_Bunny/actions/workflows/build.yml"><img alt="Build and test" src="https://github.com/limengdu/reTerminal_Sticky_Bunny/actions/workflows/build.yml/badge.svg"></a>
 </p>
@@ -29,7 +29,7 @@
   <img src="docs/images/launcher/launcher-portrait.png" alt="Sticky Bunny 縦向きアプリランチャー" width="245">
 </p>
 
-reTerminal Sticky Bunny は、Seeed Studio の **reTerminal Sticky** を小さく永続的な世界に変えます。世話を覚えているウサギを育て、ポモドーロセッションを開始し、いまの状況を周囲に示し、答えの書に問いかけましょう。タッチ、ボタン、スワイプジェスチャー、デバイスの回転、連続した振り、RTC によるスケジューリング、低消費電力な ePaper の挙動が、ひとつの一貫したファームウェア体験として設計されています。
+reTerminal Sticky Bunny は、Seeed Studio の **reTerminal Sticky** を小さく永続的な世界に変えます。世話を覚えているウサギを育て、ポモドーロセッションを開始し、いまの状況を周囲に示し、妊娠週数を確認し、答えの書に問いかけましょう。タッチ、ボタン、スワイプジェスチャー、デバイスの回転、連続した振り、RTC によるスケジューリング、低消費電力な ePaper の挙動が、ひとつの一貫したファームウェア体験として設計されています。
 
 デバイスの詳細は [Sticky 公式サイト](https://www.seeedstudio.com/sticky/) と [reTerminal Sticky 製品ページ](https://www.seeedstudio.com/reTerminal-Sticky-p-6861.html) をご覧ください。
 
@@ -38,7 +38,7 @@ reTerminal Sticky Bunny は、Seeed Studio の **reTerminal Sticky** を小さ�
 ## このプロジェクトが特別な理由
 
 - **静的なマスコットではなく、連続性を持つペット。** 卵から孵り、5 つのライフステージを経て成長し、3 つの性格のいずれかを獲得し、世話を覚え、眠り、話し、遊び、ときには外出します。
-- **磨き上げられた 4 つのオンデバイス体験。** デスクトップペット、ポモドーロタイマー、ステータスボード、答えの書が、ひとつのランチャーとひとつのビジュアル言語を共有します。
+- **磨き上げられた 5 つのオンデバイス体験。** デスクトップペット、ポモドーロタイマー、ステータスボード、妊娠週数トラッカー、答えの書が、ひとつのランチャーとひとつのビジュアル言語を共有します。
 - **デバイスそのものがコントローラー。** ボタンまたはスワイプでランチャーを開き、タッチで選択し、縦向き・横向きのアプリへ回転させ、振って答えの書に入ります。
 - **ePaper のための設計。** 静的な画面は全体更新または高品質更新を使い、時間に敏感なビューは範囲を限定した部分更新を使います。更新中も入力は応答し続けます。
 - **実機の挙動に基づく実装。** ファームウェアは、ディスプレイと SD で共有する SPI バス、検証済みの Sticky `480 x 800` センサーマッピングとリファレンスのリセット復帰処理を備えた GT911 タッチコントローラー、LSM6DS3TR-C IMU、PCF8563 RTC、BQ27220 フューエルゲージ、ブザー、サイドボタン、バッテリー動作、ディープスリープを管理します。
@@ -54,6 +54,11 @@ reTerminal Sticky Bunny は、Seeed Studio の **reTerminal Sticky** を小さ�
 | --- | --- |
 | <img src="docs/images/status-board/menu.png" alt="Sticky ステータスボードのメニュー" width="390"> | <img src="docs/images/book-of-answers/home.png" alt="答えの書のホーム画面" width="245"> |
 | `BUSY`、`MEETING`、`ON CALL`、`OPEN TO TALK`、`REST`、またはデバイス上で入力したカスタムメッセージを横向きで表示します。 | 質問を思い浮かべたまま 3 秒間振ると、メッセージ、`YES`、`NO`、`UNCLEAR` のいずれかが示されます。 |
+
+| 妊娠週数トラッカー |
+| --- |
+| <img src="docs/images/pregnancy/dashboard.png" alt="現在の妊娠週数、段階、40 週の進捗を表示する横向きダッシュボード" width="700"> |
+| 初回にデバイスの日時を確認し、出産予定日を入力します。以後は RTC に基づいて週数、妊娠段階、進捗率、残り日数を自動計算します。 |
 
 ## バーチャルペット
 
@@ -146,6 +151,16 @@ reTerminal Sticky Bunny は、Seeed Studio の **reTerminal Sticky** を小さ�
 | <img src="docs/images/status-board/open-to-talk.png" alt="Open to talk のステータス" width="380"> | <img src="docs/images/status-board/custom.png" alt="カスタムステータスのキーボード" width="380"> |
 
 `BUSY`、`MEETING`、`ON CALL`、`OPEN TO TALK`、`REST`、`CUSTOM` はそれぞれ横向きの第 2 階層ページを全画面で開きます。プリセットのページには対応するウサギのシーンが表示され、カスタムページでは英字・数字のレスポンシブなキーボードが使え、選択したテキストは現在のセッションのあいだ保持されます。
+
+### 妊娠週数トラッカー: 一度設定すれば毎日自動更新
+
+<p align="center">
+  <img src="docs/images/pregnancy/clock-setup.png" alt="初回利用時のデバイス日時設定" width="250">
+  <img src="docs/images/pregnancy/due-date-setup.png" alt="初回利用時の出産予定日設定" width="250">
+  <img src="docs/images/pregnancy/dashboard.png" alt="横向きの妊娠週数ダッシュボード" width="500">
+</p>
+
+初回起動では、デバイスの現在日時を確認または入力し、続けて出産予定日を設定します。検証済みの設定は NVS に保存されるため、次回から横向きダッシュボードが直接開きます。RTC に基づいて現在の週と日、妊娠段階、40 週の進捗、予定日までの日数を計算し、日付が変わると自動更新します。`EDIT` からいつでも再設定できます。
 
 ### 答えの書: 問い、振り、考え、明かす
 
@@ -303,7 +318,7 @@ third_party/             # 取り入れたオープンソースのアイデア�
 python3 tools/check_markdown_links.py
 ```
 
-描画テストは、ペット、ポモドーロ、ステータスボード、答えの書、ランチャー、すべてのオンボーディングページを含む PPM プレビューを `/tmp` に書き出します。これらのプレビューは、ファームウェア実物の Canvas、フォント、タッチマップ、生成されたピクセルアセットを使用します。
+描画テストは、ペット、ポモドーロ、ステータスボード、妊娠週数トラッカー、答えの書、ランチャー、すべてのオンボーディングページを含む PPM プレビューを `/tmp` に書き出します。これらのプレビューは、ファームウェア実物の Canvas、フォント、タッチマップ、生成されたピクセルアセットを使用します。
 
 ### アセットの再生成
 

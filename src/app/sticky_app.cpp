@@ -17,6 +17,7 @@
 #include "freertos/task.h"
 #include "onboarding_app.h"
 #include "pomodoro_app.h"
+#include "pregnancy_app.h"
 #include "status_board_app.h"
 #include "sticky_app_display_orientation.h"
 #include "sticky_app_gesture.h"
@@ -28,6 +29,8 @@
 #include "sticky_display.h"
 #include "sticky_imu.h"
 #include "sticky_touch.h"
+#include "ui_language.h"
+#include "ui_language_storage.h"
 
 #ifndef STICKY_ONBOARDING_TEST_MODE
 #define STICKY_ONBOARDING_TEST_MODE 0
@@ -61,6 +64,7 @@ bool s_pet_started = false;
 bool s_status_started = false;
 bool s_pomodoro_started = false;
 bool s_book_started = false;
+bool s_pregnancy_started = false;
 bool s_background_timer_wake = false;
 int64_t s_background_sleep_deadline_us = 0;
 uint32_t s_last_user_activity_ms = 0U;
@@ -92,6 +96,8 @@ bool app_started(StickyAppId app)
         return s_status_started;
     case StickyAppId::BookOfAnswers:
         return s_book_started;
+    case StickyAppId::Pregnancy:
+        return s_pregnancy_started;
     }
     return false;
 }
@@ -111,6 +117,9 @@ void mark_app_started(StickyAppId app)
     case StickyAppId::BookOfAnswers:
         s_book_started = true;
         break;
+    case StickyAppId::Pregnancy:
+        s_pregnancy_started = true;
+        break;
     }
 }
 
@@ -125,6 +134,8 @@ esp_err_t pause_app(StickyAppId app)
         return status_board_app_pause();
     case StickyAppId::BookOfAnswers:
         return book_of_answers_app_pause();
+    case StickyAppId::Pregnancy:
+        return pregnancy_app_pause();
     }
     return ESP_ERR_INVALID_ARG;
 }
@@ -140,6 +151,8 @@ esp_err_t start_app(StickyAppId app)
         return status_board_app_start(*s_canvas);
     case StickyAppId::BookOfAnswers:
         return book_of_answers_app_start(*s_canvas);
+    case StickyAppId::Pregnancy:
+        return pregnancy_app_start(*s_canvas);
     }
     return ESP_ERR_INVALID_ARG;
 }
@@ -155,6 +168,8 @@ esp_err_t resume_app(StickyAppId app)
         return status_board_app_resume();
     case StickyAppId::BookOfAnswers:
         return book_of_answers_app_resume();
+    case StickyAppId::Pregnancy:
+        return pregnancy_app_resume();
     }
     return ESP_ERR_INVALID_ARG;
 }
@@ -207,6 +222,9 @@ uint32_t power_sleep_timeout_ms()
     if (s_current_app == StickyAppId::BookOfAnswers) {
         return book_of_answers_app_power_sleep_timeout_ms();
     }
+    if (s_current_app == StickyAppId::Pregnancy) {
+        return pregnancy_app_power_sleep_timeout_ms();
+    }
     return 0U;
 }
 
@@ -227,6 +245,10 @@ esp_err_t prepare_app_power_sleep(uint32_t &current_epoch,
     }
     if (s_current_app == StickyAppId::BookOfAnswers) {
         return book_of_answers_app_prepare_power_sleep();
+    }
+    if (s_current_app == StickyAppId::Pregnancy) {
+        return pregnancy_app_prepare_power_sleep(
+            current_epoch, next_event_epoch);
     }
     return ESP_ERR_INVALID_ARG;
 }
@@ -587,6 +609,8 @@ void complete_selection(StickyAppId selected_app,
             pomodoro_app_set_display_rotation(display_rotation);
         } else if (selected_app == StickyAppId::StatusBoard) {
             status_board_app_set_display_rotation(display_rotation);
+        } else if (selected_app == StickyAppId::Pregnancy) {
+            pregnancy_app_set_display_rotation(display_rotation);
         }
         STICKY_LOGI(kTag,
                     "launcher=orientation app=%s imu=%s display_rotation=%s result=applied",
@@ -714,6 +738,23 @@ void handle_launcher_touch(const StickyTouchPress &press,
     int logical_y = 0;
     s_canvas->physical_to_logical(
         press.x, press.y, logical_x, logical_y);
+    if (app_page_launcher_language_at(s_canvas->width(),
+                                      s_canvas->height(),
+                                      logical_x,
+                                      logical_y)) {
+        const UiLanguage next = ui_language_is_chinese()
+                                    ? UiLanguage::English
+                                    : UiLanguage::ChineseSimplified;
+        const esp_err_t result = ui_language_storage_save(next);
+        STICKY_LOGI(kTag,
+                    "launcher=language value=%s result=%s",
+                    next == UiLanguage::ChineseSimplified ? "zh-CN" : "en",
+                    esp_err_to_name(result));
+        if (result == ESP_OK) {
+            render_launcher(router.baseline_orientation);
+        }
+        return;
+    }
 #if STICKY_ONBOARDING_TEST_MODE
     if (app_page_launcher_tutorial_at(s_canvas->width(),
                                       s_canvas->height(),
@@ -796,7 +837,7 @@ void app_task(void *)
     LauncherImuPrestart imu_prestart = {};
     StickyImuOrientation last_settled = StickyImuOrientation::Unknown;
     STICKY_LOGI(kTag,
-                "launcher=ready trigger=top_button,bottom_swipe selection=touch,rotation,shake apps=4 imu=on_demand shake_select_ms=%u current_app=%s result=ok",
+                "launcher=ready trigger=top_button,bottom_swipe selection=touch,rotation,shake apps=5 imu=on_demand shake_select_ms=%u current_app=%s result=ok",
                 static_cast<unsigned>(kStickyLauncherShakeSelectMs),
                 sticky_app_id_name(s_current_app));
 
@@ -973,6 +1014,8 @@ esp_err_t sticky_app_start(Canvas &canvas)
         pomodoro_app_set_display_rotation(initial_rotation);
     } else if (initial_app == StickyAppId::StatusBoard) {
         status_board_app_set_display_rotation(initial_rotation);
+    } else if (initial_app == StickyAppId::Pregnancy) {
+        pregnancy_app_set_display_rotation(initial_rotation);
     }
     if (initial_app == StickyAppId::BookOfAnswers) {
         result = set_imu_running(true);

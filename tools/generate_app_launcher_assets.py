@@ -3,10 +3,11 @@
 
 from __future__ import annotations
 
-import subprocess
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
+
+from PIL import Image, ImageOps
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,10 +27,11 @@ ASSETS = (
     AssetSpec("focus.png", "Focus", "kFocus"),
     AssetSpec("status.png", "Status", "kStatus"),
     AssetSpec("answers.png", "Answers", "kAnswers"),
+    AssetSpec("pregnancy.png", "Pregnancy", "kPregnancy"),
 )
 
-WIDTH = 176
-HEIGHT = 176
+WIDTH = 136
+HEIGHT = 136
 BLACK_MAX = 84
 GRAY_MAX = 220
 SELECTION_OUTLINE_RADIUS = 3
@@ -38,34 +40,21 @@ SELECTION_OUTLINE_RADIUS = 3
 def read_grayscale(path: Path) -> bytes:
     """Decode one normalized PNG into row-major grayscale pixels."""
 
-    result = subprocess.run(
-        [
-            "ffmpeg",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-i",
-            str(path),
-            "-vf",
-            f"scale={WIDTH}:{HEIGHT}:flags=neighbor,format=gray",
-            "-frames:v",
-            "1",
-            "-f",
-            "rawvideo",
-            "-pix_fmt",
-            "gray",
-            "-",
-        ],
-        check=True,
-        stdout=subprocess.PIPE,
-    )
-    expected_size = WIDTH * HEIGHT
-    if len(result.stdout) != expected_size:
-        raise RuntimeError(
-            f"{path.name}: expected {expected_size} bytes, "
-            f"got {len(result.stdout)}"
+    with Image.open(path) as source:
+        rgba = source.convert("RGBA")
+        background = Image.new("RGBA", rgba.size, "white")
+        background.alpha_composite(rgba)
+        grayscale = background.convert("L")
+        contained = ImageOps.contain(
+            grayscale, (WIDTH - 8, HEIGHT - 8), Image.Resampling.NEAREST
         )
-    return result.stdout
+        normalized = Image.new("L", (WIDTH, HEIGHT), "white")
+        normalized.paste(
+            contained,
+            ((WIDTH - contained.width) // 2,
+             (HEIGHT - contained.height) // 2),
+        )
+        return normalized.tobytes()
 
 
 def pack_layer(grayscale: bytes, minimum: int, maximum: int) -> bytes:

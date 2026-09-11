@@ -108,6 +108,49 @@ uint8_t weekday(const StickyRtcDateTime &value)
     return static_cast<uint8_t>((days + 4U) % 7U);
 }
 
+esp_err_t write_date_time(const StickyRtcDateTime &value,
+                          const char *source)
+{
+    if (s_device == nullptr) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (!valid_date_time(value)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    const uint8_t payload[] = {
+        kTimeRegister,
+        decimal_to_bcd(value.second),
+        decimal_to_bcd(value.minute),
+        decimal_to_bcd(value.hour),
+        decimal_to_bcd(value.day),
+        weekday(value),
+        static_cast<uint8_t>(
+            decimal_to_bcd(value.month) |
+            (value.year < 2000U ? 0x80U : 0x00U)),
+        decimal_to_bcd(static_cast<uint8_t>(value.year % 100U)),
+    };
+    const esp_err_t result = i2c_master_transmit(
+        s_device, payload, sizeof(payload), kI2cTimeoutMs);
+    if (result != ESP_OK) {
+        STICKY_LOGW(kTag,
+                    "rtc=write source=%s result=%s",
+                    source,
+                    esp_err_to_name(result));
+        return result;
+    }
+    STICKY_LOGI(kTag,
+                "rtc=write source=%s time=%04u-%02u-%02uT%02u:%02u:%02u result=ok",
+                source,
+                static_cast<unsigned>(value.year),
+                static_cast<unsigned>(value.month),
+                static_cast<unsigned>(value.day),
+                static_cast<unsigned>(value.hour),
+                static_cast<unsigned>(value.minute),
+                static_cast<unsigned>(value.second));
+    return ESP_OK;
+}
+
 }  // namespace
 
 esp_err_t sticky_rtc_init(i2c_master_bus_handle_t bus)
@@ -207,6 +250,11 @@ esp_err_t sticky_rtc_read(StickyRtcDateTime &date_time)
     return ESP_OK;
 }
 
+esp_err_t sticky_rtc_write(const StickyRtcDateTime &date_time)
+{
+    return write_date_time(date_time, "user");
+}
+
 esp_err_t sticky_rtc_seed_from_build_time(StickyRtcDateTime &date_time)
 {
     if (s_device == nullptr) {
@@ -218,37 +266,11 @@ esp_err_t sticky_rtc_seed_from_build_time(StickyRtcDateTime &date_time)
         return ESP_ERR_INVALID_ARG;
     }
 
-    // The complete seconds-through-years calendar is one I2C write.
-    // 秒到年份的完整日历通过一次I2C事务连续写入。
-    const uint8_t payload[] = {
-        kTimeRegister,
-        decimal_to_bcd(value.second),
-        decimal_to_bcd(value.minute),
-        decimal_to_bcd(value.hour),
-        decimal_to_bcd(value.day),
-        weekday(value),
-        static_cast<uint8_t>(
-            decimal_to_bcd(value.month) |
-            (value.year < 2000U ? 0x80U : 0x00U)),
-        decimal_to_bcd(static_cast<uint8_t>(value.year % 100U)),
-    };
-    const esp_err_t result = i2c_master_transmit(
-        s_device, payload, sizeof(payload), kI2cTimeoutMs);
+    const esp_err_t result = write_date_time(value, "firmware_build");
     if (result != ESP_OK) {
-        STICKY_LOGW(kTag,
-                    "rtc=seed source=firmware_build result=%s",
-                    esp_err_to_name(result));
         return result;
     }
 
     date_time = value;
-    STICKY_LOGI(kTag,
-                "rtc=seed source=firmware_build time=%04u-%02u-%02uT%02u:%02u:%02u result=ok",
-                static_cast<unsigned>(value.year),
-                static_cast<unsigned>(value.month),
-                static_cast<unsigned>(value.day),
-                static_cast<unsigned>(value.hour),
-                static_cast<unsigned>(value.minute),
-                static_cast<unsigned>(value.second));
     return ESP_OK;
 }

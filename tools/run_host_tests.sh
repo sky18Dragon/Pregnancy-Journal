@@ -29,13 +29,16 @@ compile_and_run battery_status_overlay_theme_test \
     -Isrc/ui \
     test/battery_status_overlay_theme_test.cpp \
     src/ui/battery_status_overlay_theme.cpp \
-    src/ui/canvas.cpp src/ui/font.cpp
+    src/ui/canvas.cpp src/ui/font.cpp \
+    src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp
 
 compile_and_run book_of_answers_state_test \
-    -Isrc/apps/book_of_answers \
+    -Isrc/apps/book_of_answers -Isrc/ui -Isrc/ui/assets \
     test/book_of_answers_state_test.cpp \
     src/apps/book_of_answers/book_of_answers_state.cpp \
-    src/apps/book_of_answers/book_of_answers_answers.cpp
+    src/apps/book_of_answers/book_of_answers_answers.cpp \
+    src/ui/font.cpp src/ui/ui_language.cpp \
+    src/ui/assets/chinese_font_assets.cpp
 
 compile_and_run book_of_answers_render_test \
     -Isrc/apps/book_of_answers -Isrc/ui -Isrc/ui/assets \
@@ -43,6 +46,7 @@ compile_and_run book_of_answers_render_test \
     src/apps/book_of_answers/book_of_answers_pages.cpp \
     src/apps/book_of_answers/book_of_answers_state.cpp \
     src/ui/canvas.cpp src/ui/font.cpp \
+    src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp \
     src/ui/assets/pixel_asset.cpp \
     src/ui/assets/book_of_answers_assets.cpp
 
@@ -109,6 +113,7 @@ compile_and_run desktop_pet_render_test \
     src/apps/desktop_pet/core/pet_dialogue.cpp \
     src/apps/desktop_pet/core/pet_rtc_time.cpp \
     src/ui/canvas.cpp src/ui/font.cpp \
+    src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp \
     src/ui/assets/pixel_asset.cpp \
     src/ui/assets/desktop_pet_assets.cpp
 
@@ -123,6 +128,7 @@ compile_and_run onboarding_pages_test \
     src/apps/onboarding/onboarding_pages.cpp \
     src/apps/onboarding/onboarding_state.cpp \
     src/ui/canvas.cpp src/ui/font.cpp \
+    src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp \
     src/ui/assets/pixel_asset.cpp \
     src/ui/assets/onboarding_assets.cpp
 
@@ -130,6 +136,7 @@ compile_and_run pixel_asset_test \
     -Isrc/ui -Isrc/ui/assets \
     test/pixel_asset_test.cpp \
     src/ui/canvas.cpp src/ui/font.cpp \
+    src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp \
     src/ui/assets/pixel_asset.cpp \
     src/ui/assets/status_bunny_assets.cpp
 
@@ -150,8 +157,30 @@ compile_and_run pomodoro_pages_test \
     test/pomodoro_pages_test.cpp \
     src/apps/pomodoro/pomodoro_pages.cpp \
     src/ui/canvas.cpp src/ui/font.cpp \
+    src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp \
     src/ui/assets/pixel_asset.cpp \
     src/ui/assets/pomodoro_assets.cpp
+
+compile_and_run pregnancy_state_test \
+    -Isrc/apps/pregnancy \
+    test/pregnancy_state_test.cpp \
+    src/apps/pregnancy/pregnancy_state.cpp
+
+compile_and_run pregnancy_storage_record_test \
+    -Isrc/apps/pregnancy \
+    test/pregnancy_storage_record_test.cpp \
+    src/apps/pregnancy/pregnancy_storage_record.cpp \
+    src/apps/pregnancy/pregnancy_state.cpp
+
+compile_and_run pregnancy_pages_test \
+    -Isrc/apps/pregnancy -Isrc/app -Isrc/ui -Isrc/ui/assets \
+    test/pregnancy_pages_test.cpp \
+    src/apps/pregnancy/pregnancy_pages.cpp \
+    src/apps/pregnancy/pregnancy_state.cpp \
+    src/ui/canvas.cpp src/ui/font.cpp \
+    src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp \
+    src/ui/assets/pixel_asset.cpp \
+    src/ui/assets/app_launcher_assets.cpp
 
 compile_and_run status_board_state_test \
     -Isrc/apps/status_board -Isrc/ui -Isrc/ui/assets \
@@ -159,6 +188,7 @@ compile_and_run status_board_state_test \
     src/apps/status_board/status_board_state.cpp \
     src/apps/status_board/status_board_pages.cpp \
     src/ui/canvas.cpp src/ui/font.cpp \
+    src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp \
     src/ui/assets/pixel_asset.cpp \
     src/ui/assets/status_bunny_assets.cpp \
     src/ui/assets/pet_animation_assets.cpp
@@ -175,6 +205,7 @@ compile_and_run status_board_pages_test \
     src/apps/status_board/status_board_pages.cpp \
     src/apps/status_board/status_board_state.cpp \
     src/ui/canvas.cpp src/ui/font.cpp \
+    src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp \
     src/ui/assets/pixel_asset.cpp \
     src/ui/assets/status_bunny_assets.cpp \
     src/ui/assets/pet_animation_assets.cpp
@@ -186,6 +217,7 @@ compile_and_run status_board_render_test \
     src/apps/status_board/status_board_state.cpp \
     src/apps/status_board/status_pet_animation.cpp \
     src/ui/canvas.cpp src/ui/font.cpp \
+    src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp \
     src/ui/assets/pixel_asset.cpp \
     src/ui/assets/status_bunny_assets.cpp \
     src/ui/assets/pet_animation_assets.cpp
@@ -204,6 +236,7 @@ compile_and_run sticky_app_launcher_render_test \
     -Isrc/app -Isrc/ui -Isrc/ui/assets \
     test/sticky_app_launcher_render_test.cpp \
     src/ui/app_pages.cpp src/ui/canvas.cpp src/ui/font.cpp \
+    src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp \
     src/ui/assets/pixel_asset.cpp \
     src/ui/assets/app_launcher_assets.cpp \
     src/app/sticky_app_id.cpp
@@ -232,4 +265,10 @@ compile_and_run sticky_shake_detector_test \
     test/sticky_shake_detector_test.cpp \
     src/sensors/sticky_shake_detector.cpp
 
-echo "[host-test] PASS ${passed_count}/30"
+compile_and_run ui_language_test \
+    -Isrc/ui -Isrc/ui/assets \
+    test/ui_language_test.cpp \
+    src/ui/canvas.cpp src/ui/font.cpp src/ui/ui_language.cpp \
+    src/ui/assets/chinese_font_assets.cpp
+
+echo "[host-test] PASS ${passed_count}/34"

@@ -9,23 +9,23 @@
 - Source pixels: 971 x 1627 design board containing both orientations.
 - Implementation pixels and viewport: 480 x 800 portrait and 800 x 480 landscape at device density 1.
 - Normalization: the source portrait and landscape screen regions were cropped from the design board and resampled to the two physical viewport sizes before comparison.
-- State: `PET` selected; the other three applications are available.
+- State: `PET` selected; the other four applications are available.
 
 ## Full-view comparison
 
-The combined comparison confirms the same four-entry hierarchy, 2 x 2 portrait grid, single-row landscape grid, centered title, dotted divider, sticker illustrations, clipped-corner labels, grayscale halftone, selected sparkle, and inverse selected label.
+The current launcher extends the approved visual language to five entries: a centered 2 + 2 + 1 portrait grid and a five-card landscape row, with the same centered title, dotted divider, sticker illustrations, clipped-corner labels, grayscale halftone, selected sparkle, and inverse selected label.
 
 The ImageGen board does not preserve the hardware's exact landscape aspect ratio, so the firmware implementation follows the physical 800 x 480 canvas while retaining the visible proportions and spacing rhythm.
 
 ## Required fidelity surfaces
 
 - Fonts and typography: the built-in Sticky pixel font matches the source family and uppercase treatment. The title uses scale 4 and labels use scale 2, preserving the intended hierarchy without wrapping or truncation.
-- Spacing and layout rhythm: portrait uses a compact centered 2 x 2 cluster with equal columns; landscape uses four equal touch tracks. Labels share one size and baseline. Every visible sticker remains inside its touch track.
+- Spacing and layout rhythm: portrait uses centered 2 + 2 + 1 rows with equal columns; landscape uses five equal touch tracks. Labels share one size and baseline. Every visible sticker remains inside its touch track.
 - Colors and visual tokens: the page uses white, black, and `LightGray` only. Selected state uses a black label with white text and a black sparkle marker.
-- Image quality and asset fidelity: all four applications use dedicated 176 x 176 generated pixel illustrations with complete silhouettes. Black outlines and gray halftone are stored as separate 1-bit layers and render without scaling artifacts.
-- Copy and content: `CHOOSE AN APP`, `PET`, `FOCUS`, `STATUS`, and `ANSWERS` match the selected design.
+- Image quality and asset fidelity: all five applications use dedicated 136 x 136 pixel illustrations with complete silhouettes. Black outlines and gray halftone are stored as separate 1-bit layers and render without scaling artifacts.
+- Copy and content: `CHOOSE AN APP`, `PET`, `FOCUS`, `STATUS`, `ANSWERS`, and `BABY WEEK` use the established launcher language.
 
-The actual-size full views keep the four illustrations and all labels legible, so an additional focused crop is not required.
+The actual-size full views keep all five illustrations and labels legible, so an additional focused crop is not required.
 
 ## Comparison history
 

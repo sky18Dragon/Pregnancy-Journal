@@ -12,6 +12,7 @@
 #include "sticky_imu.h"
 #include "sticky_rtc.h"
 #include "sticky_touch.h"
+#include "ui_language_storage.h"
 
 #include <cinttypes>
 
@@ -196,8 +197,8 @@ extern "C" void app_main()
         halt_after_error("board_sensor_bus", sensor_bus_result);
     }
 
-    // Attach the read-only clock before the desktop pet reads its saved time.
-    // 在桌宠读取存档时间前，先挂载只读RTC设备。
+    // Attach the clock before apps read saved time or offer user calibration.
+    // 在APP读取存档时间或提供用户校时前，先挂载RTC设备。
     const esp_err_t rtc_result =
         sticky_rtc_init(board_sensor_i2c_bus());
     if (rtc_result != ESP_OK) {
@@ -261,6 +262,13 @@ extern "C" void app_main()
     const esp_err_t nvs_result = nvs_flash_init();
     if (nvs_result != ESP_OK) {
         halt_after_error("nvs_flash_init", nvs_result);
+    }
+
+    const esp_err_t language_result = ui_language_storage_load();
+    if (language_result != ESP_OK) {
+        STICKY_LOGW(kTag,
+                    "language=load result=%s fallback=english",
+                    esp_err_to_name(language_result));
     }
 
     // Presents the six-page first-boot guide before background app tasks run.

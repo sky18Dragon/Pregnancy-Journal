@@ -18,7 +18,7 @@
   <img alt="ESP32-S3" src="https://img.shields.io/badge/MCU-ESP32--S3-000000?style=flat-square">
   <img alt="ESP-IDF 5.4.1" src="https://img.shields.io/badge/ESP--IDF-5.4.1-000000?style=flat-square">
   <img alt="PlatformIO" src="https://img.shields.io/badge/build-PlatformIO-000000?style=flat-square">
-  <img alt="Firmware 0.1.2" src="https://img.shields.io/badge/firmware-0.1.2-000000?style=flat-square">
+  <img alt="Firmware 0.2.0" src="https://img.shields.io/badge/firmware-0.2.0-000000?style=flat-square">
   <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-000000?style=flat-square">
   <a href="https://github.com/limengdu/reTerminal_Sticky_Bunny/actions/workflows/build.yml"><img alt="Build and test" src="https://github.com/limengdu/reTerminal_Sticky_Bunny/actions/workflows/build.yml/badge.svg"></a>
 </p>
@@ -29,7 +29,7 @@
   <img src="docs/images/launcher/launcher-portrait.png" alt="Sticky Bunny portrait app launcher" width="245">
 </p>
 
-reTerminal Sticky Bunny turns the Seeed Studio **reTerminal Sticky** into a small, persistent world: raise a rabbit that remembers your care, start a Pomodoro session, show your availability, or ask the Book of Answers. Touch, buttons, swipe gestures, device rotation, continuous shaking, RTC scheduling, and low-power ePaper behavior are designed as one coherent firmware experience.
+reTerminal Sticky Bunny turns the Seeed Studio **reTerminal Sticky** into a small, persistent world: raise a rabbit that remembers your care, start a Pomodoro session, show your availability, follow a pregnancy timeline, or ask the Book of Answers. Touch, buttons, swipe gestures, device rotation, continuous shaking, RTC scheduling, and low-power ePaper behavior are designed as one coherent firmware experience.
 
 Learn more about the device on the [Sticky official website](https://www.seeedstudio.com/sticky/) and the [reTerminal Sticky product page](https://www.seeedstudio.com/reTerminal-Sticky-p-6861.html).
 
@@ -38,7 +38,7 @@ This repository contains the complete PlatformIO/ESP-IDF firmware, original mono
 ## Why this project is different
 
 - **A pet with continuity, not a static mascot.** It hatches, grows through five life stages, develops one of three personalities, remembers care, sleeps, speaks, plays, and occasionally goes outside.
-- **Four polished on-device experiences.** The desktop pet, Pomodoro timer, status board, and Book of Answers share one launcher and one visual language.
+- **Five polished on-device experiences.** The desktop pet, Pomodoro timer, status board, pregnancy tracker, and Book of Answers share one launcher and one visual language.
 - **The device itself is the controller.** Open the launcher by button or swipe, select by touch, rotate into portrait or landscape apps, and shake to enter the Book of Answers.
 - **Designed for ePaper.** Stable screens use full or quality refreshes; time-sensitive views use bounded partial updates; input remains responsive while a refresh is in flight.
 - **Built around real hardware behavior.** The firmware manages the shared display/SD SPI bus, GT911 touch controller with the verified Sticky `480 x 800` sensor mapping and reference reset recovery, LSM6DS3TR-C IMU, PCF8563 RTC, BQ27220 fuel gauge, buzzer, side buttons, battery operation, and deep sleep.
@@ -54,6 +54,11 @@ This repository contains the complete PlatformIO/ESP-IDF firmware, original mono
 | --- | --- |
 | <img src="docs/images/status-board/menu.png" alt="Sticky Status Board menu" width="390"> | <img src="docs/images/book-of-answers/home.png" alt="Book of Answers home screen" width="245"> |
 | Display `BUSY`, `MEETING`, `ON CALL`, `OPEN TO TALK`, `REST`, or a custom on-device message in landscape. | Hold a question in mind and shake for three seconds to reveal a message, `YES`, `NO`, or `UNCLEAR`. |
+
+| Pregnancy tracker |
+| --- |
+| <img src="docs/images/pregnancy/dashboard.png" alt="Landscape dashboard showing the current pregnancy week, trimester, and 40-week progress" width="700"> |
+| On first use, confirm the device clock and enter the due date. The RTC then drives the current week, trimester, completion percentage, and days remaining automatically. |
 
 ## The virtual pet
 
@@ -146,6 +151,16 @@ The home page keeps only the three practical presets: 15, 25, and 60 minutes. Cu
 | <img src="docs/images/status-board/open-to-talk.png" alt="Open to talk status" width="380"> | <img src="docs/images/status-board/custom.png" alt="Custom status keyboard" width="380"> |
 
 `BUSY`, `MEETING`, `ON CALL`, `OPEN TO TALK`, `REST`, and `CUSTOM` each open a full landscape second-level page. Preset pages use a matching rabbit scene; the custom page provides a responsive letters/numbers keyboard and stores the selected text for the current session.
+
+### Pregnancy tracker: set it once, then follow each day
+
+<p align="center">
+  <img src="docs/images/pregnancy/clock-setup.png" alt="First-use device date and time setup" width="250">
+  <img src="docs/images/pregnancy/due-date-setup.png" alt="First-use due-date setup" width="250">
+  <img src="docs/images/pregnancy/dashboard.png" alt="Landscape pregnancy dashboard" width="500">
+</p>
+
+The first launch is a two-step setup: confirm or enter the device date and time, then enter the due date. A validated configuration is stored in NVS, so later launches open directly to the landscape dashboard. The RTC drives the current week and day, trimester, 40-week progress, and days remaining; the page refreshes after midnight and `EDIT` reopens setup at any time.
 
 ### Book of Answers: ask, shake, think, reveal
 
@@ -303,7 +318,7 @@ The native tests exercise state machines and render pages into PPM files without
 python3 tools/check_markdown_links.py
 ```
 
-Rendering tests write PPM previews to `/tmp`, including pet, Pomodoro, Status Board, Book of Answers, launcher, and all onboarding pages. These previews use the firmware's actual canvas, font, touch maps, and generated pixel assets.
+Rendering tests write PPM previews to `/tmp`, including pet, Pomodoro, Status Board, pregnancy tracker, Book of Answers, launcher, and all onboarding pages. These previews use the firmware's actual canvas, font, touch maps, and generated pixel assets.
 
 ### Asset regeneration
 

@@ -8,6 +8,7 @@
 #include "canvas.h"
 #include "pixel_asset.h"
 #include "pomodoro_assets.h"
+#include "ui_language.h"
 
 namespace {
 
@@ -77,11 +78,7 @@ constexpr Rect kEndAlarmRect = {
 
 int text_width(const char *text, int scale)
 {
-    const size_t length = std::strlen(text);
-    if (length == 0U) {
-        return 0;
-    }
-    return (static_cast<int>(length) * 6 - 1) * scale;
+    return ui_text_width(text, static_cast<uint8_t>(scale));
 }
 
 void draw_centered_text(Canvas &canvas,
@@ -460,16 +457,20 @@ void pomodoro_page_render_alarm(Canvas &canvas, uint32_t focused_seconds)
     draw_timer_content(
         canvas, "TIME'S UP", 0U, focused_seconds, "ALARM SOUNDING");
 
-    char focused_text[32] = {};
+    char focused_text[48] = {};
     if (focused_seconds % 60U == 0U) {
         std::snprintf(focused_text,
                       sizeof(focused_text),
-                      "%lu MIN FOCUSED",
+                      ui_language_is_chinese()
+                          ? "已专注 %lu 分钟"
+                          : "%lu MIN FOCUSED",
                       static_cast<unsigned long>(focused_seconds / 60U));
     } else {
         std::snprintf(focused_text,
                       sizeof(focused_text),
-                      "%lu SEC FOCUSED",
+                      ui_language_is_chinese()
+                          ? "已专注 %lu 秒"
+                          : "%lu SEC FOCUSED",
                       static_cast<unsigned long>(focused_seconds));
     }
     draw_centered_text(canvas, 565, focused_text, 2);

@@ -1,5 +1,7 @@
 #include "book_of_answers_answers.h"
 
+#include "ui_language.h"
+
 namespace {
 
 // Generated from assets/book_of_answers/source/database.csv.
@@ -357,6 +359,76 @@ constexpr BookMessageAnswer kMessageAnswers[] = {
     {"DON'T GET CAUGHT UP IN THE DETAILS"},
 };
 
+// A concise native-Chinese answer set keeps the result screen readable on the
+// small portrait panel while preserving the same random index behavior.
+// 中文答案优先使用适合竖屏展示的简短表达，随机索引规则保持不变。
+constexpr BookMessageAnswer kChineseMessageAnswers[] = {
+    {"你不会失望"},
+    {"表达你的感谢"},
+    {"行动会带来改变"},
+    {"不要把它当成赌注"},
+    {"勇敢一点"},
+    {"听听专家的建议"},
+    {"先照顾好自己"},
+    {"把注意力放在家中"},
+    {"了解清楚再行动"},
+    {"当然可以"},
+    {"一次就好"},
+    {"会有一些阻力"},
+    {"仍然充满变数"},
+    {"你需要主动一些"},
+    {"把它当成机会"},
+    {"认真做决定"},
+    {"绝对不要"},
+    {"带着好奇去尝试"},
+    {"还不是时候"},
+    {"相信你的选择"},
+    {"再等一等"},
+    {"重新排列优先级"},
+    {"看起来很有希望"},
+    {"给它留出空间"},
+    {"尽早行动"},
+    {"暂时放在心里"},
+    {"先让自己休息"},
+    {"这是理智的选择"},
+    {"边走边找答案"},
+    {"做好迎接意外的准备"},
+    {"答案会以新方式出现"},
+    {"需要彼此迁就"},
+    {"我对此有些怀疑"},
+    {"它会带来好运"},
+    {"有挑战，也有价值"},
+    {"请保持耐心"},
+    {"你会知道所需的一切"},
+    {"它与另一件事有关"},
+    {"你值得更好的"},
+    {"好事正在靠近"},
+    {"这取决于你"},
+    {"选择让你开心的事"},
+    {"跟随内心的方向"},
+    {"不要被细节困住"},
+    {"答案已经很清楚"},
+    {"再多了解一些"},
+    {"相信第一感觉"},
+    {"放慢速度"},
+    {"试试另一条路"},
+    {"现在就开始"},
+    {"保持开放的心态"},
+    {"它值得你付出"},
+    {"先完成手头的事"},
+    {"询问你信任的人"},
+    {"时机很重要"},
+    {"给自己更多时间"},
+    {"你已经准备好了"},
+    {"结果会是积极的"},
+    {"当心脚下"},
+    {"这不是最佳时机"},
+    {"先把情绪放稳"},
+    {"适当保留力量"},
+    {"不要错过这次机会"},
+    {"会有人支持你"},
+};
+
 constexpr const char *kCrystalAnswers[] = {
     "YES",
     "NO",
@@ -372,6 +444,11 @@ size_t book_message_answer_count()
 
 const BookMessageAnswer &book_message_answer(size_t index)
 {
+    if (ui_language_is_chinese()) {
+        constexpr size_t count = sizeof(kChineseMessageAnswers) /
+                                 sizeof(kChineseMessageAnswers[0]);
+        return kChineseMessageAnswers[index % count];
+    }
     return kMessageAnswers[index % book_message_answer_count()];
 }
 

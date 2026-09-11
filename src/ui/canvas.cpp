@@ -5,6 +5,53 @@
 #include <cstring>
 
 #include "font.h"
+#include "assets/chinese_font_assets.h"
+#include "ui_language.h"
+
+namespace {
+
+// Resample the high-resolution CJK source bitmap into the logical 12-pixel
+// glyph cell. This keeps large Chinese text detailed instead of enlarging a
+// coarse bitmap into visibly square blocks, while retaining the existing
+// layout metrics for mixed Latin/CJK text.
+bool chinese_target_pixel(const ChineseFontGlyph &glyph,
+                          uint8_t target_x,
+                          uint8_t target_y,
+                          uint8_t target_size)
+{
+    const uint32_t source_x_begin =
+        static_cast<uint32_t>(target_x) * kChineseFontSourceWidth /
+        target_size;
+    const uint32_t source_x_end =
+        (static_cast<uint32_t>(target_x + 1U) * kChineseFontSourceWidth +
+         target_size - 1U) /
+        target_size;
+    const uint32_t source_y_begin =
+        static_cast<uint32_t>(target_y) * kChineseFontSourceHeight /
+        target_size;
+    const uint32_t source_y_end =
+        (static_cast<uint32_t>(target_y + 1U) * kChineseFontSourceHeight +
+         target_size - 1U) /
+        target_size;
+
+    uint32_t ink = 0U;
+    uint32_t samples = 0U;
+    for (uint32_t source_y = source_y_begin;
+         source_y < source_y_end;
+         ++source_y) {
+        for (uint32_t source_x = source_x_begin;
+             source_x < source_x_end;
+             ++source_x) {
+            ++samples;
+            if ((glyph.rows[source_y] & (1UL << source_x)) != 0U) {
+                ++ink;
+            }
+        }
+    }
+    return samples != 0U && ink * 2U >= samples;
+}
+
+}  // namespace
 
 Canvas::Canvas(uint16_t width, uint16_t height, uint8_t *buffer, size_t buffer_size)
     : physical_width_(width),
@@ -245,8 +292,39 @@ void Canvas::draw_text(int x, int y, const char *text, uint8_t scale, GrayLevel 
     // A set font bit becomes one scale-by-scale square on the canvas.
     // 点阵字体中的每个有效点会放大成一个scale乘scale的方块。
     int cursor_x = x;
-    for (const char *character = text; *character != '\0'; ++character) {
-        const FontGlyph &glyph = font_get_glyph(*character);
+    const char *character = ui_text(text);
+    uint32_t codepoint = 0U;
+    while (font_decode_utf8(character, codepoint)) {
+        const ChineseFontGlyph *chinese =
+            codepoint > 0x7FU ? chinese_font_glyph(codepoint) : nullptr;
+        if (chinese != nullptr) {
+            const uint8_t cjk_scale = font_cjk_scale(scale);
+            const uint8_t target_size =
+                static_cast<uint8_t>(kChineseFontWidth * cjk_scale);
+            const int cjk_y = y +
+                (static_cast<int>(kFontHeight * scale) -
+                 static_cast<int>(target_size)) / 2;
+            for (uint8_t row = 0U; row < target_size; ++row) {
+                for (uint8_t column = 0U; column < target_size; ++column) {
+                    if (chinese_target_pixel(*chinese,
+                                             column,
+                                             row,
+                                             target_size)) {
+                        fill_rect(cursor_x + column,
+                                  cjk_y + row,
+                                  1,
+                                  1,
+                                  color);
+                    }
+                }
+            }
+            cursor_x += (kChineseFontWidth + kChineseFontSpacing) *
+                        cjk_scale;
+            continue;
+        }
+
+        const FontGlyph &glyph = font_get_glyph(
+            codepoint <= 0x7FU ? static_cast<char>(codepoint) : '?');
         for (uint8_t column = 0; column < kFontWidth; ++column) {
             for (uint8_t row = 0; row < kFontHeight; ++row) {
                 if ((glyph.columns[column] & (1U << row)) != 0U) {
