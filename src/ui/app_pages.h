@@ -4,8 +4,8 @@
 
 class Canvas;
 
-// Draws the five touch-selectable application cards in the current rotation.
-// 在当前屏幕方向绘制五张可触摸选择的应用卡片。
+// Draws the touch-selectable application cards in the current rotation.
+// 在当前屏幕方向绘制可触摸选择的应用卡片。
 void app_page_render_launcher(Canvas &canvas, StickyAppId current_app);
 
 // Maps the global language switch shown in the launcher's top-right corner.

@@ -117,6 +117,13 @@ compile_and_run desktop_pet_render_test \
     src/ui/assets/pixel_asset.cpp \
     src/ui/assets/desktop_pet_assets.cpp
 
+compile_and_run home_pages_test \
+    -Isrc/apps/home -Isrc/ui -Isrc/ui/assets \
+    test/home_pages_test.cpp \
+    src/apps/home/home_pages.cpp \
+    src/ui/canvas.cpp src/ui/font.cpp \
+    src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp
+
 compile_and_run onboarding_state_test \
     -Isrc/apps/onboarding \
     test/onboarding_state_test.cpp \
@@ -271,4 +278,4 @@ compile_and_run ui_language_test \
     src/ui/canvas.cpp src/ui/font.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp
 
-echo "[host-test] PASS ${passed_count}/34"
+echo "[host-test] PASS ${passed_count}/35"

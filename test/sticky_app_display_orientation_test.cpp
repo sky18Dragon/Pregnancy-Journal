@@ -17,6 +17,9 @@ void expect_rotation(StickyAppId app,
 
 int main()
 {
+    expect_rotation(StickyAppId::Home,
+                    StickyImuOrientation::Unknown,
+                    CanvasRotation::Deg0);
     expect_rotation(StickyAppId::Pomodoro,
                     StickyImuOrientation::Landscape0,
                     CanvasRotation::Deg90CounterClockwise);

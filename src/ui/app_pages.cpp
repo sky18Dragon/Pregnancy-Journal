@@ -38,7 +38,7 @@ struct TextInkBounds {
     int height;
 };
 
-constexpr size_t kCardCount = 5U;
+constexpr size_t kCardCount = 6U;
 constexpr int kPortraitContentOffsetY = -26;
 constexpr int kLandscapeContentOffsetY = 30;
 
@@ -123,48 +123,55 @@ std::array<LauncherCard, kCardCount> launcher_cards(int width, int height)
         constexpr int kTopRowY = 124;
         constexpr int kMiddleRowY = 352;
         constexpr int kBottomRowY = 580;
-        const int centered = (width - kCardWidth) / 2;
-        return {{{StickyAppId::DesktopPet,
+        return {{{StickyAppId::Home,
                   left, kTopRowY, kCardWidth, kCardHeight,
                   kTopRowY + 4, kTopRowY + 142},
-                 {StickyAppId::Pomodoro,
+                 {StickyAppId::DesktopPet,
                   left + kCardWidth + kColumnGap,
                   kTopRowY, kCardWidth, kCardHeight,
                   kTopRowY + 4, kTopRowY + 142},
-                 {StickyAppId::StatusBoard,
+                 {StickyAppId::Pomodoro,
                   left, kMiddleRowY, kCardWidth, kCardHeight,
                   kMiddleRowY + 4, kMiddleRowY + 142},
-                 {StickyAppId::BookOfAnswers,
+                 {StickyAppId::StatusBoard,
                   left + kCardWidth + kColumnGap,
                   kMiddleRowY, kCardWidth, kCardHeight,
                   kMiddleRowY + 4, kMiddleRowY + 142},
+                 {StickyAppId::BookOfAnswers,
+                  left, kBottomRowY, kCardWidth, kCardHeight,
+                  kBottomRowY + 4, kBottomRowY + 142},
                  {StickyAppId::Pregnancy,
-                  centered, kBottomRowY, kCardWidth, kCardHeight,
+                  left + kCardWidth + kColumnGap,
+                  kBottomRowY, kCardWidth, kCardHeight,
                   kBottomRowY + 4, kBottomRowY + 142}}};
     }
 
-    constexpr int kCardWidth = 148;
+    constexpr int kCardWidth = 125;
     constexpr int kCardHeight = 300;
     constexpr int kGap = 6;
-    const int left = (width - kCardWidth * 5 - kGap * 4) / 2;
+    const int left = (width - kCardWidth * 6 - kGap * 5) / 2;
     constexpr int kTop = 124 + kLandscapeContentOffsetY;
-    return {{{StickyAppId::DesktopPet,
+    return {{{StickyAppId::Home,
               left, kTop, kCardWidth, kCardHeight,
               kTop + 36, kTop + 212},
-             {StickyAppId::Pomodoro,
+             {StickyAppId::DesktopPet,
               left + (kCardWidth + kGap), kTop,
               kCardWidth, kCardHeight,
               kTop + 36, kTop + 212},
-             {StickyAppId::StatusBoard,
+             {StickyAppId::Pomodoro,
               left + (kCardWidth + kGap) * 2, kTop,
               kCardWidth, kCardHeight,
               kTop + 36, kTop + 212},
-             {StickyAppId::BookOfAnswers,
+             {StickyAppId::StatusBoard,
               left + (kCardWidth + kGap) * 3, kTop,
               kCardWidth, kCardHeight,
               kTop + 36, kTop + 212},
-             {StickyAppId::Pregnancy,
+             {StickyAppId::BookOfAnswers,
               left + (kCardWidth + kGap) * 4, kTop,
+              kCardWidth, kCardHeight,
+              kTop + 36, kTop + 212},
+             {StickyAppId::Pregnancy,
+              left + (kCardWidth + kGap) * 5, kTop,
               kCardWidth, kCardHeight,
               kTop + 36, kTop + 212}}};
 }
@@ -172,6 +179,8 @@ std::array<LauncherCard, kCardCount> launcher_cards(int width, int height)
 LauncherLabel app_label(StickyAppId app)
 {
     switch (app) {
+    case StickyAppId::Home:
+        return {"Home", nullptr};
     case StickyAppId::DesktopPet:
         return {"Pet", nullptr};
     case StickyAppId::Pomodoro:
@@ -189,6 +198,8 @@ LauncherLabel app_label(StickyAppId app)
 AppLauncherAssetId launcher_asset_id(StickyAppId app)
 {
     switch (app) {
+    case StickyAppId::Home:
+        return AppLauncherAssetId::Pet;
     case StickyAppId::DesktopPet:
         return AppLauncherAssetId::Pet;
     case StickyAppId::Pomodoro:
@@ -209,6 +220,23 @@ void draw_sticker(Canvas &canvas,
                   int top,
                   bool active)
 {
+    if (app == StickyAppId::Home) {
+        if (active) {
+            canvas.draw_circle(center_x, top + 50, 49, GrayLevel::Black);
+            canvas.draw_circle(center_x, top + 50, 46, GrayLevel::Black);
+        }
+        canvas.draw_line(center_x - 38, top + 49,
+                         center_x, top + 17, GrayLevel::Black);
+        canvas.draw_line(center_x, top + 17,
+                         center_x + 38, top + 49, GrayLevel::Black);
+        canvas.draw_rect(center_x - 30, top + 48, 60, 43,
+                         GrayLevel::Black);
+        canvas.fill_rect(center_x - 7, top + 66, 14, 25,
+                         GrayLevel::Black);
+        canvas.draw_rect(center_x + 12, top + 58, 10, 10,
+                         GrayLevel::Black);
+        return;
+    }
     // Adds the outer ring only to the selected sticker, then paints its art.
     // 仅为选中贴纸绘制加粗外圈，再依次绘制浅灰网点与黑色图案。
     const AppLauncherStickerAsset &asset =
@@ -330,7 +358,7 @@ void draw_card(Canvas &canvas,
     const bool active = card.app == current_app;
     const int center_x = card.x + card.width / 2;
     const bool portrait = canvas.height() > canvas.width();
-    const int label_width = portrait ? 190 : 142;
+    const int label_width = portrait ? 190 : 120;
     constexpr int kLabelHeight = 54;
     const int label_x = center_x - label_width / 2;
 

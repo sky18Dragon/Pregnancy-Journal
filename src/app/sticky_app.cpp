@@ -15,6 +15,7 @@
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "home_app.h"
 #include "onboarding_app.h"
 #include "pomodoro_app.h"
 #include "pregnancy_app.h"
@@ -59,7 +60,8 @@ constexpr uint32_t kPetIdleSleepMs = 10U * 60U * 1000U;
 
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
-StickyAppId s_current_app = StickyAppId::DesktopPet;
+StickyAppId s_current_app = StickyAppId::Home;
+bool s_home_started = false;
 bool s_pet_started = false;
 bool s_status_started = false;
 bool s_pomodoro_started = false;
@@ -88,6 +90,8 @@ struct LauncherImuPrestart {
 bool app_started(StickyAppId app)
 {
     switch (app) {
+    case StickyAppId::Home:
+        return s_home_started;
     case StickyAppId::DesktopPet:
         return s_pet_started;
     case StickyAppId::Pomodoro:
@@ -105,6 +109,9 @@ bool app_started(StickyAppId app)
 void mark_app_started(StickyAppId app)
 {
     switch (app) {
+    case StickyAppId::Home:
+        s_home_started = true;
+        break;
     case StickyAppId::DesktopPet:
         s_pet_started = true;
         break;
@@ -126,6 +133,8 @@ void mark_app_started(StickyAppId app)
 esp_err_t pause_app(StickyAppId app)
 {
     switch (app) {
+    case StickyAppId::Home:
+        return home_app_pause();
     case StickyAppId::DesktopPet:
         return desktop_pet_app_pause();
     case StickyAppId::Pomodoro:
@@ -143,6 +152,8 @@ esp_err_t pause_app(StickyAppId app)
 esp_err_t start_app(StickyAppId app)
 {
     switch (app) {
+    case StickyAppId::Home:
+        return home_app_start(*s_canvas);
     case StickyAppId::DesktopPet:
         return desktop_pet_app_start(*s_canvas);
     case StickyAppId::Pomodoro:
@@ -160,6 +171,8 @@ esp_err_t start_app(StickyAppId app)
 esp_err_t resume_app(StickyAppId app)
 {
     switch (app) {
+    case StickyAppId::Home:
+        return home_app_resume();
     case StickyAppId::DesktopPet:
         return desktop_pet_app_resume();
     case StickyAppId::Pomodoro:
@@ -196,6 +209,9 @@ esp_err_t set_imu_running(bool running)
 
 bool power_sleep_allowed()
 {
+    if (s_current_app == StickyAppId::Home) {
+        return true;
+    }
     if (s_current_app == StickyAppId::DesktopPet) {
         return desktop_pet_app_power_sleep_allowed();
     }
@@ -210,6 +226,9 @@ bool power_sleep_allowed()
 
 uint32_t power_sleep_timeout_ms()
 {
+    if (s_current_app == StickyAppId::Home) {
+        return home_app_power_sleep_timeout_ms();
+    }
     if (s_current_app == StickyAppId::DesktopPet) {
         return kPetIdleSleepMs;
     }
@@ -233,6 +252,10 @@ esp_err_t prepare_app_power_sleep(uint32_t &current_epoch,
 {
     current_epoch = 0U;
     next_event_epoch = 0U;
+    if (s_current_app == StickyAppId::Home) {
+        return home_app_prepare_power_sleep(
+            current_epoch, next_event_epoch);
+    }
     if (s_current_app == StickyAppId::DesktopPet) {
         return desktop_pet_app_prepare_power_sleep(
             current_epoch, next_event_epoch);
@@ -654,7 +677,7 @@ void complete_selection(StickyAppId selected_app,
                 sticky_app_id_name(previous_app));
 }
 
-void return_to_desktop_pet(StickyAppRouterState &router)
+void return_to_home(StickyAppRouterState &router)
 {
     const esp_err_t buzzer_result = sticky_buzzer_stop();
     if (buzzer_result != ESP_OK) {
@@ -663,24 +686,12 @@ void return_to_desktop_pet(StickyAppRouterState &router)
                     esp_err_to_name(buzzer_result));
     }
 
-    if (s_current_app == StickyAppId::DesktopPet) {
+    if (s_current_app == StickyAppId::Home) {
         if (router.launcher_open) {
-            sticky_app_router_close(router);
-        }
-        const esp_err_t imu_result = set_imu_running(false);
-        sticky_display_prepare_app_transition_refresh();
-        const esp_err_t home_result = desktop_pet_app_return_home();
-        if (home_result != ESP_OK) {
-            sticky_display_cancel_app_transition_refresh();
-            resume_app(StickyAppId::DesktopPet);
+            cancel_launcher(router);
         }
         STICKY_LOGI(kTag,
-                    "launcher=home input=button_double_click app_from=desktop_pet app_to=desktop_pet page=root imu=%s navigation=%s result=%s",
-                    esp_err_to_name(imu_result),
-                    esp_err_to_name(home_result),
-                    imu_result == ESP_OK && home_result == ESP_OK
-                        ? "ok"
-                        : "failed");
+                    "launcher=home input=button_double_click app_from=home app_to=home result=ok");
         return;
     }
 
@@ -697,7 +708,7 @@ void return_to_desktop_pet(StickyAppRouterState &router)
         }
     }
 
-    complete_selection(StickyAppId::DesktopPet,
+    complete_selection(StickyAppId::Home,
                        "button_double_click",
                        false,
                        StickyImuOrientation::Unknown);
@@ -771,7 +782,7 @@ void handle_launcher_touch(const StickyTouchPress &press,
         return;
     }
 #endif
-    StickyAppId selected_app = StickyAppId::DesktopPet;
+    StickyAppId selected_app = StickyAppId::Home;
     if (!app_page_launcher_app_at(s_canvas->width(),
                                   s_canvas->height(),
                                   logical_x,
@@ -837,7 +848,7 @@ void app_task(void *)
     LauncherImuPrestart imu_prestart = {};
     StickyImuOrientation last_settled = StickyImuOrientation::Unknown;
     STICKY_LOGI(kTag,
-                "launcher=ready trigger=top_button,bottom_swipe selection=touch,rotation,shake apps=5 imu=on_demand shake_select_ms=%u current_app=%s result=ok",
+                "launcher=ready trigger=top_button,bottom_swipe selection=touch,rotation,shake apps=6 imu=on_demand shake_select_ms=%u current_app=%s result=ok",
                 static_cast<unsigned>(kStickyLauncherShakeSelectMs),
                 sticky_app_id_name(s_current_app));
 
@@ -857,9 +868,9 @@ void app_task(void *)
                     prestart_launcher_imu(imu_prestart);
                 }
             } else if (button_event == StickyButtonEvent::DoubleClick) {
-                return_to_desktop_pet(router);
+                return_to_home(router);
                 if (imu_prestart.active &&
-                    s_current_app == StickyAppId::DesktopPet) {
+                    s_current_app == StickyAppId::Home) {
                     set_imu_running(false);
                 }
                 imu_prestart = {};
@@ -999,7 +1010,7 @@ esp_err_t sticky_app_start(Canvas &canvas)
         s_sleep_context.magic == kSleepContextMagic;
     const StickyAppId initial_app = restore_sleep_context
                                         ? s_sleep_context.app
-                                        : StickyAppId::DesktopPet;
+                                        : StickyAppId::Home;
     const CanvasRotation initial_rotation = restore_sleep_context
                                                 ? s_sleep_context.rotation
                                                 : CanvasRotation::Deg0;

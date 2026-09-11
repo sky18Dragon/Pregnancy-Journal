@@ -26,7 +26,7 @@ struct StickyAppRouterState {
 // 返回给应用协调器的纯路由判定结果。
 struct StickyAppRouteResult {
     StickyAppRouteAction action = StickyAppRouteAction::None;
-    StickyAppId selected_app = StickyAppId::DesktopPet;
+    StickyAppId selected_app = StickyAppId::Home;
     StickyImuOrientation from_orientation =
         StickyImuOrientation::Unknown;
     StickyImuOrientation to_orientation =

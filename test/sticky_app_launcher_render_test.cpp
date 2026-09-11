@@ -147,6 +147,8 @@ bool asset_pixel_set(const PixelAsset &asset, int x, int y)
 AppLauncherAssetId launcher_asset_id(StickyAppId app)
 {
     switch (app) {
+    case StickyAppId::Home:
+        return AppLauncherAssetId::Pet;
     case StickyAppId::DesktopPet:
         return AppLauncherAssetId::Pet;
     case StickyAppId::Pomodoro:
@@ -225,30 +227,33 @@ int main()
     assert(app_page_launcher_tutorial_at(800, 480, 775, 74));
     assert(!app_page_launcher_tutorial_at(480, 800, 240, 112));
 #endif
-    StickyAppId selected_app = StickyAppId::DesktopPet;
+    StickyAppId selected_app = StickyAppId::Home;
     assert(app_page_launcher_language_at(480, 800, 430, 48));
     assert(app_page_launcher_language_at(800, 480, 752, 76));
     assert(!app_page_launcher_language_at(800, 480, 700, 76));
 
     canvas.set_rotation(CanvasRotation::Deg90CounterClockwise);
-    app_page_render_launcher(canvas, StickyAppId::DesktopPet);
+    app_page_render_launcher(canvas, StickyAppId::Home);
     assert(canvas.rotation() == CanvasRotation::Deg90CounterClockwise);
     assert(count_level(buffer, GrayLevel::Black) > 7000U);
     assert(count_level(buffer, GrayLevel::LightGray) > 2000U);
     assert(app_page_launcher_app_at(
         canvas.width(), canvas.height(), 126, 223, selected_app));
-    assert(selected_app == StickyAppId::DesktopPet);
+    assert(selected_app == StickyAppId::Home);
     assert(app_page_launcher_app_at(
         canvas.width(), canvas.height(), 354, 223, selected_app));
-    assert(selected_app == StickyAppId::Pomodoro);
+    assert(selected_app == StickyAppId::DesktopPet);
     assert(app_page_launcher_app_at(
         canvas.width(), canvas.height(), 126, 451, selected_app));
-    assert(selected_app == StickyAppId::StatusBoard);
+    assert(selected_app == StickyAppId::Pomodoro);
     assert(app_page_launcher_app_at(
         canvas.width(), canvas.height(), 354, 451, selected_app));
+    assert(selected_app == StickyAppId::StatusBoard);
+    assert(app_page_launcher_app_at(
+        canvas.width(), canvas.height(), 126, 679, selected_app));
     assert(selected_app == StickyAppId::BookOfAnswers);
     assert(app_page_launcher_app_at(
-        canvas.width(), canvas.height(), 240, 679, selected_app));
+        canvas.width(), canvas.height(), 354, 679, selected_app));
     assert(selected_app == StickyAppId::Pregnancy);
     assert(!app_page_launcher_app_at(
         canvas.width(), canvas.height(), 240, 223, selected_app));
@@ -267,39 +272,42 @@ int main()
         canvas,
         buffer,
         CanvasRotation::Deg90CounterClockwise,
-        {{{58, 128}, {286, 128}, {58, 356}, {286, 356},
-          {172, 584}}});
-    app_page_render_launcher(canvas, StickyAppId::DesktopPet);
+        {{{286, 128}, {58, 356}, {286, 356}, {58, 584},
+          {286, 584}}});
+    app_page_render_launcher(canvas, StickyAppId::Home);
     write_preview(buffer, "/tmp/sticky_launcher_portrait.ppm");
 
     canvas.set_rotation(CanvasRotation::Deg0);
-    app_page_render_launcher(canvas, StickyAppId::DesktopPet);
+    app_page_render_launcher(canvas, StickyAppId::Home);
     assert(canvas.rotation() == CanvasRotation::Deg0);
     assert(count_level(buffer, GrayLevel::Black) > 7000U);
     assert(count_level(buffer, GrayLevel::LightGray) > 2000U);
     assert(app_page_launcher_app_at(
-        canvas.width(), canvas.height(), 92, 286, selected_app));
+        canvas.width(), canvas.height(), 72, 286, selected_app));
+    assert(selected_app == StickyAppId::Home);
+    assert(app_page_launcher_app_at(
+        canvas.width(), canvas.height(), 203, 286, selected_app));
     assert(selected_app == StickyAppId::DesktopPet);
     assert(app_page_launcher_app_at(
-        canvas.width(), canvas.height(), 246, 286, selected_app));
+        canvas.width(), canvas.height(), 334, 286, selected_app));
     assert(selected_app == StickyAppId::Pomodoro);
     assert(app_page_launcher_app_at(
-        canvas.width(), canvas.height(), 400, 286, selected_app));
+        canvas.width(), canvas.height(), 465, 286, selected_app));
     assert(selected_app == StickyAppId::StatusBoard);
     assert(app_page_launcher_app_at(
-        canvas.width(), canvas.height(), 554, 286, selected_app));
+        canvas.width(), canvas.height(), 596, 286, selected_app));
     assert(selected_app == StickyAppId::BookOfAnswers);
     assert(app_page_launcher_app_at(
-        canvas.width(), canvas.height(), 708, 286, selected_app));
+        canvas.width(), canvas.height(), 727, 286, selected_app));
     assert(selected_app == StickyAppId::Pregnancy);
     assert(!app_page_launcher_app_at(
-        canvas.width(), canvas.height(), 169, 286, selected_app));
+        canvas.width(), canvas.height(), 138, 286, selected_app));
     assert_label_text_centered(
         buffer, CanvasRotation::Deg0,
-        21, 366, 142, 54, GrayLevel::White);
+        12, 366, 120, 54, GrayLevel::White);
     assert_label_text_centered(
         buffer, CanvasRotation::Deg0,
-        175, 366, 142, 54, GrayLevel::Black);
+        143, 366, 120, 54, GrayLevel::Black);
     assert_content_vertically_centered(
         buffer, CanvasRotation::Deg0,
         canvas.width(), canvas.height());
@@ -307,9 +315,9 @@ int main()
         canvas,
         buffer,
         CanvasRotation::Deg0,
-        {{{24, 190}, {178, 190}, {332, 190}, {486, 190},
-          {640, 190}}});
-    app_page_render_launcher(canvas, StickyAppId::DesktopPet);
+        {{{135, 190}, {266, 190}, {397, 190}, {528, 190},
+          {659, 190}}});
+    app_page_render_launcher(canvas, StickyAppId::Home);
     write_preview(buffer, "/tmp/sticky_launcher_landscape.ppm");
     ui_language_set(UiLanguage::ChineseSimplified);
     app_page_render_launcher(canvas, StickyAppId::Pregnancy);

@@ -5,6 +5,9 @@ bool sticky_app_display_rotation(StickyAppId app,
                                  CanvasRotation &rotation)
 {
     switch (app) {
+    case StickyAppId::Home:
+        rotation = CanvasRotation::Deg0;
+        return true;
     case StickyAppId::Pomodoro:
         if (orientation == StickyImuOrientation::Landscape0) {
             rotation = CanvasRotation::Deg90CounterClockwise;

@@ -1,6 +1,7 @@
 #pragma once
 
 enum class StickyAppId {
+    Home,
     DesktopPet,
     Pomodoro,
     StatusBoard,

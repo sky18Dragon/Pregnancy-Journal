@@ -3,6 +3,8 @@
 const char *sticky_app_id_name(StickyAppId app)
 {
     switch (app) {
+    case StickyAppId::Home:
+        return "home";
     case StickyAppId::DesktopPet:
         return "desktop_pet";
     case StickyAppId::Pomodoro:
