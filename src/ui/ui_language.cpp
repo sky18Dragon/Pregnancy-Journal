@@ -20,6 +20,7 @@ std::atomic<UiLanguage> s_language{UiLanguage::English};
 // 集中维护界面文案，所有APP共享语言设置；用户输入的名字和状态不会被翻译。
 constexpr Translation kTranslations[] = {
     {"CHOOSE AN APP", "选择应用"},
+    {"TAP A CARD  /  SWIPE DOWN TO CLOSE", "点击卡片 / 下滑关闭"},
         {"Home", "主页"},
         {"Settings", "设置"},
         {"SETTINGS", "设置"},

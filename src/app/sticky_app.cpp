@@ -3,64 +3,36 @@
 #include <cstdint>
 
 #include "app_log.h"
-#include "app_registry.h"
+#include "app_manager.h"
 #include "app_pages.h"
+#include "app_registry.h"
 #include "board_charger.h"
 #include "board_power.h"
-#include "book_of_answers_app.h"
 #include "canvas.h"
-#include "desktop_pet_app.h"
-#include "esp_timer.h"
 #include "esp_attr.h"
 #include "esp_sleep.h"
-#include "esp_system.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "onboarding_app.h"
-#include "pomodoro_app.h"
-#include "pregnancy_app.h"
+#include "scheduler.h"
 #include "settings_app.h"
-#include "status_board_app.h"
-#include "sticky_app_display_orientation.h"
+#include "settings_store.h"
 #include "sticky_app_gesture.h"
-#include "sticky_app_id.h"
-#include "sticky_app_power_policy.h"
-#include "sticky_app_router.h"
 #include "sticky_buzzer.h"
 #include "sticky_button.h"
 #include "sticky_display.h"
-#include "sticky_imu.h"
 #include "sticky_touch.h"
 #include "ui_language.h"
-#include "ui_language_storage.h"
-
-#ifndef STICKY_ONBOARDING_TEST_MODE
-#define STICKY_ONBOARDING_TEST_MODE 0
-#endif
 
 namespace {
 
 constexpr char kTag[] = "sticky_app";
 constexpr TickType_t kPollInterval = pdMS_TO_TICKS(40);
-constexpr uint8_t kInitialImuSampleAttempts = 7U;
-constexpr TickType_t kInitialImuSampleRetry = pdMS_TO_TICKS(10);
-constexpr uint32_t kTaskStackSize = 5120U;
+constexpr uint32_t kTaskStackSize = 4608U;
 constexpr UBaseType_t kTaskPriority = 4U;
-constexpr uint32_t kSleepContextMagic = 0x53504C50U;
-constexpr uint32_t kScheduledWakeLeadSeconds = 15U;
-constexpr int64_t kBackgroundEventWindowUs = 20000000LL;
+constexpr uint32_t kSleepContextMagic = 0x53434657U;
 constexpr uint32_t kLauncherIdleCloseMs = 30000U;
-#ifndef STICKY_POWER_TEST_MODE
-#define STICKY_POWER_TEST_MODE 0
-#endif
-
-Canvas *s_canvas = nullptr;
-TaskHandle_t s_app_task = nullptr;
-StickyAppId s_current_app = StickyAppId::Home;
-bool s_started_apps[7] = {};
-bool s_background_timer_wake = false;
-int64_t s_background_sleep_deadline_us = 0;
-uint32_t s_last_user_activity_ms = 0U;
+constexpr uint32_t kScheduledWakeLeadSeconds = 15U;
 
 struct StickySleepContext {
     uint32_t magic;
@@ -69,808 +41,207 @@ struct StickySleepContext {
 };
 
 RTC_NOINIT_ATTR StickySleepContext s_sleep_context;
+Canvas *s_canvas = nullptr;
+TaskHandle_t s_task = nullptr;
+StickyAppManager s_manager(sticky_app_registry_data(),
+                           sticky_app_registry_count(),
+                           StickyAppId::Home);
+StickyScheduler s_scheduler;
+bool s_launcher_open = false;
+uint32_t s_last_activity_ms = 0U;
 
-struct LauncherImuPrestart {
-    bool active = false;
-    bool restarted = false;
-    int64_t started_at_us = 0;
-    StickyImuOrientation baseline = StickyImuOrientation::Unknown;
-    StickyImuOrientation last_settled = StickyImuOrientation::Unknown;
-};
-
-bool app_started(StickyAppId app)
+void persist_current_app()
 {
-    const size_t index = static_cast<size_t>(app);
-    return index < sizeof(s_started_apps) / sizeof(s_started_apps[0]) &&
-           s_started_apps[index];
+    StickyDeviceSettings settings = {};
+    if (sticky_settings_load(settings) != ESP_OK) return;
+    settings.last_app = s_manager.current_id();
+    sticky_settings_save(settings);
 }
 
-void mark_app_started(StickyAppId app)
+void render_launcher()
 {
-    const size_t index = static_cast<size_t>(app);
-    if (index < sizeof(s_started_apps) / sizeof(s_started_apps[0])) {
-        s_started_apps[index] = true;
+    app_page_render_launcher(*s_canvas, s_manager.current_id());
+    const esp_err_t result = sticky_display_refresh_partial();
+    if (result != ESP_OK) {
+        STICKY_LOGE(kTag, "launcher=render result=%s", esp_err_to_name(result));
     }
 }
 
-esp_err_t pause_app(StickyAppId app)
+bool open_launcher()
 {
-    const StickyAppDescriptor *descriptor = sticky_app_registry_find(app);
-    return descriptor == nullptr ? ESP_ERR_INVALID_ARG : descriptor->pause();
-}
-
-esp_err_t start_app(StickyAppId app)
-{
-    const StickyAppDescriptor *descriptor = sticky_app_registry_find(app);
-    return descriptor == nullptr ? ESP_ERR_INVALID_ARG
-                                 : descriptor->start(*s_canvas);
-}
-
-esp_err_t resume_app(StickyAppId app)
-{
-    const StickyAppDescriptor *descriptor = sticky_app_registry_find(app);
-    return descriptor == nullptr ? ESP_ERR_INVALID_ARG : descriptor->resume();
-}
-
-esp_err_t activate_app(StickyAppId app)
-{
+    if (s_launcher_open) return true;
+    const esp_err_t result = s_manager.pause_current();
+    if (result != ESP_OK) return false;
     sticky_touch_clear_press();
     sticky_touch_clear_interaction();
-    if (!app_started(app)) {
-        const esp_err_t result = start_app(app);
-        if (result == ESP_OK) {
-            mark_app_started(app);
-        }
-        return result;
+    s_launcher_open = true;
+    render_launcher();
+    STICKY_LOGI(kTag, "launcher=open current=%s result=ok",
+                sticky_app_id_name(s_manager.current_id()));
+    return true;
+}
+
+void close_launcher()
+{
+    if (!s_launcher_open) return;
+    s_launcher_open = false;
+    sticky_touch_clear_press();
+    sticky_touch_clear_interaction();
+    const esp_err_t result = s_manager.resume_current();
+    STICKY_LOGI(kTag, "launcher=close current=%s result=%s",
+                sticky_app_id_name(s_manager.current_id()),
+                esp_err_to_name(result));
+}
+
+void select_app(StickyAppId app, const char *source)
+{
+    const StickyAppId previous = s_manager.current_id();
+    const esp_err_t result = s_launcher_open
+                                 ? s_manager.switch_from_paused_to(app)
+                                 : s_manager.switch_to(app);
+    if (result != ESP_OK) {
+        STICKY_LOGE(kTag, "app=switch from=%s to=%s source=%s result=%s",
+                    sticky_app_id_name(previous), sticky_app_id_name(app),
+                    source, esp_err_to_name(result));
+        return;
     }
-    return resume_app(app);
-}
-
-esp_err_t set_imu_running(bool running)
-{
-    return running ? sticky_imu_start_monitoring()
-                   : sticky_imu_stop_monitoring();
-}
-
-bool power_sleep_allowed()
-{
-    const StickyAppDescriptor *descriptor = sticky_app_registry_find(s_current_app);
-    return descriptor != nullptr && descriptor->sleep_allowed();
-}
-
-uint32_t power_sleep_timeout_ms()
-{
-    const StickyAppDescriptor *descriptor = sticky_app_registry_find(s_current_app);
-    return descriptor == nullptr ? 0U : descriptor->sleep_timeout_ms();
-}
-
-esp_err_t prepare_app_power_sleep(uint32_t &current_epoch,
-                                  uint32_t &next_event_epoch)
-{
-    const StickyAppDescriptor *descriptor = sticky_app_registry_find(s_current_app);
-    return descriptor == nullptr
-               ? ESP_ERR_INVALID_ARG
-               : descriptor->prepare_sleep(current_epoch, next_event_epoch);
+    s_launcher_open = false;
+    sticky_touch_clear_press();
+    sticky_touch_clear_interaction();
+    persist_current_app();
+    STICKY_LOGI(kTag, "app=switch from=%s to=%s source=%s result=ok",
+                sticky_app_id_name(previous),
+                sticky_app_id_name(s_manager.current_id()), source);
 }
 
 void draw_sleep_indicator()
 {
-    // A compact crescent remains visible in the logical top-right corner of
-    // every orientation without replacing the current app page.
-    // 小型月牙会保留在各方向页面的逻辑右上角，同时不替换当前APP画面。
     const int left = static_cast<int>(s_canvas->width()) - 45;
     constexpr int top = 10;
     s_canvas->fill_rect(left, top, 35, 35, GrayLevel::White);
     s_canvas->fill_circle(left + 16, top + 17, 11, GrayLevel::Black);
     s_canvas->fill_circle(left + 21, top + 12, 10, GrayLevel::White);
-    s_canvas->fill_rect(left + 28, top + 25, 3, 3, GrayLevel::Black);
-    s_canvas->draw_pixel(left + 30, top + 23, GrayLevel::Black);
-    s_canvas->draw_pixel(left + 30, top + 29, GrayLevel::Black);
-    s_canvas->draw_pixel(left + 26, top + 27, GrayLevel::Black);
-    s_canvas->draw_pixel(left + 34, top + 27, GrayLevel::Black);
 }
 
-void enter_power_sleep(StickyAppRouterState &router,
-                       StickyPowerSleepTrigger trigger)
+void enter_sleep(const char *source)
 {
-    const char *source = sticky_power_sleep_trigger_name(trigger);
-    if (!power_sleep_allowed()) {
-        STICKY_LOGI(kTag,
-                    "power=sleep_request source=%s app=%s result=blocked",
-                    source,
-                    sticky_app_id_name(s_current_app));
-        return;
+    const StickyAppDescriptor *app = s_manager.current();
+    if (app == nullptr || !app->sleep_allowed()) return;
+    if (s_launcher_open) {
+        s_launcher_open = false;
+    }
+    uint32_t now = 0U;
+    uint32_t next = 0U;
+    const esp_err_t prepare = app->prepare_sleep(now, next);
+    if (prepare != ESP_OK) return;
+
+    s_scheduler.cancel(1U);
+    if (next > now) s_scheduler.schedule(1U, next);
+    StickyScheduledEvent event = {};
+    uint64_t wake_us = 0U;
+    if (s_scheduler.next(now, event)) {
+        uint32_t wake_epoch = event.epoch_seconds > kScheduledWakeLeadSeconds
+                                  ? event.epoch_seconds - kScheduledWakeLeadSeconds
+                                  : event.epoch_seconds;
+        if (wake_epoch <= now) wake_epoch = now + 1U;
+        wake_us = static_cast<uint64_t>(wake_epoch - now) * 1000000ULL;
     }
 
-    if (router.launcher_open) {
-        sticky_app_router_close(router);
-    }
-    uint32_t current_epoch = 0U;
-    uint32_t next_event_epoch = 0U;
-    const esp_err_t pause_result = prepare_app_power_sleep(
-        current_epoch, next_event_epoch);
-    if (pause_result != ESP_OK) {
-        STICKY_LOGE(kTag,
-                    "power=sleep_request source=%s app=%s pause=%s result=failed",
-                    source,
-                    sticky_app_id_name(s_current_app),
-                    esp_err_to_name(pause_result));
-        return;
-    }
-
-    s_sleep_context.magic = kSleepContextMagic;
-    s_sleep_context.app = s_current_app;
-    s_sleep_context.rotation = s_canvas->rotation();
-
+    s_sleep_context = {kSleepContextMagic, s_manager.current_id(),
+                       s_canvas->rotation()};
     sticky_display_set_battery_overlay_sleep_layout(true);
     draw_sleep_indicator();
-    // The final frame stays visible throughout deep sleep, so force a full
-    // monochrome waveform to clean accumulated partial-refresh ghosting.
-    // 最后一帧会在深睡期间长期保留，因此强制全刷以清理局刷积累的残影。
     sticky_display_cancel_app_transition_refresh();
-    const esp_err_t indicator_result =
-        sticky_display_refresh_monochrome();
-    if (indicator_result != ESP_OK) {
-        sticky_display_set_battery_overlay_sleep_layout(false);
-        resume_app(s_current_app);
-        STICKY_LOGE(kTag,
-                    "power=sleep_indicator refresh=%s result=failed",
-                    esp_err_to_name(indicator_result));
-        return;
-    }
-
-    if (sticky_power_sleep_chime_enabled(trigger)) {
-        const esp_err_t sleep_chime_result =
-            sticky_buzzer_play_power_sleep_chime();
-        if (sleep_chime_result != ESP_OK) {
-            STICKY_LOGW(kTag,
-                        "power=sleep_chime result=%s",
-                        esp_err_to_name(sleep_chime_result));
-        }
-    }
+    sticky_display_refresh_monochrome();
     sticky_buzzer_stop();
-    set_imu_running(false);
-    const esp_err_t touch_result = sticky_touch_stop();
-    if (touch_result != ESP_OK) {
-        STICKY_LOGE(kTag,
-                    "power=sleep peripheral=touch result=%s",
-                    esp_err_to_name(touch_result));
-    }
-    const esp_err_t display_result = sticky_display_sleep();
-    if (display_result != ESP_OK) {
-        STICKY_LOGE(kTag,
-                    "power=sleep peripheral=display result=%s",
-                    esp_err_to_name(display_result));
-    }
-
-    uint64_t timer_wakeup_us = 0U;
-    uint32_t wake_epoch = 0U;
-    if (next_event_epoch > current_epoch) {
-        wake_epoch = next_event_epoch > kScheduledWakeLeadSeconds
-                         ? next_event_epoch - kScheduledWakeLeadSeconds
-                         : next_event_epoch;
-        if (wake_epoch <= current_epoch) {
-            wake_epoch = current_epoch + 1U;
-        }
-        timer_wakeup_us = static_cast<uint64_t>(
-            wake_epoch - current_epoch) * 1000000ULL;
-    }
-    STICKY_LOGI(kTag,
-                "power=sleep_request source=%s app=%s current=%u next_event=%u wake_at=%u result=ready",
-                source,
-                sticky_app_id_name(s_current_app),
-                static_cast<unsigned>(current_epoch),
-                static_cast<unsigned>(next_event_epoch),
-                static_cast<unsigned>(wake_epoch));
-    board_power_enter_deep_sleep(timer_wakeup_us);
+    sticky_touch_stop();
+    sticky_display_sleep();
+    STICKY_LOGI(kTag, "power=sleep source=%s app=%s wake_us=%llu result=ready",
+                source, sticky_app_id_name(s_manager.current_id()),
+                static_cast<unsigned long long>(wake_us));
+    board_power_enter_deep_sleep(wake_us);
 }
 
-void render_launcher(StickyImuOrientation orientation)
+void handle_interaction(const StickyTouchInteraction &interaction)
 {
-    sticky_touch_clear_press();
-    sticky_touch_clear_interaction();
-
-    CanvasRotation launcher_rotation = s_canvas->rotation();
-    const bool rotation_applied = sticky_app_launcher_rotation(
-        orientation, launcher_rotation);
-    if (rotation_applied) {
-        s_canvas->set_rotation(launcher_rotation);
-    }
-    STICKY_LOGI(kTag,
-                "launcher=orientation imu=%s display_rotation=%s result=%s",
-                sticky_imu_orientation_name(orientation),
-                sticky_app_display_rotation_name(s_canvas->rotation()),
-                rotation_applied ? "applied" : "retained");
-
-    app_page_render_launcher(*s_canvas, s_current_app);
-    const esp_err_t result = sticky_display_refresh_partial();
-    if (result != ESP_OK) {
-        STICKY_LOGE(kTag,
-                    "launcher=display refresh=partial result=%s",
-                    esp_err_to_name(result));
-    }
-}
-
-StickyImuState read_initial_launcher_imu_state()
-{
-    // Gives the new monitor task a short scheduling window and keeps the first
-    // physical pose as the route baseline before display work begins.
-    // 给新IMU任务留出很短的调度时间，并在屏幕工作前保存最初实际姿态。
-    StickyImuState state = {};
-    for (uint8_t attempt = 0U;
-         attempt < kInitialImuSampleAttempts;
-         ++attempt) {
-        if (sticky_imu_get_state(state) == ESP_OK) {
-            return state;
-        }
-        vTaskDelay(kInitialImuSampleRetry);
-    }
-    return {};
-}
-
-// Starts one launcher-owned IMU session on the physical press event and keeps
-// its first pose until the click type has been resolved.
-// 在物理按下事件中启动选择器专属IMU会话，并保留起始姿态直到完成点击类型判定。
-bool prestart_launcher_imu(LauncherImuPrestart &prestart)
-{
-    if (prestart.active) {
-        return true;
-    }
-
-    prestart = {};
-    prestart.started_at_us = esp_timer_get_time();
-    prestart.restarted =
-        s_current_app == StickyAppId::BookOfAnswers;
-    if (prestart.restarted) {
-        const esp_err_t stop_result = set_imu_running(false);
-        if (stop_result != ESP_OK) {
-            STICKY_LOGE(kTag,
-                        "launcher=imu phase=press_start app=book_of_answers stop=%s result=failed",
-                        esp_err_to_name(stop_result));
-            prestart = {};
-            return false;
-        }
-    }
-
-    const esp_err_t start_result = set_imu_running(true);
-    if (start_result != ESP_OK) {
-        STICKY_LOGE(kTag,
-                    "launcher=imu phase=press_start start=%s result=failed",
-                    esp_err_to_name(start_result));
-        prestart = {};
-        return false;
-    }
-
-    const StickyImuState imu_state = read_initial_launcher_imu_state();
-    if (imu_state.valid) {
-        prestart.baseline =
-            imu_state.orientation != StickyImuOrientation::Unknown
-                ? imu_state.orientation
-                : imu_state.observed_orientation;
-        prestart.last_settled = imu_state.orientation;
-    }
-    prestart.active = true;
-    STICKY_LOGI(kTag,
-                "launcher=imu phase=started_on_press current_app=%s baseline=%s restart=%d result=ok",
-                sticky_app_id_name(s_current_app),
-                sticky_imu_orientation_name(prestart.baseline),
-                prestart.restarted);
-    return true;
-}
-
-bool open_launcher(StickyAppRouterState &router,
-                   StickyImuOrientation &last_settled,
-                   LauncherImuPrestart &prestart)
-{
-    if (!prestart_launcher_imu(prestart)) {
-        return false;
-    }
-
-    sticky_app_router_open(router, prestart.baseline);
-    last_settled = prestart.last_settled;
-
-    const int64_t pause_started_at_us = esp_timer_get_time();
-    const esp_err_t pause_result = pause_app(s_current_app);
-    if (pause_result != ESP_OK) {
-        sticky_app_router_close(router);
-        if (!prestart.restarted) {
-            set_imu_running(false);
-        }
-        resume_app(s_current_app);
-        STICKY_LOGE(kTag,
-                    "launcher=open app=%s pause=%s imu=%s result=failed",
-                    sticky_app_id_name(s_current_app),
-                    esp_err_to_name(pause_result),
-                    prestart.restarted ? "retained" : "stopped");
-        prestart = {};
-        return false;
-    }
-
-    const int64_t display_started_at_us = esp_timer_get_time();
-    render_launcher(router.baseline_orientation);
-    STICKY_LOGI(kTag,
-                "launcher=opened current_app=%s input=touch,rotation,shake baseline=%s imu=started pause_ms=%lld display_ms=%lld total_ms=%lld result=ok",
-                sticky_app_id_name(s_current_app),
-                sticky_imu_orientation_name(
-                    router.baseline_orientation),
-                static_cast<long long>(
-                    (display_started_at_us - pause_started_at_us) /
-                    1000LL),
-                static_cast<long long>(
-                    (esp_timer_get_time() - display_started_at_us) /
-                    1000LL),
-                static_cast<long long>(
-                    (esp_timer_get_time() - prestart.started_at_us) /
-                    1000LL));
-    prestart = {};
-    return true;
-}
-
-void cancel_launcher(StickyAppRouterState &router)
-{
-    sticky_app_router_close(router);
-    esp_err_t imu_result = set_imu_running(false);
-    if (s_current_app == StickyAppId::BookOfAnswers) {
-        if (imu_result == ESP_OK) {
-            imu_result = set_imu_running(true);
-        }
-    }
-    sticky_touch_clear_press();
-    sticky_touch_clear_interaction();
-    const esp_err_t resume_result = resume_app(s_current_app);
-    STICKY_LOGI(kTag,
-                "launcher=cancelled app=%s imu=%s resume=%s result=%s",
-                sticky_app_id_name(s_current_app),
-                s_current_app == StickyAppId::BookOfAnswers
-                    ? esp_err_to_name(imu_result)
-                    : "stopped",
-                esp_err_to_name(resume_result),
-                imu_result == ESP_OK && resume_result == ESP_OK
-                    ? "ok"
-                    : "failed");
-}
-
-void handle_launcher_gesture(
-    const StickyTouchInteraction &interaction,
-    StickyAppRouterState &router,
-    StickyImuOrientation &last_settled,
-    LauncherImuPrestart &imu_prestart)
-{
-    int logical_start_x = 0;
-    int logical_start_y = 0;
-    int logical_end_x = 0;
-    int logical_end_y = 0;
-    s_canvas->physical_to_logical(interaction.start_x,
-                                  interaction.start_y,
-                                  logical_start_x,
-                                  logical_start_y);
-    s_canvas->physical_to_logical(interaction.end_x,
-                                  interaction.end_y,
-                                  logical_end_x,
-                                  logical_end_y);
+    int sx = 0, sy = 0, ex = 0, ey = 0;
+    s_canvas->physical_to_logical(interaction.start_x, interaction.start_y, sx, sy);
+    s_canvas->physical_to_logical(interaction.end_x, interaction.end_y, ex, ey);
     const StickyAppGestureSample sample = {
-        static_cast<int>(s_canvas->width()),
-        static_cast<int>(s_canvas->height()),
-        logical_start_x,
-        logical_start_y,
-        logical_end_x,
-        logical_end_y,
-        interaction.ended_at_ms - interaction.started_at_ms,
-        router.launcher_open,
+        static_cast<int>(s_canvas->width()), static_cast<int>(s_canvas->height()),
+        sx, sy, ex, ey, interaction.ended_at_ms - interaction.started_at_ms,
+        s_launcher_open,
     };
-    const StickyAppGestureAction action =
-        sticky_app_gesture_classify(sample);
-    if (action == StickyAppGestureAction::OpenLauncher) {
-        STICKY_LOGI(kTag,
-                    "launcher=gesture action=open start_x=%d start_y=%d end_x=%d end_y=%d duration_ms=%u",
-                    logical_start_x,
-                    logical_start_y,
-                    logical_end_x,
-                    logical_end_y,
-                    static_cast<unsigned>(sample.duration_ms));
-        open_launcher(router, last_settled, imu_prestart);
-    } else if (action == StickyAppGestureAction::CloseLauncher) {
-        STICKY_LOGI(kTag,
-                    "launcher=gesture action=close start_x=%d start_y=%d end_x=%d end_y=%d duration_ms=%u",
-                    logical_start_x,
-                    logical_start_y,
-                    logical_end_x,
-                    logical_end_y,
-                    static_cast<unsigned>(sample.duration_ms));
-        cancel_launcher(router);
-        imu_prestart = {};
-    }
+    const StickyAppGestureAction action = sticky_app_gesture_classify(sample);
+    if (action == StickyAppGestureAction::OpenLauncher) open_launcher();
+    else if (action == StickyAppGestureAction::CloseLauncher) close_launcher();
 }
 
-void complete_selection(StickyAppId selected_app,
-                        const char *source,
-                        bool preserve_shake_session,
-                        StickyImuOrientation final_orientation)
+void handle_launcher_press(const StickyTouchPress &press)
 {
-    const StickyAppId previous_app = s_current_app;
-    esp_err_t imu_result = ESP_OK;
-    if (selected_app == StickyAppId::BookOfAnswers) {
-        book_of_answers_app_prepare_entry(preserve_shake_session);
-        if (!preserve_shake_session) {
-            imu_result = set_imu_running(false);
-            if (imu_result == ESP_OK) {
-                imu_result = set_imu_running(true);
-            }
-        }
-    } else {
-        imu_result = set_imu_running(false);
-    }
-
-    CanvasRotation display_rotation = CanvasRotation::Deg0;
-    if (sticky_app_display_rotation(selected_app,
-                                    final_orientation,
-                                    display_rotation)) {
-        if (selected_app == StickyAppId::Pomodoro) {
-            pomodoro_app_set_display_rotation(display_rotation);
-        } else if (selected_app == StickyAppId::StatusBoard) {
-            status_board_app_set_display_rotation(display_rotation);
-        } else if (selected_app == StickyAppId::Pregnancy) {
-            pregnancy_app_set_display_rotation(display_rotation);
-        }
-        STICKY_LOGI(kTag,
-                    "launcher=orientation app=%s imu=%s display_rotation=%s result=applied",
-                    sticky_app_id_name(selected_app),
-                    sticky_imu_orientation_name(final_orientation),
-                    sticky_app_display_rotation_name(display_rotation));
-    }
-
-    if (imu_result == ESP_OK) {
-        sticky_display_prepare_app_transition_refresh();
-    }
-    const esp_err_t activation_result =
-        imu_result == ESP_OK ? activate_app(selected_app) : imu_result;
-    if (activation_result == ESP_OK) {
-        s_current_app = selected_app;
-        STICKY_LOGI(
-            kTag,
-            "launcher=selected app_from=%s app_to=%s input=%s imu=%s result=ok",
-            sticky_app_id_name(previous_app),
-            sticky_app_id_name(s_current_app),
-            source,
-            s_current_app == StickyAppId::BookOfAnswers
-                ? "started"
-                : "stopped");
-        return;
-    }
-
-    sticky_display_cancel_app_transition_refresh();
-    if (selected_app == StickyAppId::BookOfAnswers) {
-        book_of_answers_app_prepare_entry(false);
-        set_imu_running(false);
-    }
-    if (previous_app == StickyAppId::BookOfAnswers) {
-        set_imu_running(true);
-    }
-    resume_app(previous_app);
-    STICKY_LOGE(kTag,
-                "launcher=selected app=%s activation=%s fallback=%s result=failed",
-                sticky_app_id_name(selected_app),
-                esp_err_to_name(activation_result),
-                sticky_app_id_name(previous_app));
-}
-
-void return_to_home(StickyAppRouterState &router)
-{
-    const esp_err_t buzzer_result = sticky_buzzer_stop();
-    if (buzzer_result != ESP_OK) {
-        STICKY_LOGW(kTag,
-                    "launcher=home input=button_double_click buzzer=%s",
-                    esp_err_to_name(buzzer_result));
-    }
-
-    if (s_current_app == StickyAppId::Home) {
-        if (router.launcher_open) {
-            cancel_launcher(router);
-        }
-        STICKY_LOGI(kTag,
-                    "launcher=home input=button_double_click app_from=home app_to=home result=ok");
-        return;
-    }
-
-    if (router.launcher_open) {
-        sticky_app_router_close(router);
-    } else {
-        const esp_err_t pause_result = pause_app(s_current_app);
-        if (pause_result != ESP_OK) {
-            STICKY_LOGE(kTag,
-                        "launcher=home input=button_double_click app_from=%s pause=%s result=failed",
-                        sticky_app_id_name(s_current_app),
-                        esp_err_to_name(pause_result));
-            return;
-        }
-    }
-
-    complete_selection(StickyAppId::Home,
-                       "button_double_click",
-                       false,
-                       StickyImuOrientation::Unknown);
-}
-
-// Temporarily gives the display and touch controller to the full tutorial.
-// 临时把屏幕和触摸控制权交给完整教程，结束后恢复桌宠。
-void open_tutorial_from_desktop_pet()
-{
-    const esp_err_t pause_result = pause_app(StickyAppId::DesktopPet);
-    if (pause_result != ESP_OK) {
-        STICKY_LOGE(kTag,
-                    "tutorial=reopen source=desktop_pet pause=%s result=failed",
-                    esp_err_to_name(pause_result));
-        return;
-    }
-
-    set_imu_running(false);
-    sticky_touch_clear_press();
-    sticky_touch_clear_interaction();
-    const esp_err_t tutorial_result = onboarding_app_run(*s_canvas);
-    const esp_err_t resume_result = resume_app(StickyAppId::DesktopPet);
-    s_last_user_activity_ms = static_cast<uint32_t>(
-        esp_timer_get_time() / 1000LL);
-    STICKY_LOGI(kTag,
-                "tutorial=reopen source=desktop_pet tutorial=%s resume=%s result=%s",
-                esp_err_to_name(tutorial_result),
-                esp_err_to_name(resume_result),
-                tutorial_result == ESP_OK && resume_result == ESP_OK
-                    ? "ok"
-                    : "failed");
-}
-
-void handle_launcher_touch(const StickyTouchPress &press,
-                           StickyAppRouterState &router)
-{
-    int logical_x = 0;
-    int logical_y = 0;
-    s_canvas->physical_to_logical(
-        press.x, press.y, logical_x, logical_y);
-    if (app_page_launcher_language_at(s_canvas->width(),
-                                      s_canvas->height(),
-                                      logical_x,
-                                      logical_y)) {
-        const UiLanguage next = ui_language_is_chinese()
+    int x = 0, y = 0;
+    s_canvas->physical_to_logical(press.x, press.y, x, y);
+    if (app_page_launcher_language_at(s_canvas->width(), s_canvas->height(), x, y)) {
+        StickyDeviceSettings settings = {};
+        if (sticky_settings_load(settings) == ESP_OK) {
+            settings.language = ui_language_is_chinese()
                                     ? UiLanguage::English
                                     : UiLanguage::ChineseSimplified;
-        const esp_err_t result = ui_language_storage_save(next);
-        STICKY_LOGI(kTag,
-                    "launcher=language value=%s result=%s",
-                    next == UiLanguage::ChineseSimplified ? "zh-CN" : "en",
-                    esp_err_to_name(result));
-        if (result == ESP_OK) {
-            render_launcher(router.baseline_orientation);
+            if (sticky_settings_save(settings) == ESP_OK) {
+                ui_language_set(settings.language);
+                render_launcher();
+            }
         }
         return;
     }
-#if STICKY_ONBOARDING_TEST_MODE
-    if (app_page_launcher_tutorial_at(s_canvas->width(),
-                                      s_canvas->height(),
-                                      logical_x,
-                                      logical_y)) {
-        const esp_err_t reset_result = onboarding_app_reset_completion();
-        STICKY_LOGI(kTag,
-                    "launcher=tutorial action=reset_and_restart result=%s",
-                    esp_err_to_name(reset_result));
-        if (reset_result == ESP_OK) {
-            vTaskDelay(pdMS_TO_TICKS(80));
-            esp_restart();
-        }
-        return;
+    StickyAppId selected = StickyAppId::Home;
+    if (app_page_launcher_app_at(s_canvas->width(), s_canvas->height(),
+                                 x, y, selected)) {
+        select_app(selected, "touch");
     }
-#endif
-    StickyAppId selected_app = StickyAppId::Home;
-    if (!app_page_launcher_app_at(s_canvas->width(),
-                                  s_canvas->height(),
-                                  logical_x,
-                                  logical_y,
-                                  selected_app)) {
-        STICKY_LOGD(kTag,
-                    "launcher=touch action=none physical_x=%u physical_y=%u logical_x=%d logical_y=%d",
-                    press.x,
-                    press.y,
-                    logical_x,
-                    logical_y);
-        return;
-    }
-
-    sticky_app_router_close(router);
-    STICKY_LOGI(kTag,
-                "launcher=touch action=select app=%s logical_x=%d logical_y=%d",
-                sticky_app_id_name(selected_app),
-                logical_x,
-                logical_y);
-    complete_selection(selected_app,
-                       "touch",
-                       false,
-                       StickyImuOrientation::Unknown);
-}
-
-void log_route(const StickyAppRouteResult &route, const char *source)
-{
-    STICKY_LOGI(kTag,
-                "launcher=route action=%s input=%s from=%s to=%s app=%s",
-                sticky_app_route_action_name(route.action),
-                source,
-                sticky_imu_orientation_name(route.from_orientation),
-                sticky_imu_orientation_name(route.to_orientation),
-                sticky_app_id_name(route.selected_app));
-}
-
-void handle_route(const StickyAppRouteResult &route, const char *source)
-{
-    if (route.action == StickyAppRouteAction::BaselineCaptured) {
-        STICKY_LOGI(kTag,
-                    "launcher=baseline orientation=%s source=%s result=ready",
-                    sticky_imu_orientation_name(route.to_orientation),
-                    source);
-        log_route(route, source);
-        return;
-    }
-    if (route.action != StickyAppRouteAction::AppSelected) {
-        return;
-    }
-
-    log_route(route, source);
-    complete_selection(route.selected_app,
-                       source,
-                       route.selected_app ==
-                           StickyAppId::BookOfAnswers,
-                       route.to_orientation);
 }
 
 void app_task(void *)
 {
-    StickyAppRouterState router = {};
-    LauncherImuPrestart imu_prestart = {};
-    StickyImuOrientation last_settled = StickyImuOrientation::Unknown;
-    STICKY_LOGI(kTag,
-                "launcher=ready trigger=top_button,bottom_swipe selection=touch,rotation,shake apps=6 imu=on_demand shake_select_ms=%u current_app=%s result=ok",
-                static_cast<unsigned>(kStickyLauncherShakeSelectMs),
-                sticky_app_id_name(s_current_app));
-
     while (true) {
-        StickyButtonEvent button_event = StickyButtonEvent::None;
-        if (sticky_button_take_event(button_event)) {
-            s_last_user_activity_ms = static_cast<uint32_t>(
-                esp_timer_get_time() / 1000LL);
-            if (s_background_timer_wake) {
-                s_background_timer_wake = false;
-                s_background_sleep_deadline_us = 0;
-                STICKY_LOGI(kTag,
-                            "power=background_window state=cancelled source=button result=ok");
-            }
-            if (button_event == StickyButtonEvent::PressDown) {
-                if (!router.launcher_open) {
-                    prestart_launcher_imu(imu_prestart);
-                }
-            } else if (button_event == StickyButtonEvent::DoubleClick) {
-                return_to_home(router);
-                if (imu_prestart.active &&
-                    s_current_app == StickyAppId::Home) {
-                    set_imu_running(false);
-                }
-                imu_prestart = {};
-            } else if (button_event == StickyButtonEvent::SingleClick) {
-                if (router.launcher_open) {
-                    cancel_launcher(router);
-                } else {
-                    open_launcher(router,
-                                  last_settled,
-                                  imu_prestart);
-                }
-            } else if (button_event == StickyButtonEvent::SleepChord) {
-                enter_power_sleep(
-                    router, StickyPowerSleepTrigger::SideButtonChord);
-            }
-        }
-
-        const uint32_t touch_activity_ms =
-            sticky_touch_last_activity_ms();
-        if (static_cast<int32_t>(
-                touch_activity_ms - s_last_user_activity_ms) > 0) {
-            s_last_user_activity_ms = touch_activity_ms;
-            if (s_background_timer_wake) {
-                s_background_timer_wake = false;
-                s_background_sleep_deadline_us = 0;
-                STICKY_LOGI(kTag,
-                            "power=background_window state=cancelled source=touch result=ok");
+        StickyButtonEvent event = StickyButtonEvent::None;
+        if (sticky_button_take_event(event)) {
+            s_last_activity_ms = static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
+            if (event == StickyButtonEvent::SingleClick) {
+                if (s_launcher_open) close_launcher(); else open_launcher();
+            } else if (event == StickyButtonEvent::DoubleClick) {
+                select_app(StickyAppId::Home, "double_click");
+            } else if (event == StickyButtonEvent::SleepChord) {
+                enter_sleep("side_button_chord");
             }
         }
 
         StickyTouchInteraction interaction = {};
         while (sticky_touch_take_interaction(interaction)) {
-            handle_launcher_gesture(interaction,
-                                    router,
-                                    last_settled,
-                                    imu_prestart);
+            s_last_activity_ms = interaction.ended_at_ms;
+            handle_interaction(interaction);
         }
-
-        if (!router.launcher_open &&
-            s_current_app == StickyAppId::DesktopPet &&
-            desktop_pet_app_take_onboarding_request()) {
-            open_tutorial_from_desktop_pet();
-        }
-        if (!router.launcher_open &&
-            s_current_app == StickyAppId::Settings &&
-            settings_app_take_home_request()) {
-            return_to_home(router);
-        }
-
-        if (router.launcher_open) {
+        if (s_launcher_open) {
             StickyTouchPress press = {};
             if (sticky_touch_take_press(press)) {
-                handle_launcher_touch(press, router);
+                s_last_activity_ms = press.captured_at_ms;
+                handle_launcher_press(press);
             }
+        } else if (s_manager.current_id() == StickyAppId::Settings &&
+                   settings_app_take_home_request()) {
+            select_app(StickyAppId::Home, "settings");
         }
 
-        if (router.launcher_open) {
-            StickyImuState imu_state = {};
-            const bool shake_active = sticky_imu_is_shaking();
-            if (shake_active) {
-                handle_route(sticky_app_router_shaking(
-                                 router,
-                                 sticky_imu_shake_duration_ms()),
-                             "shake");
-            }
-
-            if (sticky_imu_get_state(imu_state) == ESP_OK) {
-                if (router.baseline_orientation ==
-                    StickyImuOrientation::Unknown) {
-                    handle_route(sticky_app_router_observed(
-                                     router,
-                                     imu_state.observed_orientation),
-                                 "observed");
-                }
-
-                if (router.launcher_open &&
-                    imu_state.observed_orientation !=
-                        StickyImuOrientation::Unknown &&
-                    imu_state.observed_orientation != last_settled) {
-                    const StickyAppRouteResult route =
-                        sticky_app_router_rotation_candidate(
-                            router,
-                            imu_state.observed_orientation,
-                            imu_state.orientation_stable_samples,
-                            shake_active);
-                    if (route.action != StickyAppRouteAction::None) {
-                        last_settled = imu_state.observed_orientation;
-                        handle_route(route, "rotation_fast");
-                    }
-                }
-            }
+        const uint32_t now_ms = static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
+        if (s_launcher_open && now_ms - s_last_activity_ms >= kLauncherIdleCloseMs) {
+            close_launcher();
         }
-
-
-        const uint32_t now_ms = static_cast<uint32_t>(
-            esp_timer_get_time() / 1000LL);
-        if (router.launcher_open &&
-            now_ms - s_last_user_activity_ms >= kLauncherIdleCloseMs) {
-            cancel_launcher(router);
-            s_last_user_activity_ms = now_ms;
-            STICKY_LOGI(kTag,
-                        "launcher=timeout idle_ms=%u result=closed",
-                        static_cast<unsigned>(kLauncherIdleCloseMs));
+        const StickyAppDescriptor *app = s_manager.current();
+        if (!s_launcher_open && app != nullptr && app->sleep_timeout_ms() > 0U &&
+            app->sleep_allowed() && !board_charger_external_power_present() &&
+            now_ms - s_last_activity_ms >= app->sleep_timeout_ms()) {
+            enter_sleep("idle_timeout");
         }
-
-        if (s_background_timer_wake &&
-            s_background_sleep_deadline_us > 0 &&
-            esp_timer_get_time() >= s_background_sleep_deadline_us) {
-            s_background_timer_wake = false;
-            s_background_sleep_deadline_us = 0;
-            enter_power_sleep(
-                router,
-                StickyPowerSleepTrigger::ScheduledEventComplete);
-        }
-        const uint32_t idle_sleep_timeout_ms = power_sleep_timeout_ms();
-        if (!s_background_timer_wake && !router.launcher_open &&
-            !board_charger_external_power_present() &&
-            idle_sleep_timeout_ms > 0U && power_sleep_allowed() &&
-            now_ms - s_last_user_activity_ms >= idle_sleep_timeout_ms) {
-            enter_power_sleep(
-                router, StickyPowerSleepTrigger::AppIdleTimeout);
-        }
-
         vTaskDelay(kPollInterval);
     }
 }
@@ -880,78 +251,24 @@ void app_task(void *)
 esp_err_t sticky_app_start(Canvas &canvas)
 {
     app_log_register_tag(kTag);
-    if (s_app_task != nullptr) {
-        return ESP_OK;
-    }
-
+    if (s_task != nullptr) return ESP_OK;
     s_canvas = &canvas;
-    const esp_sleep_wakeup_cause_t wake_cause =
-        esp_sleep_get_wakeup_cause();
-    const bool restore_sleep_context =
-        wake_cause != ESP_SLEEP_WAKEUP_UNDEFINED &&
-        s_sleep_context.magic == kSleepContextMagic;
-    const StickyAppId initial_app = restore_sleep_context &&
-                                            sticky_app_registry_find(
-                                                s_sleep_context.app) != nullptr
-                                        ? s_sleep_context.app
-                                        : StickyAppId::Home;
-    const CanvasRotation initial_rotation = restore_sleep_context
-                                                ? s_sleep_context.rotation
-                                                : CanvasRotation::Deg0;
-    s_sleep_context.magic = 0U;
     esp_err_t result = sticky_button_init();
-    if (result != ESP_OK) {
-        s_canvas = nullptr;
-        return result;
-    }
+    if (result != ESP_OK) return result;
 
-    if (initial_app == StickyAppId::Pomodoro) {
-        pomodoro_app_set_display_rotation(initial_rotation);
-    } else if (initial_app == StickyAppId::StatusBoard) {
-        status_board_app_set_display_rotation(initial_rotation);
-    } else if (initial_app == StickyAppId::Pregnancy) {
-        pregnancy_app_set_display_rotation(initial_rotation);
-    }
-    if (initial_app == StickyAppId::BookOfAnswers) {
-        result = set_imu_running(true);
-        if (result != ESP_OK) {
-            s_canvas = nullptr;
-            return result;
-        }
-    }
-    result = start_app(initial_app);
-    if (result != ESP_OK) {
-        s_canvas = nullptr;
-        return result;
-    }
-    mark_app_started(initial_app);
-    s_current_app = initial_app;
-    s_background_timer_wake =
-        wake_cause == ESP_SLEEP_WAKEUP_TIMER &&
-        initial_app == StickyAppId::DesktopPet;
-    s_background_sleep_deadline_us = s_background_timer_wake
-        ? esp_timer_get_time() + kBackgroundEventWindowUs
-        : 0;
-    s_last_user_activity_ms = static_cast<uint32_t>(
-        esp_timer_get_time() / 1000LL);
-    STICKY_LOGI(kTag,
-                "power=restore wake=%d context=%s app=%s background_window_s=%u result=ok",
-                static_cast<int>(wake_cause),
-                restore_sleep_context ? "valid" : "default",
-                sticky_app_id_name(initial_app),
-                s_background_timer_wake
-                    ? static_cast<unsigned>(kBackgroundEventWindowUs /
-                                            1000000LL)
-                    : 0U);
-
-    if (xTaskCreate(app_task,
-                    "sticky_launcher",
-                    kTaskStackSize,
-                    nullptr,
-                    kTaskPriority,
-                    &s_app_task) != pdPASS) {
-        s_canvas = nullptr;
+    const bool valid_context = s_sleep_context.magic == kSleepContextMagic &&
+        sticky_app_registry_find(s_sleep_context.app) != nullptr;
+    const StickyAppId initial = valid_context ? s_sleep_context.app : StickyAppId::Home;
+    s_sleep_context.magic = 0U;
+    result = s_manager.start(canvas, initial);
+    if (result != ESP_OK) return result;
+    s_last_activity_ms = static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
+    if (xTaskCreate(app_task, "app_coordinator", kTaskStackSize, nullptr,
+                    kTaskPriority, &s_task) != pdPASS) {
         return ESP_ERR_NO_MEM;
     }
+    STICKY_LOGI(kTag, "runtime=ready apps=%u default=home current=%s result=ok",
+                static_cast<unsigned>(sticky_app_registry_count()),
+                sticky_app_id_name(initial));
     return ESP_OK;
 }

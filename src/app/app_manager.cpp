@@ -82,6 +82,24 @@ esp_err_t StickyAppManager::switch_to(StickyAppId requested)
     return result;
 }
 
+esp_err_t StickyAppManager::switch_from_paused_to(StickyAppId requested)
+{
+    if (canvas_ == nullptr) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    const size_t destination = index_of(sanitize(requested));
+    if (destination == current_index_) {
+        return resume_current();
+    }
+    const size_t previous = current_index_;
+    const esp_err_t result = activate(destination);
+    if (result != ESP_OK && previous < count_) {
+        apps_[previous].resume();
+        current_index_ = previous;
+    }
+    return result;
+}
+
 esp_err_t StickyAppManager::return_home()
 {
     return switch_to(default_app_);

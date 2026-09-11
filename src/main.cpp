@@ -4,7 +4,6 @@
 #include "board_sensor_bus.h"
 #include "board_shared_spi.h"
 #include "canvas.h"
-#include "onboarding_app.h"
 #include "sticky_app.h"
 #include "sticky_battery.h"
 #include "sticky_buzzer.h"
@@ -271,18 +270,8 @@ extern "C" void app_main()
                     esp_err_to_name(language_result));
     }
 
-    // Presents the six-page first-boot guide before background app tasks run.
-    // 在后台APP任务启动前展示六页首次开机教程。
-    const esp_err_t onboarding_result =
-        onboarding_app_run_if_needed(*canvas);
-    if (onboarding_result != ESP_OK) {
-        STICKY_LOGW(kTag,
-                    "onboarding=start result=%s fallback=continue",
-                    esp_err_to_name(onboarding_result));
-    }
-
-    // Starts the default pet and top-button application launcher.
-    // 启动默认桌宠和顶部按键应用选择器。
+    // Starts the generic Home app and framework-owned launcher.
+    // 启动通用主页与框架统一管理的应用选择器。
     const esp_err_t app_result = sticky_app_start(*canvas);
     if (app_result != ESP_OK) {
         halt_after_error("sticky_app_start", app_result);

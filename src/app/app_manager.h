@@ -12,6 +12,7 @@ public:
 
     esp_err_t start(Canvas &canvas, StickyAppId requested);
     esp_err_t switch_to(StickyAppId requested);
+    esp_err_t switch_from_paused_to(StickyAppId requested);
     esp_err_t return_home();
     esp_err_t pause_current();
     esp_err_t resume_current();

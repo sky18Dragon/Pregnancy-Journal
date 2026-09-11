@@ -3,11 +3,6 @@
 enum class StickyAppId {
     Home,
     Settings,
-    DesktopPet,
-    Pomodoro,
-    StatusBoard,
-    BookOfAnswers,
-    Pregnancy,
 };
 
 bool sticky_app_id_valid(StickyAppId app);
