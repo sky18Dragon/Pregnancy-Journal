@@ -1,25 +1,38 @@
-# Sticky Core Framework
+# Pregnancy Journal（孕期手帐）
 
-Sticky Core Framework is the small, reusable firmware foundation for Seeed
-Studio reTerminal Sticky. It keeps the board drivers, e-paper refresh policy,
-touch/buttons, RTC, battery gauge, IMU, buzzer, shared buses and deep-sleep
-behavior while exposing a generic application runtime.
+Pregnancy Journal is an offline pregnancy organizer for the Seeed Studio
+reTerminal Sticky. It combines a calm e-paper dashboard, pregnancy week
+information, reminders and appointments while keeping the
+hardware-tested Sticky Core framework intact. It is an informational organizer,
+not a diagnostic or treatment device.
 
-The shipped applications are:
+## Features
 
-- Home: landscape clock, date, battery and RTC status.
-- Settings: bilingual language switch, RTC time editor and display clean-refresh test.
-- Pregnancy: the retained pregnancy-week tracker with first-use date/time setup.
+- Due-date or last-menstrual-period setup with persisted pregnancy profile.
+- Baby Week is the default home, with week/day, due-date countdown and progress.
+- Overview, Baby and Mom pages are backed by bundled offline week content.
+- Today/upcoming reminders with simple creation, completion, deletion and
+  daily/weekly recurrence support in the domain layer.
+- Checkup organizer for appointments and completion status.
+- English and Simplified Chinese UI.
+- Typed reminder/checkup/daily-refresh scheduler, deep sleep and button/timer
+  wake.
 
-The launcher is owned by the framework. Applications receive exclusive display
-and touch ownership through lifecycle callbacks; invalid or unavailable app IDs
-fall back to Home. Settings are stored as versioned, checksummed records in two
-NVS slots so a torn write cannot destroy the previous configuration.
+## Architecture
+
+```text
+Pregnancy apps -> domain/content services -> Sticky Core -> device HAL
+```
+
+The registry composes four isolated apps: Baby Week, Reminder, Checkup and
+Settings. `StickyAppManager` enforces lifecycle and input/
+display ownership. The framework coordinator owns Launcher, scheduling and
+deep sleep. See [architecture.md](docs/pregnancy/architecture.md).
 
 ## Build
 
-PlatformIO and ESP-IDF are required. PlatformIO rejects paths containing spaces,
-so build from a no-space checkout or mirror:
+PlatformIO with ESP-IDF 5.4.1 is required. PlatformIO rejects paths containing
+spaces, so run from a no-space checkout or exact mirror:
 
 ```bash
 pio run -e sticky-release
@@ -28,49 +41,76 @@ pio run -e sticky-power-test
 tools/run_host_tests.sh
 ```
 
-The supported board is `sticky_esp32s3`. The release profile is the normal
-device firmware; debug enables diagnostic logs and power-test shortens idle
-timeouts.
+The target is `sticky_esp32s3` with the custom `partitions.csv` layout.
 
-## Validated baseline
-
-Firmware `1.0.0` at commit `fdc6be6` was built, flashed and verified on a
-Seeed Studio reTerminal Sticky on 2026-09-12. The focused host suite passed
-14/14 tests. The release image uses 427,576 B of flash and 16,916 B of RAM;
-the generated firmware binary is 428,240 B. Device logs confirmed successful
-RTC, battery gauge, SSD1677 display, GT911 touch, IMU and button startup, and
-the three-app runtime reached Home. The full physical interaction checklist
-was also completed successfully.
-
-## Flash and monitor
+## Flash
 
 ```bash
 pio run -e sticky-release -t upload --upload-port /dev/cu.usbmodemXXXX
 pio device monitor -p /dev/cu.usbmodemXXXX -b 115200 --filter time --rts 0 --dtr 0
 ```
 
-After boot, swipe up from the bottom edge or single-click the top button to
-open the launcher. Double-click returns Home. Open Settings to switch English
-and 简体中文, set the PCF8563 time, or force a full e-paper cleanup refresh.
-Pregnancy opens from the launcher; its first-use flow asks for device time and
-the estimated due date.
+Replace the port with the device shown by `pio device list`. Run the physical
+[hardware regression checklist](docs/pregnancy/hardware-regression-checklist.md)
+after flashing.
 
-## Adding an app
+## First setup
 
-Implement the lifecycle surface described in
-[`docs/refactor/adding-an-app.md`](docs/refactor/adding-an-app.md), add one
-descriptor to `src/app/app_registry.cpp`, add its source files to
-`src/CMakeLists.txt`, and add a focused host test. The registry is the only
-composition point that knows concrete applications; the coordinator and
-launcher remain generic.
+On first use, set the RTC if requested, then choose either a clinician-confirmed
+estimated due date or the first day of the last menstrual period. The profile is
+saved only on the device and can be changed later from Settings → Pregnancy
+Settings.
 
-## Architecture and verification
+## Launcher and navigation
 
-- [`docs/refactor/baseline.md`](docs/refactor/baseline.md) records the pre-refactor graph and hardware baseline.
-- [`docs/refactor/architecture.md`](docs/refactor/architecture.md) describes the final ownership model.
-- [`docs/refactor/migration-report.md`](docs/refactor/migration-report.md) records staged changes, tests and firmware sizes.
-- [`docs/refactor/hardware-regression-checklist.md`](docs/refactor/hardware-regression-checklist.md) records the completed device verification.
+- Swipe up from the bottom or single-click the top button: open Launcher.
+- Swipe down or single-click again: close Launcher.
+- Double-click the top button: return to Baby Week.
+- Tap a Launcher card to open Baby Week, Reminder, Checkup or Settings.
 
-The project retains Seeed Studio board integration and the original upstream
-repository attribution. See [`LICENSE`](LICENSE) and the notices under
-[`third_party/fonts/NotoSansCJK`](third_party/fonts/NotoSansCJK) for licenses.
+## Apps
+
+Pregnancy displays Overview, Baby and Mom tabs for the current calculated week.
+Its bundled content is broad, non-diagnostic guidance and remains available
+without a network.
+
+Reminder lists today and upcoming items. Add a simple typed reminder, mark it
+complete or delete it. The earliest future item participates in system wake
+scheduling.
+
+Checkup stores appointment dates and completion status. Dates should always be
+confirmed with the user's care team.
+
+## Sleep and wake
+
+Stable pages enter deep sleep after 60 seconds of inactivity when external power
+is absent; date/input editors keep the device awake. The top button remains a wake
+source. Before sleep, one coordinator chooses the earliest reminder, checkup,
+app request or daily 03:00 refresh and arms one timer wake. A due reminder or
+checkup starts the buzzer after timer wake; any touch/button interaction stops it.
+
+## Storage and privacy
+
+Pregnancy profile, reminder and checkup records use versioned checksummed NVS
+storage. Corrupt records are skipped or recovered from a valid fallback. There
+is no account, telemetry, cloud log, network dependency or AI service. See
+[storage.md](docs/pregnancy/storage.md).
+
+## Testing
+
+`tools/run_host_tests.sh` compiles business logic and renderer/interaction tests
+with C++17, warnings as errors. The firmware gate builds release, debug and
+power-test profiles. Hardware results must be recorded separately; a successful
+host/build gate does not claim a physical-device pass.
+
+## Documentation
+
+- [Baseline and phase plan](docs/pregnancy/baseline.md)
+- [Data model](docs/pregnancy/data-model.md)
+- [Pregnancy calculation](docs/pregnancy/pregnancy-calculation.md)
+- [Reminder scheduler](docs/pregnancy/reminder-scheduler.md)
+- [E-ink refresh strategy](docs/pregnancy/eink-refresh-strategy.md)
+- [Future roadmap](docs/pregnancy/future-roadmap.md)
+
+The project retains Seeed Studio board integration and upstream attribution.
+See [LICENSE](LICENSE) and the notices under `third_party/fonts/NotoSansCJK`.

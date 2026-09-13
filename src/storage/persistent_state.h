@@ -8,7 +8,7 @@
 
 struct StickyDeviceSettings {
     UiLanguage language = UiLanguage::English;
-    StickyAppId last_app = StickyAppId::Home;
+    StickyAppId last_app = StickyAppId::Pregnancy;
 };
 
 struct StickyPersistentRecord {

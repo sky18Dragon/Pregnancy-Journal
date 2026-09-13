@@ -270,8 +270,8 @@ extern "C" void app_main()
                     esp_err_to_name(language_result));
     }
 
-    // Starts the generic Home app and framework-owned launcher.
-    // 启动通用主页与框架统一管理的应用选择器。
+    // Starts Baby Week as the product home and the framework-owned launcher.
+    // 以孕周作为产品主页，并启动框架统一管理的应用选择器。
     const esp_err_t app_result = sticky_app_start(*canvas);
     if (app_result != ESP_OK) {
         halt_after_error("sticky_app_start", app_result);

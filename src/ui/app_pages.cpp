@@ -15,9 +15,10 @@ struct Card {
 };
 
 constexpr Card kCards[] = {
-    {StickyAppId::Home, 45, 142, 220, 220, "Home"},
-    {StickyAppId::Pregnancy, 290, 142, 220, 220, "Baby Week"},
-    {StickyAppId::Settings, 535, 142, 220, 220, "Settings"},
+    {StickyAppId::Pregnancy, 34, 170, 166, 132, "Baby Week"},
+    {StickyAppId::Reminder, 222, 170, 166, 132, "Reminders"},
+    {StickyAppId::Checkup, 410, 170, 166, 132, "Checkups"},
+    {StickyAppId::Settings, 598, 170, 166, 132, "Settings"},
 };
 
 void bevel(Canvas &canvas, const Card &card, bool selected)
@@ -50,33 +51,11 @@ void bevel(Canvas &canvas, const Card &card, bool selected)
                      GrayLevel::Black);
 }
 
-void draw_home_icon(Canvas &canvas, int cx, int cy, GrayLevel color)
+void draw_letter_icon(Canvas &canvas, int cx, int cy, const char *letter,
+                      GrayLevel color)
 {
-    canvas.draw_line(cx - 52, cy, cx, cy - 44, color);
-    canvas.draw_line(cx, cy - 44, cx + 52, cy, color);
-    canvas.draw_rect(cx - 40, cy, 80, 62, color);
-    canvas.fill_rect(cx - 9, cy + 30, 18, 32, color);
-}
-
-void draw_settings_icon(Canvas &canvas, int cx, int cy, GrayLevel color)
-{
-    canvas.draw_circle(cx, cy + 5, 48, color);
-    canvas.draw_circle(cx, cy + 5, 20, color);
-    canvas.fill_rect(cx - 8, cy - 60, 16, 20, color);
-    canvas.fill_rect(cx - 8, cy + 50, 16, 20, color);
-    canvas.fill_rect(cx - 60, cy - 3, 20, 16, color);
-    canvas.fill_rect(cx + 50, cy - 3, 20, 16, color);
-}
-
-void draw_pregnancy_icon(Canvas &canvas, int cx, int cy, GrayLevel color)
-{
-    canvas.draw_circle(cx, cy, 48, color);
-    canvas.draw_circle(cx - 15, cy - 8, 4, color);
-    canvas.draw_circle(cx + 15, cy - 8, 4, color);
-    canvas.draw_line(cx - 18, cy + 17, cx, cy + 30, color);
-    canvas.draw_line(cx, cy + 30, cx + 18, cy + 17, color);
-    canvas.draw_line(cx - 18, cy + 17, cx - 10, cy + 8, color);
-    canvas.draw_line(cx + 18, cy + 17, cx + 10, cy + 8, color);
+    canvas.draw_circle(cx, cy, 31, color);
+    canvas.draw_text(cx - 12, cy - 17, letter, 5, color);
 }
 
 }  // namespace
@@ -85,7 +64,8 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app)
 {
     canvas.set_rotation(CanvasRotation::Deg0);
     canvas.clear(GrayLevel::White);
-    canvas.draw_text(46, 32, ui_text("STICKY CORE"), 3, GrayLevel::Black);
+    canvas.draw_text(46, 32, ui_text("PREGNANCY JOURNAL"), 3,
+                     GrayLevel::Black);
     canvas.draw_text(46, 78, ui_text("CHOOSE AN APP"), 4, GrayLevel::Black);
     const char *language = ui_language_is_chinese() ? "EN" : "中文";
     canvas.draw_rect(704, 34, 64, 42, GrayLevel::Black);
@@ -96,18 +76,16 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app)
         const GrayLevel color = selected ? GrayLevel::White : GrayLevel::Black;
         bevel(canvas, card, selected);
         const int cx = card.x + card.width / 2;
-        if (card.app == StickyAppId::Home) {
-            draw_home_icon(canvas, cx, 220, color);
-        } else if (card.app == StickyAppId::Pregnancy) {
-            draw_pregnancy_icon(canvas, cx, 220, color);
-        } else {
-            draw_settings_icon(canvas, cx, 218, color);
-        }
+        const int icon_y = card.y + 47;
+        const char *letter = card.app == StickyAppId::Pregnancy ? "P" :
+                             card.app == StickyAppId::Reminder ? "R" :
+                             card.app == StickyAppId::Checkup ? "C" : "S";
+        draw_letter_icon(canvas, cx, icon_y, letter, color);
         const char *label = ui_text(card.label);
-        const int label_width = ui_text_width(label, 3U);
-        canvas.draw_text(cx - label_width / 2, 315, label, 3, color);
+        const int label_width = ui_text_width(card.label, 2U);
+        canvas.draw_text(cx - label_width / 2, card.y + 104, label, 2, color);
     }
-    canvas.draw_text(46, 410, ui_text("TAP A CARD  /  SWIPE DOWN TO CLOSE"), 2,
+    canvas.draw_text(46, 438, ui_text("TAP A CARD  /  SWIPE DOWN TO CLOSE"), 2,
                      GrayLevel::Black);
 }
 

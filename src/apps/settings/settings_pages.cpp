@@ -21,8 +21,9 @@ struct Rect {
 
 constexpr Rect kLanguage = {36, 130, 344, 100};
 constexpr Rect kTime = {420, 130, 344, 100};
-constexpr Rect kRefresh = {36, 272, 344, 100};
-constexpr Rect kBack = {420, 272, 344, 100};
+constexpr Rect kPregnancy = {36, 272, 344, 100};
+constexpr Rect kRefresh = {420, 272, 344, 100};
+constexpr Rect kBack = {228, 394, 344, 62};
 constexpr Rect kEditorBack = {32, 398, 170, 52};
 constexpr Rect kKeys[] = {
     {488, 62, 86, 66}, {582, 62, 86, 66}, {676, 62, 86, 66},
@@ -90,9 +91,10 @@ void settings_page_render_main(Canvas &canvas, bool rtc_ready)
     button(canvas, kLanguage,
            ui_language_is_chinese() ? "语言：中文" : "LANGUAGE: ENGLISH", 3);
     button(canvas, kTime, "SET DEVICE TIME", 3);
-    button(canvas, kRefresh, "DISPLAY CLEAN REFRESH", 3);
-    button(canvas, kBack, "RETURN HOME", 3);
-    canvas.draw_text(36, 430,
+    button(canvas, kPregnancy, "PREGNANCY SETTINGS", 2);
+    button(canvas, kRefresh, "DISPLAY CLEAN REFRESH", 2);
+    button(canvas, kBack, "RETURN TO BABY WEEK", 3);
+    canvas.draw_text(560, 108,
                      ui_text(rtc_ready ? "RTC READY" : "RTC UNAVAILABLE"),
                      2, GrayLevel::Black);
 }
@@ -134,6 +136,7 @@ SettingsAction settings_page_action_at(SettingsPage page, int x, int y)
     if (page == SettingsPage::Main) {
         if (kLanguage.contains(x, y)) return SettingsAction::ToggleLanguage;
         if (kTime.contains(x, y)) return SettingsAction::EditTime;
+        if (kPregnancy.contains(x, y)) return SettingsAction::PregnancySettings;
         if (kRefresh.contains(x, y)) return SettingsAction::RefreshDisplay;
         if (kBack.contains(x, y)) return SettingsAction::Back;
         return SettingsAction::None;

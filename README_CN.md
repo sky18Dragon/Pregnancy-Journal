@@ -1,4 +1,4 @@
-# Sticky Core Framework
+# 孕期手帐（Pregnancy Journal）
 
 这是 Seeed Studio reTerminal Sticky 的精简固件框架，保留电子纸、触摸、按键、RTC、电量、IMU、蜂鸣器、共享总线和深度睡眠能力。
 

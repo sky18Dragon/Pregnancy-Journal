@@ -15,7 +15,11 @@ int main()
     assert(settings_page_action_at(SettingsPage::Main, 500, 170) ==
            SettingsAction::EditTime);
     assert(settings_page_action_at(SettingsPage::Main, 100, 310) ==
+           SettingsAction::PregnancySettings);
+    assert(settings_page_action_at(SettingsPage::Main, 500, 310) ==
            SettingsAction::RefreshDisplay);
+    assert(settings_page_action_at(SettingsPage::Main, 400, 420) ==
+           SettingsAction::Back);
     settings_page_render_time_editor(canvas, "202609111530", false);
     assert(settings_page_action_at(SettingsPage::TimeEditor, 520, 90) ==
            SettingsAction::Digit1);

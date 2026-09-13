@@ -14,6 +14,7 @@ enum class SettingsAction : uint8_t {
     ToggleLanguage,
     EditTime,
     RefreshDisplay,
+    PregnancySettings,
     Back,
     Delete,
     Save,

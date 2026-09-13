@@ -3,12 +3,14 @@
 const char *sticky_app_id_name(StickyAppId app)
 {
     switch (app) {
-    case StickyAppId::Home:
-        return "home";
     case StickyAppId::Settings:
         return "settings";
     case StickyAppId::Pregnancy:
         return "pregnancy";
+    case StickyAppId::Reminder:
+        return "reminder";
+    case StickyAppId::Checkup:
+        return "checkup";
     }
     return "unknown";
 }
@@ -16,9 +18,10 @@ const char *sticky_app_id_name(StickyAppId app)
 bool sticky_app_id_valid(StickyAppId app)
 {
     switch (app) {
-    case StickyAppId::Home:
     case StickyAppId::Settings:
     case StickyAppId::Pregnancy:
+    case StickyAppId::Reminder:
+    case StickyAppId::Checkup:
         return true;
     }
     return false;

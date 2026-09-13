@@ -255,6 +255,23 @@ esp_err_t sticky_rtc_write(const StickyRtcDateTime &date_time)
     return write_date_time(date_time, "user");
 }
 
+bool sticky_rtc_epoch_seconds(const StickyRtcDateTime &date_time,
+                              uint32_t &epoch_seconds)
+{
+    if (!valid_date_time(date_time) || date_time.year < 1970U) return false;
+    uint32_t days = 0U;
+    for (uint16_t year = 1970U; year < date_time.year; ++year)
+        days += leap_year(year) ? 366U : 365U;
+    for (uint8_t month = 1U; month < date_time.month; ++month)
+        days += days_in_month(date_time.year, month);
+    days += static_cast<uint32_t>(date_time.day - 1U);
+    epoch_seconds = days * 86400U +
+                    static_cast<uint32_t>(date_time.hour) * 3600U +
+                    static_cast<uint32_t>(date_time.minute) * 60U +
+                    date_time.second;
+    return true;
+}
+
 esp_err_t sticky_rtc_seed_from_build_time(StickyRtcDateTime &date_time)
 {
     if (s_device == nullptr) {

@@ -9,6 +9,7 @@
 // 启动独立的横屏孕周看板APP。
 esp_err_t pregnancy_app_start(Canvas &canvas);
 void pregnancy_app_set_display_rotation(CanvasRotation rotation);
+void pregnancy_app_request_setup();
 esp_err_t pregnancy_app_pause();
 esp_err_t pregnancy_app_resume();
 

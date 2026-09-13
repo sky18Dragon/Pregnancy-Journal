@@ -45,6 +45,16 @@ int main()
     assert(round_trip.day == 29U);
 
     constexpr PregnancyDate kDueDate = {2027U, 1U, 1U};
+    PregnancyProfile due_profile = {};
+    assert(pregnancy_profile_from_due_date(kDueDate, due_profile));
+    assert(pregnancy_profile_valid(due_profile));
+    PregnancyProfile lmp_profile = {};
+    assert(pregnancy_profile_from_lmp(
+        due_profile.last_menstrual_period, lmp_profile));
+    assert(!lmp_profile.use_due_date_as_primary);
+    assert(lmp_profile.estimated_due_date.year == kDueDate.year);
+    assert(lmp_profile.estimated_due_date.month == kDueDate.month);
+    assert(lmp_profile.estimated_due_date.day == kDueDate.day);
     PregnancyProgress progress = progress_at(kDueDate, 97);
     assert(progress.weeks == 13U && progress.days == 6U);
     assert(progress.stage == PregnancyStage::FirstTrimester);
@@ -63,15 +73,21 @@ int main()
     progress = progress_at(kDueDate, 280);
     assert(progress.weeks == 40U && progress.days == 0U);
     assert(progress.percent == 100U);
+    assert(progress.days_until_due_date == 0);
+    assert(!progress.overdue);
     progress = progress_at(kDueDate, 294);
     assert(progress.weeks == 42U && progress.days == 0U);
     assert(progress.percent == 100U);
+    assert(progress.overdue);
+    assert(progress.days_until_due_date == -14);
 
-    PregnancyProgress invalid = {};
-    assert(!pregnancy_progress_calculate(
-        date_for_gestational_day(kDueDate, -1), kDueDate, invalid));
-    assert(!pregnancy_progress_calculate(
-        date_for_gestational_day(kDueDate, 295), kDueDate, invalid));
+    PregnancyProgress edge = {};
+    assert(pregnancy_progress_calculate(
+        date_for_gestational_day(kDueDate, -1), kDueDate, edge));
+    assert(edge.before_start && edge.weeks == 0 && edge.percent == 0U);
+    assert(pregnancy_progress_calculate(
+        date_for_gestational_day(kDueDate, 295), kDueDate, edge));
+    assert(edge.weeks == 42 && edge.days == 1U && edge.overdue);
 
     assert(pregnancy_stage_name(PregnancyStage::FirstTrimester) != nullptr);
     assert(pregnancy_stage_name(PregnancyStage::SecondTrimester) != nullptr);

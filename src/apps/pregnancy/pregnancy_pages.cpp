@@ -6,6 +6,7 @@
 #include "app_launcher_assets.h"
 #include "canvas.h"
 #include "pixel_asset.h"
+#include "text_layout.h"
 #include "ui_language.h"
 
 namespace {
@@ -48,7 +49,12 @@ constexpr const char *kKeyLabels[] = {
 };
 
 constexpr Rect kBackRect = {30, 390, 180, 56};
-constexpr Rect kEditRect = {660, 424, 108, 42};
+constexpr Rect kEditRect = {660, 24, 108, 42};
+constexpr Rect kDueSourceRect = {54, 150, 320, 170};
+constexpr Rect kLmpSourceRect = {426, 150, 320, 170};
+constexpr Rect kOverviewTab = {54, 414, 210, 48};
+constexpr Rect kBabyTab = {295, 414, 210, 48};
+constexpr Rect kMomTab = {536, 414, 210, 48};
 
 int text_width(const char *text, int scale)
 {
@@ -225,6 +231,37 @@ void pregnancy_page_render_due_date_setup(Canvas &canvas,
                  can_cancel);
 }
 
+void pregnancy_page_render_source_setup(Canvas &canvas, bool can_cancel)
+{
+    canvas.clear(GrayLevel::White);
+    canvas.draw_text(42, 28, ui_text("PREGNANCY SETUP"), 5,
+                     GrayLevel::Black);
+    canvas.draw_text(42, 86, ui_text("CHOOSE THE DATE YOU KNOW"), 2,
+                     GrayLevel::Black);
+    draw_button(canvas, kDueSourceRect, ui_text("ESTIMATED DUE DATE"), true, 3);
+    draw_button(canvas, kLmpSourceRect, ui_text("LAST MENSTRUAL PERIOD"), false, 3);
+    canvas.draw_text(54, 350,
+                     ui_text("A CLINICIAN-CONFIRMED DUE DATE IS PREFERRED"),
+                     2, GrayLevel::Black);
+    if (can_cancel) draw_button(canvas, kBackRect, "CANCEL", false, 3);
+}
+
+void pregnancy_page_render_profile_date_setup(Canvas &canvas,
+                                               const char *digits,
+                                               bool input_error,
+                                               bool due_date_primary)
+{
+    char value[16] = {};
+    format_date_digits(digits, value, sizeof(value));
+    render_setup(canvas,
+                 due_date_primary ? ui_text("SET DUE DATE")
+                                  : ui_text("SET LAST MENSTRUAL PERIOD"),
+                 due_date_primary
+                     ? ui_text("USE YOUR CONFIRMED ESTIMATED DUE DATE")
+                     : ui_text("USE THE FIRST DAY OF YOUR LAST PERIOD"),
+                 value, input_error, true);
+}
+
 void pregnancy_page_render_dashboard(Canvas &canvas,
                                      const PregnancyDate &due_date,
                                      const PregnancyProgress &progress)
@@ -248,10 +285,10 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
     char stage_badge[24] = {};
     std::snprintf(stage_badge, sizeof(stage_badge), "%s",
                   pregnancy_stage_name(progress.stage));
-    constexpr Rect kStageRect = {448, 68, 320, 54};
+    constexpr Rect kStageRect = {448, 82, 320, 54};
     draw_button(canvas, kStageRect, stage_badge, false, 2);
 
-    constexpr Rect kInfoRect = {32, 164, 736, 158};
+    constexpr Rect kInfoRect = {32, 164, 736, 136};
     draw_beveled_rect(canvas, kInfoRect, GrayLevel::DarkGray);
     canvas.fill_rect(kInfoRect.x, kInfoRect.y + 8,
                      8, kInfoRect.height - 16, GrayLevel::Black);
@@ -278,15 +315,26 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
         std::snprintf(stage, sizeof(stage), "STAGE: %s",
                       pregnancy_stage_name(progress.stage));
     }
-    canvas.draw_text(66, 258, stage, 3, GrayLevel::Black);
+    canvas.draw_text(66, 252, stage, 3, GrayLevel::Black);
     draw_tracker_bunny(canvas);
 
-    canvas.draw_text(32, 348,
+    char countdown[64] = {};
+    if (progress.overdue) {
+        std::snprintf(countdown, sizeof(countdown),
+                      ui_language_is_chinese() ? "已超过预产期 %d 天" : "PAST DUE DATE BY %d DAYS",
+                      -progress.days_until_due_date);
+    } else {
+        std::snprintf(countdown, sizeof(countdown),
+                      ui_language_is_chinese() ? "距离预产期 %d 天" : "%d DAYS UNTIL DUE DATE",
+                      progress.days_until_due_date);
+    }
+    canvas.draw_text(32, 318, countdown, 3, GrayLevel::Black);
+    canvas.draw_text(32, 350,
                      "40-WEEK DEVELOPMENT PROGRESS",
-                     3,
+                     2,
                      GrayLevel::Black);
     constexpr int kBarX = 32;
-    constexpr int kBarY = 386;
+    constexpr int kBarY = 378;
     constexpr int kBarWidth = 736;
     constexpr int kBarHeight = 20;
     canvas.fill_rect(kBarX, kBarY, kBarWidth, kBarHeight,
@@ -306,7 +354,7 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
                       "ABOUT %u%% COMPLETE",
                       static_cast<unsigned>(progress.percent));
     }
-    canvas.draw_text(32, 434, completion, 3, GrayLevel::Black);
+    canvas.draw_text(32, 404, completion, 2, GrayLevel::Black);
 
     char due[40] = {};
     std::snprintf(due, sizeof(due),
@@ -316,8 +364,59 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
                   static_cast<unsigned>(due_date.year),
                   static_cast<unsigned>(due_date.month),
                   static_cast<unsigned>(due_date.day));
-    canvas.draw_text(388, 442, due, 2, GrayLevel::Black);
+    canvas.draw_text(520, 388, due, 1, GrayLevel::Black);
     draw_button(canvas, kEditRect, "EDIT", false, 2);
+    draw_button(canvas, kOverviewTab, ui_text("OVERVIEW"), true, 2);
+    draw_button(canvas, kBabyTab, ui_text("BABY"), false, 2);
+    draw_button(canvas, kMomTab, ui_text("MOM"), false, 2);
+}
+
+void pregnancy_page_render_detail(Canvas &canvas,
+                                  PregnancyPage page,
+                                  const PregnancyProgress &progress,
+                                  const WeekContent &content)
+{
+    canvas.clear(GrayLevel::White);
+    char week[32] = {};
+    std::snprintf(week, sizeof(week),
+                  ui_language_is_chinese() ? "第 %d 周" : "WEEK %d",
+                  static_cast<int>(progress.weeks));
+    canvas.draw_text(42, 26, week, 5, GrayLevel::Black);
+    canvas.draw_text(42, 84,
+                     ui_text(page == PregnancyPage::Baby ? "BABY" : "MOM"),
+                     3, GrayLevel::Black);
+    canvas.draw_line(42, 122, 758, 122, GrayLevel::Black);
+    const bool chinese = ui_language_is_chinese();
+    if (page == PregnancyPage::Baby) {
+        canvas.draw_text(42, 150, ui_text("THIS WEEK"), 2, GrayLevel::DarkGray);
+        ui_draw_wrapped_text(canvas, 42, 188, 716,
+                             chinese ? content.baby_development_zh
+                                     : content.baby_development,
+                             2, GrayLevel::Black, 3, 8);
+        canvas.draw_text(42, 274, content.baby_size_text, 2, GrayLevel::Black);
+        canvas.draw_text(42, 306, content.baby_weight_text, 2, GrayLevel::Black);
+    } else {
+        canvas.draw_text(42, 150, ui_text("COMMON CHANGES"), 2,
+                         GrayLevel::DarkGray);
+        ui_draw_wrapped_text(canvas, 42, 188, 716,
+                             chinese ? content.mother_changes_zh
+                                     : content.mother_changes,
+                             2, GrayLevel::Black, 3, 8);
+        canvas.draw_text(42, 278, ui_text("GENTLE REMINDER"), 2,
+                         GrayLevel::DarkGray);
+        ui_draw_wrapped_text(canvas, 42, 316, 716,
+                             chinese ? content.daily_advice_zh
+                                     : content.daily_advice,
+                             2, GrayLevel::Black, 2, 8);
+    }
+    canvas.draw_text(42, 382,
+                     ui_text("INFORMATION ONLY - CONTACT YOUR CARE TEAM IF UNWELL"),
+                     1, GrayLevel::DarkGray);
+    draw_button(canvas, kOverviewTab, ui_text("OVERVIEW"), false, 2);
+    draw_button(canvas, kBabyTab, ui_text("BABY"),
+                page == PregnancyPage::Baby, 2);
+    draw_button(canvas, kMomTab, ui_text("MOM"),
+                page == PregnancyPage::Mom, 2);
 }
 
 PregnancyAction pregnancy_page_action_at(PregnancyPage page,
@@ -328,10 +427,20 @@ PregnancyAction pregnancy_page_action_at(PregnancyPage page,
     if (x < 0 || y < 0 || x >= kScreenWidth || y >= kScreenHeight) {
         return PregnancyAction::None;
     }
-    if (page == PregnancyPage::Dashboard) {
-        return kEditRect.contains(x, y)
-                   ? PregnancyAction::Edit
-                   : PregnancyAction::None;
+    if (page == PregnancyPage::SourceSetup) {
+        if (kDueSourceRect.contains(x, y)) return PregnancyAction::SelectDueDate;
+        if (kLmpSourceRect.contains(x, y)) return PregnancyAction::SelectLmp;
+        return can_cancel && kBackRect.contains(x, y)
+                   ? PregnancyAction::Back : PregnancyAction::None;
+    }
+    if (page == PregnancyPage::Dashboard || page == PregnancyPage::Baby ||
+        page == PregnancyPage::Mom) {
+        if (page == PregnancyPage::Dashboard && kEditRect.contains(x, y))
+            return PregnancyAction::Edit;
+        if (kOverviewTab.contains(x, y)) return PregnancyAction::ShowOverview;
+        if (kBabyTab.contains(x, y)) return PregnancyAction::ShowBaby;
+        if (kMomTab.contains(x, y)) return PregnancyAction::ShowMom;
+        return PregnancyAction::None;
     }
     if (can_cancel && kBackRect.contains(x, y)) {
         return PregnancyAction::Back;
@@ -360,10 +469,16 @@ const char *pregnancy_page_name(PregnancyPage page)
     switch (page) {
     case PregnancyPage::ClockSetup:
         return "clock_setup";
-    case PregnancyPage::DueDateSetup:
-        return "due_date_setup";
+    case PregnancyPage::SourceSetup:
+        return "source_setup";
+    case PregnancyPage::DateSetup:
+        return "date_setup";
     case PregnancyPage::Dashboard:
         return "dashboard";
+    case PregnancyPage::Baby:
+        return "baby";
+    case PregnancyPage::Mom:
+        return "mom";
     }
     return "unknown";
 }
@@ -386,6 +501,11 @@ const char *pregnancy_action_name(PregnancyAction action)
     case PregnancyAction::Continue: return "continue";
     case PregnancyAction::Back: return "back";
     case PregnancyAction::Edit: return "edit";
+    case PregnancyAction::SelectDueDate: return "select_due_date";
+    case PregnancyAction::SelectLmp: return "select_lmp";
+    case PregnancyAction::ShowOverview: return "show_overview";
+    case PregnancyAction::ShowBaby: return "show_baby";
+    case PregnancyAction::ShowMom: return "show_mom";
     }
     return "unknown";
 }

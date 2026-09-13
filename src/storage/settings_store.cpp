@@ -42,7 +42,7 @@ esp_err_t sticky_settings_load(StickyDeviceSettings &settings)
         settings = selected.settings;
     }
     if (!sticky_app_id_valid(settings.last_app)) {
-        settings.last_app = StickyAppId::Home;
+        settings.last_app = StickyAppId::Pregnancy;
     }
     if (settings.language != UiLanguage::ChineseSimplified) {
         settings.language = UiLanguage::English;

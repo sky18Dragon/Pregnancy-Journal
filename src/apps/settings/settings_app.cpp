@@ -27,6 +27,7 @@ char s_digits[13] = {};
 size_t s_length = 0U;
 bool s_error = false;
 bool s_home_requested = false;
+bool s_pregnancy_requested = false;
 
 void fill_digits(const StickyRtcDateTime &value)
 {
@@ -115,6 +116,9 @@ void handle(SettingsAction action)
     }
     case SettingsAction::EditTime: open_editor(); render(); break;
     case SettingsAction::RefreshDisplay: render(true); break;
+    case SettingsAction::PregnancySettings:
+        s_pregnancy_requested = true;
+        break;
     case SettingsAction::Back:
         if (s_page == SettingsPage::TimeEditor) { s_page = SettingsPage::Main; render(); }
         else s_home_requested = true;
@@ -161,3 +165,5 @@ uint32_t settings_app_power_sleep_timeout_ms() { return kSleepTimeoutMs; }
 bool settings_app_power_sleep_allowed() { return s_page == SettingsPage::Main; }
 bool settings_app_take_home_request()
 { const bool value = s_home_requested; s_home_requested = false; return value; }
+bool settings_app_take_pregnancy_request()
+{ const bool value = s_pregnancy_requested; s_pregnancy_requested = false; return value; }

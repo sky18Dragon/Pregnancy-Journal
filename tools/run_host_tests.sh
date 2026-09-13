@@ -29,10 +29,6 @@ compile_and_run persistent_state_test -Isrc/app -Isrc/storage -Isrc/ui \
     src/app/sticky_app_id.cpp
 compile_and_run scheduler_test -Isrc/system \
     test/scheduler_test.cpp src/system/scheduler.cpp
-compile_and_run home_pages_test -Isrc/apps/home -Isrc/ui -Isrc/ui/assets \
-    test/home_pages_test.cpp src/apps/home/home_pages.cpp \
-    src/ui/canvas.cpp src/ui/font.cpp src/ui/ui_language.cpp \
-    src/ui/assets/chinese_font_assets.cpp
 compile_and_run settings_pages_test -Isrc/apps/settings -Isrc/ui -Isrc/ui/assets \
     test/settings_pages_test.cpp src/apps/settings/settings_pages.cpp \
     src/ui/canvas.cpp src/ui/font.cpp src/ui/ui_language.cpp \
@@ -44,11 +40,27 @@ compile_and_run pregnancy_storage_record_test -Isrc/apps/pregnancy \
     src/apps/pregnancy/pregnancy_storage_record.cpp \
     src/apps/pregnancy/pregnancy_state.cpp
 compile_and_run pregnancy_pages_test \
-    -Isrc/apps/pregnancy -Isrc/app -Isrc/ui -Isrc/ui/assets \
+    -Isrc/apps/pregnancy -Isrc/pregnancy/content -Isrc/app -Isrc/ui -Isrc/ui/assets \
     test/pregnancy_pages_test.cpp src/apps/pregnancy/pregnancy_pages.cpp \
     src/apps/pregnancy/pregnancy_state.cpp src/ui/canvas.cpp src/ui/font.cpp \
-    src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp \
+    src/ui/text_layout.cpp src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp \
     src/ui/assets/pixel_asset.cpp src/ui/assets/app_launcher_assets.cpp
+compile_and_run content_service_test -Isrc/pregnancy/content \
+    test/content_service_test.cpp src/pregnancy/content/content_service.cpp
+compile_and_run reminder_service_test -Isrc/apps/pregnancy \
+    -Isrc/pregnancy/models -Isrc/pregnancy/services \
+    test/reminder_service_test.cpp src/pregnancy/services/reminder_service.cpp \
+    src/apps/pregnancy/pregnancy_state.cpp
+compile_and_run reminder_storage_record_test -Isrc/apps/pregnancy \
+    -Isrc/pregnancy/models -Isrc/pregnancy/services \
+    test/reminder_storage_record_test.cpp \
+    src/pregnancy/services/reminder_storage_record.cpp \
+    src/pregnancy/services/reminder_service.cpp \
+    src/apps/pregnancy/pregnancy_state.cpp
+compile_and_run checkup_service_test -Isrc/apps/pregnancy \
+    -Isrc/pregnancy/models -Isrc/pregnancy/services \
+    test/checkup_service_test.cpp src/pregnancy/services/checkup_service.cpp \
+    src/apps/pregnancy/pregnancy_state.cpp
 compile_and_run sticky_app_gesture_test -Isrc/app \
     test/sticky_app_gesture_test.cpp src/app/sticky_app_gesture.cpp
 compile_and_run sticky_battery_protocol_test -Isrc/devices \
@@ -61,5 +73,9 @@ compile_and_run sticky_shake_detector_test -Isrc/sensors \
 compile_and_run ui_language_test -Isrc/ui -Isrc/ui/assets \
     test/ui_language_test.cpp src/ui/canvas.cpp src/ui/font.cpp \
     src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp
+compile_and_run text_layout_test -Isrc/ui -Isrc/ui/assets \
+    test/text_layout_test.cpp src/ui/text_layout.cpp src/ui/canvas.cpp \
+    src/ui/font.cpp src/ui/ui_language.cpp \
+    src/ui/assets/chinese_font_assets.cpp
 
 echo "[host-test] PASS ${passed_count}/${passed_count}"

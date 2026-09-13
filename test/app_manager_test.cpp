@@ -22,21 +22,21 @@ bool allowed0() { return true; }
 int main()
 {
     const StickyAppDescriptor apps[] = {
-        {StickyAppId::Home, "home", "Home", StickyAppRotationPolicy::FixedLandscape,
+        {StickyAppId::Pregnancy, "pregnancy", "Baby Week", StickyAppRotationPolicy::FixedLandscape,
          start0, pause0, resume0, sleep0, timeout0, allowed0},
         {StickyAppId::Settings, "settings", "Settings", StickyAppRotationPolicy::FixedLandscape,
          start1, pause1, resume1, sleep0, timeout0, allowed0},
     };
     Canvas canvas;
-    StickyAppManager manager(apps, 2U, StickyAppId::Home);
+    StickyAppManager manager(apps, 2U, StickyAppId::Pregnancy);
     assert(manager.start(canvas, static_cast<StickyAppId>(77)) == ESP_OK);
-    assert(manager.current_id() == StickyAppId::Home);
+    assert(manager.current_id() == StickyAppId::Pregnancy);
     assert(starts[0] == 1);
     assert(manager.switch_to(StickyAppId::Settings) == ESP_OK);
     assert(pauses[0] == 1 && starts[1] == 1);
     assert(manager.return_home() == ESP_OK);
     assert(pauses[1] == 1 && resumes[0] == 1);
-    assert(manager.started(StickyAppId::Home));
+    assert(manager.started(StickyAppId::Pregnancy));
     assert(manager.started(StickyAppId::Settings));
     return 0;
 }

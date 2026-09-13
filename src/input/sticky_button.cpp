@@ -183,7 +183,7 @@ esp_err_t sticky_button_init()
     }
 
     STICKY_LOGI(kTag,
-                "button=ready ai_pin=%d side_pins=%d,%d active_level=low press=imu_start single=launcher double=pet_home sleep_chord_ms=2000 click_window_ms=%u result=ok",
+                "button=ready ai_pin=%d side_pins=%d,%d active_level=low press=imu_start single=launcher double=pregnancy_home sleep_chord_ms=2000 click_window_ms=%u result=ok",
                 PIN_TOP_BUTTON,
                 PIN_SIDE_BUTTON_LEFT,
                 PIN_SIDE_BUTTON_RIGHT,

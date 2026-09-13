@@ -1,9 +1,12 @@
 #pragma once
 
 enum class StickyAppId {
-    Home,
-    Settings,
-    Pregnancy,
+    // Keep the persisted numeric values stable. IDs 0, 5 and 6 belonged to
+    // the retired Home, Journal and Advice applications.
+    Settings = 1,
+    Pregnancy = 2,
+    Reminder = 3,
+    Checkup = 4,
 };
 
 bool sticky_app_id_valid(StickyAppId app);

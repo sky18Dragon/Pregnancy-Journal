@@ -90,8 +90,11 @@ int main()
     assert(count_level(buffer, GrayLevel::Black) > 8000U);
     assert(count_level(buffer, GrayLevel::LightGray) > 5000U);
     assert(pregnancy_page_action_at(
-               PregnancyPage::Dashboard, true, 710, 445) ==
+               PregnancyPage::Dashboard, true, 710, 45) ==
            PregnancyAction::Edit);
+    assert(pregnancy_page_action_at(
+               PregnancyPage::Dashboard, true, 400, 440) ==
+           PregnancyAction::ShowBaby);
     assert(pregnancy_page_action_at(
                PregnancyPage::Dashboard, true, 400, 200) ==
            PregnancyAction::None);

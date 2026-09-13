@@ -4,6 +4,8 @@
 
 int main()
 {
+    assert(!sticky_app_id_valid(static_cast<StickyAppId>(0)));
+    assert(sticky_app_id_valid(StickyAppId::Pregnancy));
     StickyDeviceSettings settings = {};
     settings.language = UiLanguage::ChineseSimplified;
     settings.last_app = StickyAppId::Settings;

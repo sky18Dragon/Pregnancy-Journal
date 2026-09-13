@@ -30,6 +30,10 @@ esp_err_t sticky_rtc_read(StickyRtcDateTime &date_time);
 // 校验并写入用户选择的完整日历时间。
 esp_err_t sticky_rtc_write(const StickyRtcDateTime &date_time);
 
+// Converts a validated RTC value to the framework's UTC-like day epoch.
+bool sticky_rtc_epoch_seconds(const StickyRtcDateTime &date_time,
+                              uint32_t &epoch_seconds);
+
 // Seeds an invalid clock once from the firmware build date and time.
 // 使用固件构建日期和时间为无效RTC执行一次初始校时。
 esp_err_t sticky_rtc_seed_from_build_time(StickyRtcDateTime &date_time);

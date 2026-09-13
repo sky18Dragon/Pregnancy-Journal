@@ -1,6 +1,7 @@
 #include "scheduler.h"
 
-bool StickyScheduler::schedule(uint32_t id, uint32_t epoch_seconds)
+bool StickyScheduler::schedule(uint32_t id, uint32_t epoch_seconds,
+                               StickyScheduledEventType type)
 {
     if (id == 0U || epoch_seconds == 0U) {
         return false;
@@ -9,6 +10,7 @@ bool StickyScheduler::schedule(uint32_t id, uint32_t epoch_seconds)
     for (StickyScheduledEvent &event : events_) {
         if (event.enabled && event.id == id) {
             event.epoch_seconds = epoch_seconds;
+            event.type = type;
             return true;
         }
         if (!event.enabled && available == nullptr) {
@@ -18,7 +20,7 @@ bool StickyScheduler::schedule(uint32_t id, uint32_t epoch_seconds)
     if (available == nullptr) {
         return false;
     }
-    *available = {id, epoch_seconds, true};
+    *available = {id, epoch_seconds, true, type};
     return true;
 }
 
