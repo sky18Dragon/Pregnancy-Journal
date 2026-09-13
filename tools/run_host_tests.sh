@@ -61,6 +61,14 @@ compile_and_run checkup_service_test -Isrc/apps/pregnancy \
     -Isrc/pregnancy/models -Isrc/pregnancy/services \
     test/checkup_service_test.cpp src/pregnancy/services/checkup_service.cpp \
     src/apps/pregnancy/pregnancy_state.cpp
+compile_and_run weight_service_test -Isrc/apps/pregnancy \
+    -Isrc/pregnancy/models -Isrc/pregnancy/services \
+    test/weight_service_test.cpp src/pregnancy/services/weight_service.cpp \
+    src/apps/pregnancy/pregnancy_state.cpp
+compile_and_run kick_service_test -Isrc/apps/pregnancy \
+    -Isrc/pregnancy/models -Isrc/pregnancy/services \
+    test/kick_service_test.cpp src/pregnancy/services/kick_service.cpp \
+    src/apps/pregnancy/pregnancy_state.cpp
 compile_and_run sticky_app_gesture_test -Isrc/app \
     test/sticky_app_gesture_test.cpp src/app/sticky_app_gesture.cpp
 compile_and_run sticky_battery_protocol_test -Isrc/devices \

@@ -2,7 +2,8 @@
 
 Pregnancy Journal is an offline pregnancy organizer for the Seeed Studio
 reTerminal Sticky. It combines a calm e-paper dashboard, pregnancy week
-information, reminders and appointments while keeping the
+information, reminders, appointments, weight trends and kick-count sessions
+while keeping the
 hardware-tested Sticky Core framework intact. It is an informational organizer,
 not a diagnostic or treatment device.
 
@@ -14,6 +15,10 @@ not a diagnostic or treatment device.
 - Today/upcoming reminders with simple creation, completion, deletion and
   daily/weekly recurrence support in the domain layer.
 - Checkup organizer for appointments and completion status.
+- Daily kg/lb weight records with BMI, baseline gain and weekly trend checks.
+- Morning/afternoon/evening kick-count sessions with 12-hour estimates and
+  change detection.
+- A six-app, high-contrast launcher designed for the 800x480 e-paper panel.
 - English and Simplified Chinese UI.
 - Typed reminder/checkup/daily-refresh scheduler, deep sleep and button/timer
   wake.
@@ -24,8 +29,8 @@ not a diagnostic or treatment device.
 Pregnancy apps -> domain/content services -> Sticky Core -> device HAL
 ```
 
-The registry composes four isolated apps: Baby Week, Reminder, Checkup and
-Settings. `StickyAppManager` enforces lifecycle and input/
+The registry composes six isolated apps: Baby Week, Reminder, Checkup, Weight,
+Kicks and Settings. `StickyAppManager` enforces lifecycle and input/
 display ownership. The framework coordinator owns Launcher, scheduling and
 deep sleep. See [architecture.md](docs/pregnancy/architecture.md).
 
@@ -66,7 +71,8 @@ Settings.
 - Swipe up from the bottom or single-click the top button: open Launcher.
 - Swipe down or single-click again: close Launcher.
 - Double-click the top button: return to Baby Week.
-- Tap a Launcher card to open Baby Week, Reminder, Checkup or Settings.
+- Tap a Launcher card to open Baby Week, Reminder, Checkup, Weight or Kicks;
+  Settings has a dedicated control in the Launcher header.
 
 ## Apps
 
