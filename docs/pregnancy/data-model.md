@@ -41,6 +41,19 @@ reminders complete.
 
 Capacity is 8. Entries are organizer data; they are not medical recommendations.
 
+The current editor creates a new item for today + 7 days at 09:00. The service
+also retains the hour/minute fields for future editing support.
+
+## WeightProfileSettings
+
+- height in centimetres (default 165; valid range 100–220)
+- pre-pregnancy baseline in tenths of a kilogram (auto-filled by the first saved
+  weight when unset)
+- display unit flag (`kg` or `lb`)
+
+These settings are stored with the weight namespace. Weight values are always
+stored as tenths of a kilogram; lb is a display/input conversion only.
+
 ## WeightRecord
 
 - id and calendar date
@@ -58,6 +71,9 @@ total gain and weekly change are derived at runtime.
 - duration in minutes and counted movements
 - bounded note
 
-Capacity is 42. Daily summaries total the three periods, calculate the 12-hour
-estimate and compare the sampled total with the previous day. Attention states
-are prompts to contact the care team, never diagnoses.
+Capacity is 42. Sessions are valid for 0–120 minutes and 0–500 movements; the
+current UI caps an active session at 60 minutes and debounces taps within five
+seconds. Daily summaries total the three periods, calculate the 12-hour
+estimate as `sampled_total × 4`, and compare the sampled total and each period
+with the previous day. Attention states are prompts to contact the care team,
+never diagnoses.

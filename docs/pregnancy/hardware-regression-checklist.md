@@ -1,48 +1,83 @@
 # Hardware regression checklist
 
-Run this checklist on a Seeed Studio reTerminal Sticky after flashing the final
-release image. The previous seven-app image passed a cold-boot smoke test on
-2026-09-12. The four-app scope revision built on 2026-09-13 still requires a
-fresh physical-device run, so its checks remain open below.
+Run this checklist on a Seeed Studio reTerminal Sticky after flashing the
+current `sticky-release` image. Host tests and a successful build do not replace
+these physical checks. Record the date, firmware commit and serial port with
+the result.
 
-## Boot and devices
+## Boot and device services
 
-- [ ] Cold boot reaches Baby Week without panic or watchdog reset.
-- [ ] RTC, battery gauge, SSD1677, GT911, IMU, buttons and buzzer initialize.
-- [ ] Existing date/time survives power cycle.
-- [ ] English and Simplified Chinese glyphs are legible.
+- [ ] Cold boot reaches `phase=ready` without panic or watchdog reset.
+- [ ] RTC, battery gauge, SSD1677 e-paper, GT911 touch, IMU, buttons and buzzer
+  initialize in the serial log.
+- [ ] Device time survives a power cycle and invalid time input is rejected.
+- [ ] English and Simplified Chinese glyphs are legible; launcher language
+  toggle updates the visible copy.
 
-## Apps and input
+## Launcher and navigation
 
-- [ ] Swipe up and top-button single click open Launcher.
-- [ ] Swipe down closes Launcher; double-click returns to Baby Week.
-- [ ] All four cards open the correct app.
-- [ ] Inactive apps do not receive touch presses.
-- [ ] Pregnancy due-date and LMP setup both save and restore.
-- [ ] Overview/Baby/Mom tabs render the expected week.
-- [ ] Reminder add/list/complete/delete survives reboot.
-- [ ] Checkup add/complete/delete survives reboot.
+- [ ] Top-button single click opens and closes Launcher.
+- [ ] Bottom-edge upward swipe opens it; downward swipe from the lower 30%
+  closes it.
+- [ ] Double-click returns to Baby Week from every app.
+- [ ] Baby Week, Checkups, Reminders, Weight, Kicks and Settings each open the
+  correct app.
+- [ ] Launcher closes after inactivity and inactive apps do not receive touch.
+- [ ] Selecting an app persists the last app across a normal deep-sleep wake.
 
-## Display
+## Baby Week
+
+- [ ] First use accepts `YYYYMMDDHHMM` device time.
+- [ ] Confirmed due date setup saves and restores.
+- [ ] LMP setup saves and restores.
+- [ ] Dashboard shows week/day, trimester, due-date countdown and 40-week
+  progress; overdue dates remain readable.
+- [ ] Baby and Mom tabs show the expected offline content for the current week.
+
+## Reminders and checkups
+
+- [ ] Reminder Today/Upcoming views and all six types render correctly.
+- [ ] Add, complete, delete and global enable/disable survive a reboot.
+- [ ] A full reminder list fails gracefully at 12 records.
+- [ ] Checkup add defaults to today +7 days at 09:00; −1/+1/+7 day controls work.
+- [ ] Checkup complete/delete survive a reboot and capacity 8 fails gracefully.
+
+## Weight and kicks
+
+- [ ] Weight add/edit saves one value for today; saving again replaces today's
+  value.
+- [ ] kg/lb toggle, height adjustment (100–220 cm), BMI, baseline and trend
+  render correctly; remove-latest removes the chronological latest record.
+- [ ] Weight capacity 32 fails gracefully.
+- [ ] Kick session infers morning/afternoon/evening from RTC and counts taps in
+  the central area.
+- [ ] Taps within five seconds are ignored; Finish saves and Cancel discards.
+- [ ] An active session ends at 60 minutes; Reset Today removes today's sessions.
+- [ ] Three-period summary, 12-hour estimate and attention prompt render.
+
+## Display and power
 
 - [ ] Full and partial refresh complete without timeout.
-- [ ] Unchanged areas remain stable during partial refresh.
-- [ ] Repeated app changes trigger periodic cleanup and acceptable ghosting.
+- [ ] Repeated app changes trigger cleanup refresh without unacceptable ghosting.
 - [ ] Settings clean refresh removes residual ghosting.
+- [ ] Stable pages enter deep sleep after 60 seconds without external power;
+  Settings uses three minutes and editors/active kick counting stay awake.
+- [ ] Top-button wake restores the app and the e-paper image remains visible.
+- [ ] A two-second side-button chord enters sleep; charge/no-charge GPIO levels
+  match the hardware baseline.
 
-## Sleep and wake
+## Scheduled wake and fault cases
 
-- [ ] Idle timeout enters deep sleep and display image remains visible.
-- [ ] Top button wakes the device.
-- [ ] Timer wakes near a reminder and starts the buzzer.
+- [ ] Earliest reminder/checkup wins over the daily 03:00 refresh and app event.
+- [ ] Timer wake up to 15 seconds early starts the buzzer for a due item.
 - [ ] Touch/button interaction stops the buzzer.
-- [ ] Earliest reminder wins over later reminder/checkup/daily refresh.
-- [ ] With no earlier event, daily 03:00 refresh is selected.
-- [ ] Charge/no-charge behavior and retained GPIO levels match baseline.
+- [ ] RTC or battery unavailable states remain navigable.
+- [ ] Interrupted/corrupt NVS writes preserve valid prior records or skip only
+  the damaged slot.
 
-## Fault and power-cycle cases
+## Verification record
 
-- [ ] Interrupt profile, reminder and checkup writes; valid prior data
-  remains loadable or a damaged record is skipped.
-- [ ] Full reminder/checkup capacity fails gracefully.
-- [ ] RTC unavailable and battery unavailable states remain navigable.
+- Firmware: `2.0.0`
+- Current repository commit: `2556df8`
+- Host suite: 20/20 passed
+- Current six-app physical run: pending until the checklist above is completed

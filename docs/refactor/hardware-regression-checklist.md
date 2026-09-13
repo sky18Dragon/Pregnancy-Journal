@@ -1,4 +1,9 @@
-# Hardware regression checklist
+# Historical hardware regression record (archived)
+
+This is the completed record for the earlier three-app image. It is retained
+for provenance only; it is not a pass for the current six-app firmware. Use
+[`docs/pregnancy/hardware-regression-checklist.md`](../pregnancy/hardware-regression-checklist.md)
+for the current run.
 
 Completed on a Seeed Studio reTerminal Sticky after flashing `sticky-release`.
 

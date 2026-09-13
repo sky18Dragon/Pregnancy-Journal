@@ -1,60 +1,53 @@
-# Pregnancy Journal baseline
+# Current baseline
 
-## Starting point
+This document records the implementation and verification baseline for the
+current six-app image. Historical refactor analysis is kept under
+`docs/refactor/` and is not a description of the current product.
 
-- Commit: `3a1e048769691f5fa88eb873c3de93798bf54194`
-- Platform: PlatformIO, ESP-IDF 5.4.1, ESP32-S3, reTerminal Sticky
-- Apps: Home, Settings, Pregnancy
-- Host tests: 14/14
-- Release build: PASS
-- Flash: 427,576 B / 8,388,608 B (5.1%)
-- Internal RAM: 16,916 B / 327,680 B (5.2%)
-- PSRAM: two 96,000-byte display framebuffers are allocated at runtime
+## Firmware and build
 
-Because PlatformIO rejects the workspace path containing spaces, builds are
-performed from an exact, no-space mirror under `/private/tmp`.
+- Repository commit: `2556df8`
+- Firmware version: `2.0.0`
+- Platform: PlatformIO, `espressif32@6.11.0`, ESP-IDF 5.4.1, ESP32-S3
+- Board: `sticky_esp32s3`, Seeed Studio reTerminal Sticky
+- Apps: Baby Week, Reminders, Checkups, Weight, Kicks and Settings
+- Default app: Baby Week
+- Host suite: 20/20 passed
+- Release, debug and power-test profiles: build gates defined in
+  `platformio.ini`; release build passed for this scope
+
+PlatformIO rejects paths containing spaces. Reproducible builds therefore use
+an exact mirror under `/private/tmp` or a no-space checkout. The custom
+`partitions.csv` allocates 8 MiB to the factory application and 24 KiB to NVS.
+
+The latest release build reported approximately 485,656 bytes of flash and
+24,380 bytes of internal RAM, within the current partition and memory budget.
+Two 96,000-byte display framebuffers remain allocated in PSRAM at runtime.
 
 ## Preserved hardware baseline
 
-The starting firmware had a completed device verification for power latching,
-SSD1677 e-paper, GT911 touch, top and side buttons, PCF8563 RTC, BQ27220 battery
-gauge, IMU, buzzer, deep sleep, timer/button wake and app switching. Pregnancy
-Sticky development preserves those HALs and ownership boundaries.
+The Sticky Core integration retains power latching, SSD1677 e-paper, GT911
+touch, top and side buttons, PCF8563 RTC, BQ27220 battery gauge, IMU, buzzer,
+deep sleep, timer/button wake and shared bus ownership. The current product
+adds application services without moving hardware ownership into an app.
 
-The new Pregnancy Journal image passed a physical cold-boot smoke test. The
-remaining interaction, persistence, sleep/wake and fault cases in
-[hardware-regression-checklist.md](hardware-regression-checklist.md) still
-require hands-on regression testing; host and build gates do not substitute for
-those tests.
+## Functional baseline
 
-## Historical phase plan and gate
+- Pregnancy profile accepts confirmed due date or LMP, with redundant NVS
+  storage and legacy due-date migration.
+- Reminder and checkup services feed the central scheduler and due buzzer.
+- Weight and kick services persist independent bounded records and expose local
+  derived summaries.
+- Launcher and all six apps use fixed landscape 800×480 layouts with English /
+  Simplified Chinese copy where the translation table is provided.
+- Full/partial e-paper refresh, idle sleep, timer wake and button wake remain
+  coordinator-owned.
 
-1. Pregnancy profile, calculation, storage and tests.
-2. First-use LMP/due-date setup.
-3. Pregnancy Home dashboard.
-4. Overview/Baby/Mom and offline content.
-5. Reminder domain, persistence and scheduler.
-6. Reminder UI and Home aggregation.
-7. Checkup domain, UI and Home aggregation.
-8. Advice UI.
-9. Text journal and file persistence.
-10. Seven-app launcher and Settings integration.
-11. Refresh, wake and idle-power review.
-12. Clean builds, host tests and hardware checklist.
+## Verification status
 
-Each implemented phase passed its host test and release build gate before the
-next set of changes was started.
-
-## Current snapshot after product-scope revision
-
-- Firmware version: 2.0.0
-- Apps after product-scope revision: 4 (Baby Week, Reminder, Checkup, Settings)
-- Default home: Baby Week
-- Host tests after product-scope revision: 18/18
-- Clean release/debug/power-test builds: PASS
-- Release Flash: 469,716 B / 8,388,608 B (5.6%), +42,140 B
-- Release internal RAM: 19,980 B / 327,680 B (6.1%), +3,064 B
-- Release binary: 470,384 B, +42,144 B
-- Runtime display PSRAM allocation: unchanged at 192,000 B
-- Previous seven-app image physical cold-boot smoke test: PASS (2026-09-12)
-- Revised four-app image physical regression: REQUIRED
+Host and firmware build gates are green. The current six-app image still
+requires a fresh physical-device pass for touch coordinates, every new Weight
+and Kicks interaction, e-paper ghosting, sleep/wake and fault recovery. Use
+[hardware-regression-checklist.md](hardware-regression-checklist.md) and record
+the actual board port and serial result; do not reuse the historical three-app
+test record.

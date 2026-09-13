@@ -1,5 +1,9 @@
 # Migration report
 
+This report is historical. Its final 2026-09-12 three-app record predates the
+current six-app product scope. The live baseline is documented in
+[`docs/pregnancy/baseline.md`](../pregnancy/baseline.md).
+
 The refactor was executed as granular commits from the checkpoint at
 `ffd8039`.
 
@@ -22,3 +26,11 @@ Firmware `1.0.0` at commit `fdc6be6` was flashed through
 `phase=ready`, reported `apps=3 default=home current=home`, and confirmed the
 RTC, battery, display, touch, IMU and button paths. The user completed the
 physical interaction checklist without finding a problem.
+
+## Subsequent product-scope update
+
+The current branch extends the retained Pregnancy app with Reminders, Checkups,
+Weight and Kicks, and keeps Settings as the sixth registered app. Commit
+`2556df8` (`2.0.0`) passes 20/20 host tests and a release build. A fresh
+physical-device regression for this image is still required; the archived
+three-app pass above must not be used as evidence for the new applications.

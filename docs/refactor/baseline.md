@@ -1,5 +1,10 @@
 # Sticky Core Framework refactor baseline
 
+> **Historical archive.** This analysis describes the pre-Pregnancy Journal
+> refactor and retired desktop-pet applications. It is not the current product
+> baseline; see [`docs/pregnancy/baseline.md`](../pregnancy/baseline.md) and
+> [`docs/pregnancy/current-functionality.md`](../pregnancy/current-functionality.md).
+
 > Historical note: this document records the pre-refactor system and the
 > original removal plan. The final product decision retained Pregnancy as the
 > third application alongside Home and Settings. See `migration-report.md` for

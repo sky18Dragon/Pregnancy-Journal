@@ -1,7 +1,8 @@
 # Future roadmap
 
-Recorded only; none of these capabilities is implemented or pre-wired in the
-current offline product:
+The shipped scope is the six-app offline image documented in
+[current-functionality.md](current-functionality.md). The items below are not
+implemented or pre-wired.
 
 - Voice Memo
 - Speech-to-Text
