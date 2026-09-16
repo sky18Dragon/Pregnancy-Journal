@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=800, initial-scale=1" />
+    <title>孕期手帐｜墨水屏视觉原型</title>
+    <style>
+      :root {
+        --ink-primary: #202020;
+        --ink-secondary: #5b5b5b;
+        --ink-divider: #aaaaaa;
+        --paper: #f4f4f2;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 800px;
+        height: 480px;
+        margin: 0;
+        overflow: hidden;
+        background: var(--paper);
+      }
+
+      body {
+        color: var(--ink-primary);
+        font-family: "Source Han Sans SC", "Noto Sans SC", "Hiragino Sans GB",
+          "PingFang SC", sans-serif;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: geometricPrecision;
+      }
+
+      .screen {
+        position: relative;
+        width: 800px;
+        height: 480px;
+        padding: 24px 32px;
+        background: var(--paper);
+      }
+
+      .topbar {
+        display: flex;
+        height: 56px;
+        align-items: flex-start;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--ink-divider);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 30px;
+        font-weight: 500;
+        line-height: 40px;
+        letter-spacing: 0;
+      }
+
+      .status {
+        display: flex;
+        height: 44px;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .battery-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--ink-secondary);
+        font-size: 15px;
+        font-weight: 400;
+        font-variant-numeric: tabular-nums;
+        line-height: 22px;
+      }
+
+      .battery {
+        position: relative;
+        width: 30px;
+        height: 15px;
+        padding: 2px;
+        border: 1px solid var(--ink-divider);
+      }
+
+      .battery::after {
+        position: absolute;
+        top: 4px;
+        right: -4px;
+        width: 3px;
+        height: 7px;
+        background: var(--ink-divider);
+        content: "";
+      }
+
+      .battery-fill {
+        width: 100%;
+        height: 100%;
+        background: var(--ink-secondary);
+      }
+
+      .menu-button {
+        display: grid;
+        width: 44px;
+        height: 44px;
+        padding: 11px 10px;
+        border: 1px solid var(--ink-divider);
+        border-radius: 0;
+        background: transparent;
+        color: var(--ink-secondary);
+        cursor: default;
+      }
+
+      .menu-button span {
+        display: block;
+        width: 22px;
+        height: 1px;
+        align-self: center;
+        background: currentColor;
+      }
+
+      .home-grid {
+        display: grid;
+        height: 304px;
+        margin-top: 16px;
+        grid-template-columns: 304px 400px;
+        gap: 32px;
+      }
+
+      .size-panel {
+        position: relative;
+        height: 304px;
+      }
+
+      .label {
+        margin: 0;
+        color: var(--ink-secondary);
+        font-size: 15px;
+        font-weight: 400;
+        line-height: 22px;
+        letter-spacing: 0.4px;
+      }
+
+      .week-line {
+        display: flex;
+        height: 64px;
+        align-items: flex-end;
+        margin-top: 0;
+      }
+
+      .week-number {
+        color: var(--ink-primary);
+        font-size: 62px;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+        line-height: 64px;
+        letter-spacing: -1px;
+      }
+
+      .week-unit {
+        margin: 0 0 7px 8px;
+        color: var(--ink-secondary);
+        font-size: 18px;
+        font-weight: 400;
+        line-height: 24px;
+      }
+
+      .baby-size-image {
+        position: absolute;
+        top: 56px;
+        right: 44px;
+        width: 148px;
+        height: 148px;
+        mix-blend-mode: multiply;
+        image-rendering: pixelated;
+      }
+
+      .size-copy {
+        position: absolute;
+        top: 208px;
+        left: 0;
+        width: 288px;
+        margin: 0;
+        color: var(--ink-secondary);
+        font-size: 17px;
+        font-weight: 400;
+        line-height: 26px;
+        letter-spacing: 0.5px;
+      }
+
+      .size-note {
+        position: absolute;
+        top: 264px;
+        left: 0;
+        margin: 0;
+        color: var(--ink-secondary);
+        font-size: 15px;
+        font-weight: 400;
+        line-height: 22px;
+        letter-spacing: 0.4px;
+      }
+
+      .insights {
+        display: grid;
+        height: 304px;
+        padding-left: 32px;
+        border-left: 1px solid var(--ink-divider);
+        grid-template-rows: 88px 128px 88px;
+      }
+
+      .insight + .insight {
+        padding-top: 16px;
+        border-top: 1px solid var(--ink-divider);
+      }
+
+      .insight h2 {
+        margin: 2px 0 4px;
+        color: var(--ink-primary);
+        font-size: 24px;
+        font-weight: 500;
+        line-height: 32px;
+        letter-spacing: 0;
+        text-wrap: balance;
+      }
+
+      .insight p {
+        margin: 0;
+        color: var(--ink-secondary);
+        font-size: 17px;
+        font-weight: 400;
+        line-height: 26px;
+        letter-spacing: 0.5px;
+        text-wrap: pretty;
+      }
+
+      .important-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .important-row h2 {
+        margin-bottom: 0;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .chevron {
+        width: 12px;
+        height: 12px;
+        margin-right: 3px;
+        border-top: 1px solid var(--ink-secondary);
+        border-right: 1px solid var(--ink-secondary);
+        transform: rotate(45deg);
+      }
+
+      .footer {
+        display: flex;
+        height: 48px;
+        align-items: flex-start;
+        justify-content: space-between;
+        padding-top: 16px;
+        margin-top: 8px;
+        border-top: 1px solid var(--ink-divider);
+        color: var(--ink-secondary);
+        font-size: 15px;
+        font-weight: 400;
+        line-height: 22px;
+        letter-spacing: 0.4px;
+      }
+
+      .footer p {
+        margin: 0;
+      }
+
+      .more-link {
+        color: var(--ink-primary);
+        font-size: 16px;
+        font-weight: 500;
+        letter-spacing: 0.2px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="screen" aria-label="孕期手帐首页高保真原型">
+      <header class="topbar">
+        <h1>孕期手帐</h1>
+        <div class="status">
+          <div class="battery-status" aria-label="电量百分之百">
+            <span>100%</span>
+            <span class="battery" aria-hidden="true"><span class="battery-fill"></span></span>
+          </div>
+          <button class="menu-button" type="button" aria-label="打开功能菜单">
+            <span></span><span></span><span></span>
+          </button>
+        </div>
+      </header>
+
+      <section class="home-grid">
+        <section class="size-panel" aria-labelledby="size-label">
+          <p class="label" id="size-label">本周宝宝大小</p>
+          <div class="week-line"><span class="week-number">20</span><span class="week-unit">周</span></div>
+          <img
+            class="baby-size-image"
+            src="../../assets/pregnancy/week-size/firmware/week-20-banana.png"
+            alt="香蕉大小参考插画"
+          />
+          <p class="size-copy">大约和一根香蕉差不多长，孕程已经过半。</p>
+          <p class="size-note">用熟悉的东西感受宝宝正在长大</p>
+        </section>
+
+        <section class="insights" aria-label="本周孕期信息">
+          <article class="insight">
+            <p class="label">宝宝这周</p>
+            <h2>正在感知外面的世界</h2>
+            <p>运动控制和消化系统继续发育。</p>
+          </article>
+          <article class="insight">
+            <p class="label">妈妈这周</p>
+            <h2>慢一点，也是在照顾宝宝</h2>
+            <p>有些人会逐渐感受到胎动，时间存在个体差异。</p>
+          </article>
+          <article class="insight">
+            <p class="label">接下来重要节点</p>
+            <div class="important-row">
+              <h2>预产期 2027年1月25日</h2>
+              <span class="chevron" aria-hidden="true"></span>
+            </div>
+          </article>
+        </section>
+      </section>
+
+      <footer class="footer">
+        <p>每周看一眼，就够了。</p>
+        <p class="more-link">记录与更多功能&nbsp;›</p>
+      </footer>
+    </main>
+  </body>
+</html>

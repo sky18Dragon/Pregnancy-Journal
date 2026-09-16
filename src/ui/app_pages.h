@@ -12,12 +12,12 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app);
 // 映射启动器右上角的全局语言切换按钮。
 bool app_page_launcher_language_at(int width, int height, int x, int y);
 
+// Maps the prototype close button in the launcher's top-right corner.
+bool app_page_launcher_close_at(int width, int height, int x, int y);
+
 // Maps one logical touch coordinate to the card drawn at the same position.
 // 将逻辑触摸坐标映射到同一位置绘制的应用卡片。
-bool app_page_launcher_app_at(int width,
-                              int height,
-                              int x,
-                              int y,
+bool app_page_launcher_app_at(int width, int height, int x, int y,
                               StickyAppId &selected_app);
 
 // Maps the Debug-only guide icon while keeping a generous invisible hit area.

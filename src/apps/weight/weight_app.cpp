@@ -7,11 +7,14 @@
 #include "canvas.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "prototype_ui.h"
+#include "sticky_app.h"
 #include "sticky_app_lifecycle.h"
 #include "sticky_display.h"
 #include "sticky_rtc.h"
 #include "sticky_touch.h"
 #include "ui_language.h"
+#include "ui_tokens.h"
 #include "weight_service.h"
 #include "weight_storage.h"
 
@@ -25,6 +28,34 @@ WeightProfileSettings s_settings = {};
 PregnancyDate s_today = {};
 bool s_editing = false;
 uint16_t s_weight = 600U;
+
+bool portrait() { return s_canvas->height() > s_canvas->width(); }
+
+prototype_ui::Rect unit_button_rect() {
+  return portrait()
+             ? prototype_ui::Rect{336, 88, 120,
+                                  ui_tokens::kMinimumTouchHeight}
+             : prototype_ui::Rect{548, 20, 92,
+                                  ui_tokens::kMinimumTouchHeight};
+}
+
+prototype_ui::Rect dashboard_button_rect(size_t index) {
+  if (portrait())
+    return {24 + static_cast<int>(index) * 148, 720, 136, 56};
+  return {24 + static_cast<int>(index) * 256, 400, 240, 56};
+}
+
+prototype_ui::Rect adjust_button_rect(size_t index) {
+  if (portrait())
+    return {24 + static_cast<int>(index % 2U) * 224,
+            330 + static_cast<int>(index / 2U) * 72, 208, 56};
+  return {56 + static_cast<int>(index) * 176, 260, 160, 48};
+}
+
+prototype_ui::Rect save_button_rect() {
+  return portrait() ? prototype_ui::Rect{24, 720, 432, 56}
+                    : prototype_ui::Rect{24, 400, 752, 56};
+}
 
 uint16_t display_weight(uint16_t tenths_kg) {
   return s_settings.use_pounds
@@ -50,19 +81,9 @@ uint16_t stored_weight(uint16_t display_tenths) {
 
 const char *unit_name() { return s_settings.use_pounds ? "LB" : "KG"; }
 
-void box(int x, int y, int width, int height, bool filled = false) {
-  if (filled)
-    s_canvas->fill_rect(x, y, width, height, GrayLevel::Black);
-  else
-    s_canvas->draw_rect(x, y, width, height, GrayLevel::Black);
-}
-
 void button(int x, int y, int width, int height, const char *label,
             bool filled) {
-  box(x, y, width, height, filled);
-  const GrayLevel color = filled ? GrayLevel::White : GrayLevel::Black;
-  const int text_x = x + (width - ui_text_width(label, 2U)) / 2;
-  s_canvas->draw_text(text_x, y + (height - 14) / 2, ui_text(label), 2, color);
+  prototype_ui::draw_button(*s_canvas, {x, y, width, height}, label, filled, 2);
 }
 
 bool read_today() {
@@ -74,12 +95,15 @@ bool read_today() {
 }
 
 void draw_trend() {
-  constexpr int x = 356, y = 126, width = 410, height = 170;
+  const int x = portrait() ? 24 : 333;
+  const int y = portrait() ? 330 : 116;
+  const int width = portrait() ? 432 : 443;
+  const int height = portrait() ? 238 : 186;
   s_canvas->draw_line(x, y + height, x + width, y + height, GrayLevel::Black);
   s_canvas->draw_line(x, y, x, y + height, GrayLevel::Black);
   if (s_service.count() == 0U) {
     s_canvas->draw_text(x + 70, y + 70, ui_text("NO WEIGHT RECORDS"), 2,
-                        GrayLevel::DarkGray);
+                        GrayLevel::Black);
     return;
   }
   const size_t start = s_service.count() > 7U ? s_service.count() - 7U : 0U;
@@ -114,69 +138,86 @@ void draw_trend() {
 }
 
 void render_dashboard() {
-  s_canvas->set_rotation(CanvasRotation::Deg0);
-  s_canvas->clear(GrayLevel::White);
-  s_canvas->draw_text(32, 24, ui_text("WEIGHT TRACKER"), 5, GrayLevel::Black);
-  s_canvas->draw_text(32, 76, ui_text("PREGNANCY WEIGHT TREND"), 2,
-                      GrayLevel::DarkGray);
-  button(640, 24, 128, 48, s_settings.use_pounds ? "UNIT LB" : "UNIT KG",
-         false);
+  prototype_ui::begin_page(*s_canvas);
+  prototype_ui::draw_header(*s_canvas, "WEIGHT TREND",
+                            "FOCUS ON THE LONG-TERM TREND", "BACK");
+  const prototype_ui::Rect unit = unit_button_rect();
+  button(unit.x, unit.y, unit.width, unit.height,
+         s_settings.use_pounds ? "LB / KG" : "KG / LB", false);
   const WeightRecord *latest = s_service.latest();
   if (latest == nullptr) {
-    s_canvas->draw_text(32, 142, "--.-", 8, GrayLevel::Black);
-    s_canvas->draw_text(238, 180, "KG", 3, GrayLevel::Black);
+    s_canvas->draw_text(24, portrait() ? 140 : 108, "--.-", 8,
+                        GrayLevel::Black);
+    s_canvas->draw_text(230, portrait() ? 182 : 150, "KG", 3, GrayLevel::Black);
   } else {
     char value[24] = {};
     const uint16_t shown = display_weight(latest->weight_tenths_kg);
     std::snprintf(value, sizeof(value), "%u.%u", shown / 10U, shown % 10U);
-    s_canvas->draw_text(32, 142, value, 8, GrayLevel::Black);
-    s_canvas->draw_text(238, 180, unit_name(), 3, GrayLevel::Black);
+    s_canvas->draw_text(24, portrait() ? 140 : 108, value, 8, GrayLevel::Black);
+    s_canvas->draw_text(230, portrait() ? 182 : 150, unit_name(), 3,
+                        GrayLevel::Black);
     WeightSummary summary = {};
     if (s_service.summary(s_settings.height_cm, s_settings.baseline_tenths_kg,
                           summary)) {
-      char metrics[64] = {};
       const int16_t change = display_change(summary.change_tenths_kg);
-      std::snprintf(metrics, sizeof(metrics), "BMI %u.%u   %+d.%d %s",
-                    summary.bmi_tenths / 10U, summary.bmi_tenths % 10U,
-                    change / 10, std::abs(change % 10), unit_name());
-      s_canvas->draw_text(34, 244, metrics, 2, GrayLevel::Black);
-      if (summary.outside_recommended_gain)
-        s_canvas->draw_text(34, 280, ui_text("CHECK WEIGHT TREND"), 2,
-                            GrayLevel::Black);
+      char bmi[16] = {}, delta[24] = {};
+      std::snprintf(bmi, sizeof(bmi), "%u.%u", summary.bmi_tenths / 10U,
+                    summary.bmi_tenths % 10U);
+      std::snprintf(delta, sizeof(delta), "%+d.%d %s", change / 10,
+                    std::abs(change % 10), unit_name());
+      const int summary_label_y = portrait() ? 242 : 204;
+      const int summary_value_y = portrait() ? 264 : 224;
+      s_canvas->draw_text(24, summary_label_y, "BMI", 1, GrayLevel::Black);
+      s_canvas->draw_text(24, summary_value_y, bmi, 3, GrayLevel::Black);
+      s_canvas->draw_text(124, summary_label_y, ui_text("FROM BASELINE"), 1,
+                          GrayLevel::Black);
+      s_canvas->draw_text(124, summary_value_y, delta, 3, GrayLevel::Black);
     }
   }
+  s_canvas->draw_text(portrait() ? 24 : 333, portrait() ? 300 : 90,
+                      ui_text("LATEST 7 RECORDS"), 2, GrayLevel::Black);
   draw_trend();
-  s_canvas->draw_line(32, 330, 768, 330, GrayLevel::DarkGray);
-  char profile[56] = {};
+  const int divider_y = portrait() ? 600 : 368;
+  s_canvas->draw_line(24, divider_y, s_canvas->width() - 24, divider_y,
+                      GrayLevel::Black);
+  char profile[80] = {};
   const uint16_t baseline = display_weight(s_settings.baseline_tenths_kg);
-  std::snprintf(profile, sizeof(profile), "HEIGHT %u CM   BASELINE %u.%u %s",
+  std::snprintf(profile, sizeof(profile),
+                ui_language_is_chinese()
+                    ? "身高 %u CM     基线 %u.%u %s     记录 %u 次"
+                    : "HEIGHT %u CM     BASELINE %u.%u %s     RECORDS %u",
                 s_settings.height_cm, baseline / 10U, baseline % 10U,
-                unit_name());
-  s_canvas->draw_text(34, 354, profile, 2, GrayLevel::Black);
-  button(32, 400, 226, 56, "ADD TODAY", true);
-  button(282, 400, 226, 56, "-  HEIGHT  +", false);
-  button(532, 400, 236, 56, "REMOVE LATEST", false);
+                unit_name(), static_cast<unsigned>(s_service.count()));
+  s_canvas->draw_text(24, portrait() ? 620 : 380, profile, 1, GrayLevel::Black);
+  const char *labels[] = {"ADD TODAY", "HEIGHT", "REMOVE LATEST"};
+  for (size_t i = 0U; i < 3U; ++i) {
+    const prototype_ui::Rect rect = dashboard_button_rect(i);
+    button(rect.x, rect.y, rect.width, rect.height, labels[i], i == 0U);
+  }
 }
 
 void render_editor() {
-  s_canvas->clear(GrayLevel::White);
-  s_canvas->draw_text(32, 24, ui_text("ADD WEIGHT"), 5, GrayLevel::Black);
-  s_canvas->draw_text(32, 82, ui_text("TODAY'S WEIGHT"), 2,
-                      GrayLevel::DarkGray);
+  prototype_ui::begin_page(*s_canvas);
+  prototype_ui::draw_header(*s_canvas, "RECORD TODAY'S WEIGHT",
+                            "SAVING AGAIN REPLACES TODAY'S RECORD", "CANCEL");
   char value[24] = {};
-  std::snprintf(value, sizeof(value), "%u.%u %s", s_weight / 10U,
-                s_weight % 10U, unit_name());
-  const int tx = (800 - ui_text_width(value, 8U)) / 2;
-  s_canvas->draw_text(tx, 142, value, 8, GrayLevel::Black);
-  button(40, 278, 160, 64, "- 1.0", false);
-  button(216, 278, 160, 64, "- 0.1", false);
-  button(424, 278, 160, 64, "+ 0.1", false);
-  button(600, 278, 160, 64, "+ 1.0", false);
-  button(40, 392, 232, 64, "CANCEL", false);
-  button(528, 392, 232, 64, "SAVE", true);
+  std::snprintf(value, sizeof(value), "%u.%u", s_weight / 10U, s_weight % 10U);
+  const int tx = (s_canvas->width() - ui_text_width(value, 10U)) / 2;
+  s_canvas->draw_text(tx, portrait() ? 150 : 112, value, 10, GrayLevel::Black);
+  const int ux = (s_canvas->width() - ui_text_width(unit_name(), 3U)) / 2;
+  s_canvas->draw_text(ux, portrait() ? 238 : 198, unit_name(), 3,
+                      GrayLevel::Black);
+  const char *labels[] = {"- 1.0", "- 0.1", "+ 0.1", "+ 1.0"};
+  for (size_t i = 0U; i < 4U; ++i) {
+    const prototype_ui::Rect rect = adjust_button_rect(i);
+    button(rect.x, rect.y, rect.width, rect.height, labels[i], false);
+  }
+  const prototype_ui::Rect save = save_button_rect();
+  button(save.x, save.y, save.width, save.height, "SAVE TODAY", true);
 }
 
 void render(bool full = false) {
+  sticky_display_set_battery_overlay_enabled(false);
   if (s_editing)
     render_editor();
   else
@@ -199,34 +240,40 @@ void save() {
 }
 
 void handle(int x, int y) {
+  const prototype_ui::Rect back =
+      prototype_ui::header_action_rect(s_canvas->width(), s_canvas->height());
   if (s_editing) {
-    if (y >= 278 && y < 342) {
+    if (back.contains(x, y)) {
+      s_editing = false;
+    } else {
       const uint16_t minimum = display_weight(300U);
       const uint16_t maximum = display_weight(2000U);
-      if (x < 200 && s_weight >= minimum + 10U)
+      if (adjust_button_rect(0U).contains(x, y) && s_weight >= minimum + 10U)
         s_weight -= 10U;
-      else if (x < 400 && s_weight > minimum)
+      else if (adjust_button_rect(1U).contains(x, y) && s_weight > minimum)
         --s_weight;
-      else if (x < 600 && s_weight < maximum)
+      else if (adjust_button_rect(2U).contains(x, y) && s_weight < maximum)
         ++s_weight;
-      else if (x >= 600 && s_weight <= maximum - 10U)
+      else if (adjust_button_rect(3U).contains(x, y) &&
+               s_weight <= maximum - 10U)
         s_weight += 10U;
-    } else if (y >= 392 && x < 272)
-      s_editing = false;
-    else if (y >= 392 && x >= 528)
-      save();
+      else if (save_button_rect().contains(x, y))
+        save();
+    }
     render();
     return;
   }
-  if (x >= 640 && y >= 24 && y < 72) {
+  if (back.contains(x, y)) {
+    sticky_app_request_launcher();
+    return;
+  }
+  if (unit_button_rect().contains(x, y)) {
     s_settings.use_pounds = !s_settings.use_pounds;
     weight_storage_save(s_service, s_settings);
     render();
     return;
   }
-  if (y < 400)
-    return;
-  if (x < 258) {
+  if (dashboard_button_rect(0U).contains(x, y)) {
     read_today();
     const WeightRecord *today = s_service.find_date(s_today);
     const WeightRecord *latest = s_service.latest();
@@ -235,19 +282,21 @@ void handle(int x, int y) {
                                                 : 600U;
     s_weight = display_weight(stored);
     s_editing = true;
-  } else if (x < 508) {
-    if (x < 395 && s_settings.height_cm > 100U)
+  } else if (dashboard_button_rect(1U).contains(x, y)) {
+    const prototype_ui::Rect height = dashboard_button_rect(1U);
+    if (x < height.x + height.width / 2 && s_settings.height_cm > 100U)
       --s_settings.height_cm;
-    else if (x >= 395 && s_settings.height_cm < 220U)
+    else if (x >= height.x + height.width / 2 && s_settings.height_cm < 220U)
       ++s_settings.height_cm;
     weight_storage_save(s_service, s_settings);
-  } else {
+  } else if (dashboard_button_rect(2U).contains(x, y)) {
     const WeightRecord *latest = s_service.latest();
     if (latest != nullptr) {
       s_service.remove(latest->id);
       weight_storage_save(s_service, s_settings);
     }
-  }
+  } else
+    return;
   render();
 }
 

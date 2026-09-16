@@ -11,6 +11,7 @@
 #include "sticky_imu.h"
 #include "sticky_rtc.h"
 #include "sticky_touch.h"
+#include "font_test_screen.h"
 #include "ui_language_storage.h"
 
 #include <cinttypes>
@@ -32,6 +33,14 @@
 
 #ifndef STICKY_BUILD_PROFILE
 #define STICKY_BUILD_PROFILE "unknown"
+#endif
+
+#ifndef UI_DEBUG_FONT_TEST
+#define UI_DEBUG_FONT_TEST 0
+#endif
+
+#ifndef UI_DEBUG_FONT_TEST_PORTRAIT
+#define UI_DEBUG_FONT_TEST_PORTRAIT 0
 #endif
 
 namespace {
@@ -241,6 +250,22 @@ extern "C" void app_main()
         STICKY_LOGI(kTag,
                     "display=clear action=skipped reason=deep_sleep_wake");
     }
+
+#if UI_DEBUG_FONT_TEST
+    sticky_display_set_battery_overlay_enabled(false);
+#if UI_DEBUG_FONT_TEST_PORTRAIT
+    canvas->set_rotation(CanvasRotation::Deg90Clockwise);
+#endif
+    ui_render_font_test_screen(*canvas);
+    const esp_err_t font_test_result = sticky_display_refresh_monochrome();
+    if (font_test_result != ESP_OK) {
+        halt_after_error("ui_font_test", font_test_result);
+    }
+    STICKY_LOGI(kTag, "phase=font_test result=ready");
+    while (true) {
+        vTaskDelay(kHeartbeatInterval);
+    }
+#endif
 
     const esp_err_t touch_result = sticky_touch_init();
     if (touch_result != ESP_OK) {

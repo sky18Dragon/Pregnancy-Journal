@@ -35,9 +35,10 @@ range; it is not a historical measurement record.
 ## Data lifecycle
 
 Records are loaded when their app starts or resumes and saved after each user
-mutation. “Remove latest” in Weight deletes the chronologically latest weight;
-“Reset Today” in Kicks deletes every session for the current RTC date. There is
-currently no export, backup, account sync or bulk erase screen.
+mutation. “Remove latest” in Weight deletes the chronologically latest weight.
+Kicks saves each non-empty completed session as a separate record and derives
+the daily and seven-day views from those records. There is currently no export,
+backup, account sync or bulk erase screen.
 
 The device stores health-related notes and measurements without encryption in
 its local NVS partition. Users should protect physical access to the device and

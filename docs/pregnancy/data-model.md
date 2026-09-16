@@ -72,8 +72,9 @@ total gain and weekly change are derived at runtime.
 - bounded note
 
 Capacity is 42. Sessions are valid for 0–120 minutes and 0–500 movements; the
-current UI caps an active session at 60 minutes and debounces taps within five
-seconds. Daily summaries total the three periods, calculate the 12-hour
-estimate as `sampled_total × 4`, and compare the sampled total and each period
-with the previous day. Attention states are prompts to contact the care team,
-never diagnoses.
+current UI caps an active session at 60 minutes and filters repeat taps within
+400 ms. Daily summaries include period totals, session count, total duration
+and the latest session. Seven-day summaries retain each calendar day's raw
+recorded total and derive recorded-day/session counts, average per recorded day
+and time-of-day distribution. No model field represents a diagnosis, universal
+target, inferred 12-hour count or normal/abnormal state.

@@ -22,7 +22,10 @@ connected through the registry and remain independently testable.
 Board power, charger, shared SPI, sensor I2C, GT911 touch, buttons, PCF8563 RTC,
 BQ27220 battery, IMU, buzzer and the Seeed e-paper driver remain below the
 runtime. Every app draws into the shared `Canvas`; the coordinator ensures only
-one app owns it at a time. All current apps use fixed landscape orientation.
+one app owns it at a time. The launcher and all six apps follow the settled IMU
+orientation. Each page selects a dedicated 800×480 landscape or 480×800
+portrait composition from the logical canvas dimensions; touch hit regions are
+resolved from the same layout geometry after `physical_to_logical()` mapping.
 
 E-paper policy is coordinator/driver-owned: stable entry and sleep use full
 monochrome refreshes, mutations use partial refreshes, and repeated fast

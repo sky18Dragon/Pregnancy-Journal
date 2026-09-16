@@ -2,69 +2,74 @@
 
 #include <cstdint>
 
-#include "pregnancy_state.h"
 #include "content_service.h"
+#include "pregnancy_state.h"
 
 class Canvas;
 
+struct PregnancyImportantDate {
+  PregnancyDate date = {};
+  uint8_t hour = 0U;
+  uint8_t minute = 0U;
+  char title[40] = {};
+};
+
 enum class PregnancyPage : uint8_t {
-    ClockSetup,
-    SourceSetup,
-    DateSetup,
-    DueDateSetup = DateSetup,
-    Dashboard,
-    Baby,
-    Mom,
+  ClockSetup,
+  SourceSetup,
+  DateSetup,
+  DueDateSetup = DateSetup,
+  Dashboard,
+  Baby,
+  Mom,
 };
 
 enum class PregnancyAction : uint8_t {
-    None,
-    Digit0,
-    Digit1,
-    Digit2,
-    Digit3,
-    Digit4,
-    Digit5,
-    Digit6,
-    Digit7,
-    Digit8,
-    Digit9,
-    Delete,
-    Continue,
-    Back,
-    Edit,
-    SelectDueDate,
-    SelectLmp,
-    ShowOverview,
-    ShowBaby,
-    ShowMom,
+  None,
+  Digit0,
+  Digit1,
+  Digit2,
+  Digit3,
+  Digit4,
+  Digit5,
+  Digit6,
+  Digit7,
+  Digit8,
+  Digit9,
+  Delete,
+  Continue,
+  Back,
+  Edit,
+  SelectDueDate,
+  SelectLmp,
+  ShowOverview,
+  ShowBaby,
+  ShowMom,
+  OpenLauncher,
+  OpenCheckup,
 };
 
-void pregnancy_page_render_clock_setup(Canvas &canvas,
-                                       const char *digits,
-                                       bool input_error,
-                                       bool can_cancel);
-void pregnancy_page_render_due_date_setup(Canvas &canvas,
-                                          const char *digits,
-                                          bool input_error,
-                                          bool can_cancel);
+void pregnancy_page_render_clock_setup(Canvas &canvas, const char *digits,
+                                       bool input_error, bool can_cancel);
+void pregnancy_page_render_due_date_setup(Canvas &canvas, const char *digits,
+                                          bool input_error, bool can_cancel);
 void pregnancy_page_render_source_setup(Canvas &canvas, bool can_cancel);
 void pregnancy_page_render_profile_date_setup(Canvas &canvas,
-                                                const char *digits,
-                                                bool input_error,
-                                                bool due_date_primary);
-void pregnancy_page_render_dashboard(Canvas &canvas,
-                                     const PregnancyDate &due_date,
-                                     const PregnancyProgress &progress);
-void pregnancy_page_render_detail(Canvas &canvas,
-                                  PregnancyPage page,
+                                              const char *digits,
+                                              bool input_error,
+                                              bool due_date_primary);
+void pregnancy_page_render_dashboard(
+    Canvas &canvas, const PregnancyDate &due_date,
+    const PregnancyProgress &progress,
+    const PregnancyImportantDate *important = nullptr);
+void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
                                   const PregnancyProgress &progress,
                                   const WeekContent &content);
 
-PregnancyAction pregnancy_page_action_at(PregnancyPage page,
-                                         bool can_cancel,
-                                         int x,
-                                         int y);
+PregnancyAction pregnancy_page_action_at(PregnancyPage page, bool can_cancel,
+                                         int x, int y);
+PregnancyAction pregnancy_page_action_at(PregnancyPage page, bool can_cancel,
+                                         int width, int height, int x, int y);
 bool pregnancy_action_digit(PregnancyAction action, char &digit);
 
 const char *pregnancy_page_name(PregnancyPage page);

@@ -46,8 +46,9 @@ concrete business page, so apps remain independently testable.
   a seven-day default and fixed 09:00 time.
 - **Weight** owns daily records, kg/lb conversion, height/baseline settings and
   derived BMI/trend summaries.
-- **Kicks** owns morning/afternoon/evening timed sessions, debounce, daily
-  summaries and reset.
+- **Kicks** owns timed sessions, accidental-double-tap filtering, undo, daily
+  summaries and seven-day recorded-data trends. Its presentation layer never
+  classifies movement as normal or abnormal.
 - **Settings** owns language, RTC editing, pregnancy-setup requests and e-paper
   cleanup. It may request a return to Baby Week but never switches apps itself.
 

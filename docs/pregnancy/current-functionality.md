@@ -13,16 +13,22 @@ not a diagnostic, treatment or emergency-alert device.
 - Default app: Baby Week (the Pregnancy app).
 - Registered apps: Baby Week, Reminders, Checkups, Weight, Kicks and Settings.
 - Languages: English and Simplified Chinese. The language setting is stored in
-  device NVS and can also be changed from the launcher.
+  device NVS and is changed from Settings.
 - Data boundary: no account, network, telemetry, cloud log, OTA or AI service;
   all pregnancy records remain on the device.
 
 ## Launcher and navigation
 
-The launcher is a fixed landscape layout for the 800×480 panel. Baby Week is a
-large home card; Checkups, Reminders, Weight and Kicks are smaller cards;
-Settings is a header action. A selected card is filled black and the remaining
-cards are outlined.
+The launcher follows the settled grip orientation reported by the IMU. It uses
+a two-column list in 800×480 landscape and a single-column list in 480×800
+portrait. Its six numbered entries are Checkups, Reminders, Weight, Kicks,
+Baby / Mom and Settings.
+
+The same grip-following policy applies inside every registered app. Reminder,
+Checkup, Weight, Kicks and Settings keep their existing two-dimensional
+landscape controls and switch to dedicated portrait rows, charts, keypads and
+bottom actions rather than cropping or rotating a fixed screenshot. Touch
+targets reflow with the visual controls.
 
 - Top-button single click toggles the launcher.
 - Swipe up beginning in the bottom edge opens it; swipe down beginning in the
@@ -31,7 +37,7 @@ cards are outlined.
   panel height), and finish within 60–1600 ms.
 - A launcher with no activity closes after 30 seconds.
 - Double-clicking the top button always returns to Baby Week.
-- Touching the language control toggles English and 简体中文.
+- The on-screen Close control returns to the previously active app.
 
 ## App behavior
 
@@ -42,18 +48,22 @@ estimated due date or the first day of the last menstrual period. Dates are
 entered as `YYYYMMDD`; clock input is `YYYYMMDDHHMM`. The profile is saved in a
 redundant, checksummed NVS record and can be edited later.
 
-The dashboard shows week, day, trimester, days until (or days past) the due
-date and a progress bar capped at the nominal 40-week/280-day duration. The
-Baby and Mom tabs show bundled offline content for the current week. Content is
-broad, informational guidance and is clamped to weeks 1–40.
+The home page follows the settled grip orientation and reflows rather than
+cropping: landscape uses a two-column dashboard, while portrait uses a vertical
+week/progress, illustration and growth-card sequence. Setup and Baby/Mom detail
+pages have matching portrait layouts. Weeks 6–40 each have a distinct
+ImageGen illustration and one-line comparison. Source images are replaceable
+under `assets/pregnancy/week-size/` and are compiled into 148×148 1-bit assets.
+The Baby and Mom detail tabs show week/day, trimester, days until the due date,
+offline guidance and three facts. Content is clamped to weeks 1–40.
 
 ### Reminders
 
-The list switches between Today and Upcoming views and shows up to four rows at
+The list uses the prototype's Today / Upcoming segmented control and shows up to four rows at
 once. A reminder can be created from six types: General, Supplement, Checkup,
 Water, Activity and Rest. The current UI chooses today's date and an hour; the
 domain model also supports daily and weekly recurrence, completion, deletion,
-per-item enabled state and a global enable/disable switch. Capacity is 12.
+per-item enabled state. Capacity is 12.
 
 Completing a one-time reminder marks it complete. Completing a daily or weekly
 reminder advances its date by one or seven days and clears completion. The
@@ -84,27 +94,30 @@ the chronologically latest record.
 
 ### Kicks
 
-The app tags each session as morning, afternoon or evening and groups sessions
-into those three periods in the daily summary. Starting a session infers the
-period from the RTC (before 12:00, 12:00–17:59, or 18:00 onward). Tapping the
-central area counts
-one movement; taps within five seconds are ignored to avoid duplicates. Finish
-saves the session, and an unfinished session is forced to finish after 60
-minutes. Capacity is 42 sessions.
+The app supports any number of short counting sessions throughout the day and
+tags each saved session as morning, afternoon or evening from the RTC (before
+12:00, 12:00–17:59, or 18:00 onward). Tapping the central target records one
+distinct movement; a 400 ms guard filters accidental double taps, and Undo
+removes the most recent tap. Finish saves a non-empty session. An active session
+keeps the device awake and is forced to finish after 60 minutes. Capacity is 42
+sessions.
 
-The summary totals the three periods, estimates 12 hours as `sampled total × 4`
-and marks the day complete only when all three periods have data. Attention is
-flagged when a period changes by more than 50% from the previous day or a
-complete day's estimate is below 20. “Reset Today” removes all sessions for the
-current date. These indicators are prompts to contact the care team, never
-diagnoses.
+The first page shows today's total, session count, period totals and latest
+session. The second page shows seven calendar days as a bar chart, recorded-day
+and session totals, the average per recorded day, the most-recorded time period,
+and today's period breakdown. These values describe what the user recorded;
+they are not a normal/abnormal score, diagnostic threshold or extrapolated
+12-hour estimate. Both summary pages keep the urgent instruction visible: if
+movements are less than usual, stop or change, contact maternity care now.
 
 ### Settings
 
-Settings provides language, device-time editing, Pregnancy Settings, e-paper
-clean refresh and Return to Baby Week. Time input is `YYYYMMDDHHMM`; invalid
-dates or RTC writes are rejected. The time editor cannot time out to sleep;
-Settings' main page uses a three-minute timeout.
+Settings provides language, device-time editing, a Pregnancy Settings summary,
+e-paper clean refresh and Return to Baby Week. Pregnancy Settings shows the
+dating source, due date, current week and 40-week progress before entering the
+existing date editor. Time input is `YYYYMMDDHHMM`; invalid dates or RTC writes
+are rejected. The time editor cannot time out to sleep; Settings' stable pages
+use a three-minute timeout.
 
 ## Sleep, wake and refresh
 
@@ -125,9 +138,10 @@ offers an explicit cleanup action.
 
 ## Verification status
 
-- Host suite: 20/20 tests pass, including Weight and Kicks services.
+- Host suite: 26/26 tests pass, including all 35 weekly visual mappings plus
+  Weight and Kicks services.
 - PlatformIO release, debug and power-test profiles are the supported build
-  gates; release was built successfully for the current scope.
+  gates; all three build successfully for the current scope.
 - Physical-device regression for the current six-app image remains a separate
   manual gate. Use [hardware-regression-checklist.md](hardware-regression-checklist.md)
   after flashing.
@@ -135,7 +149,7 @@ offers an explicit cleanup action.
 ## Known scope boundaries
 
 The current UI does not provide free-form reminder title/note editing,
-recurrence editing, checkup time editing, historical weight browsing or manual
-kick-period selection. These are implementation limitations, not promised
-features. Network sync, cloud backup, OTA, mobile configuration, voice and AI
-features remain outside the product.
+recurrence editing, checkup time editing, historical weight browsing, manual
+kick-period selection or per-session history editing. These are implementation
+limitations, not promised features. Network sync, cloud backup, OTA, mobile
+configuration, voice and AI features remain outside the product.

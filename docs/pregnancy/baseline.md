@@ -12,7 +12,7 @@ current six-app image. Historical refactor analysis is kept under
 - Board: `sticky_esp32s3`, Seeed Studio reTerminal Sticky
 - Apps: Baby Week, Reminders, Checkups, Weight, Kicks and Settings
 - Default app: Baby Week
-- Host suite: 20/20 passed
+- Host suite: 25/25 passed
 - Release, debug and power-test profiles: build gates defined in
   `platformio.ini`; release build passed for this scope
 
@@ -20,8 +20,11 @@ PlatformIO rejects paths containing spaces. Reproducible builds therefore use
 an exact mirror under `/private/tmp` or a no-space checkout. The custom
 `partitions.csv` allocates 8 MiB to the factory application and 24 KiB to NVS.
 
-The latest release build reported approximately 485,656 bytes of flash and
-24,380 bytes of internal RAM, within the current partition and memory budget.
+The latest release build reported 4,105,244 bytes of flash and 24,476 bytes of
+internal RAM; its upload image is 4,105,904 bytes. Both remain within the current
+partition and memory budget. The larger image
+contains native-size 1-bit Chinese font strikes instead of runtime-scaled
+glyphs.
 Two 96,000-byte display framebuffers remain allocated in PSRAM at runtime.
 
 ## Preserved hardware baseline
@@ -38,7 +41,8 @@ adds application services without moving hardware ownership into an app.
 - Reminder and checkup services feed the central scheduler and due buzzer.
 - Weight and kick services persist independent bounded records and expose local
   derived summaries.
-- Launcher and all six apps use fixed landscape 800×480 layouts with English /
+- Launcher and all six apps follow the settled grip orientation and provide
+  both 800×480 landscape and 480×800 portrait layouts with English /
   Simplified Chinese copy where the translation table is provided.
 - Full/partial e-paper refresh, idle sleep, timer wake and button wake remain
   coordinator-owned.

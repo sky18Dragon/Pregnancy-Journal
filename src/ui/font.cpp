@@ -115,80 +115,100 @@ constexpr FontGlyph kAsciiGlyphs[] = {
 static_assert(sizeof(kAsciiGlyphs) / sizeof(kAsciiGlyphs[0]) == 95,
               "Printable ASCII font must contain 95 glyphs");
 
-}  // namespace
+} // namespace
 
-const FontGlyph &font_get_glyph(char character)
-{
-    const unsigned char code = static_cast<unsigned char>(character);
-    if (code < static_cast<unsigned char>(kFirstCharacter) ||
-        code > static_cast<unsigned char>(kLastCharacter)) {
-        return kAsciiGlyphs[kFallbackCharacter - kFirstCharacter];
-    }
-    return kAsciiGlyphs[code - static_cast<unsigned char>(kFirstCharacter)];
+const FontGlyph &font_get_glyph(char character) {
+  const unsigned char code = static_cast<unsigned char>(character);
+  if (code < static_cast<unsigned char>(kFirstCharacter) ||
+      code > static_cast<unsigned char>(kLastCharacter)) {
+    return kAsciiGlyphs[kFallbackCharacter - kFirstCharacter];
+  }
+  return kAsciiGlyphs[code - static_cast<unsigned char>(kFirstCharacter)];
 }
 
-bool font_decode_utf8(const char *&text, uint32_t &codepoint)
-{
-    if (text == nullptr || *text == '\0') {
-        return false;
-    }
-    const auto first = static_cast<uint8_t>(*text++);
-    if ((first & 0x80U) == 0U) {
-        codepoint = first;
-        return true;
-    }
-
-    uint8_t continuation_count = 0U;
-    if ((first & 0xE0U) == 0xC0U) {
-        codepoint = first & 0x1FU;
-        continuation_count = 1U;
-    } else if ((first & 0xF0U) == 0xE0U) {
-        codepoint = first & 0x0FU;
-        continuation_count = 2U;
-    } else if ((first & 0xF8U) == 0xF0U) {
-        codepoint = first & 0x07U;
-        continuation_count = 3U;
-    } else {
-        codepoint = '?';
-        return true;
-    }
-
-    for (uint8_t index = 0U; index < continuation_count; ++index) {
-        const auto next = static_cast<uint8_t>(*text);
-        if ((next & 0xC0U) != 0x80U) {
-            codepoint = '?';
-            return true;
-        }
-        ++text;
-        codepoint = (codepoint << 6U) | (next & 0x3FU);
-    }
+bool font_decode_utf8(const char *&text, uint32_t &codepoint) {
+  if (text == nullptr || *text == '\0') {
+    return false;
+  }
+  const auto first = static_cast<uint8_t>(*text++);
+  if ((first & 0x80U) == 0U) {
+    codepoint = first;
     return true;
+  }
+
+  uint8_t continuation_count = 0U;
+  if ((first & 0xE0U) == 0xC0U) {
+    codepoint = first & 0x1FU;
+    continuation_count = 1U;
+  } else if ((first & 0xF0U) == 0xE0U) {
+    codepoint = first & 0x0FU;
+    continuation_count = 2U;
+  } else if ((first & 0xF8U) == 0xF0U) {
+    codepoint = first & 0x07U;
+    continuation_count = 3U;
+  } else {
+    codepoint = '?';
+    return true;
+  }
+
+  for (uint8_t index = 0U; index < continuation_count; ++index) {
+    const auto next = static_cast<uint8_t>(*text);
+    if ((next & 0xC0U) != 0x80U) {
+      codepoint = '?';
+      return true;
+    }
+    ++text;
+    codepoint = (codepoint << 6U) | (next & 0x3FU);
+  }
+  return true;
 }
 
-uint8_t font_cjk_scale(uint8_t latin_scale)
-{
-    return std::max<uint8_t>(1U,
-                             static_cast<uint8_t>((latin_scale + 1U) / 2U));
+uint8_t font_ui_pixel_size(uint8_t scale) {
+  if (scale == 0U) {
+    return 0U;
+  }
+  return scale == 1U ? 12U : static_cast<uint8_t>(7U * scale);
 }
 
-int font_text_width(const char *text, uint8_t scale)
-{
-    if (text == nullptr || *text == '\0' || scale == 0U) {
-        return 0;
+uint8_t font_ui_spacing(uint8_t scale) {
+  return font_ui_spacing_pixels(font_ui_pixel_size(scale));
+}
+
+uint8_t font_ui_spacing_pixels(uint8_t pixel_size) {
+  return std::max<uint8_t>(1U, pixel_size / 24U);
+}
+
+int font_text_width_pixels(const char *text, uint8_t pixel_size,
+                           FontWeight weight) {
+  if (text == nullptr || *text == '\0' || pixel_size == 0U) {
+    return 0;
+  }
+  const ChineseFontStrike &strike = chinese_font_strike(pixel_size, weight);
+  const uint8_t spacing = font_ui_spacing_pixels(strike.pixel_size);
+  int width = 0;
+  const char *cursor = text;
+  uint32_t codepoint = 0U;
+  while (font_decode_utf8(cursor, codepoint)) {
+    const ChineseFontGlyph *glyph = chinese_font_glyph(strike, codepoint);
+    if (glyph == nullptr) {
+      glyph = chinese_font_glyph(strike, kFallbackCharacter);
     }
-    int width = 0;
-    int trailing_spacing = 0;
-    const char *cursor = text;
-    uint32_t codepoint = 0U;
-    while (font_decode_utf8(cursor, codepoint)) {
-        if (codepoint <= 0x7FU || chinese_font_glyph(codepoint) == nullptr) {
-            width += (kFontWidth + kFontSpacing) * scale;
-            trailing_spacing = kFontSpacing * scale;
-        } else {
-            const uint8_t cjk_scale = font_cjk_scale(scale);
-            width += (kChineseFontWidth + kChineseFontSpacing) * cjk_scale;
-            trailing_spacing = kChineseFontSpacing * cjk_scale;
-        }
+    if (glyph == nullptr) {
+      // Generated strikes always include '?'. Keep a deterministic advance if
+      // a malformed asset ever omits it, but never runtime-scale a bitmap.
+      width += std::max<int>(1, strike.pixel_size / 2);
+    } else {
+      width += glyph->advance;
     }
-    return width - trailing_spacing;
+    width += spacing;
+  }
+  return width > 0 ? width - spacing : 0;
+}
+
+uint8_t font_resolved_pixel_size(uint8_t pixel_size, FontWeight weight) {
+  return chinese_font_strike(pixel_size, weight).pixel_size;
+}
+
+int font_text_width(const char *text, uint8_t scale, FontWeight weight) {
+  return font_text_width_pixels(text, font_ui_pixel_size(scale), weight);
 }

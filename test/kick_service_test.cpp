@@ -29,13 +29,32 @@ int main() {
 
   KickDaySummary summary = {};
   assert(service.summarize(today, summary));
-  assert(summary.sampled_total == 18U);
-  assert(summary.estimated_12h == 72U);
-  assert(summary.complete);
-  assert(summary.change_percent == -40);
-  assert(!summary.attention);
+  assert(summary.total == 18U);
+  assert(summary.session_count == 3U);
+  assert(summary.duration_minutes == 180U);
+  assert(summary.morning == 5U);
+  assert(summary.afternoon == 6U);
+  assert(summary.evening == 7U);
+  assert(summary.has_latest);
+  assert(summary.latest_hour == 20U);
+  assert(summary.latest_count == 7U);
+
+  KickTrendSummary trend = {};
+  assert(service.summarize_recent(today, trend));
+  assert(trend.has_data);
+  assert(trend.recorded_days == 2U);
+  assert(trend.session_count == 6U);
+  assert(trend.total == 48U);
+  assert(trend.average_per_recorded_day == 24U);
+  assert(trend.totals[5] == 30U);
+  assert(trend.totals[6] == 18U);
+  assert(trend.busiest_period == KickPeriod::Evening);
 
   assert(service.remove_day(today) == 3U);
   assert(!service.summarize(today, summary));
+  assert(service.summarize_recent(today, trend));
+  assert(trend.recorded_days == 1U);
+  assert(trend.total == 30U);
+  assert(trend.totals[6] == 0U);
   return 0;
 }

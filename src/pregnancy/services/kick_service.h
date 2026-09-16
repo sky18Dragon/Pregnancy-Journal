@@ -15,6 +15,8 @@ public:
   size_t count() const { return count_; }
   const KickSession *at(size_t index) const;
   bool summarize(const PregnancyDate &date, KickDaySummary &output) const;
+  bool summarize_recent(const PregnancyDate &end_date,
+                        KickTrendSummary &output) const;
 
 private:
   KickSession sessions_[kCapacity] = {};

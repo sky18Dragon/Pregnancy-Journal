@@ -1,13 +1,18 @@
 #include "pregnancy_pages.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
-#include "app_launcher_assets.h"
 #include "canvas.h"
+#include "font.h"
 #include "pixel_asset.h"
+#include "pregnancy_week_assets.h"
+#include "pregnancy_week_visual.h"
+#include "prototype_ui.h"
 #include "text_layout.h"
 #include "ui_language.h"
+#include "ui_tokens.h"
 
 namespace {
 
@@ -45,22 +50,49 @@ constexpr const char *kKeyLabels[] = {
 };
 
 constexpr Rect kBackRect = {30, 390, 180, 56};
-constexpr Rect kEditRect = {660, 24, 108, 42};
+constexpr Rect kEditRect = {656, 20, 120, ui_tokens::kMinimumTouchHeight};
 constexpr Rect kDueSourceRect = {54, 150, 320, 170};
 constexpr Rect kLmpSourceRect = {426, 150, 320, 170};
-constexpr Rect kOverviewTab = {54, 414, 210, 48};
-constexpr Rect kBabyTab = {295, 414, 210, 48};
-constexpr Rect kMomTab = {536, 414, 210, 48};
+constexpr Rect kOverviewTab = {24, 408, 128, 48};
+constexpr Rect kBabyTab = {152, 408, 128, 48};
+constexpr Rect kMomTab = {280, 408, 128, 48};
+constexpr Rect kHomeMenu = {736, 8, 56, 56};
+constexpr Rect kHomeVisual = {408, 8, 368, 440};
+constexpr Rect kHomeBabyStory = {32, 216, 352, 124};
+constexpr Rect kHomeMomStory = {32, 340, 352, 56};
 
-int text_width(const char *text, int scale) {
-  return ui_text_width(text, static_cast<uint8_t>(scale));
+constexpr Rect kPortraitKeyRects[] = {
+    {24, 278, 132, 72}, {174, 278, 132, 72}, {324, 278, 132, 72},
+    {24, 366, 132, 72}, {174, 366, 132, 72}, {324, 366, 132, 72},
+    {24, 454, 132, 72}, {174, 454, 132, 72}, {324, 454, 132, 72},
+    {24, 542, 132, 72}, {174, 542, 132, 72}, {324, 542, 132, 72},
+};
+constexpr Rect kPortraitBackRect = {24, 678, 432, 56};
+constexpr Rect kPortraitDueSourceRect = {24, 150, 432, 190};
+constexpr Rect kPortraitLmpSourceRect = {24, 370, 432, 190};
+constexpr Rect kPortraitEditRect = {336, 20, 120,
+                                    ui_tokens::kMinimumTouchHeight};
+constexpr Rect kPortraitOverviewTab = {24, 728, 144, 48};
+constexpr Rect kPortraitBabyTab = {168, 728, 144, 48};
+constexpr Rect kPortraitMomTab = {312, 728, 144, 48};
+constexpr Rect kPortraitHomeMenu = {416, 8, 56, 56};
+constexpr Rect kPortraitHomeVisual = {24, 208, 432, 376};
+constexpr Rect kPortraitHomeBabyStory = {24, 612, 432, 94};
+constexpr Rect kPortraitHomeMomStory = {24, 706, 432, 48};
+
+bool portrait_layout(const Canvas &canvas) {
+  return canvas.height() > canvas.width();
 }
 
 void draw_centered_text_in_rect(Canvas &canvas, const Rect &rect,
                                 const char *text, int scale, GrayLevel color) {
-  const int x = rect.x + (rect.width - text_width(text, scale)) / 2;
-  const int y = rect.y + (rect.height - 7 * scale) / 2;
-  canvas.draw_text(x, y, text, scale, color);
+  const int width =
+      font_text_width(text, static_cast<uint8_t>(scale), FontWeight::Medium);
+  const int x = rect.x + (rect.width - width) / 2;
+  const int y =
+      rect.y +
+      (rect.height - font_ui_pixel_size(static_cast<uint8_t>(scale))) / 2;
+  canvas.draw_text(x, y, text, scale, color, FontWeight::Medium);
 }
 
 void draw_beveled_rect(Canvas &canvas, const Rect &rect, GrayLevel color) {
@@ -82,6 +114,118 @@ void draw_beveled_rect(Canvas &canvas, const Rect &rect, GrayLevel color) {
   canvas.draw_line(rect.x, rect.y + rect.height - kCut - 1, rect.x,
                    rect.y + kCut, color);
   canvas.draw_line(rect.x, rect.y + kCut, rect.x + kCut, rect.y, color);
+}
+
+void draw_rounded_rect(Canvas &canvas, const Rect &rect, int radius,
+                       GrayLevel color) {
+  const int safe_radius =
+      std::max(1, std::min(radius, std::min(rect.width, rect.height) / 2));
+  const int left_center = rect.x + safe_radius;
+  const int right_center = rect.x + rect.width - safe_radius - 1;
+  const int top_center = rect.y + safe_radius;
+  const int bottom_center = rect.y + rect.height - safe_radius - 1;
+
+  canvas.draw_line(left_center, rect.y, right_center, rect.y, color);
+  canvas.draw_line(left_center, rect.y + rect.height - 1, right_center,
+                   rect.y + rect.height - 1, color);
+  canvas.draw_line(rect.x, top_center, rect.x, bottom_center, color);
+  canvas.draw_line(rect.x + rect.width - 1, top_center, rect.x + rect.width - 1,
+                   bottom_center, color);
+
+  int arc_x = safe_radius;
+  int arc_y = 0;
+  int error = 1 - safe_radius;
+  while (arc_x >= arc_y) {
+    canvas.draw_pixel(left_center - arc_x, top_center - arc_y, color);
+    canvas.draw_pixel(left_center - arc_y, top_center - arc_x, color);
+    canvas.draw_pixel(right_center + arc_x, top_center - arc_y, color);
+    canvas.draw_pixel(right_center + arc_y, top_center - arc_x, color);
+    canvas.draw_pixel(left_center - arc_x, bottom_center + arc_y, color);
+    canvas.draw_pixel(left_center - arc_y, bottom_center + arc_x, color);
+    canvas.draw_pixel(right_center + arc_x, bottom_center + arc_y, color);
+    canvas.draw_pixel(right_center + arc_y, bottom_center + arc_x, color);
+    ++arc_y;
+    if (error < 0) {
+      error += 2 * arc_y + 1;
+    } else {
+      --arc_x;
+      error += 2 * (arc_y - arc_x + 1);
+    }
+  }
+}
+
+void fill_pill(Canvas &canvas, int x, int y, int width, int height,
+               GrayLevel color) {
+  if (width <= 0 || height <= 0)
+    return;
+  const int radius = height / 2;
+  if (width <= height) {
+    canvas.fill_circle(x + width / 2, y + height / 2, std::max(1, width / 2),
+                       color);
+    return;
+  }
+  canvas.fill_rect(x + radius, y, width - radius * 2, height, color);
+  canvas.fill_circle(x + radius, y + height / 2, radius, color);
+  canvas.fill_circle(x + width - radius - 1, y + height / 2, radius, color);
+}
+
+void draw_baby_icon(Canvas &canvas, int x, int y, GrayLevel color) {
+  canvas.draw_circle(x + 12, y + 12, 10, color);
+  canvas.draw_circle(x + 12, y + 12, 9, color);
+  canvas.fill_circle(x + 8, y + 10, 1, color);
+  canvas.fill_circle(x + 16, y + 10, 1, color);
+  canvas.draw_line(x + 8, y + 16, x + 11, y + 18, color);
+  canvas.draw_line(x + 11, y + 18, x + 15, y + 15, color);
+  canvas.draw_line(x + 10, y + 2, x + 12, y, color);
+  canvas.draw_line(x + 12, y, x + 15, y + 2, color);
+}
+
+void draw_ruler_icon(Canvas &canvas, int x, int y, GrayLevel color) {
+  canvas.draw_rect(x + 1, y + 6, 24, 12, color);
+  canvas.draw_rect(x + 2, y + 7, 22, 10, color);
+  for (int tick = 0; tick < 4; ++tick) {
+    const int tick_x = x + 5 + tick * 5;
+    canvas.draw_line(tick_x, y + 6, tick_x, y + (tick % 2 == 0 ? 12 : 10),
+                     color);
+  }
+}
+
+void draw_heart_icon(Canvas &canvas, int x, int y, GrayLevel color) {
+  canvas.draw_line(x + 12, y + 22, x + 2, y + 10, color);
+  canvas.draw_line(x + 2, y + 10, x + 2, y + 6, color);
+  canvas.draw_line(x + 2, y + 6, x + 6, y + 2, color);
+  canvas.draw_line(x + 6, y + 2, x + 10, y + 2, color);
+  canvas.draw_line(x + 10, y + 2, x + 12, y + 5, color);
+  canvas.draw_line(x + 12, y + 5, x + 14, y + 2, color);
+  canvas.draw_line(x + 14, y + 2, x + 18, y + 2, color);
+  canvas.draw_line(x + 18, y + 2, x + 22, y + 6, color);
+  canvas.draw_line(x + 22, y + 6, x + 22, y + 10, color);
+  canvas.draw_line(x + 22, y + 10, x + 12, y + 22, color);
+  canvas.draw_line(x + 12, y + 21, x + 3, y + 10, color);
+  canvas.draw_line(x + 3, y + 10, x + 3, y + 6, color);
+  canvas.draw_line(x + 3, y + 6, x + 7, y + 3, color);
+  canvas.draw_line(x + 7, y + 3, x + 10, y + 3, color);
+  canvas.draw_line(x + 10, y + 3, x + 12, y + 6, color);
+  canvas.draw_line(x + 12, y + 6, x + 14, y + 3, color);
+  canvas.draw_line(x + 14, y + 3, x + 18, y + 3, color);
+  canvas.draw_line(x + 18, y + 3, x + 21, y + 6, color);
+  canvas.draw_line(x + 21, y + 6, x + 21, y + 10, color);
+  canvas.draw_line(x + 21, y + 10, x + 12, y + 21, color);
+}
+
+void draw_reminder_icon(Canvas &canvas, int x, int y, GrayLevel color) {
+  canvas.draw_circle(x + 12, y + 12, 10, color);
+  canvas.draw_circle(x + 12, y + 12, 9, color);
+  canvas.draw_line(x + 12, y + 6, x + 12, y + 14, color);
+  canvas.fill_circle(x + 12, y + 18, 1, color);
+}
+
+void draw_centered_text_pixels(Canvas &canvas, const Rect &rect,
+                               const char *text, uint8_t pixel_size,
+                               GrayLevel color, FontWeight weight) {
+  const int width = font_text_width_pixels(text, pixel_size, weight);
+  canvas.draw_text_pixels(rect.x + (rect.width - width) / 2, rect.y, text,
+                          pixel_size, color, weight);
 }
 
 void draw_button(Canvas &canvas, const Rect &rect, const char *label,
@@ -114,17 +258,36 @@ void format_date_digits(const char *digits, char *output, size_t size) {
   std::snprintf(output, size, "%.4s-%.2s-%.2s", padded, padded + 4, padded + 6);
 }
 
-void render_keypad(Canvas &canvas) {
+void render_keypad(Canvas &canvas, bool portrait) {
   for (size_t index = 0U; index < 12U; ++index) {
     const bool primary = index == 11U;
     const int scale = index == 9U || index == 11U ? 2 : 4;
-    draw_button(canvas, kKeyRects[index], kKeyLabels[index], primary, scale);
+    draw_button(canvas, portrait ? kPortraitKeyRects[index] : kKeyRects[index],
+                kKeyLabels[index], primary, scale);
   }
 }
 
 void render_setup(Canvas &canvas, const char *title, const char *caption,
                   const char *value, bool input_error, bool can_cancel) {
   canvas.clear(GrayLevel::White);
+  const bool portrait = portrait_layout(canvas);
+  if (portrait) {
+    canvas.draw_text(24, 24, title, 4, GrayLevel::Black);
+    canvas.draw_text(24, 66, caption, 1, GrayLevel::Black);
+    constexpr Rect kPortraitInputRect = {24, 102, 432, 76};
+    draw_beveled_rect(canvas, kPortraitInputRect, GrayLevel::Black);
+    canvas.draw_text(kPortraitInputRect.x + 18, kPortraitInputRect.y + 24,
+                     value, 3, GrayLevel::Black);
+    canvas.draw_text(24, 204,
+                     input_error ? "CHECK THE DATE AND TRY AGAIN"
+                                 : "TAP A NUMBER TO REPLACE THE VALUE",
+                     2, GrayLevel::Black);
+    canvas.draw_text(24, 242, "SAVED ONLY ON THIS DEVICE", 1, GrayLevel::Black);
+    if (can_cancel)
+      draw_button(canvas, kPortraitBackRect, "CANCEL", false, 3);
+    render_keypad(canvas, true);
+    return;
+  }
   canvas.draw_text(30, 28, title, 4, GrayLevel::Black);
   canvas.draw_text(30, 72, caption, 2, GrayLevel::Black);
 
@@ -142,14 +305,7 @@ void render_setup(Canvas &canvas, const char *title, const char *caption,
   if (can_cancel) {
     draw_button(canvas, kBackRect, "CANCEL", false, 3);
   }
-  render_keypad(canvas);
-}
-
-void draw_tracker_bunny(Canvas &canvas) {
-  const AppLauncherStickerAsset &asset =
-      app_launcher_sticker_asset(AppLauncherAssetId::Pregnancy);
-  pixel_asset_draw(canvas, 622, 176, asset.gray, 1, GrayLevel::LightGray);
-  pixel_asset_draw(canvas, 622, 176, asset.black, 1, GrayLevel::Black);
+  render_keypad(canvas, false);
 }
 
 } // namespace
@@ -172,6 +328,21 @@ void pregnancy_page_render_due_date_setup(Canvas &canvas, const char *digits,
 
 void pregnancy_page_render_source_setup(Canvas &canvas, bool can_cancel) {
   canvas.clear(GrayLevel::White);
+  if (portrait_layout(canvas)) {
+    canvas.draw_text(24, 26, ui_text("PREGNANCY SETUP"), 4, GrayLevel::Black);
+    canvas.draw_text(24, 72, ui_text("CHOOSE THE DATE YOU KNOW"), 2,
+                     GrayLevel::Black);
+    draw_button(canvas, kPortraitDueSourceRect, ui_text("ESTIMATED DUE DATE"),
+                true, 3);
+    draw_button(canvas, kPortraitLmpSourceRect,
+                ui_text("LAST MENSTRUAL PERIOD"), false, 3);
+    canvas.draw_text(24, 594,
+                     ui_text("A CLINICIAN-CONFIRMED DUE DATE IS PREFERRED"), 1,
+                     GrayLevel::Black);
+    if (can_cancel)
+      draw_button(canvas, kPortraitBackRect, "CANCEL", false, 3);
+    return;
+  }
   canvas.draw_text(42, 28, ui_text("PREGNANCY SETUP"), 5, GrayLevel::Black);
   canvas.draw_text(42, 86, ui_text("CHOOSE THE DATE YOU KNOW"), 2,
                    GrayLevel::Black);
@@ -202,138 +373,338 @@ void pregnancy_page_render_profile_date_setup(Canvas &canvas,
 
 void pregnancy_page_render_dashboard(Canvas &canvas,
                                      const PregnancyDate &due_date,
-                                     const PregnancyProgress &progress) {
-  canvas.clear(GrayLevel::White);
-  canvas.draw_text(32, 24, "CURRENT DEVELOPMENT STAGE", 2, GrayLevel::Black);
+                                     const PregnancyProgress &progress,
+                                     const PregnancyImportantDate *important) {
+  (void)due_date;
+  (void)important;
+  prototype_ui::begin_page(canvas);
+  const PregnancyWeekVisual &visual = pregnancy_week_visual(progress.weeks);
+  const WeekContent content = pregnancy_content_for_week(progress.weeks);
 
-  char headline[48] = {};
-  if (ui_language_is_chinese()) {
-    std::snprintf(headline, sizeof(headline), "第 %u 周",
+  if (portrait_layout(canvas)) {
+    char headline[32] = {};
+    std::snprintf(headline, sizeof(headline), "孕 %u 周",
                   static_cast<unsigned>(progress.weeks));
-  } else {
-    std::snprintf(headline, sizeof(headline), "WEEK %u",
+    draw_centered_text_pixels(canvas, {24, 26, 432, 56}, headline, 52,
+                              GrayLevel::Black, FontWeight::Medium);
+
+    char week_progress[32] = {};
+    std::snprintf(week_progress, sizeof(week_progress), "%u / 40 周",
                   static_cast<unsigned>(progress.weeks));
+    draw_centered_text_pixels(canvas, {24, 96, 432, 24}, week_progress, 20,
+                              GrayLevel::Black, FontWeight::Regular);
+
+    constexpr int kProgressX = 40;
+    constexpr int kProgressY = 140;
+    constexpr int kProgressWidth = 336;
+    constexpr int kProgressHeight = 14;
+    const int percent =
+        std::max(0, std::min(100, static_cast<int>(progress.percent)));
+    fill_pill(canvas, kProgressX, kProgressY, kProgressWidth * percent / 100,
+              kProgressHeight, GrayLevel::Black);
+    draw_rounded_rect(canvas,
+                      {kProgressX, kProgressY, kProgressWidth, kProgressHeight},
+                      kProgressHeight / 2, GrayLevel::Black);
+    char completion[16] = {};
+    std::snprintf(completion, sizeof(completion), "%u%%",
+                  static_cast<unsigned>(progress.percent));
+    canvas.draw_text_pixels(392, 136, completion, 18, GrayLevel::Black,
+                            FontWeight::Regular);
+
+    char countdown[64] = {};
+    if (progress.overdue) {
+      std::snprintf(countdown, sizeof(countdown), "已超过预产期 %d 天",
+                    -progress.days_until_due_date);
+    } else {
+      std::snprintf(countdown, sizeof(countdown), "距离预产期还有 %d 天",
+                    progress.days_until_due_date);
+    }
+    constexpr int kCountdownHeartGap = 8;
+    constexpr int kCountdownHeartWidth = 24;
+    const int countdown_width =
+        font_text_width_pixels(countdown, 16, FontWeight::Regular);
+    const int countdown_group_width =
+        countdown_width + kCountdownHeartGap + kCountdownHeartWidth;
+    const int countdown_x = (canvas.width() - countdown_group_width) / 2;
+    canvas.draw_text_pixels(countdown_x, 174, countdown, 16, GrayLevel::Black,
+                            FontWeight::Regular);
+    draw_heart_icon(canvas, countdown_x + countdown_width + kCountdownHeartGap,
+                    171, GrayLevel::Black);
+
+    pixel_asset_draw_centered(canvas, 240, 358,
+                              pregnancy_week_size_asset(progress.weeks), 2,
+                              GrayLevel::Black);
+
+    char size_title[80] = {};
+    std::snprintf(size_title, sizeof(size_title), "宝宝现在约有%s那么大",
+                  visual.object_zh);
+    const uint8_t title_pixels =
+        font_text_width_pixels(size_title, 24, FontWeight::Medium) <= 432 ? 24
+                                                                          : 20;
+    draw_centered_text_pixels(canvas, {24, 516, 432, 28}, size_title,
+                              title_pixels, GrayLevel::Black,
+                              FontWeight::Medium);
+    draw_centered_text_pixels(canvas, {24, 558, 432, 20},
+                              "—  用熟悉的东西感受宝宝正在长大  —", 14,
+                              GrayLevel::Black, FontWeight::Regular);
+
+    constexpr Rect kGrowthCard = {24, 602, 432, 174};
+    draw_rounded_rect(canvas, kGrowthCard, 12, GrayLevel::Black);
+    draw_baby_icon(canvas, 44, 616, GrayLevel::Black);
+    canvas.draw_text_pixels(82, 616, "本周成长", 22, GrayLevel::Black);
+    canvas.draw_line(44, 654, 436, 654, GrayLevel::Black);
+    draw_ruler_icon(canvas, 44, 668, GrayLevel::Black);
+    ui_draw_wrapped_text_pixels(canvas, 82, 664, 350,
+                                content.baby_development_zh, 14,
+                                GrayLevel::Black, 1, 4, FontWeight::Regular);
+    draw_heart_icon(canvas, 44, 708, GrayLevel::Black);
+    ui_draw_wrapped_text_pixels(canvas, 82, 704, 350, content.mother_changes_zh,
+                                14, GrayLevel::Black, 1, 4,
+                                FontWeight::Regular);
+    draw_reminder_icon(canvas, 44, 748, GrayLevel::Black);
+    ui_draw_wrapped_text_pixels(canvas, 82, 744, 350, content.daily_advice_zh,
+                                14, GrayLevel::Black, 1, 4,
+                                FontWeight::Regular);
+
+    canvas.fill_rect(424, 16, 32, 32, GrayLevel::White);
+    draw_rounded_rect(canvas, {424, 16, 32, 32}, 4, GrayLevel::Black);
+    for (int line = 0; line < 3; ++line)
+      canvas.draw_line(432, 24 + line * 8, 448, 24 + line * 8,
+                       GrayLevel::Black);
+    return;
   }
-  canvas.draw_text(32, 72, headline, 9, GrayLevel::Black);
 
-  char stage_badge[24] = {};
-  std::snprintf(stage_badge, sizeof(stage_badge), "%s",
-                pregnancy_stage_name(progress.stage));
-  constexpr Rect kStageRect = {448, 82, 320, 54};
-  draw_button(canvas, kStageRect, stage_badge, false, 2);
+  char headline[32] = {};
+  std::snprintf(headline, sizeof(headline), "孕 %u 周",
+                static_cast<unsigned>(progress.weeks));
+  canvas.draw_text_pixels(32, 24, headline, 56, GrayLevel::Black);
 
-  constexpr Rect kInfoRect = {32, 164, 736, 136};
-  draw_beveled_rect(canvas, kInfoRect, GrayLevel::DarkGray);
+  char week_progress[32] = {};
+  std::snprintf(week_progress, sizeof(week_progress), "%u / 40 周",
+                static_cast<unsigned>(progress.weeks));
+  canvas.draw_text_pixels(32, 96, week_progress, 20, GrayLevel::Black,
+                          FontWeight::Regular);
 
-  char current[96] = {};
-  if (ui_language_is_chinese()) {
-    std::snprintf(current, sizeof(current), "当前孕周：%u 周 + %u 天",
-                  static_cast<unsigned>(progress.weeks),
-                  static_cast<unsigned>(progress.days));
-  } else {
-    std::snprintf(current, sizeof(current), "CURRENT: %u WEEKS + %u DAYS",
-                  static_cast<unsigned>(progress.weeks),
-                  static_cast<unsigned>(progress.days));
-  }
-  canvas.draw_text(66, 205, current, 3, GrayLevel::Black);
-
-  char stage[80] = {};
-  if (ui_language_is_chinese()) {
-    std::snprintf(stage, sizeof(stage), "阶段：%s",
-                  ui_text(pregnancy_stage_name(progress.stage)));
-  } else {
-    std::snprintf(stage, sizeof(stage), "STAGE: %s",
-                  pregnancy_stage_name(progress.stage));
-  }
-  canvas.draw_text(66, 252, stage, 3, GrayLevel::Black);
-  draw_tracker_bunny(canvas);
+  constexpr int kProgressX = 32;
+  constexpr int kProgressY = 136;
+  constexpr int kProgressWidth = 272;
+  constexpr int kProgressHeight = 14;
+  const int percent =
+      std::max(0, std::min(100, static_cast<int>(progress.percent)));
+  const int filled_width = kProgressWidth * percent / 100;
+  fill_pill(canvas, kProgressX, kProgressY, filled_width, kProgressHeight,
+            GrayLevel::Black);
+  draw_rounded_rect(canvas,
+                    {kProgressX, kProgressY, kProgressWidth, kProgressHeight},
+                    kProgressHeight / 2, GrayLevel::Black);
+  char completion[16] = {};
+  std::snprintf(completion, sizeof(completion), "%u%%",
+                static_cast<unsigned>(progress.percent));
+  canvas.draw_text_pixels(320, 132, completion, 20, GrayLevel::Black,
+                          FontWeight::Regular);
 
   char countdown[64] = {};
   if (progress.overdue) {
-    std::snprintf(countdown, sizeof(countdown),
-                  ui_language_is_chinese() ? "已超过预产期 %d 天"
-                                           : "PAST DUE DATE BY %d DAYS",
+    std::snprintf(countdown, sizeof(countdown), "已超过预产期 %d 天",
                   -progress.days_until_due_date);
   } else {
-    std::snprintf(countdown, sizeof(countdown),
-                  ui_language_is_chinese() ? "距离预产期 %d 天"
-                                           : "%d DAYS UNTIL DUE DATE",
+    std::snprintf(countdown, sizeof(countdown), "距离预产期还有 %d 天",
                   progress.days_until_due_date);
   }
-  canvas.draw_text(32, 318, countdown, 3, GrayLevel::Black);
-  canvas.draw_text(32, 350, "40-WEEK DEVELOPMENT PROGRESS", 2,
-                   GrayLevel::Black);
-  constexpr int kBarX = 32;
-  constexpr int kBarY = 378;
-  constexpr int kBarWidth = 736;
-  constexpr int kBarHeight = 20;
-  canvas.fill_rect(kBarX, kBarY, kBarWidth, kBarHeight, GrayLevel::LightGray);
-  const int filled_width = static_cast<int>(progress.percent) * kBarWidth / 100;
-  canvas.fill_rect(kBarX, kBarY, filled_width, kBarHeight, GrayLevel::Black);
+  canvas.draw_text_pixels(32, 168, countdown, 16, GrayLevel::Black,
+                          FontWeight::Regular);
+  draw_heart_icon(
+      canvas, 40 + font_text_width_pixels(countdown, 16, FontWeight::Regular),
+      165, GrayLevel::Black);
 
-  char completion[48] = {};
-  if (ui_language_is_chinese()) {
-    std::snprintf(completion, sizeof(completion), "已完成约 %u%%",
-                  static_cast<unsigned>(progress.percent));
-  } else {
-    std::snprintf(completion, sizeof(completion), "ABOUT %u%% COMPLETE",
-                  static_cast<unsigned>(progress.percent));
-  }
-  canvas.draw_text(32, 404, completion, 2, GrayLevel::Black);
+  constexpr Rect kGrowthCard = {32, 216, 352, 240};
+  draw_rounded_rect(canvas, kGrowthCard, 12, GrayLevel::Black);
+  draw_baby_icon(canvas, 52, 232, GrayLevel::Black);
+  canvas.draw_text_pixels(92, 232, "本周成长", 24, GrayLevel::Black);
+  canvas.draw_line(52, 276, 364, 276, GrayLevel::Black);
 
-  char due[40] = {};
-  std::snprintf(due, sizeof(due),
-                ui_language_is_chinese() ? "预产期 %04u-%02u-%02u"
-                                         : "DUE %04u-%02u-%02u",
-                static_cast<unsigned>(due_date.year),
-                static_cast<unsigned>(due_date.month),
-                static_cast<unsigned>(due_date.day));
-  canvas.draw_text(520, 388, due, 1, GrayLevel::Black);
-  draw_button(canvas, kEditRect, "EDIT", false, 2);
-  draw_button(canvas, kOverviewTab, ui_text("OVERVIEW"), true, 2);
-  draw_button(canvas, kBabyTab, ui_text("BABY"), false, 2);
-  draw_button(canvas, kMomTab, ui_text("MOM"), false, 2);
+  draw_ruler_icon(canvas, 52, 296, GrayLevel::Black);
+  ui_draw_wrapped_text_pixels(canvas, 92, 292, 272, content.baby_development_zh,
+                              16, GrayLevel::Black, 2, 6, FontWeight::Regular);
+  draw_heart_icon(canvas, 52, 352, GrayLevel::Black);
+  ui_draw_wrapped_text_pixels(canvas, 92, 348, 272, content.mother_changes_zh,
+                              16, GrayLevel::Black, 2, 6, FontWeight::Regular);
+  draw_reminder_icon(canvas, 52, 408, GrayLevel::Black);
+  ui_draw_wrapped_text_pixels(canvas, 92, 404, 272, content.daily_advice_zh, 16,
+                              GrayLevel::Black, 2, 6, FontWeight::Regular);
+
+  pixel_asset_draw_centered(canvas, 592, 204,
+                            pregnancy_week_size_asset(progress.weeks), 2,
+                            GrayLevel::Black);
+
+  char size_title[80] = {};
+  std::snprintf(size_title, sizeof(size_title), "宝宝现在约有%s那么大",
+                visual.object_zh);
+  const uint8_t size_title_pixels =
+      font_text_width_pixels(size_title, 24, FontWeight::Medium) <= 368 ? 24
+                                                                        : 20;
+  draw_centered_text_pixels(canvas, {408, 360, 368, 24}, size_title,
+                            size_title_pixels, GrayLevel::Black,
+                            FontWeight::Medium);
+  draw_centered_text_pixels(canvas, {408, 408, 368, 20},
+                            "—  用熟悉的东西感受宝宝正在长大  —", 14,
+                            GrayLevel::Black, FontWeight::Regular);
+
+  canvas.fill_rect(744, 16, 32, 32, GrayLevel::White);
+  draw_rounded_rect(canvas, {744, 16, 32, 32}, 4, GrayLevel::Black);
+  for (int line = 0; line < 3; ++line)
+    canvas.draw_line(752, 24 + line * 8, 768, 24 + line * 8, GrayLevel::Black);
 }
 
 void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
                                   const PregnancyProgress &progress,
                                   const WeekContent &content) {
-  canvas.clear(GrayLevel::White);
-  char week[32] = {};
-  std::snprintf(week, sizeof(week),
-                ui_language_is_chinese() ? "第 %d 周" : "WEEK %d",
-                static_cast<int>(progress.weeks));
-  canvas.draw_text(42, 26, week, 5, GrayLevel::Black);
-  canvas.draw_text(42, 84,
-                   ui_text(page == PregnancyPage::Baby ? "BABY" : "MOM"), 3,
-                   GrayLevel::Black);
-  canvas.draw_line(42, 122, 758, 122, GrayLevel::Black);
+  prototype_ui::begin_page(canvas);
   const bool chinese = ui_language_is_chinese();
+  char title[48] = {};
+  std::snprintf(title, sizeof(title),
+                chinese ? "第 %u 周 · %s" : "WEEK %u · %s",
+                static_cast<unsigned>(progress.weeks),
+                chinese ? (page == PregnancyPage::Baby ? "宝宝" : "妈妈")
+                        : (page == PregnancyPage::Baby ? "BABY" : "MOM"));
+  if (portrait_layout(canvas)) {
+    canvas.draw_text(24, 22, title, 3, GrayLevel::Black);
+    draw_button(canvas, kPortraitEditRect, chinese ? "返回" : "HOME", false, 2);
+    canvas.draw_line(24, 82, 456, 82, GrayLevel::Black);
+    canvas.draw_text(24, 108, chinese ? "孕周" : "WEEK", 2, GrayLevel::Black);
+    char stat[20] = {};
+    std::snprintf(stat, sizeof(stat), "%u+%u",
+                  static_cast<unsigned>(progress.weeks),
+                  static_cast<unsigned>(progress.days));
+    canvas.draw_text(24, 140, stat, 6, GrayLevel::Black);
+    canvas.draw_text(230, 150, ui_text(pregnancy_stage_name(progress.stage)), 2,
+                     GrayLevel::Black);
+    char remaining[48] = {};
+    std::snprintf(remaining, sizeof(remaining),
+                  chinese ? "距离预产期约 %d 天" : "ABOUT %d DAYS TO DUE DATE",
+                  progress.days_until_due_date);
+    canvas.draw_text(230, 180, remaining, 1, GrayLevel::Black);
+    canvas.draw_line(24, 220, 456, 220, GrayLevel::Black);
+
+    if (page == PregnancyPage::Baby) {
+      canvas.draw_text(24, 246,
+                       chinese ? "宝宝正在感知外面的世界"
+                               : "BABY IS DISCOVERING THE WORLD",
+                       3, GrayLevel::Black);
+      ui_draw_wrapped_text(canvas, 24, 292, 432,
+                           chinese ? content.baby_development_zh
+                                   : content.baby_development,
+                           2, GrayLevel::Black, 5, 8);
+      canvas.draw_line(24, 450, 456, 450, GrayLevel::Black);
+      canvas.draw_text(24, 474, chinese ? "身长参考" : "SIZE GUIDE", 1,
+                       GrayLevel::Black);
+      canvas.draw_text(24, 502, content.baby_size_text, 3, GrayLevel::Black);
+      canvas.draw_text(250, 474, chinese ? "体重参考" : "WEIGHT GUIDE", 1,
+                       GrayLevel::Black);
+      canvas.draw_text(250, 502, content.baby_weight_text, 3, GrayLevel::Black);
+    } else {
+      canvas.draw_text(24, 246,
+                       chinese ? "身体负担正在逐渐增加"
+                               : "YOUR BODY IS CARRYING MORE",
+                       3, GrayLevel::Black);
+      ui_draw_wrapped_text(canvas, 24, 292, 432,
+                           chinese ? content.mother_changes_zh
+                                   : content.mother_changes,
+                           2, GrayLevel::Black, 5, 8);
+      canvas.draw_line(24, 450, 456, 450, GrayLevel::Black);
+      canvas.draw_text(24, 474, chinese ? "本周建议" : "SUGGESTION", 1,
+                       GrayLevel::Black);
+      ui_draw_wrapped_text(canvas, 24, 504, 432,
+                           chinese ? content.daily_advice_zh
+                                   : content.daily_advice,
+                           2, GrayLevel::Black, 4, 8);
+    }
+    draw_button(canvas, kPortraitOverviewTab, ui_text("OVERVIEW"), false, 2);
+    draw_button(canvas, kPortraitBabyTab, ui_text("BABY"),
+                page == PregnancyPage::Baby, 2);
+    draw_button(canvas, kPortraitMomTab, ui_text("MOM"),
+                page == PregnancyPage::Mom, 2);
+    return;
+  }
+  canvas.draw_text(24, 22, title, 4, GrayLevel::Black);
+  canvas.draw_text(
+      24, 57,
+      chinese ? (page == PregnancyPage::Baby ? "本周发育变化"
+                                             : "常见变化与温和提醒")
+              : (page == PregnancyPage::Baby ? "THIS WEEK'S DEVELOPMENT"
+                                             : "CHANGES AND GENTLE REMINDERS"),
+      2, GrayLevel::Black);
+  draw_button(canvas, kEditRect, chinese ? "返回首页" : "HOME", false, 2);
+  canvas.draw_line(214, 86, 214, 348, GrayLevel::Black);
   if (page == PregnancyPage::Baby) {
-    canvas.draw_text(42, 150, ui_text("THIS WEEK"), 2, GrayLevel::DarkGray);
-    ui_draw_wrapped_text(canvas, 42, 188, 716,
+    canvas.draw_text(24, 108, chinese ? "孕周" : "WEEK", 2, GrayLevel::Black);
+    char stat[20] = {};
+    std::snprintf(stat, sizeof(stat), "%u+%u",
+                  static_cast<unsigned>(progress.weeks),
+                  static_cast<unsigned>(progress.days));
+    canvas.draw_text(24, 142, stat, 7, GrayLevel::Black);
+    canvas.draw_text(24, 210, ui_text(pregnancy_stage_name(progress.stage)), 2,
+                     GrayLevel::Black);
+    char remaining[48] = {};
+    std::snprintf(remaining, sizeof(remaining),
+                  chinese ? "距离预产期约 %d 天" : "ABOUT %d DAYS TO DUE DATE",
+                  progress.days_until_due_date);
+    canvas.draw_text(24, 240, remaining, 1, GrayLevel::Black);
+    canvas.draw_text(238, 94,
+                     chinese ? "宝宝正在感知外面的世界"
+                             : "BABY IS DISCOVERING THE WORLD",
+                     3, GrayLevel::Black);
+    ui_draw_wrapped_text(canvas, 238, 136, 538,
                          chinese ? content.baby_development_zh
                                  : content.baby_development,
-                         2, GrayLevel::Black, 3, 8);
-    canvas.draw_text(42, 274, content.baby_size_text, 2, GrayLevel::Black);
-    canvas.draw_text(42, 306, content.baby_weight_text, 2, GrayLevel::Black);
+                         2, GrayLevel::Black, 4, 8);
+    canvas.draw_line(238, 252, 410, 252, GrayLevel::Black);
+    canvas.draw_line(426, 252, 598, 252, GrayLevel::Black);
+    canvas.draw_line(614, 252, 776, 252, GrayLevel::Black);
+    canvas.draw_text(238, 266, chinese ? "身长参考" : "SIZE GUIDE", 1,
+                     GrayLevel::Black);
+    canvas.draw_text(238, 287, content.baby_size_text, 2, GrayLevel::Black);
+    canvas.draw_text(426, 266, chinese ? "体重参考" : "WEIGHT GUIDE", 1,
+                     GrayLevel::Black);
+    canvas.draw_text(426, 287, content.baby_weight_text, 2, GrayLevel::Black);
+    canvas.draw_text(614, 266, chinese ? "本周关键词" : "KEYWORD", 1,
+                     GrayLevel::Black);
+    canvas.draw_text(614, 287, chinese ? "感知 · 活动" : "SENSES · MOTION", 2,
+                     GrayLevel::Black);
   } else {
-    canvas.draw_text(42, 150, ui_text("COMMON CHANGES"), 2,
-                     GrayLevel::DarkGray);
-    ui_draw_wrapped_text(canvas, 42, 188, 716,
+    canvas.draw_text(24, 108, chinese ? "本周重点" : "THIS WEEK", 2,
+                     GrayLevel::Black);
+    canvas.draw_text(24, 146, chinese ? "休息" : "REST", 5, GrayLevel::Black);
+    canvas.draw_text(24, 194, chinese ? "补水" : "HYDRATE", 5,
+                     GrayLevel::Black);
+    ui_draw_wrapped_text(canvas, 24, 254, 166,
+                         chinese ? "关注身体变化，按医护建议安排产检。"
+                                 : "NOTICE CHANGES AND FOLLOW YOUR CARE PLAN.",
+                         1, GrayLevel::Black, 3, 5);
+    canvas.draw_text(238, 94,
+                     chinese ? "身体负担正在逐渐增加"
+                             : "YOUR BODY IS CARRYING MORE",
+                     3, GrayLevel::Black);
+    ui_draw_wrapped_text(canvas, 238, 136, 538,
                          chinese ? content.mother_changes_zh
                                  : content.mother_changes,
-                         2, GrayLevel::Black, 3, 8);
-    canvas.draw_text(42, 278, ui_text("GENTLE REMINDER"), 2,
-                     GrayLevel::DarkGray);
-    ui_draw_wrapped_text(canvas, 42, 316, 716,
-                         chinese ? content.daily_advice_zh
-                                 : content.daily_advice,
-                         2, GrayLevel::Black, 2, 8);
+                         2, GrayLevel::Black, 4, 8);
+    canvas.draw_line(238, 252, 410, 252, GrayLevel::Black);
+    canvas.draw_line(426, 252, 598, 252, GrayLevel::Black);
+    canvas.draw_line(614, 252, 776, 252, GrayLevel::Black);
+    canvas.draw_text(238, 266, chinese ? "建议" : "SUGGESTION", 1,
+                     GrayLevel::Black);
+    canvas.draw_text(238, 287, chinese ? "分段活动" : "PACE ACTIVITY", 2,
+                     GrayLevel::Black);
+    canvas.draw_text(426, 266, chinese ? "记录" : "RECORD", 1,
+                     GrayLevel::Black);
+    canvas.draw_text(426, 287, chinese ? "体重趋势" : "WEIGHT TREND", 2,
+                     GrayLevel::Black);
+    canvas.draw_text(614, 266, chinese ? "如感不适" : "IF UNWELL", 1,
+                     GrayLevel::Black);
+    canvas.draw_text(614, 287, chinese ? "联系医护" : "CONTACT CARE", 2,
+                     GrayLevel::Black);
   }
-  canvas.draw_text(
-      42, 382, ui_text("INFORMATION ONLY - CONTACT YOUR CARE TEAM IF UNWELL"),
-      1, GrayLevel::DarkGray);
   draw_button(canvas, kOverviewTab, ui_text("OVERVIEW"), false, 2);
   draw_button(canvas, kBabyTab, ui_text("BABY"), page == PregnancyPage::Baby,
               2);
@@ -341,39 +712,59 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
 }
 
 PregnancyAction pregnancy_page_action_at(PregnancyPage page, bool can_cancel,
-                                         int x, int y) {
-  if (x < 0 || y < 0 || x >= kScreenWidth || y >= kScreenHeight) {
+                                         int width, int height, int x, int y) {
+  if (x < 0 || y < 0 || x >= width || y >= height) {
     return PregnancyAction::None;
   }
+  const bool portrait = height > width;
   if (page == PregnancyPage::SourceSetup) {
-    if (kDueSourceRect.contains(x, y))
+    if ((portrait ? kPortraitDueSourceRect : kDueSourceRect).contains(x, y))
       return PregnancyAction::SelectDueDate;
-    if (kLmpSourceRect.contains(x, y))
+    if ((portrait ? kPortraitLmpSourceRect : kLmpSourceRect).contains(x, y))
       return PregnancyAction::SelectLmp;
-    return can_cancel && kBackRect.contains(x, y) ? PregnancyAction::Back
-                                                  : PregnancyAction::None;
+    return can_cancel &&
+                   (portrait ? kPortraitBackRect : kBackRect).contains(x, y)
+               ? PregnancyAction::Back
+               : PregnancyAction::None;
   }
   if (page == PregnancyPage::Dashboard || page == PregnancyPage::Baby ||
       page == PregnancyPage::Mom) {
-    if (page == PregnancyPage::Dashboard && kEditRect.contains(x, y))
-      return PregnancyAction::Edit;
-    if (kOverviewTab.contains(x, y))
+    if (page == PregnancyPage::Dashboard) {
+      if ((portrait ? kPortraitHomeMenu : kHomeMenu).contains(x, y))
+        return PregnancyAction::OpenLauncher;
+      if ((portrait ? kPortraitHomeVisual : kHomeVisual).contains(x, y) ||
+          (portrait ? kPortraitHomeBabyStory : kHomeBabyStory).contains(x, y))
+        return PregnancyAction::ShowBaby;
+      if ((portrait ? kPortraitHomeMomStory : kHomeMomStory).contains(x, y))
+        return PregnancyAction::ShowMom;
+      return PregnancyAction::None;
+    }
+    if ((portrait ? kPortraitEditRect : kEditRect).contains(x, y))
       return PregnancyAction::ShowOverview;
-    if (kBabyTab.contains(x, y))
+    if ((portrait ? kPortraitOverviewTab : kOverviewTab).contains(x, y))
+      return PregnancyAction::ShowOverview;
+    if ((portrait ? kPortraitBabyTab : kBabyTab).contains(x, y))
       return PregnancyAction::ShowBaby;
-    if (kMomTab.contains(x, y))
+    if ((portrait ? kPortraitMomTab : kMomTab).contains(x, y))
       return PregnancyAction::ShowMom;
     return PregnancyAction::None;
   }
-  if (can_cancel && kBackRect.contains(x, y)) {
+  if (can_cancel && (portrait ? kPortraitBackRect : kBackRect).contains(x, y)) {
     return PregnancyAction::Back;
   }
   for (size_t index = 0U; index < 12U; ++index) {
-    if (kKeyRects[index].contains(x, y)) {
+    if ((portrait ? kPortraitKeyRects[index] : kKeyRects[index])
+            .contains(x, y)) {
       return kKeyActions[index];
     }
   }
   return PregnancyAction::None;
+}
+
+PregnancyAction pregnancy_page_action_at(PregnancyPage page, bool can_cancel,
+                                         int x, int y) {
+  return pregnancy_page_action_at(page, can_cancel, kScreenWidth, kScreenHeight,
+                                  x, y);
 }
 
 bool pregnancy_action_digit(PregnancyAction action, char &digit) {
@@ -445,6 +836,10 @@ const char *pregnancy_action_name(PregnancyAction action) {
     return "show_baby";
   case PregnancyAction::ShowMom:
     return "show_mom";
+  case PregnancyAction::OpenLauncher:
+    return "open_launcher";
+  case PregnancyAction::OpenCheckup:
+    return "open_checkup";
   }
   return "unknown";
 }

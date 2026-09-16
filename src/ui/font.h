@@ -3,7 +3,12 @@
 #include <cstdint>
 
 struct FontGlyph {
-    uint8_t columns[5];
+  uint8_t columns[5];
+};
+
+enum class FontWeight : uint8_t {
+  Regular,
+  Medium,
 };
 
 constexpr uint8_t kFontWidth = 5;
@@ -18,10 +23,27 @@ const FontGlyph &font_get_glyph(char character);
 // 解码一个UTF-8码点，并把指针移动到下一个字符。
 bool font_decode_utf8(const char *&text, uint32_t &codepoint);
 
-// Returns the CJK pixel scale used to match the 5x7 Latin line height.
-// 返回与5x7拉丁字体行高匹配的中文字形像素倍率。
-uint8_t font_cjk_scale(uint8_t latin_scale);
+// Maps the legacy integer scale to a unified UI text pixel height.
+// scale=1 intentionally maps to 12 px so secondary copy remains legible on
+// the physical e-paper panel; larger sizes preserve the 7 px scale rhythm.
+uint8_t font_ui_pixel_size(uint8_t scale);
+
+// Returns the tracking used by the unified UI raster face.
+uint8_t font_ui_spacing(uint8_t scale);
+
+// Returns the tracking used when a page requests an exact pixel height.
+uint8_t font_ui_spacing_pixels(uint8_t pixel_size);
+
+// Returns the native bitmap strike used for a requested size.
+uint8_t font_resolved_pixel_size(uint8_t pixel_size,
+                                 FontWeight weight = FontWeight::Medium);
 
 // Measures UTF-8 text using the same mixed ASCII/CJK advances as Canvas.
 // 使用与Canvas一致的ASCII/中文混排步进计算UTF-8文字宽度。
-int font_text_width(const char *text, uint8_t scale);
+int font_text_width(const char *text, uint8_t scale,
+                    FontWeight weight = FontWeight::Medium);
+
+// Measures UTF-8 text at an exact pixel height. This is intended for screens
+// whose typography needs to match a fixed-resolution layout precisely.
+int font_text_width_pixels(const char *text, uint8_t pixel_size,
+                           FontWeight weight = FontWeight::Medium);

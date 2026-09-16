@@ -1,7 +1,5 @@
 #include "kick_service.h"
 
-#include <cstdlib>
-
 namespace {
 bool same_date(const PregnancyDate &a, const PregnancyDate &b) {
   return a.year == b.year && a.month == b.month && a.day == b.day;
@@ -103,51 +101,65 @@ bool KickService::summarize(const PregnancyDate &date,
                             KickDaySummary &output) const {
   output = {};
   bool found = false;
+  int latest_minute_of_day = -1;
   for (size_t i = 0U; i < count_; ++i) {
     if (!same_date(sessions_[i].date, date))
       continue;
     found = true;
     add_period(output, sessions_[i].period, sessions_[i].count);
-  }
-  output.sampled_total = output.morning + output.afternoon + output.evening;
-  output.estimated_12h = output.sampled_total * 4U;
-  output.complete =
-      output.morning > 0U && output.afternoon > 0U && output.evening > 0U;
-
-  int32_t day = 0;
-  PregnancyDate previous_date = {};
-  if (pregnancy_date_to_day_index(date, day) &&
-      pregnancy_date_from_day_index(day - 1, previous_date)) {
-    uint16_t previous_total = 0U;
-    uint16_t previous_periods[3] = {};
-    for (size_t i = 0U; i < count_; ++i) {
-      if (same_date(sessions_[i].date, previous_date)) {
-        previous_total += sessions_[i].count;
-        previous_periods[static_cast<size_t>(sessions_[i].period)] +=
-            sessions_[i].count;
-      }
-    }
-    if (previous_total > 0U) {
-      output.change_percent = static_cast<int16_t>(
-          (static_cast<int32_t>(output.sampled_total) - previous_total) * 100 /
-          previous_total);
-    }
-    const uint16_t current_periods[] = {
-        output.morning,
-        output.afternoon,
-        output.evening,
-    };
-    for (size_t period = 0U; period < 3U; ++period) {
-      if (previous_periods[period] == 0U)
-        continue;
-      const int change = (static_cast<int>(current_periods[period]) -
-                          static_cast<int>(previous_periods[period])) *
-                         100 / previous_periods[period];
-      if (std::abs(change) > 50)
-        output.attention = true;
+    output.total += sessions_[i].count;
+    ++output.session_count;
+    output.duration_minutes += sessions_[i].duration_minutes;
+    const int minute_of_day = static_cast<int>(sessions_[i].hour) * 60 +
+                              static_cast<int>(sessions_[i].minute);
+    if (minute_of_day >= latest_minute_of_day) {
+      latest_minute_of_day = minute_of_day;
+      output.latest_hour = sessions_[i].hour;
+      output.latest_minute = sessions_[i].minute;
+      output.latest_count = sessions_[i].count;
+      output.latest_duration_minutes = sessions_[i].duration_minutes;
+      output.has_latest = true;
     }
   }
-  output.attention =
-      output.attention || (output.complete && output.estimated_12h < 20U);
   return found;
+}
+
+bool KickService::summarize_recent(const PregnancyDate &end_date,
+                                   KickTrendSummary &output) const {
+  output = {};
+  int32_t end_day = 0;
+  if (!pregnancy_date_to_day_index(end_date, end_day))
+    return false;
+
+  for (size_t index = 0U; index < kKickTrendDays; ++index) {
+    const int32_t offset = static_cast<int32_t>(kKickTrendDays - 1U - index);
+    if (!pregnancy_date_from_day_index(end_day - offset,
+                                       output.dates[index]))
+      continue;
+    KickDaySummary day = {};
+    if (!summarize(output.dates[index], day))
+      continue;
+    output.has_data = true;
+    output.totals[index] = day.total;
+    output.session_counts[index] = day.session_count;
+    output.duration_minutes[index] = day.duration_minutes;
+    output.total += day.total;
+    output.session_count += day.session_count;
+    ++output.recorded_days;
+    output.period_totals[0] += day.morning;
+    output.period_totals[1] += day.afternoon;
+    output.period_totals[2] += day.evening;
+  }
+
+  if (output.recorded_days > 0U) {
+    output.average_per_recorded_day = static_cast<uint16_t>(
+        (output.total + output.recorded_days / 2U) / output.recorded_days);
+  }
+  size_t busiest = 0U;
+  for (size_t index = 1U; index < 3U; ++index) {
+    if (output.period_totals[index] > output.period_totals[busiest])
+      busiest = index;
+  }
+  output.busiest_period = static_cast<KickPeriod>(busiest);
+  return output.has_data;
 }

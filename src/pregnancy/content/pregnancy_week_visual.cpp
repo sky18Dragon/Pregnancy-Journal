@@ -1,0 +1,87 @@
+#include "pregnancy_week_visual.h"
+
+namespace {
+
+constexpr PregnancyWeekVisual kWeeks[] = {
+    {6, "blueberry", "蓝莓", "About the size of a blueberry",
+     "大约像一颗小蓝莓，新的成长刚刚开始"},
+    {7, "coffee bean", "咖啡豆", "About the size of a coffee bean",
+     "大约像一粒咖啡豆，小小的轮廓正在成形"},
+    {8, "raspberry", "覆盆子", "About the size of a raspberry",
+     "大约像一颗覆盆子，细微变化每天都在发生"},
+    {9, "cherry", "樱桃", "About the size of a cherry",
+     "大约像一颗樱桃，身体结构正在快速发展"},
+    {10, "strawberry", "草莓", "About the size of a strawberry",
+     "大约像一颗草莓，手脚轮廓越来越清晰"},
+    {11, "apricot", "杏子", "About the size of an apricot",
+     "大约像一颗杏子，小小的动作正在变得更灵活"},
+    {12, "kiwi", "猕猴桃", "About the size of a kiwi",
+     "大约像一颗猕猴桃，成长进入更稳定的节奏"},
+    {13, "lemon", "柠檬", "About the size of a lemon",
+     "大约像一颗柠檬，宝宝正在练习新的动作"},
+    {14, "peach", "桃子", "About the size of a peach",
+     "大约像一颗桃子，面部轮廓继续变得细致"},
+    {15, "apple", "苹果", "About the size of an apple",
+     "大约像一个苹果，四肢活动更加协调"},
+    {16, "avocado", "牛油果", "About the size of an avocado",
+     "大约像一个牛油果，身体正在慢慢舒展开"},
+    {17, "pomegranate", "石榴", "About the size of a pomegranate",
+     "大约像一个石榴，听觉世界正在渐渐打开"},
+    {18, "bell pepper", "甜椒", "About the size of a bell pepper",
+     "大约像一个甜椒，你可能开始感到轻微胎动"},
+    {19, "mango", "芒果", "About the size of a mango",
+     "大约像一个芒果，动作节律越来越有规律"},
+    {20, "banana", "香蕉", "About as long as a banana",
+     "大约和一根香蕉差不多长，孕程已经过半"},
+    {21, "carrot", "胡萝卜", "About as long as a carrot",
+     "大约和一根胡萝卜差不多长，活动更容易被察觉"},
+    {22, "coconut", "椰子", "About the size of a coconut",
+     "大约像一个小椰子，感官能力继续发展"},
+    {23, "grapefruit", "西柚", "About the size of a grapefruit",
+     "大约像一个西柚，睡眠与活动开始交替"},
+    {24, "corn", "玉米", "About as long as an ear of corn",
+     "大约和一根玉米差不多长，正在熟悉你的声音"},
+    {25, "cauliflower", "花椰菜", "About the size of a cauliflower",
+     "大约像一颗花椰菜，身体正在积累更多力量"},
+    {26, "lettuce", "生菜", "About the size of a head of lettuce",
+     "大约像一颗生菜球，对声音的反应更明显"},
+    {27, "zucchini", "西葫芦", "About as long as a zucchini",
+     "大约和一根西葫芦差不多长，伸展动作更有力"},
+    {28, "eggplant", "茄子", "About the size of an eggplant",
+     "大约像一根茄子，进入持续增重的阶段"},
+    {29, "acorn squash", "橡果南瓜", "About the size of an acorn squash",
+     "大约像一个橡果南瓜，活动与安静各有节奏"},
+    {30, "cabbage", "卷心菜", "About the size of a cabbage",
+     "大约像一颗卷心菜，大脑与神经仍在成熟"},
+    {31, "pineapple", "菠萝", "About the size of a pineapple",
+     "大约像一个菠萝，身体继续为出生做准备"},
+    {32, "jicama", "豆薯", "About the size of a jicama",
+     "大约像一个豆薯，皮下脂肪正在逐渐增加"},
+    {33, "celery", "芹菜", "About as long as a bunch of celery",
+     "大约和一把芹菜差不多长，空间变得更紧凑"},
+    {34, "cantaloupe", "哈密瓜", "About the size of a cantaloupe",
+     "大约像一个哈密瓜，呼吸练习持续进行"},
+    {35, "small winter melon", "小冬瓜",
+     "About as long as a small winter melon",
+     "大约和一个小冬瓜差不多长，身体正在稳定增加重量"},
+    {36, "romaine lettuce", "罗马生菜", "About as long as romaine lettuce",
+     "大约和一颗罗马生菜差不多长，已经接近足月"},
+    {37, "Swiss chard", "牛皮菜", "About as long as Swiss chard",
+     "大约和一把牛皮菜差不多长，随时可能调整姿势"},
+    {38, "leek", "韭葱", "About as long as a leek",
+     "大约和一根韭葱差不多长，器官发育已接近完成"},
+    {39, "watermelon", "西瓜", "About the size of a small watermelon",
+     "大约像一个小西瓜，继续耐心等待见面时刻"},
+    {40, "pumpkin", "南瓜", "About the size of a pumpkin",
+     "大约像一个圆南瓜，见面的日子已经很近了"},
+};
+
+} // namespace
+
+const PregnancyWeekVisual &pregnancy_week_visual(uint8_t week) {
+  if (week <= 6U)
+    return kWeeks[0];
+  if (week >= 40U)
+    return kWeeks[34];
+  return kWeeks[week - 6U];
+}

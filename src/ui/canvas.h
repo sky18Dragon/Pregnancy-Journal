@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "font.h"
+
 enum class GrayLevel : uint8_t {
     Black = 0,
     DarkGray = 1,
@@ -50,7 +52,11 @@ public:
     void fill_circle(int center_x, int center_y, int radius,
                      GrayLevel color = GrayLevel::Black);
     void draw_text(int x, int y, const char *text, uint8_t scale = 1,
-                   GrayLevel color = GrayLevel::Black);
+                   GrayLevel color = GrayLevel::Black,
+                   FontWeight weight = FontWeight::Medium);
+    void draw_text_pixels(int x, int y, const char *text, uint8_t pixel_size,
+                          GrayLevel color = GrayLevel::Black,
+                          FontWeight weight = FontWeight::Medium);
 
     // Converts a physical touch coordinate into the current logical page axes.
     // 将物理触摸坐标转换为当前旋转页面使用的逻辑坐标。

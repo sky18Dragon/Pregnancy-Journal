@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=800, initial-scale=1" />
+    <title>功能｜墨水屏视觉原型</title>
+    <style>
+      :root {
+        --ink-primary: #202020;
+        --ink-secondary: #5b5b5b;
+        --ink-divider: #aaaaaa;
+        --paper: #f4f4f2;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 800px;
+        height: 480px;
+        margin: 0;
+        overflow: hidden;
+        background: var(--paper);
+      }
+
+      body {
+        color: var(--ink-primary);
+        font-family: "Source Han Sans SC", "Noto Sans SC", "Hiragino Sans GB",
+          "PingFang SC", sans-serif;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: geometricPrecision;
+      }
+
+      .screen {
+        position: relative;
+        width: 800px;
+        height: 480px;
+        padding: 24px 32px;
+        background: var(--paper);
+      }
+
+      .topbar {
+        position: relative;
+        height: 72px;
+        border-bottom: 1px solid var(--ink-divider);
+      }
+
+      h1 {
+        margin: 0;
+        color: var(--ink-primary);
+        font-size: 30px;
+        font-weight: 500;
+        line-height: 36px;
+      }
+
+      .subtitle {
+        margin: 2px 0 0;
+        color: var(--ink-secondary);
+        font-size: 15px;
+        font-weight: 400;
+        line-height: 22px;
+        letter-spacing: 0.4px;
+      }
+
+      .close-button {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 112px;
+        height: 44px;
+        border: 1px solid var(--ink-divider);
+        border-radius: 0;
+        background: transparent;
+        color: var(--ink-secondary);
+        font: inherit;
+        font-size: 16px;
+        font-weight: 400;
+        cursor: default;
+      }
+
+      .feature-grid {
+        display: grid;
+        height: 312px;
+        margin-top: 16px;
+        grid-template-columns: repeat(2, 344px);
+        grid-template-rows: repeat(3, 104px);
+        column-gap: 48px;
+      }
+
+      .feature-item {
+        display: grid;
+        min-width: 0;
+        align-items: center;
+        border-bottom: 1px solid var(--ink-divider);
+        grid-template-columns: 56px minmax(0, 1fr) 24px;
+      }
+
+      .feature-item:nth-child(5),
+      .feature-item:nth-child(6) {
+        border-bottom: 0;
+      }
+
+      .number {
+        color: var(--ink-secondary);
+        font-size: 40px;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+        line-height: 48px;
+        letter-spacing: -0.5px;
+      }
+
+      .feature-copy {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .feature-copy h2 {
+        margin: 0;
+        color: var(--ink-primary);
+        font-size: 24px;
+        font-weight: 500;
+        line-height: 28px;
+      }
+
+      .feature-copy p {
+        margin: 0;
+        color: var(--ink-secondary);
+        font-size: 16px;
+        font-weight: 400;
+        line-height: 24px;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+      }
+
+      .chevron {
+        width: 12px;
+        height: 12px;
+        margin-left: 4px;
+        border-top: 1px solid var(--ink-secondary);
+        border-right: 1px solid var(--ink-secondary);
+        transform: rotate(45deg);
+      }
+
+      .footer-note {
+        position: absolute;
+        bottom: 24px;
+        left: 32px;
+        margin: 0;
+        color: var(--ink-secondary);
+        font-size: 15px;
+        font-weight: 400;
+        line-height: 22px;
+        letter-spacing: 0.4px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="screen" aria-label="功能列表页高保真原型">
+      <header class="topbar">
+        <h1>功能</h1>
+        <p class="subtitle">记录、查看与管理你的孕期信息</p>
+        <button class="close-button" type="button">关闭</button>
+      </header>
+
+      <section class="feature-grid" aria-label="功能入口">
+        <article class="feature-item">
+          <span class="number">01</span>
+          <div class="feature-copy"><h2>产检</h2><p>预约日期与产检安排</p></div>
+          <span class="chevron" aria-hidden="true"></span>
+        </article>
+        <article class="feature-item">
+          <span class="number">02</span>
+          <div class="feature-copy"><h2>提醒</h2><p>查看今天的待办提醒</p></div>
+          <span class="chevron" aria-hidden="true"></span>
+        </article>
+        <article class="feature-item">
+          <span class="number">03</span>
+          <div class="feature-copy"><h2>体重</h2><p>最近记录与长期趋势</p></div>
+          <span class="chevron" aria-hidden="true"></span>
+        </article>
+        <article class="feature-item">
+          <span class="number">04</span>
+          <div class="feature-copy"><h2>胎动</h2><p>早中晚三个时段记录</p></div>
+          <span class="chevron" aria-hidden="true"></span>
+        </article>
+        <article class="feature-item">
+          <span class="number">05</span>
+          <div class="feature-copy"><h2>宝宝 / 妈妈</h2><p>查看本周发育与变化</p></div>
+          <span class="chevron" aria-hidden="true"></span>
+        </article>
+        <article class="feature-item">
+          <span class="number">06</span>
+          <div class="feature-copy"><h2>设置</h2><p>设备设置与孕期资料</p></div>
+          <span class="chevron" aria-hidden="true"></span>
+        </article>
+      </section>
+
+      <p class="footer-note">顶部按键关闭 · 双击返回孕周首页</p>
+    </main>
+  </body>
+</html>

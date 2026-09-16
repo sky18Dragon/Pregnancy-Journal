@@ -85,7 +85,7 @@ later from Settings → Pregnancy Settings.
 | Reminders | Today/Upcoming list, six types, complete/delete, global enable switch | 12 records; four visible rows; recurrence is daily/weekly in the domain model |
 | Checkups | Add, complete and delete dated appointments | 8 records; four visible rows; new item defaults to +7 days at 09:00 |
 | Weight | Daily kg/lb record, BMI, baseline gain and seven-point trend | 32 records; one record per day; height 100–220 cm |
-| Kicks | Morning/afternoon/evening sessions, sampled total and 12-hour estimate | 42 sessions; five-second debounce; active session ends at 60 minutes |
+| Kicks | Any-time sessions, today's totals and a seven-day recorded-data trend | 42 sessions; undo plus 400 ms accidental-double-tap guard; active session ends at 60 minutes |
 | Settings | Language, RTC time, pregnancy setup, clean refresh and return home | Time editor keeps the device awake |
 
 All health-related values are prompts for personal records and care-team
@@ -113,6 +113,7 @@ valid siblings remain available. See [storage](docs/pregnancy/storage.md) and
 ## Documentation map
 
 - [Current functionality reference](docs/pregnancy/current-functionality.md)
+- [UI prototype implementation mapping](docs/pregnancy/ui-prototype-mapping.md)
 - [Architecture](docs/pregnancy/architecture.md)
 - [Data model](docs/pregnancy/data-model.md)
 - [Pregnancy calculation](docs/pregnancy/pregnancy-calculation.md)

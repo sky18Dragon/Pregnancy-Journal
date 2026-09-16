@@ -5,8 +5,8 @@
 #include "canvas.h"
 #include "esp_err.h"
 
-// Starts the standalone landscape pregnancy-week dashboard.
-// 启动独立的横屏孕周看板APP。
+// Starts the pregnancy dashboard with grip-aware landscape/portrait layouts.
+// 启动支持随握持方向切换横竖排版的孕周看板APP。
 esp_err_t pregnancy_app_start(Canvas &canvas);
 void pregnancy_app_set_display_rotation(CanvasRotation rotation);
 void pregnancy_app_request_setup();
