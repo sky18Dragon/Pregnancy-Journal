@@ -383,4 +383,8 @@ echo "[host-test] validate_sd_backup_test"
 python3 test/validate_sd_backup_test.py
 passed_count=$((passed_count + 1))
 
+echo "[host-test] check_ui_tokens"
+python3 tools/check_ui_tokens.py
+passed_count=$((passed_count + 1))
+
 echo "[host-test] PASS ${passed_count}/${passed_count}"

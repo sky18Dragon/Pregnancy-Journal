@@ -101,7 +101,7 @@ void draw_header(Canvas &canvas, const char *title, const char *subtitle,
            ? header_action_rect(canvas.width(), canvas.height()).x - 12
            : canvas.width() - kPagePadding) -
       kPagePadding;
-  uint8_t title_size = portrait ? 24U : 28U;
+  uint8_t title_size = portrait ? ui_tokens::kSectionHeading : ui_tokens::kPageHeading;
   while (title_size > ui_tokens::kEmphasis &&
          font_text_width_pixels(ui_text(title), title_size,
                                 FontWeight::Medium) > available)

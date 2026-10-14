@@ -11,10 +11,12 @@ namespace ui_tokens {
 constexpr uint8_t kSecondaryBody = 16U;
 constexpr uint8_t kBody = 18U;
 constexpr uint8_t kEmphasis = 20U;
+constexpr uint8_t kCardTitle = 22U;
 constexpr uint8_t kSectionHeading = 24U;
 constexpr uint8_t kPageHeading = 28U;
 constexpr uint8_t kDisplay = 52U;
 constexpr uint8_t kDisplayLarge = 56U;
+constexpr uint8_t kCounterDisplay = 70U;
 
 constexpr int kContentMargin = 24;
 constexpr int kSafeArea = 24;

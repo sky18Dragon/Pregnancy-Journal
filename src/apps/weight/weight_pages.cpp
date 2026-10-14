@@ -12,29 +12,29 @@ using prototype_ui::Rect;
 bool portrait(int width, int height) { return height > width; }
 Rect footer(size_t index, size_t count, int width, int height) {
   const int gap = 12;
-  const int item = (width - 48 - gap * static_cast<int>(count - 1U)) / static_cast<int>(count);
-  return {24 + static_cast<int>(index) * (item + gap), height - 80, item, 56};
+  const int item = (width - 2 * ui_tokens::kContentMargin - gap * static_cast<int>(count - 1U)) / static_cast<int>(count);
+  return {24 + static_cast<int>(index) * (item + gap), height - 80, item, ui_tokens::kButtonHeight};
 }
 Rect unit(int width, int height) {
-  return portrait(width, height) ? Rect{336, 88, 120, 48} : Rect{548, 20, 92, 48};
+  return portrait(width, height) ? Rect{336, 88, 120, ui_tokens::kMinimumTouchHeight} : Rect{548, 20, 92, ui_tokens::kMinimumTouchHeight};
 }
 Rect trend_toggle(int width, int height) {
-  return portrait(width, height) ? Rect{280, 292, 176, 48} : Rect{560, 86, 216, 48};
+  return portrait(width, height) ? Rect{280, 292, 176, ui_tokens::kMinimumTouchHeight} : Rect{560, 86, 216, ui_tokens::kMinimumTouchHeight};
 }
 Rect adjustment(size_t index, int width, int height) {
   if (portrait(width, height)) return {24 + static_cast<int>(index % 2U) * 224,
-                                     330 + static_cast<int>(index / 2U) * 72, 208, 56};
-  return {56 + static_cast<int>(index) * 176, 260, 160, 48};
+                                     330 + static_cast<int>(index / 2U) * 72, 208, ui_tokens::kButtonHeight};
+  return {56 + static_cast<int>(index) * 176, 260, 160, ui_tokens::kMinimumTouchHeight};
 }
 Rect history_row(size_t row, int width, int height) {
   return {24, 116 + static_cast<int>(row) * (portrait(width, height) ? 96 : 50),
-          width - 48, portrait(width, height) ? 88 : 48};
+          width - 2 * ui_tokens::kContentMargin, portrait(width, height) ? 88 : 48};
 }
 Rect profile_adjust(size_t index, int width, int height) {
   const bool vertical = portrait(width, height);
   const int y = (vertical ? 230 : 160) + static_cast<int>(index / 2U) * (vertical ? 188 : 120);
-  return {24 + static_cast<int>(index % 2U) * ((width - 48) / 2 + 6), y,
-          (width - 60) / 2, 56};
+  return {24 + static_cast<int>(index % 2U) * ((width - 2 * ui_tokens::kContentMargin) / 2 + 6), y,
+          (width - 60) / 2, ui_tokens::kButtonHeight};
 }
 void page_button(Canvas &canvas, Rect rect, const char *label, bool filled = false) {
   prototype_ui::draw_button(canvas, rect, label, filled, 2);
@@ -187,7 +187,7 @@ void weight_page_render(Canvas &canvas, const WeightService &service,
     prototype_ui::draw_header(canvas, deleting ? "DELETE WEIGHT RECORD" : "REPLACE SAME-DAY RECORD", "CONFIRM CHANGE", "BACK");
     date_text(state.edit_date, text, sizeof(text));
     canvas.draw_text(24, vertical ? 184 : 154, text, 3, GrayLevel::Black);
-    ui_draw_wrapped_text_pixels(canvas, 24, vertical ? 244 : 210, width - 48,
+    ui_draw_wrapped_text_pixels(canvas, ui_tokens::kContentMargin, vertical ? 244 : 210, width - 2 * ui_tokens::kContentMargin,
         ui_text(deleting ? "THIS RECORD WILL BE DELETED." : "THE EXISTING RECORD FOR THIS DATE WILL BE REPLACED."),
         ui_tokens::kBody, GrayLevel::Black, 3, 5, FontWeight::Regular);
     page_button(canvas, footer(0U, 2U, width, height), "CANCEL");

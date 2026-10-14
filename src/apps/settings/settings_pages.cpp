@@ -44,7 +44,7 @@ Rect form_row(size_t index, int width, int height) {
   const bool is_portrait = portrait(width, height);
   return {24, (is_portrait ? 120 : 96) +
                   static_cast<int>(index) * (is_portrait ? 116 : 66),
-          width - 48, is_portrait ? 116 : 66};
+          width - 2 * ui_tokens::kContentMargin, is_portrait ? 116 : 66};
 }
 
 Rect key_rect(size_t index, int width, int height) {
@@ -56,20 +56,20 @@ Rect key_rect(size_t index, int width, int height) {
 
 Rect pregnancy_button(size_t index, int width, int height) {
   if (portrait(width, height))
-    return {24 + static_cast<int>(index) * 224, 720, 208, 56};
-  return index == 0U ? Rect{24, 400, 368, 56} : Rect{408, 400, 368, 56};
+    return {24 + static_cast<int>(index) * 224, 720, 208, ui_tokens::kButtonHeight};
+  return index == 0U ? Rect{24, 400, 368, ui_tokens::kButtonHeight} : Rect{408, 400, 368, ui_tokens::kButtonHeight};
 }
 
 Rect storage_split_button(size_t index, int width, int height) {
   if (portrait(width, height))
-    return {24 + static_cast<int>(index) * 224, 720, 208, 56};
-  return index == 0U ? Rect{24, 400, 368, 56} : Rect{408, 400, 368, 56};
+    return {24 + static_cast<int>(index) * 224, 720, 208, ui_tokens::kButtonHeight};
+  return index == 0U ? Rect{24, 400, 368, ui_tokens::kButtonHeight} : Rect{408, 400, 368, ui_tokens::kButtonHeight};
 }
 
 Rect storage_confirm_button(size_t index, int width, int height) {
   if (portrait(width, height))
-    return {24 + static_cast<int>(index) * 224, 720, 208, 56};
-  return index == 0U ? Rect{24, 400, 368, 56} : Rect{408, 400, 368, 56};
+    return {24 + static_cast<int>(index) * 224, 720, 208, ui_tokens::kButtonHeight};
+  return index == 0U ? Rect{24, 400, 368, ui_tokens::kButtonHeight} : Rect{408, 400, 368, ui_tokens::kButtonHeight};
 }
 
 const char *storage_card_value(SettingsStorageCardView card) {
@@ -175,7 +175,7 @@ void settings_page_render_main(Canvas &canvas, bool rtc_ready,
   draw_setting(canvas, 4, "MICROSD STORAGE", "USER DATA", "VIEW");
   const bool is_portrait = portrait(canvas.width(), canvas.height());
   ui_draw_wrapped_text_pixels(
-      canvas, 24, is_portrait ? 660 : 424, canvas.width() - 48,
+      canvas, ui_tokens::kContentMargin, is_portrait ? 660 : 424, canvas.width() - 2 * ui_tokens::kContentMargin,
       ui_language_is_chinese()
           ? "所有孕期记录仅保存在设备。本产品用于信息整理，不替代专业医疗建议。"
           : "ALL RECORDS STAY ON DEVICE. INFORMATION ONLY; NOT MEDICAL ADVICE.",
@@ -214,14 +214,14 @@ void settings_page_render_storage(Canvas &canvas,
   }
 
   ui_draw_wrapped_text_pixels(
-      canvas, 24, is_portrait ? 594 : 360, canvas.width() - 48,
+      canvas, ui_tokens::kContentMargin, is_portrait ? 594 : 360, canvas.width() - 2 * ui_tokens::kContentMargin,
       ui_text(state.operation_message != nullptr
                   ? state.operation_message
                   : capacity),
       ui_tokens::kSecondaryBody, GrayLevel::Black, 1, 3,
       FontWeight::Regular);
   ui_draw_wrapped_text_pixels(
-      canvas, 24, is_portrait ? 628 : 378, canvas.width() - 48,
+      canvas, ui_tokens::kContentMargin, is_portrait ? 628 : 378, canvas.width() - 2 * ui_tokens::kContentMargin,
       ui_text(identity), ui_tokens::kSecondaryBody, GrayLevel::Black, 1, 3,
       FontWeight::Regular);
   prototype_ui::draw_button(
@@ -246,18 +246,18 @@ void settings_page_render_storage_confirm(Canvas &canvas) {
   const int rule_y = is_portrait ? 112 : 98;
   canvas.draw_line(24, rule_y, canvas.width() - 24, rule_y,
                    GrayLevel::Black);
-  canvas.draw_text_pixels(24, is_portrait ? 144 : 122,
+  canvas.draw_text_pixels(ui_tokens::kContentMargin, is_portrait ? 144 : 122,
                           ui_text("CONFIRM NEW DATASET"),
                           ui_tokens::kSectionHeading, GrayLevel::Black,
                           FontWeight::Medium);
   ui_draw_wrapped_text_pixels(
-      canvas, 24, is_portrait ? 196 : 170, canvas.width() - 48,
+      canvas, ui_tokens::kContentMargin, is_portrait ? 196 : 170, canvas.width() - 2 * ui_tokens::kContentMargin,
       ui_text("THIS CREATES THE PREGJNL DATA FOLDER. IT DOES NOT FORMAT THE "
               "CARD OR DELETE OTHER FILES."),
       ui_tokens::kBody, GrayLevel::Black, is_portrait ? 5 : 3,
       ui_tokens::kBodyLineGap, FontWeight::Regular);
   ui_draw_wrapped_text_pixels(
-      canvas, 24, is_portrait ? 350 : 270, canvas.width() - 48,
+      canvas, ui_tokens::kContentMargin, is_portrait ? 350 : 270, canvas.width() - 2 * ui_tokens::kContentMargin,
       ui_text("FUTURE USER RECORDS AND AUDIO WILL BE SAVED ON THIS CARD."),
       ui_tokens::kBody, GrayLevel::Black, is_portrait ? 4 : 2,
       ui_tokens::kBodyLineGap, FontWeight::Medium);
@@ -272,11 +272,11 @@ void settings_page_render_storage_confirm(Canvas &canvas) {
 void settings_page_render_legacy_source(Canvas &canvas) {
   prototype_ui::begin_page(canvas);
   prototype_ui::draw_header(canvas, "OLD DEVICE DATA", "SELECT IMPORT", "BACK");
-  prototype_ui::draw_button(canvas, {24, 148, canvas.width() - 48, 64},
+  prototype_ui::draw_button(canvas, {24, 148, canvas.width() - 2 * ui_tokens::kContentMargin, 64},
                             "PROFILE / WEIGHT / SETTINGS", false, 2);
-  prototype_ui::draw_button(canvas, {24, 236, canvas.width() - 48, 64},
+  prototype_ui::draw_button(canvas, {24, 236, canvas.width() - 2 * ui_tokens::kContentMargin, 64},
                             "KICKS", false, 2);
-  ui_draw_wrapped_text_pixels(canvas, 24, 328, canvas.width() - 48,
+  ui_draw_wrapped_text_pixels(canvas, ui_tokens::kContentMargin, 328, canvas.width() - 2 * ui_tokens::kContentMargin,
       ui_text("REMINDER AND CHECKUP COPIES ARE PRESERVED FOR V2."),
       ui_tokens::kBody, GrayLevel::Black, 3, ui_tokens::kBodyLineGap, FontWeight::Regular);
 }
@@ -312,7 +312,7 @@ void settings_page_render_legacy_migration(
   draw_form_row(canvas, 2, "IMPORTED", "NEW + ALREADY ON CARD", imported);
   draw_form_row(canvas, 3, "CONFLICT / CORRUPT", nullptr, conflicts);
   ui_draw_wrapped_text_pixels(
-      canvas, 24, is_portrait ? 606 : 366, canvas.width() - 48,
+      canvas, ui_tokens::kContentMargin, is_portrait ? 606 : 366, canvas.width() - 2 * ui_tokens::kContentMargin,
       ui_text(state.kicks_only
                   ? "KICK COPIES ARE CLEARED ONLY AFTER VERIFIED IMPORT."
                   : state.kicks_preserved
@@ -335,19 +335,19 @@ void settings_page_render_legacy_clear_confirm(Canvas &canvas, bool kicks_only) 
   const bool is_portrait = portrait(canvas.width(), canvas.height());
   prototype_ui::draw_header(canvas, "CLEAR OLD COPIES",
                             "ONLY AFTER VERIFIED IMPORT", "BACK");
-  canvas.draw_text_pixels(24, is_portrait ? 144 : 122,
+  canvas.draw_text_pixels(ui_tokens::kContentMargin, is_portrait ? 144 : 122,
                           ui_text("CONFIRM NVS CLEANUP"),
                           ui_tokens::kSectionHeading, GrayLevel::Black,
                           FontWeight::Medium);
   ui_draw_wrapped_text_pixels(
-      canvas, 24, is_portrait ? 196 : 170, canvas.width() - 48,
+      canvas, ui_tokens::kContentMargin, is_portrait ? 196 : 170, canvas.width() - 2 * ui_tokens::kContentMargin,
       ui_text(kicks_only
           ? "REMOVES ONLY VERIFIED OLD KICK COPIES. MICROSD RECORDS ARE NOT CHANGED."
           : "REMOVES OLD PREGNANCY, WEIGHT AND DEVICE SETTING COPIES. MICROSD RECORDS ARE NOT CHANGED."),
       ui_tokens::kBody, GrayLevel::Black, is_portrait ? 6 : 3,
       ui_tokens::kBodyLineGap, FontWeight::Regular);
   ui_draw_wrapped_text_pixels(
-      canvas, 24, is_portrait ? 390 : 290, canvas.width() - 48,
+      canvas, ui_tokens::kContentMargin, is_portrait ? 390 : 290, canvas.width() - 2 * ui_tokens::kContentMargin,
       ui_text("REMINDER AND CHECKUP COPIES ARE PRESERVED FOR V2."),
       ui_tokens::kBody, GrayLevel::Black, is_portrait ? 3 : 2,
       ui_tokens::kBodyLineGap, FontWeight::Medium);
@@ -369,17 +369,17 @@ void settings_page_render_card_data_delete_confirm(
   if (dataset_id_prefix != nullptr && dataset_id_prefix[0] != '\0')
     std::snprintf(identity, sizeof(identity), "DATASET %.8s...",
                   dataset_id_prefix);
-  canvas.draw_text_pixels(24, is_portrait ? 144 : 122, ui_text(identity),
+  canvas.draw_text_pixels(ui_tokens::kContentMargin, is_portrait ? 144 : 122, ui_text(identity),
                           ui_tokens::kSectionHeading, GrayLevel::Black,
                           FontWeight::Medium);
   ui_draw_wrapped_text_pixels(
-      canvas, 24, is_portrait ? 196 : 170, canvas.width() - 48,
+      canvas, ui_tokens::kContentMargin, is_portrait ? 196 : 170, canvas.width() - 2 * ui_tokens::kContentMargin,
       ui_text("PERMANENTLY REMOVES THE PREGJNL APPLICATION DIRECTORY. IT "
               "DOES NOT FORMAT THE CARD OR DELETE OTHER CARD FILES."),
       ui_tokens::kBody, GrayLevel::Black, is_portrait ? 6 : 3,
       ui_tokens::kBodyLineGap, FontWeight::Regular);
   ui_draw_wrapped_text_pixels(
-      canvas, 24, is_portrait ? 390 : 290, canvas.width() - 48,
+      canvas, ui_tokens::kContentMargin, is_portrait ? 390 : 290, canvas.width() - 2 * ui_tokens::kContentMargin,
       ui_text("DEVICE RESET AND OLD NVS COPY CLEANUP ARE SEPARATE ACTIONS."),
       ui_tokens::kBody, GrayLevel::Black, is_portrait ? 3 : 2,
       ui_tokens::kBodyLineGap, FontWeight::Medium);
@@ -396,18 +396,18 @@ void settings_page_render_device_reset_confirm(Canvas &canvas) {
   const bool is_portrait = portrait(canvas.width(), canvas.height());
   prototype_ui::draw_header(canvas, "RESET DEVICE BINDING",
                             "LOCAL NETWORK CREDENTIAL KEY ONLY", "BACK");
-  canvas.draw_text_pixels(24, is_portrait ? 144 : 122,
+  canvas.draw_text_pixels(ui_tokens::kContentMargin, is_portrait ? 144 : 122,
                           ui_text("CONFIRM LOCAL RESET"),
                           ui_tokens::kSectionHeading, GrayLevel::Black,
                           FontWeight::Medium);
   ui_draw_wrapped_text_pixels(
-      canvas, 24, is_portrait ? 196 : 170, canvas.width() - 48,
+      canvas, ui_tokens::kContentMargin, is_portrait ? 196 : 170, canvas.width() - 2 * ui_tokens::kContentMargin,
       ui_text("FORGETS THIS DEVICE'S LOCAL NETWORK KEY AND CLEARS THE RAM-ONLY "
               "WI-FI CONFIGURATION. NETWORK AUTHORIZATION MUST BE SET UP AGAIN."),
       ui_tokens::kBody, GrayLevel::Black, is_portrait ? 7 : 3,
       ui_tokens::kBodyLineGap, FontWeight::Regular);
   ui_draw_wrapped_text_pixels(
-      canvas, 24, is_portrait ? 420 : 290, canvas.width() - 48,
+      canvas, ui_tokens::kContentMargin, is_portrait ? 420 : 290, canvas.width() - 2 * ui_tokens::kContentMargin,
       ui_text("MICROSD PREGJNL DATA, OTHER CARD FILES AND OLD NVS RECORDS ARE "
               "NOT DELETED."),
       ui_tokens::kBody, GrayLevel::Black, is_portrait ? 4 : 2,
@@ -446,7 +446,7 @@ void settings_page_render_time_editor(Canvas &canvas, const char *digits,
       is_portrait ? 176 : 170, formatted, formatted_scale, GrayLevel::Black);
   ui_draw_wrapped_text(
       canvas, 24, is_portrait ? 226 : 238,
-      is_portrait ? canvas.width() - 48 : 424,
+      is_portrait ? canvas.width() - 2 * ui_tokens::kContentMargin : 424,
       input_error
           ? ui_text("INVALID DATE OR RTC WRITE FAILED")
           : ui_text(
@@ -546,9 +546,9 @@ SettingsAction settings_page_action_at(SettingsPage page, int width, int height,
     return SettingsAction::None;
   }
   if (page == SettingsPage::LegacySource) {
-    if (Rect{24, 148, width - 48, 64}.contains(x, y))
+    if (Rect{24, 148, width - 2 * ui_tokens::kContentMargin, 64}.contains(x, y))
       return SettingsAction::ManageLegacyCommon;
-    if (Rect{24, 236, width - 48, 64}.contains(x, y))
+    if (Rect{24, 236, width - 2 * ui_tokens::kContentMargin, 64}.contains(x, y))
       return SettingsAction::ManageLegacyKicks;
     return SettingsAction::None;
   }

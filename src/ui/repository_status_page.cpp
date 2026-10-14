@@ -8,8 +8,8 @@ namespace repository_status_ui {
 prototype_ui::Rect retry_rect(const Canvas &canvas)
 {
     return canvas.height() > canvas.width()
-               ? prototype_ui::Rect{24, 720, 432, 56}
-               : prototype_ui::Rect{24, 400, 752, 56};
+               ? prototype_ui::Rect{24, 720, 432, ui_tokens::kButtonHeight}
+               : prototype_ui::Rect{24, 400, 752, ui_tokens::kButtonHeight};
 }
 
 const char *message(sticky_storage::SdRepositoryAdapterStatus status)
@@ -45,11 +45,11 @@ void render(Canvas &canvas, const char *title, bool pending, bool saving,
     prototype_ui::begin_page(canvas);
     prototype_ui::draw_header(canvas, title, "MICROSD USER DATA", "BACK");
     const bool portrait = canvas.height() > canvas.width();
-    ui_draw_wrapped_text_pixels(canvas, 24, portrait ? 226 : 154, canvas.width() - 48,
+    ui_draw_wrapped_text_pixels(canvas, ui_tokens::kContentMargin, portrait ? 226 : 154, canvas.width() - 2 * ui_tokens::kContentMargin,
         ui_text(pending ? (saving ? "SAVING TO MICROSD" : "LOADING FROM MICROSD") : message(status)),
         ui_tokens::kSectionHeading, GrayLevel::Black, 3, ui_tokens::kBodyLineGap, FontWeight::Medium);
     if (pending) return;
-    ui_draw_wrapped_text_pixels(canvas, 24, portrait ? 350 : 278, canvas.width() - 48,
+    ui_draw_wrapped_text_pixels(canvas, ui_tokens::kContentMargin, portrait ? 350 : 278, canvas.width() - 2 * ui_tokens::kContentMargin,
         ui_text("CHECK THE CARD, THEN RELOAD."), ui_tokens::kBody, GrayLevel::Black,
         2, ui_tokens::kBodyLineGap, FontWeight::Regular);
     prototype_ui::draw_button(canvas, retry_rect(canvas), saving ? "RETRY" : "RELOAD FROM MICROSD", true, 2);

@@ -52,14 +52,14 @@ Rect entry_rect(size_t index, int width, int height) {
 void app_page_render_launcher(Canvas &canvas, StickyAppId current_app) {
   (void)current_app;
   prototype_ui::begin_page(canvas);
-  canvas.draw_text_pixels(24, 20, ui_language_is_chinese() ? "功能" : "APPS",
+  canvas.draw_text_pixels(ui_tokens::kContentMargin, 20, ui_language_is_chinese() ? "功能" : "APPS",
                           ui_tokens::kPageHeading, GrayLevel::Black,
                           FontWeight::Medium);
   const bool portrait = canvas.height() > canvas.width();
   const Rect close = close_rect(canvas.width(), canvas.height());
   // The subtitle wraps clear of the close button instead of running under it.
   ui_draw_wrapped_text_pixels(
-      canvas, 24, 58, close.x - 12 - 24,
+      canvas, ui_tokens::kContentMargin, 58, close.x - 12 - 24,
       ui_language_is_chinese()
           ? "记录、查看与管理你的孕期信息。"
           : "Record, review and manage pregnancy information.",
@@ -91,7 +91,7 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app) {
                      rect.y + rect.height - 1, GrayLevel::Black);
   }
   ui_draw_wrapped_text_pixels(
-      canvas, 24, portrait ? 750 : 444, canvas.width() - 48,
+      canvas, ui_tokens::kContentMargin, portrait ? 750 : 444, canvas.width() - 2 * ui_tokens::kContentMargin,
       ui_language_is_chinese()
           ? "顶部按键关闭 · 双击返回孕周首页"
           : "TOP BUTTON CLOSES / DOUBLE-CLICK RETURNS HOME",

@@ -49,18 +49,18 @@ constexpr const char *kKeyLabels[] = {
     "1", "2", "3", "4", "5", "6", "7", "8", "9", "DEL", "0", "NEXT",
 };
 
-constexpr Rect kBackRect = {30, 390, 180, 56};
+constexpr Rect kBackRect = {30, 390, 180, ui_tokens::kButtonHeight};
 constexpr Rect kEditRect = {656, 20, 120, ui_tokens::kMinimumTouchHeight};
 constexpr Rect kDueSourceRect = {54, 150, 320, 170};
 constexpr Rect kLmpSourceRect = {426, 150, 320, 170};
-constexpr Rect kOverviewTab = {24, 408, 128, 48};
-constexpr Rect kBabyTab = {152, 408, 128, 48};
-constexpr Rect kMomTab = {280, 408, 128, 48};
-constexpr Rect kHomeMenu = {736, 8, 56, 56};
+constexpr Rect kOverviewTab = {24, 408, 128, ui_tokens::kMinimumTouchHeight};
+constexpr Rect kBabyTab = {152, 408, 128, ui_tokens::kMinimumTouchHeight};
+constexpr Rect kMomTab = {280, 408, 128, ui_tokens::kMinimumTouchHeight};
+constexpr Rect kHomeMenu = {736, 8, 56, ui_tokens::kButtonHeight};
 // Dashboard "this week" rows. The same rectangles are drawn and hit-tested:
 // baby development opens Baby; mother changes and daily advice open Mom.
 constexpr Rect kHomeRows[3] = {
-    {32, 284, 352, 56}, {32, 340, 352, 56}, {32, 396, 352, 56}};
+    {32, 284, 352, ui_tokens::kButtonHeight}, {32, 340, 352, ui_tokens::kButtonHeight}, {32, 396, 352, ui_tokens::kButtonHeight}};
 
 constexpr Rect kPortraitKeyRects[] = {
     {24, 278, 132, 72}, {174, 278, 132, 72}, {324, 278, 132, 72},
@@ -68,17 +68,17 @@ constexpr Rect kPortraitKeyRects[] = {
     {24, 454, 132, 72}, {174, 454, 132, 72}, {324, 454, 132, 72},
     {24, 542, 132, 72}, {174, 542, 132, 72}, {324, 542, 132, 72},
 };
-constexpr Rect kPortraitBackRect = {24, 678, 432, 56};
+constexpr Rect kPortraitBackRect = {24, 678, 432, ui_tokens::kButtonHeight};
 constexpr Rect kPortraitDueSourceRect = {24, 150, 432, 190};
 constexpr Rect kPortraitLmpSourceRect = {24, 370, 432, 190};
 constexpr Rect kPortraitEditRect = {336, 20, 120,
                                     ui_tokens::kMinimumTouchHeight};
-constexpr Rect kPortraitOverviewTab = {24, 728, 144, 48};
-constexpr Rect kPortraitBabyTab = {168, 728, 144, 48};
-constexpr Rect kPortraitMomTab = {312, 728, 144, 48};
-constexpr Rect kPortraitHomeMenu = {416, 8, 56, 56};
+constexpr Rect kPortraitOverviewTab = {24, 728, 144, ui_tokens::kMinimumTouchHeight};
+constexpr Rect kPortraitBabyTab = {168, 728, 144, ui_tokens::kMinimumTouchHeight};
+constexpr Rect kPortraitMomTab = {312, 728, 144, ui_tokens::kMinimumTouchHeight};
+constexpr Rect kPortraitHomeMenu = {416, 8, 56, ui_tokens::kButtonHeight};
 constexpr Rect kPortraitHomeRows[3] = {
-    {24, 628, 432, 48}, {24, 676, 432, 48}, {24, 724, 432, 48}};
+    {24, 628, 432, ui_tokens::kMinimumTouchHeight}, {24, 676, 432, ui_tokens::kMinimumTouchHeight}, {24, 724, 432, ui_tokens::kMinimumTouchHeight}};
 constexpr PregnancyAction kHomeRowActions[3] = {
     PregnancyAction::ShowBaby, PregnancyAction::ShowMom,
     PregnancyAction::ShowMom};
@@ -371,7 +371,7 @@ void pregnancy_page_render_source_setup(Canvas &canvas, bool can_cancel) {
     draw_button(canvas, kPortraitLmpSourceRect,
                 ui_text("LAST MENSTRUAL PERIOD"), false, 3);
     ui_draw_wrapped_text_pixels(
-        canvas, 24, 594, 432,
+        canvas, ui_tokens::kContentMargin, 594, 432,
         ui_text("A CLINICIAN-CONFIRMED DUE DATE IS PREFERRED"),
         ui_tokens::kSecondaryBody, GrayLevel::Black, 2, 2, FontWeight::Regular);
     if (can_cancel)
@@ -418,13 +418,13 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
     char headline[32] = {};
     std::snprintf(headline, sizeof(headline), "孕 %u 周",
                   static_cast<unsigned>(progress.weeks));
-    draw_centered_text_pixels(canvas, {24, 26, 432, 56}, headline, 52,
+    draw_centered_text_pixels(canvas, {24, 26, 432, ui_tokens::kButtonHeight}, headline, ui_tokens::kDisplay,
                               GrayLevel::Black, FontWeight::Medium);
 
     char week_progress[32] = {};
     std::snprintf(week_progress, sizeof(week_progress), "%u / 40 周",
                   static_cast<unsigned>(progress.weeks));
-    draw_centered_text_pixels(canvas, {24, 96, 432, 24}, week_progress, 20,
+    draw_centered_text_pixels(canvas, {24, 96, 432, 24}, week_progress, ui_tokens::kEmphasis,
                               GrayLevel::Black, FontWeight::Regular);
 
     constexpr int kProgressX = 40;
@@ -441,7 +441,7 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
     char completion[16] = {};
     std::snprintf(completion, sizeof(completion), "%u%%",
                   static_cast<unsigned>(progress.percent));
-    canvas.draw_text_pixels(392, 136, completion, 18, GrayLevel::Black,
+    canvas.draw_text_pixels(392, 136, completion, ui_tokens::kBody, GrayLevel::Black,
                             FontWeight::Regular);
 
     char countdown[64] = {};
@@ -455,11 +455,11 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
     constexpr int kCountdownHeartGap = 8;
     constexpr int kCountdownHeartWidth = 24;
     const int countdown_width =
-        font_text_width_pixels(countdown, 18, FontWeight::Regular);
+        font_text_width_pixels(countdown, ui_tokens::kBody, FontWeight::Regular);
     const int countdown_group_width =
         countdown_width + kCountdownHeartGap + kCountdownHeartWidth;
     const int countdown_x = (canvas.width() - countdown_group_width) / 2;
-    canvas.draw_text_pixels(countdown_x, 174, countdown, 18, GrayLevel::Black,
+    canvas.draw_text_pixels(countdown_x, 174, countdown, ui_tokens::kBody, GrayLevel::Black,
                             FontWeight::Regular);
     draw_heart_icon(canvas, countdown_x + countdown_width + kCountdownHeartGap,
                     171, GrayLevel::Black);
@@ -472,19 +472,19 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
     std::snprintf(size_title, sizeof(size_title), "宝宝现在约有%s那么大",
                   visual.object_zh);
     const uint8_t title_pixels =
-        font_text_width_pixels(size_title, 24, FontWeight::Medium) <= 432 ? 24
+        font_text_width_pixels(size_title, ui_tokens::kSectionHeading, FontWeight::Medium) <= 432 ? 24
                                                                           : 20;
     draw_centered_text_pixels(canvas, {24, 516, 432, 28}, size_title,
                               title_pixels, GrayLevel::Black,
                               FontWeight::Medium);
     draw_centered_text_pixels(canvas, {24, 548, 432, 20},
-                              "—  用熟悉的东西感受宝宝正在长大  —", 16,
+                              "—  用熟悉的东西感受宝宝正在长大  —", ui_tokens::kSecondaryBody,
                               GrayLevel::Black, FontWeight::Regular);
 
     constexpr Rect kGrowthCard = {24, 574, 432, 200};
     draw_rounded_rect(canvas, kGrowthCard, 12, GrayLevel::Black);
     draw_baby_icon(canvas, 44, 588, GrayLevel::Black);
-    canvas.draw_text_pixels(82, 588, "本周成长", 22, GrayLevel::Black);
+    canvas.draw_text_pixels(82, 588, "本周成长", ui_tokens::kCardTitle, GrayLevel::Black);
     canvas.draw_line(44, 624, 436, 624, GrayLevel::Black);
     draw_home_row(canvas, kPortraitHomeRows[0], draw_ruler_icon,
                   content.baby_development_zh, true, false);
@@ -500,12 +500,12 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
   char headline[32] = {};
   std::snprintf(headline, sizeof(headline), "孕 %u 周",
                 static_cast<unsigned>(progress.weeks));
-  canvas.draw_text_pixels(32, 24, headline, 56, GrayLevel::Black);
+  canvas.draw_text_pixels(32, 24, headline, ui_tokens::kDisplayLarge, GrayLevel::Black);
 
   char week_progress[32] = {};
   std::snprintf(week_progress, sizeof(week_progress), "%u / 40 周",
                 static_cast<unsigned>(progress.weeks));
-  canvas.draw_text_pixels(32, 96, week_progress, 20, GrayLevel::Black,
+  canvas.draw_text_pixels(32, 96, week_progress, ui_tokens::kEmphasis, GrayLevel::Black,
                           FontWeight::Regular);
 
   constexpr int kProgressX = 32;
@@ -523,7 +523,7 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
   char completion[16] = {};
   std::snprintf(completion, sizeof(completion), "%u%%",
                 static_cast<unsigned>(progress.percent));
-  canvas.draw_text_pixels(320, 132, completion, 20, GrayLevel::Black,
+  canvas.draw_text_pixels(320, 132, completion, ui_tokens::kEmphasis, GrayLevel::Black,
                           FontWeight::Regular);
 
   char countdown[64] = {};
@@ -534,16 +534,16 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
     std::snprintf(countdown, sizeof(countdown), "距离预产期还有 %d 天",
                   progress.days_until_due_date);
   }
-  canvas.draw_text_pixels(32, 168, countdown, 18, GrayLevel::Black,
+  canvas.draw_text_pixels(32, 168, countdown, ui_tokens::kBody, GrayLevel::Black,
                           FontWeight::Regular);
   draw_heart_icon(
-      canvas, 40 + font_text_width_pixels(countdown, 18, FontWeight::Regular),
+      canvas, 40 + font_text_width_pixels(countdown, ui_tokens::kBody, FontWeight::Regular),
       165, GrayLevel::Black);
 
   constexpr Rect kGrowthCard = {32, 216, 352, 240};
   draw_rounded_rect(canvas, kGrowthCard, 12, GrayLevel::Black);
   draw_baby_icon(canvas, 52, 232, GrayLevel::Black);
-  canvas.draw_text_pixels(92, 232, "本周成长", 24, GrayLevel::Black);
+  canvas.draw_text_pixels(92, 232, "本周成长", ui_tokens::kSectionHeading, GrayLevel::Black);
   canvas.draw_line(52, 276, 364, 276, GrayLevel::Black);
 
   draw_home_row(canvas, kHomeRows[0], draw_ruler_icon,
@@ -561,13 +561,13 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
   std::snprintf(size_title, sizeof(size_title), "宝宝现在约有%s那么大",
                 visual.object_zh);
   const uint8_t size_title_pixels =
-      font_text_width_pixels(size_title, 24, FontWeight::Medium) <= 368 ? 24
+      font_text_width_pixels(size_title, ui_tokens::kSectionHeading, FontWeight::Medium) <= 368 ? 24
                                                                         : 20;
   draw_centered_text_pixels(canvas, {408, 360, 368, 24}, size_title,
                             size_title_pixels, GrayLevel::Black,
                             FontWeight::Medium);
   draw_centered_text_pixels(canvas, {408, 408, 368, 20},
-                            "—  用熟悉的东西感受宝宝正在长大  —", 16,
+                            "—  用熟悉的东西感受宝宝正在长大  —", ui_tokens::kSecondaryBody,
                             GrayLevel::Black, FontWeight::Regular);
 
   draw_menu_button(canvas, kHomeMenu);

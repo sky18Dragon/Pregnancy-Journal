@@ -17,18 +17,18 @@ using prototype_ui::Rect;
 bool portrait(int width, int height) { return height > width; }
 
 Rect primary_button_rect(int width, int height) {
-  return portrait(width, height) ? Rect{24, 720, 208, 56}
-                                 : Rect{24, 400, 368, 56};
+  return portrait(width, height) ? Rect{24, 720, 208, ui_tokens::kButtonHeight}
+                                 : Rect{24, 400, 368, ui_tokens::kButtonHeight};
 }
 
 Rect secondary_button_rect(int width, int height) {
-  return portrait(width, height) ? Rect{248, 720, 208, 56}
-                                 : Rect{408, 400, 368, 56};
+  return portrait(width, height) ? Rect{248, 720, 208, ui_tokens::kButtonHeight}
+                                 : Rect{408, 400, 368, ui_tokens::kButtonHeight};
 }
 
 Rect full_button_rect(int width, int height) {
-  return portrait(width, height) ? Rect{24, 720, 432, 56}
-                                 : Rect{24, 400, 752, 56};
+  return portrait(width, height) ? Rect{24, 720, 432, ui_tokens::kButtonHeight}
+                                 : Rect{24, 400, 752, ui_tokens::kButtonHeight};
 }
 
 Rect mode_option_rect(int width, int height, size_t index) {
@@ -87,12 +87,12 @@ void draw_period_values(Canvas &canvas, int x, int y, int column_width,
                                 KickPeriod::Evening};
   for (size_t index = 0U; index < 3U; ++index) {
     const int left = x + static_cast<int>(index) * column_width;
-    canvas.draw_text_pixels(left, y, period_label(periods[index]), 16,
+    canvas.draw_text_pixels(left, y, period_label(periods[index]), ui_tokens::kSecondaryBody,
                             GrayLevel::Black, FontWeight::Regular);
     char value[16] = {};
     std::snprintf(value, sizeof(value), "%u",
                   static_cast<unsigned>(values[index]));
-    canvas.draw_text_pixels(left, y + 28, value, compact ? 24U : 28U,
+    canvas.draw_text_pixels(left, y + 28, value, compact ? ui_tokens::kSectionHeading : ui_tokens::kPageHeading,
                             GrayLevel::Black, FontWeight::Medium);
   }
 }
@@ -107,14 +107,14 @@ void draw_period_rows(Canvas &canvas, int x, int y, int width,
                                 KickPeriod::Evening};
   for (size_t index = 0U; index < 3U; ++index) {
     const int row_y = y + static_cast<int>(index) * 36;
-    canvas.draw_text_pixels(x, row_y + 6, period_label(periods[index]), 16,
+    canvas.draw_text_pixels(x, row_y + 6, period_label(periods[index]), ui_tokens::kSecondaryBody,
                             GrayLevel::Black, FontWeight::Regular);
     char value[16] = {};
     std::snprintf(value, sizeof(value), "%u",
                   static_cast<unsigned>(values[index]));
     const int value_width =
-        font_text_width_pixels(value, 24, FontWeight::Medium);
-    canvas.draw_text_pixels(x + width - value_width, row_y, value, 24,
+        font_text_width_pixels(value, ui_tokens::kSectionHeading, FontWeight::Medium);
+    canvas.draw_text_pixels(x + width - value_width, row_y, value, ui_tokens::kSectionHeading,
                             GrayLevel::Black, FontWeight::Medium);
   }
 }
@@ -146,7 +146,7 @@ void draw_bar_chart(Canvas &canvas, const Rect &rect,
       std::snprintf(count, sizeof(count), "%u",
                     static_cast<unsigned>(value));
       draw_centered(canvas, center,
-                    rect.y + available_height - bar_height - 20, count, 16,
+                    rect.y + available_height - bar_height - 20, count, ui_tokens::kSecondaryBody,
                     FontWeight::Regular);
     }
     char day[12] = {};
@@ -157,7 +157,7 @@ void draw_bar_chart(Canvas &canvas, const Rect &rect,
                     static_cast<unsigned>(trend.dates[index].month),
                     static_cast<unsigned>(trend.dates[index].day));
     }
-    draw_centered(canvas, center, rect.y + rect.height - 22, day, 16,
+    draw_centered(canvas, center, rect.y + rect.height - 22, day, ui_tokens::kSecondaryBody,
                   index + 1U == kKickTrendDays ? FontWeight::Medium
                                               : FontWeight::Regular);
   }
@@ -168,7 +168,7 @@ void draw_option(Canvas &canvas, const Rect &rect, const char *title,
   canvas.draw_rect(rect.x, rect.y, rect.width, rect.height, GrayLevel::Black);
   canvas.draw_rect(rect.x + 1, rect.y + 1, rect.width - 2, rect.height - 2,
                    GrayLevel::Black);
-  canvas.draw_text_pixels(rect.x + 20, rect.y + 14, ui_text(title), 20,
+  canvas.draw_text_pixels(rect.x + 20, rect.y + 14, ui_text(title), ui_tokens::kEmphasis,
                           GrayLevel::Black, FontWeight::Medium);
   ui_draw_wrapped_text_pixels(canvas, rect.x + 20, rect.y + 46,
                               rect.width - 40, ui_text(description),
@@ -189,19 +189,19 @@ void draw_comparison_block(Canvas &canvas, int x, int y, int width,
   KickComparisonText text = {};
   kick_format_comparison(comparison, text);
   int line = y;
-  canvas.draw_text_pixels(x, line, text.value, compact ? 24U : 28U,
+  canvas.draw_text_pixels(x, line, text.value, compact ? ui_tokens::kSectionHeading : ui_tokens::kPageHeading,
                           GrayLevel::Black, FontWeight::Medium);
   line += compact ? 44 : 52;
   if (text.baseline[0] != '\0') {
     line += 2 + ui_draw_wrapped_text_pixels(canvas, x, line, width,
-                                            text.baseline, 16U,
+                                            text.baseline, ui_tokens::kSecondaryBody,
                                             GrayLevel::Black, 2, 6,
                                             FontWeight::Regular) *
                     26;
   }
   if (text.difference[0] != '\0') {
     ui_draw_wrapped_text_pixels(canvas, x, line + 8, width, text.difference,
-                                compact ? 20U : 22U, GrayLevel::Black, 2, 6,
+                                compact ? ui_tokens::kEmphasis : ui_tokens::kCardTitle, GrayLevel::Black, 2, 6,
                                 FontWeight::Medium);
   }
 }
@@ -235,23 +235,23 @@ void kick_page_render_today(Canvas &canvas, const KickDaySummary &today,
                             "NOTICE YOUR BABY'S USUAL PATTERN", "BACK");
   const bool is_portrait = portrait(canvas.width(), canvas.height());
   if (is_portrait) {
-    canvas.draw_text_pixels(24, 108, ui_text("TODAY'S MOVEMENTS"), 16,
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, 108, ui_text("TODAY'S MOVEMENTS"), ui_tokens::kSecondaryBody,
                             GrayLevel::Black, FontWeight::Medium);
     char total[16] = {};
     std::snprintf(total, sizeof(total), "%u",
                   static_cast<unsigned>(today.total));
-    canvas.draw_text_pixels(24, 136, total, 56, GrayLevel::Black,
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, 136, total, ui_tokens::kDisplayLarge, GrayLevel::Black,
                             FontWeight::Medium);
-    canvas.draw_text_pixels(24 + font_text_width_pixels(total, 56,
+    canvas.draw_text_pixels(24 + font_text_width_pixels(total, ui_tokens::kDisplayLarge,
                                                         FontWeight::Medium) +
                                 12,
-                            170, ui_text("MOVEMENTS"), 16, GrayLevel::Black,
+                            170, ui_text("MOVEMENTS"), ui_tokens::kSecondaryBody, GrayLevel::Black,
                             FontWeight::Regular);
     draw_insight_stat(canvas, 320, 128, 136, "SESSIONS", today.session_count);
     canvas.draw_line(24, 220, 456, 220, GrayLevel::Black);
     draw_period_values(canvas, 24, 244, 148, today, false);
     canvas.draw_line(24, 320, 456, 320, GrayLevel::Black);
-    canvas.draw_text_pixels(24, 344, ui_text("LATEST SESSION"), 16,
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, 344, ui_text("LATEST SESSION"), ui_tokens::kSecondaryBody,
                             GrayLevel::Black, FontWeight::Medium);
     if (today.has_latest) {
       char latest[64] = {};
@@ -262,31 +262,31 @@ void kick_page_render_today(Canvas &canvas, const KickDaySummary &today,
                     static_cast<unsigned>(today.latest_minute),
                     static_cast<unsigned>(today.latest_count),
                     static_cast<unsigned>(today.latest_duration_minutes));
-      canvas.draw_text_pixels(24, 376, latest, 18, GrayLevel::Black,
+      canvas.draw_text_pixels(ui_tokens::kContentMargin, 376, latest, ui_tokens::kBody, GrayLevel::Black,
                               FontWeight::Regular);
     } else {
-      canvas.draw_text_pixels(24, 376, ui_text("NO SESSIONS YET"), 18,
+      canvas.draw_text_pixels(ui_tokens::kContentMargin, 376, ui_text("NO SESSIONS YET"), ui_tokens::kBody,
                               GrayLevel::Black, FontWeight::Regular);
     }
     ui_draw_wrapped_text_pixels(
-        canvas, 24, 432, 432,
+        canvas, ui_tokens::kContentMargin, 432, 432,
         ui_text("RECORDS HELP REVIEW PATTERNS; THEY DO NOT REPLACE CARE"),
         ui_tokens::kSecondaryBody, GrayLevel::Black, 2, 4, FontWeight::Regular);
   } else {
-    canvas.draw_text_pixels(24, 104, ui_text("TODAY'S MOVEMENTS"), 16,
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, 104, ui_text("TODAY'S MOVEMENTS"), ui_tokens::kSecondaryBody,
                             GrayLevel::Black, FontWeight::Medium);
     char total[16] = {};
     std::snprintf(total, sizeof(total), "%u",
                   static_cast<unsigned>(today.total));
-    canvas.draw_text_pixels(24, 132, total, 56, GrayLevel::Black,
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, 132, total, ui_tokens::kDisplayLarge, GrayLevel::Black,
                             FontWeight::Medium);
-    canvas.draw_text_pixels(24 + font_text_width_pixels(total, 56,
+    canvas.draw_text_pixels(24 + font_text_width_pixels(total, ui_tokens::kDisplayLarge,
                                                         FontWeight::Medium) +
                                 12,
-                            166, ui_text("MOVEMENTS"), 16, GrayLevel::Black,
+                            166, ui_text("MOVEMENTS"), ui_tokens::kSecondaryBody, GrayLevel::Black,
                             FontWeight::Regular);
     draw_insight_stat(canvas, 248, 132, 208, "SESSIONS", today.session_count);
-    canvas.draw_text_pixels(24, 226, ui_text("LATEST SESSION"), 16,
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, 226, ui_text("LATEST SESSION"), ui_tokens::kSecondaryBody,
                             GrayLevel::Black, FontWeight::Medium);
     char latest[64] = {};
     if (today.has_latest) {
@@ -300,14 +300,14 @@ void kick_page_render_today(Canvas &canvas, const KickDaySummary &today,
     } else {
       std::snprintf(latest, sizeof(latest), "%s", ui_text("NO SESSIONS YET"));
     }
-    canvas.draw_text_pixels(24, 254, latest, 18, GrayLevel::Black,
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, 254, latest, ui_tokens::kBody, GrayLevel::Black,
                             FontWeight::Regular);
     canvas.draw_line(384, 100, 384, 336, GrayLevel::Black);
     draw_period_values(canvas, 416, 108, 120, today, true);
   }
   if (save_failed) {
-    canvas.draw_text_pixels(is_portrait ? 24 : 24, is_portrait ? 632 : 352,
-                            ui_text("SAVE FAILED · TRY AGAIN"), 16,
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, is_portrait ? 632 : 352,
+                            ui_text("SAVE FAILED · TRY AGAIN"), ui_tokens::kSecondaryBody,
                             GrayLevel::Black, FontWeight::Medium);
   }
   const Rect start = primary_button_rect(canvas.width(), canvas.height());
@@ -323,13 +323,13 @@ void kick_page_render_insights(Canvas &canvas, const KickDaySummary &today,
                             "7-DAY RECORDS · NOT A DIAGNOSIS", "BACK");
   const bool is_portrait = portrait(canvas.width(), canvas.height());
   if (is_portrait) {
-    canvas.draw_text_pixels(24, 100, ui_text("LAST 7 DAYS"), 16,
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, 100, ui_text("LAST 7 DAYS"), ui_tokens::kSecondaryBody,
                             GrayLevel::Black, FontWeight::Medium);
     if (trend.has_data) {
       draw_bar_chart(canvas, {24, 126, 432, 220}, trend);
     } else {
       canvas.draw_rect(24, 126, 432, 220, GrayLevel::Black);
-      draw_centered(canvas, 240, 214, ui_text("NO RECORDS IN 7 DAYS"), 18,
+      draw_centered(canvas, 240, 214, ui_text("NO RECORDS IN 7 DAYS"), ui_tokens::kBody,
                     FontWeight::Regular);
     }
     draw_insight_stat(canvas, 24, 366, 136, "RECORDED DAYS", trend.recorded_days);
@@ -337,17 +337,17 @@ void kick_page_render_insights(Canvas &canvas, const KickDaySummary &today,
     draw_insight_stat(canvas, 324, 366, 132, "DAILY AVERAGE",
                       trend.average_per_recorded_day);
     canvas.draw_line(24, 448, 456, 448, GrayLevel::Black);
-    canvas.draw_text_pixels(24, 472, ui_text("TODAY BY PERIOD"), 16,
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, 472, ui_text("TODAY BY PERIOD"), ui_tokens::kSecondaryBody,
                             GrayLevel::Black, FontWeight::Medium);
     draw_period_values(canvas, 24, 504, 148, today, true);
   } else {
-    canvas.draw_text_pixels(24, 94, ui_text("LAST 7 DAYS"), 16,
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, 94, ui_text("LAST 7 DAYS"), ui_tokens::kSecondaryBody,
                             GrayLevel::Black, FontWeight::Medium);
     if (trend.has_data) {
       draw_bar_chart(canvas, {24, 118, 428, 226}, trend);
     } else {
       canvas.draw_rect(24, 118, 428, 226, GrayLevel::Black);
-      draw_centered(canvas, 238, 212, ui_text("NO RECORDS IN 7 DAYS"), 18,
+      draw_centered(canvas, 238, 212, ui_text("NO RECORDS IN 7 DAYS"), ui_tokens::kBody,
                     FontWeight::Regular);
     }
     draw_insight_stat(canvas, 476, 92, 136, "RECORDED DAYS", trend.recorded_days);
@@ -358,7 +358,7 @@ void kick_page_render_insights(Canvas &canvas, const KickDaySummary &today,
                       trend.has_data ? period_label(trend.busiest_period) : "--",
                       20);
     canvas.draw_line(476, 232, 776, 232, GrayLevel::Black);
-    canvas.draw_text_pixels(476, 248, ui_text("TODAY BY PERIOD"), 16,
+    canvas.draw_text_pixels(476, 248, ui_text("TODAY BY PERIOD"), ui_tokens::kSecondaryBody,
                             GrayLevel::Black, FontWeight::Medium);
     draw_period_rows(canvas, 476, 274, 300, today);
   }
@@ -392,29 +392,29 @@ void kick_page_render_counter(Canvas &canvas, KickPeriod period,
   else
     std::snprintf(count_text, sizeof(count_text), "%u",
                   static_cast<unsigned>(count));
-  draw_centered(canvas, center_x, center_y - 56, count_text, 70,
+  draw_centered(canvas, center_x, center_y - 56, count_text, ui_tokens::kCounterDisplay,
                 FontWeight::Medium);
-  draw_centered(canvas, center_x, center_y + 34, ui_text("TAP TO RECORD"), 18,
+  draw_centered(canvas, center_x, center_y + 34, ui_text("TAP TO RECORD"), ui_tokens::kBody,
                 FontWeight::Medium);
   char elapsed[48] = {};
   std::snprintf(elapsed, sizeof(elapsed),
                 ui_language_is_chinese() ? "已计时 %u 分钟" : "%u MIN ELAPSED",
                 static_cast<unsigned>(elapsed_minutes));
-  draw_centered(canvas, center_x, center_y + 70, elapsed, 16,
+  draw_centered(canvas, center_x, center_y + 70, elapsed, ui_tokens::kSecondaryBody,
                 FontWeight::Regular);
 
   if (is_portrait) {
     ui_draw_wrapped_text_pixels(
         canvas, 48, 526, 384,
         ui_text("A CONTINUOUS SERIES OF MOTIONS CAN BE RECORDED AS ONE MOVEMENT"),
-        16, GrayLevel::Black, 3, 6, FontWeight::Regular);
+        ui_tokens::kSecondaryBody, GrayLevel::Black, 3, 6, FontWeight::Regular);
   } else {
-    canvas.draw_text_pixels(432, 126, ui_text("COUNT DISTINCT MOVEMENTS"), 18,
+    canvas.draw_text_pixels(432, 126, ui_text("COUNT DISTINCT MOVEMENTS"), ui_tokens::kBody,
                             GrayLevel::Black, FontWeight::Medium);
     ui_draw_wrapped_text_pixels(
         canvas, 432, 166, 344,
         ui_text("A CONTINUOUS SERIES OF MOTIONS CAN BE RECORDED AS ONE MOVEMENT"),
-        16, GrayLevel::Black, 3, 6, FontWeight::Regular);
+        ui_tokens::kSecondaryBody, GrayLevel::Black, 3, 6, FontWeight::Regular);
   }
   render_button(canvas, primary_button_rect(canvas.width(), canvas.height()),
                 "UNDO ONE", false);
@@ -687,14 +687,14 @@ void kick_page_render_result(Canvas &canvas, const KickSession &session,
     std::snprintf(line, sizeof(line),
                   ui_language_is_chinese() ? "已记录：%s" : "RECORDED: %s",
                   ui_text(kick_feel_label(session.feel)));
-    canvas.draw_text_pixels(24, 112, line, is_portrait ? 24U : 28U,
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, 112, line, is_portrait ? ui_tokens::kSectionHeading : ui_tokens::kPageHeading,
                             GrayLevel::Black, FontWeight::Medium);
-    canvas.draw_text_pixels(24, is_portrait ? 176 : 172,
-                            ui_text("LAST 7 DAYS"), 16, GrayLevel::Black,
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, is_portrait ? 176 : 172,
+                            ui_text("LAST 7 DAYS"), ui_tokens::kSecondaryBody, GrayLevel::Black,
                             FontWeight::Medium);
     kick_format_awareness(awareness, line, sizeof(line));
-    ui_draw_wrapped_text_pixels(canvas, 24, is_portrait ? 208 : 202, width,
-                                line, 20U, GrayLevel::Black, 2, 6,
+    ui_draw_wrapped_text_pixels(canvas, ui_tokens::kContentMargin, is_portrait ? 208 : 202, width,
+                                line, ui_tokens::kEmphasis, GrayLevel::Black, 2, 6,
                                 FontWeight::Regular);
   } else {
     char duration[24] = {};
@@ -705,7 +705,7 @@ void kick_page_render_result(Canvas &canvas, const KickSession &session,
                   static_cast<unsigned>(session.hour),
                   static_cast<unsigned>(session.minute),
                   static_cast<unsigned>(session.count), duration);
-    canvas.draw_text_pixels(24, 100, line, 16, GrayLevel::Black,
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, 100, line, ui_tokens::kSecondaryBody, GrayLevel::Black,
                             FontWeight::Regular);
     canvas.draw_line(24, 132, 24 + width, 132, GrayLevel::Black);
     draw_comparison_block(canvas, 24, 152, width, comparison, is_portrait);
@@ -735,20 +735,20 @@ void kick_page_render_compare(Canvas &canvas, const KickComparison periods[3],
   // line per row after the label column.
   const auto draw_row = [&](const char *label, const char *first,
                             const char *second) {
-    canvas.draw_text_pixels(24, y, label, 16, GrayLevel::Black,
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, y, label, ui_tokens::kSecondaryBody, GrayLevel::Black,
                             FontWeight::Medium);
     if (is_portrait) {
-      ui_draw_wrapped_text_pixels(canvas, 24, y + 28, text_width, first, 16U,
+      ui_draw_wrapped_text_pixels(canvas, ui_tokens::kContentMargin, y + 28, text_width, first, ui_tokens::kSecondaryBody,
                                   GrayLevel::Black, 2, 2, FontWeight::Regular);
       if (second != nullptr && second[0] != '\0')
-        ui_draw_wrapped_text_pixels(canvas, 24, y + 54, text_width, second,
-                                    16U, GrayLevel::Black, 1, 4,
+        ui_draw_wrapped_text_pixels(canvas, ui_tokens::kContentMargin, y + 54, text_width, second,
+                                    ui_tokens::kSecondaryBody, GrayLevel::Black, 1, 4,
                                     FontWeight::Medium);
     } else {
       std::snprintf(text, sizeof(text), "%s%s%s", first,
                     second != nullptr && second[0] != '\0' ? " · " : "",
                     second != nullptr ? second : "");
-      ui_draw_wrapped_text_pixels(canvas, text_x, y, text_width, text, 16U,
+      ui_draw_wrapped_text_pixels(canvas, text_x, y, text_width, text, ui_tokens::kSecondaryBody,
                                   GrayLevel::Black, 2, 4,
                                   FontWeight::Regular);
     }
