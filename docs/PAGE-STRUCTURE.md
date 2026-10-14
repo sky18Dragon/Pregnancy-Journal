@@ -41,7 +41,7 @@ kick session can veto timeout sleep.
 | Clock setup | First-use RTC entry (`YYYYMMDDHHMM`) | Continue -> source setup |
 | Source setup | Choose confirmed due date or LMP | Choice -> date setup; optional Back |
 | Date setup | Enter `YYYYMMDD` and validate profile | Save -> Dashboard; Back |
-| Dashboard | Week/day, trimester, due countdown, progress and week image | Baby, Mom, Edit, Launcher |
+| Dashboard | Week/day, trimester, due countdown, progress and week image; three visible "this week" rows with chevrons | Baby row → Baby; mother and advice rows → Mom; 56 px menu box → Launcher. The illustration and card header are not tappable |
 | Baby | Offline weekly development content | Overview, Mom, Launcher |
 | Mom | Offline weekly body/preparation content | Overview, Baby, Launcher |
 

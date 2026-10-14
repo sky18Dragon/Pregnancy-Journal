@@ -57,9 +57,10 @@ constexpr Rect kOverviewTab = {24, 408, 128, 48};
 constexpr Rect kBabyTab = {152, 408, 128, 48};
 constexpr Rect kMomTab = {280, 408, 128, 48};
 constexpr Rect kHomeMenu = {736, 8, 56, 56};
-constexpr Rect kHomeVisual = {408, 8, 368, 440};
-constexpr Rect kHomeBabyStory = {32, 216, 352, 124};
-constexpr Rect kHomeMomStory = {32, 340, 352, 56};
+// Dashboard "this week" rows. The same rectangles are drawn and hit-tested:
+// baby development opens Baby; mother changes and daily advice open Mom.
+constexpr Rect kHomeRows[3] = {
+    {32, 284, 352, 56}, {32, 340, 352, 56}, {32, 396, 352, 56}};
 
 constexpr Rect kPortraitKeyRects[] = {
     {24, 278, 132, 72}, {174, 278, 132, 72}, {324, 278, 132, 72},
@@ -76,9 +77,11 @@ constexpr Rect kPortraitOverviewTab = {24, 728, 144, 48};
 constexpr Rect kPortraitBabyTab = {168, 728, 144, 48};
 constexpr Rect kPortraitMomTab = {312, 728, 144, 48};
 constexpr Rect kPortraitHomeMenu = {416, 8, 56, 56};
-constexpr Rect kPortraitHomeVisual = {24, 208, 432, 376};
-constexpr Rect kPortraitHomeBabyStory = {24, 612, 432, 94};
-constexpr Rect kPortraitHomeMomStory = {24, 706, 432, 48};
+constexpr Rect kPortraitHomeRows[3] = {
+    {24, 628, 432, 48}, {24, 676, 432, 48}, {24, 724, 432, 48}};
+constexpr PregnancyAction kHomeRowActions[3] = {
+    PregnancyAction::ShowBaby, PregnancyAction::ShowMom,
+    PregnancyAction::ShowMom};
 
 bool portrait_layout(const Canvas &canvas) {
   return canvas.height() > canvas.width();
@@ -237,6 +240,37 @@ void draw_button(Canvas &canvas, const Rect &rect, const char *label,
     draw_beveled_rect(canvas, rect, GrayLevel::Black);
   }
   draw_centered_text_in_rect(canvas, rect, label, scale, foreground);
+}
+
+// 56 px square menu button: the drawn box is exactly the hit rectangle.
+void draw_menu_button(Canvas &canvas, const Rect &rect) {
+  canvas.fill_rect(rect.x, rect.y, rect.width, rect.height, GrayLevel::White);
+  for (int inset = 0; inset < 2; ++inset)
+    canvas.draw_rect(rect.x + inset, rect.y + inset, rect.width - 2 * inset,
+                     rect.height - 2 * inset, GrayLevel::Black);
+  for (int line = 0; line < 3; ++line)
+    canvas.fill_rect(rect.x + 16, rect.y + 16 + line * 10, 24, 2,
+                     GrayLevel::Black);
+}
+
+// One tappable "this week" row: icon, copy, trailing chevron. `divider`
+// draws the 1 px rule between rows.
+void draw_home_row(Canvas &canvas, const Rect &row,
+                   void (*icon)(Canvas &, int, int, GrayLevel),
+                   const char *text, bool portrait, bool divider) {
+  if (divider)
+    canvas.draw_line(row.x + 20, row.y, row.x + row.width - 20, row.y,
+                     GrayLevel::Black);
+  icon(canvas, row.x + 20, row.y + 12, GrayLevel::Black);
+  if (portrait) {
+    ui_draw_wrapped_text_pixels(canvas, row.x + 58, row.y + 17, 326, text, 14,
+                                GrayLevel::Black, 1, 4, FontWeight::Regular);
+  } else {
+    ui_draw_wrapped_text_pixels(canvas, row.x + 60, row.y + 8, 272, text, 16,
+                                GrayLevel::Black, 2, 6, FontWeight::Regular);
+  }
+  prototype_ui::draw_chevron(canvas, row.x + row.width - (portrait ? 28 : 18),
+                             row.y + (portrait ? 16 : 20));
 }
 
 void format_clock_digits(const char *digits, char *output, size_t size) {
@@ -442,33 +476,23 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
     draw_centered_text_pixels(canvas, {24, 516, 432, 28}, size_title,
                               title_pixels, GrayLevel::Black,
                               FontWeight::Medium);
-    draw_centered_text_pixels(canvas, {24, 558, 432, 20},
+    draw_centered_text_pixels(canvas, {24, 548, 432, 20},
                               "—  用熟悉的东西感受宝宝正在长大  —", 14,
                               GrayLevel::Black, FontWeight::Regular);
 
-    constexpr Rect kGrowthCard = {24, 602, 432, 174};
+    constexpr Rect kGrowthCard = {24, 574, 432, 200};
     draw_rounded_rect(canvas, kGrowthCard, 12, GrayLevel::Black);
-    draw_baby_icon(canvas, 44, 616, GrayLevel::Black);
-    canvas.draw_text_pixels(82, 616, "本周成长", 22, GrayLevel::Black);
-    canvas.draw_line(44, 654, 436, 654, GrayLevel::Black);
-    draw_ruler_icon(canvas, 44, 668, GrayLevel::Black);
-    ui_draw_wrapped_text_pixels(canvas, 82, 664, 350,
-                                content.baby_development_zh, 14,
-                                GrayLevel::Black, 1, 4, FontWeight::Regular);
-    draw_heart_icon(canvas, 44, 708, GrayLevel::Black);
-    ui_draw_wrapped_text_pixels(canvas, 82, 704, 350, content.mother_changes_zh,
-                                14, GrayLevel::Black, 1, 4,
-                                FontWeight::Regular);
-    draw_reminder_icon(canvas, 44, 748, GrayLevel::Black);
-    ui_draw_wrapped_text_pixels(canvas, 82, 744, 350, content.daily_advice_zh,
-                                14, GrayLevel::Black, 1, 4,
-                                FontWeight::Regular);
+    draw_baby_icon(canvas, 44, 588, GrayLevel::Black);
+    canvas.draw_text_pixels(82, 588, "本周成长", 22, GrayLevel::Black);
+    canvas.draw_line(44, 624, 436, 624, GrayLevel::Black);
+    draw_home_row(canvas, kPortraitHomeRows[0], draw_ruler_icon,
+                  content.baby_development_zh, true, false);
+    draw_home_row(canvas, kPortraitHomeRows[1], draw_heart_icon,
+                  content.mother_changes_zh, true, true);
+    draw_home_row(canvas, kPortraitHomeRows[2], draw_reminder_icon,
+                  content.daily_advice_zh, true, true);
 
-    canvas.fill_rect(424, 16, 32, 32, GrayLevel::White);
-    draw_rounded_rect(canvas, {424, 16, 32, 32}, 4, GrayLevel::Black);
-    for (int line = 0; line < 3; ++line)
-      canvas.draw_line(432, 24 + line * 8, 448, 24 + line * 8,
-                       GrayLevel::Black);
+    draw_menu_button(canvas, kPortraitHomeMenu);
     return;
   }
 
@@ -521,15 +545,12 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
   canvas.draw_text_pixels(92, 232, "本周成长", 24, GrayLevel::Black);
   canvas.draw_line(52, 276, 364, 276, GrayLevel::Black);
 
-  draw_ruler_icon(canvas, 52, 296, GrayLevel::Black);
-  ui_draw_wrapped_text_pixels(canvas, 92, 292, 272, content.baby_development_zh,
-                              16, GrayLevel::Black, 2, 6, FontWeight::Regular);
-  draw_heart_icon(canvas, 52, 352, GrayLevel::Black);
-  ui_draw_wrapped_text_pixels(canvas, 92, 348, 272, content.mother_changes_zh,
-                              16, GrayLevel::Black, 2, 6, FontWeight::Regular);
-  draw_reminder_icon(canvas, 52, 408, GrayLevel::Black);
-  ui_draw_wrapped_text_pixels(canvas, 92, 404, 272, content.daily_advice_zh, 16,
-                              GrayLevel::Black, 2, 6, FontWeight::Regular);
+  draw_home_row(canvas, kHomeRows[0], draw_ruler_icon,
+                content.baby_development_zh, false, false);
+  draw_home_row(canvas, kHomeRows[1], draw_heart_icon,
+                content.mother_changes_zh, false, true);
+  draw_home_row(canvas, kHomeRows[2], draw_reminder_icon,
+                content.daily_advice_zh, false, true);
 
   pixel_asset_draw_centered(canvas, 592, 204,
                             pregnancy_week_size_asset(progress.weeks), 2,
@@ -548,10 +569,7 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
                             "—  用熟悉的东西感受宝宝正在长大  —", 14,
                             GrayLevel::Black, FontWeight::Regular);
 
-  canvas.fill_rect(744, 16, 32, 32, GrayLevel::White);
-  draw_rounded_rect(canvas, {744, 16, 32, 32}, 4, GrayLevel::Black);
-  for (int line = 0; line < 3; ++line)
-    canvas.draw_line(752, 24 + line * 8, 768, 24 + line * 8, GrayLevel::Black);
+  draw_menu_button(canvas, kHomeMenu);
 }
 
 void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
@@ -730,11 +748,10 @@ PregnancyAction pregnancy_page_action_at(PregnancyPage page, bool can_cancel,
     if (page == PregnancyPage::Dashboard) {
       if ((portrait ? kPortraitHomeMenu : kHomeMenu).contains(x, y))
         return PregnancyAction::OpenLauncher;
-      if ((portrait ? kPortraitHomeVisual : kHomeVisual).contains(x, y) ||
-          (portrait ? kPortraitHomeBabyStory : kHomeBabyStory).contains(x, y))
-        return PregnancyAction::ShowBaby;
-      if ((portrait ? kPortraitHomeMomStory : kHomeMomStory).contains(x, y))
-        return PregnancyAction::ShowMom;
+      for (size_t row = 0U; row < 3U; ++row) {
+        if ((portrait ? kPortraitHomeRows[row] : kHomeRows[row]).contains(x, y))
+          return kHomeRowActions[row];
+      }
       return PregnancyAction::None;
     }
     if ((portrait ? kPortraitEditRect : kEditRect).contains(x, y))

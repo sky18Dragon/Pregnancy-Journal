@@ -150,14 +150,22 @@ int main() {
   assert(count_level(buffer, GrayLevel::LightGray) == 0U);
   assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 750, 45) ==
          PregnancyAction::OpenLauncher);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 160, 240) ==
+  // Only visible controls are targets: the menu box and the three "this week"
+  // rows. The illustration and the card header are not tappable.
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 736, 63) ==
+         PregnancyAction::OpenLauncher);
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 160, 312) ==
          PregnancyAction::ShowBaby);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 500, 250) ==
-         PregnancyAction::ShowBaby);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 500, 350) ==
-         PregnancyAction::ShowBaby);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 160, 360) ==
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 160, 368) ==
          PregnancyAction::ShowMom);
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 160, 424) ==
+         PregnancyAction::ShowMom);
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 160, 240) ==
+         PregnancyAction::None);
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 500, 250) ==
+         PregnancyAction::None);
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 500, 350) ==
+         PregnancyAction::None);
   assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 700, 468) ==
          PregnancyAction::None);
   write_preview(buffer, "/tmp/pregnancy_dashboard.ppm");
@@ -181,10 +189,16 @@ int main() {
   assert(canvas.height() == 800U);
   assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 440,
                                   40) == PregnancyAction::OpenLauncher);
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 416,
+                                  63) == PregnancyAction::OpenLauncher);
   assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 240,
-                                  360) == PregnancyAction::ShowBaby);
+                                  652) == PregnancyAction::ShowBaby);
   assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 240,
-                                  720) == PregnancyAction::ShowMom);
+                                  700) == PregnancyAction::ShowMom);
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 240,
+                                  748) == PregnancyAction::ShowMom);
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 240,
+                                  360) == PregnancyAction::None);
   const char *portrait_countdown = "距离预产期还有 140 天";
   const int portrait_countdown_width =
       font_text_width_pixels(portrait_countdown, 16U, FontWeight::Regular);
