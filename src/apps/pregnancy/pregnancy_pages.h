@@ -7,13 +7,6 @@
 
 class Canvas;
 
-struct PregnancyImportantDate {
-  PregnancyDate date = {};
-  uint8_t hour = 0U;
-  uint8_t minute = 0U;
-  char title[40] = {};
-};
-
 enum class PregnancyPage : uint8_t {
   ClockSetup,
   SourceSetup,
@@ -46,7 +39,6 @@ enum class PregnancyAction : uint8_t {
   ShowBaby,
   ShowMom,
   OpenLauncher,
-  OpenCheckup,
 };
 
 void pregnancy_page_render_clock_setup(Canvas &canvas, const char *digits,
@@ -60,8 +52,7 @@ void pregnancy_page_render_profile_date_setup(Canvas &canvas,
                                               bool due_date_primary);
 void pregnancy_page_render_dashboard(
     Canvas &canvas, const PregnancyDate &due_date,
-    const PregnancyProgress &progress,
-    const PregnancyImportantDate *important = nullptr);
+    const PregnancyProgress &progress);
 void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
                                   const PregnancyProgress &progress,
                                   const WeekContent &content);

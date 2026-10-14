@@ -1,0 +1,9 @@
+# Release-only overlay, applied after sdkconfig.defaults by env:sticky-release.
+# ESP-IDF defaults to -Og; release firmware uses -O2 so e-paper frame
+# conversion and storage work finish sooner and the CPU returns to idle.
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+# Keep assert() active but drop per-assert file/expression strings.
+CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_SILENT=y
+# Match STICKY_LOG_COMPILE_LEVEL=3: debug/verbose logs are not compiled in.
+CONFIG_LOG_MAXIMUM_EQUALS_DEFAULT=y
+# CONFIG_LOG_COLORS is not set

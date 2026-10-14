@@ -16,8 +16,6 @@ class Canvas;
   uint32_t name##_app_power_sleep_timeout_ms() { return 60000U; }
 
 DEFINE_APP_STUBS(pregnancy)
-DEFINE_APP_STUBS(reminder)
-DEFINE_APP_STUBS(checkup)
 DEFINE_APP_STUBS(weight)
 DEFINE_APP_STUBS(kick)
 DEFINE_APP_STUBS(settings)
@@ -25,10 +23,22 @@ DEFINE_APP_STUBS(settings)
 bool settings_app_power_sleep_allowed() { return true; }
 
 int main() {
-  assert(sticky_app_registry_count() == 6U);
+  assert(sticky_app_registry_count() == 4U);
+  const StickyAppId expected[] = {StickyAppId::Pregnancy, StickyAppId::Weight,
+                                  StickyAppId::Kicks, StickyAppId::Settings};
+  assert(static_cast<int>(StickyAppId::Settings) == 1);
+  assert(static_cast<int>(StickyAppId::Pregnancy) == 2);
+  assert(static_cast<int>(StickyAppId::Reminder) == 3);
+  assert(static_cast<int>(StickyAppId::Checkup) == 4);
+  assert(static_cast<int>(StickyAppId::Weight) == 7);
+  assert(static_cast<int>(StickyAppId::Kicks) == 8);
+  assert(sticky_app_registry_find(StickyAppId::Reminder) == nullptr);
+  assert(sticky_app_registry_find(StickyAppId::Checkup) == nullptr);
   const StickyAppDescriptor *apps = sticky_app_registry_data();
   assert(apps != nullptr);
-  for (size_t index = 0U; index < sticky_app_registry_count(); ++index)
+  for (size_t index = 0U; index < sticky_app_registry_count(); ++index) {
+    assert(apps[index].id == expected[index]);
     assert(apps[index].rotation == StickyAppRotationPolicy::FollowDevice);
+  }
   return 0;
 }

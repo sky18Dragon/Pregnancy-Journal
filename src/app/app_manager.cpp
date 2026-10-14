@@ -1,11 +1,5 @@
 #include "app_manager.h"
 
-namespace {
-
-constexpr size_t kNotFound = 8U;
-
-}  // namespace
-
 StickyAppManager::StickyAppManager(const StickyAppDescriptor *apps,
                                    size_t count,
                                    StickyAppId default_app)
@@ -22,13 +16,13 @@ size_t StickyAppManager::index_of(StickyAppId id) const
             return index;
         }
     }
-    return kNotFound;
+    return kMaximumApps;
 }
 
 const StickyAppDescriptor *StickyAppManager::find(StickyAppId id) const
 {
     const size_t index = index_of(id);
-    return index == kNotFound ? nullptr : &apps_[index];
+    return index == kMaximumApps ? nullptr : &apps_[index];
 }
 
 StickyAppId StickyAppManager::sanitize(StickyAppId requested) const
@@ -131,5 +125,5 @@ StickyAppId StickyAppManager::current_id() const
 bool StickyAppManager::started(StickyAppId id) const
 {
     const size_t index = index_of(id);
-    return index != kNotFound && started_[index];
+    return index != kMaximumApps && started_[index];
 }

@@ -18,7 +18,7 @@ int main() {
   assert(service.create(make_reminder(1U, {2026U, 9U, 12U}, 15U, "CHECKUP")));
   assert(service.create(make_reminder(2U, {2026U, 9U, 12U}, 9U, "SUPPLEMENT")));
   assert(service.count() == 2U);
-  Reminder *today[4] = {};
+  const Reminder *today[4] = {};
   assert(service.get_today({2026U, 9U, 12U}, today, 4U) == 2U);
   uint32_t now = 0U;
   assert(reminder_epoch(make_reminder(9U, {2026U, 9U, 12U}, 8U, "NOW"), now));
@@ -32,6 +32,11 @@ int main() {
   assert(service.next(now)->id == 1U);
   assert(service.remove(1U));
   assert(service.count() == 1U);
+  assert(service.set_next_id_floor(20U));
+  Reminder generated = make_reminder(0U, {2026U, 9U, 13U}, 8U, "NEXT");
+  uint32_t generated_id = 0U;
+  assert(service.create(generated, &generated_id));
+  assert(generated_id == 20U);
 
   Reminder daily = make_reminder(3U, {2026U, 12U, 31U}, 8U, "WATER");
   daily.repeat_rule = RepeatRule::Daily;

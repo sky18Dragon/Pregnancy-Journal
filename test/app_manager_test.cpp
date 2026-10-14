@@ -1,4 +1,5 @@
 #include <cassert>
+#include <initializer_list>
 
 #include "app_manager.h"
 
@@ -38,5 +39,13 @@ int main()
     assert(pauses[1] == 1 && resumes[0] == 1);
     assert(manager.started(StickyAppId::Pregnancy));
     assert(manager.started(StickyAppId::Settings));
+    for (StickyAppId old_app : {StickyAppId::Reminder, StickyAppId::Checkup}) {
+        StickyAppManager restored(apps, 2U, StickyAppId::Pregnancy);
+        assert(restored.start(canvas, old_app) == ESP_OK);
+        assert(restored.current_id() == StickyAppId::Pregnancy);
+        assert(restored.switch_to(StickyAppId::Settings) == ESP_OK);
+        assert(restored.switch_to(old_app) == ESP_OK);
+        assert(restored.current_id() == StickyAppId::Pregnancy);
+    }
     return 0;
 }

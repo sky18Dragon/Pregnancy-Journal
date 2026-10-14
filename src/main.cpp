@@ -3,16 +3,27 @@
 #include "board_power.h"
 #include "board_sensor_bus.h"
 #include "board_shared_spi.h"
+#include "sticky_sd_audio_test.h"
 #include "canvas.h"
+#include "domain_repository_stores.h"
 #include "sticky_app.h"
 #include "sticky_battery.h"
 #include "sticky_buzzer.h"
 #include "sticky_display.h"
 #include "sticky_imu.h"
 #include "sticky_rtc.h"
+#include "sd_storage_service.h"
+#include "sticky_manifest_commit_test.h"
+#include "sticky_journal_power_test.h"
+#include "sticky_object_power_test.h"
+#include "sticky_index_power_test.h"
+#include "sticky_checkpoint_commit_test.h"
+#include "sticky_storage_status_test.h"
 #include "sticky_touch.h"
+#include "sticky_voice_classifier_test.h"
 #include "font_test_screen.h"
-#include "ui_language_storage.h"
+#include "sticky_chinese_input_test.h"
+#include "ui_language.h"
 
 #include <cinttypes>
 
@@ -164,6 +175,36 @@ void log_system_details()
 }
 #endif
 
+bool load_device_preferences_from_sd()
+{
+    using sticky_storage::SdRepositoryAdapterStatus;
+    auto &store = pregnancy_repository::device_preferences_repository_store();
+    constexpr unsigned kMaximumPolls = 125U;
+    for (unsigned poll = 0U; poll < kMaximumPolls; ++poll) {
+        SdRepositoryAdapterStatus status = store.pending()
+                                               ? store.poll()
+                                               : store.begin_load();
+        if (status == SdRepositoryAdapterStatus::Ok && store.ready()) {
+            ui_language_set(store.settings().language);
+            return true;
+        }
+        if (status == SdRepositoryAdapterStatus::Pending) {
+            vTaskDelay(pdMS_TO_TICKS(40));
+            continue;
+        }
+        const sticky_storage::SdStorageServiceStatus storage =
+            sticky_storage::sd_storage_service_status();
+        if (storage.card_state == sticky_storage::SdCardState::Mounting ||
+            (storage.running && !storage.recovery_known)) {
+            vTaskDelay(pdMS_TO_TICKS(40));
+            continue;
+        }
+        break;
+    }
+    ui_language_set(UiLanguage::English);
+    return false;
+}
+
 }  // namespace
 
 extern "C" void app_main()
@@ -199,6 +240,16 @@ extern "C" void app_main()
     if (shared_spi_result != ESP_OK) {
         halt_after_error("board_shared_spi", shared_spi_result);
     }
+
+#if defined(STICKY_SD_AUDIO_TEST) && STICKY_SD_AUDIO_TEST
+    sticky_sd_audio_test_run();
+    return;
+#endif
+
+#if defined(STICKY_VOICE_CLASSIFIER_TEST) && STICKY_VOICE_CLASSIFIER_TEST
+    sticky_voice_classifier_test_run();
+    return;
+#endif
 
     const esp_err_t sensor_bus_result = board_sensor_bus_init();
     if (sensor_bus_result != ESP_OK) {
@@ -272,28 +323,78 @@ extern "C" void app_main()
         halt_after_error("sticky_touch_init", touch_result);
     }
 
+#if defined(STICKY_CHINESE_INPUT_TEST) && STICKY_CHINESE_INPUT_TEST
+    sticky_chinese_input_test_run(*canvas);
+#endif
+
+    // Buzzer and IMU are optional for journaling: run silent or with a fixed
+    // orientation instead of halting the whole device.
+    // 蜂鸣器和IMU不是记录功能的必要条件：失败时静音或固定方向继续运行。
     const esp_err_t buzzer_result = sticky_buzzer_init();
     if (buzzer_result != ESP_OK) {
-        halt_after_error("sticky_buzzer_init", buzzer_result);
+        STICKY_LOGW(kTag,
+                    "component=sticky_buzzer result=%s fallback=silent",
+                    esp_err_to_name(buzzer_result));
     }
 
     const esp_err_t imu_result =
         sticky_imu_init(board_sensor_i2c_bus());
     if (imu_result != ESP_OK) {
-        halt_after_error("sticky_imu_init", imu_result);
+        STICKY_LOGW(kTag,
+                    "component=sticky_imu result=%s fallback=fixed_orientation",
+                    esp_err_to_name(imu_result));
     }
 
+    // NVS holds only legacy records awaiting migration and the network key.
+    // Never erase it automatically here: a full or newer-format partition
+    // disables those features while journaling on MicroSD keeps working.
+    // NVS仅保存待迁移旧数据，不能自动擦除；初始化失败时跳过这些功能继续启动。
     const esp_err_t nvs_result = nvs_flash_init();
     if (nvs_result != ESP_OK) {
-        halt_after_error("nvs_flash_init", nvs_result);
+        STICKY_LOGW(kTag,
+                    "component=nvs_flash result=%s fallback=legacy_migration_disabled",
+                    esp_err_to_name(nvs_result));
     }
 
-    const esp_err_t language_result = ui_language_storage_load();
-    if (language_result != ESP_OK) {
+    // The storage owner handles card detection and mount lifecycle. Missing or
+    // unsupported media must not prevent the current firmware from starting.
+    const esp_err_t sd_storage_result =
+        sticky_storage::sd_storage_service_start();
+    if (sd_storage_result != ESP_OK) {
         STICKY_LOGW(kTag,
-                    "language=load result=%s fallback=english",
-                    esp_err_to_name(language_result));
+                    "component=sd_storage result=%s runtime=disabled",
+                    esp_err_to_name(sd_storage_result));
     }
+
+    if (!load_device_preferences_from_sd()) {
+        STICKY_LOGW(kTag,
+                    "language=load backend=microsd result=unavailable "
+                    "fallback=english");
+    }
+
+#if defined(STICKY_MANIFEST_COMMIT_TEST) && STICKY_MANIFEST_COMMIT_TEST
+    sticky_manifest_commit_test_run(*canvas);
+#endif
+
+#if defined(STICKY_JOURNAL_POWER_TEST) && STICKY_JOURNAL_POWER_TEST
+    sticky_journal_power_test_run(*canvas);
+#endif
+
+#if defined(STICKY_OBJECT_POWER_TEST) && STICKY_OBJECT_POWER_TEST
+    sticky_object_power_test_run(*canvas);
+#endif
+
+#if defined(STICKY_INDEX_POWER_TEST) && STICKY_INDEX_POWER_TEST
+    sticky_index_power_test_run(*canvas);
+#endif
+
+#if defined(STICKY_CHECKPOINT_COMMIT_TEST) && STICKY_CHECKPOINT_COMMIT_TEST
+    sticky_checkpoint_commit_test_run(*canvas);
+#endif
+
+#if defined(STICKY_STORAGE_STATUS_TEST) && STICKY_STORAGE_STATUS_TEST
+    sticky_storage_status_test_run(*canvas);
+#endif
 
     // Starts Baby Week as the product home and the framework-owned launcher.
     // 以孕周作为产品主页，并启动框架统一管理的应用选择器。

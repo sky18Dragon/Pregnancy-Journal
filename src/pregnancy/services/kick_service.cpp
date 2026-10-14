@@ -1,5 +1,7 @@
 #include "kick_service.h"
 
+#include <cstring>
+
 namespace {
 bool same_date(const PregnancyDate &a, const PregnancyDate &b) {
   return a.year == b.year && a.month == b.month && a.day == b.day;
@@ -16,11 +18,24 @@ void add_period(KickDaySummary &output, KickPeriod period, uint16_t value) {
 } // namespace
 
 bool kick_session_valid(const KickSession &session) {
-  return session.schema_version == kKickSessionSchemaVersion &&
-         session.id != 0U && pregnancy_date_valid(session.date) &&
-         session.hour <= 23U && session.minute <= 59U &&
-         session.duration_minutes <= 120U && session.count <= 500U &&
-         session.period <= KickPeriod::Evening;
+  if (session.schema_version != kKickSessionSchemaVersion ||
+      session.id == 0U || !pregnancy_date_valid(session.date) ||
+      session.hour > 23U || session.minute > 59U ||
+      session.duration_minutes > 120U || session.count > 500U ||
+      session.period > KickPeriod::Evening ||
+      session.mode > KickMode::Awareness ||
+      session.feel > KickFeel::Changed ||
+      session.elapsed_seconds > kKickMaximumElapsedSeconds ||
+      std::memchr(session.note, '\0', sizeof(session.note)) == nullptr)
+    return false;
+  // Awareness check-ins carry a feeling and no count; counted sessions carry
+  // no feeling. Count-to-ten stops at its target.
+  if (session.mode == KickMode::Awareness)
+    return session.count == 0U && session.feel != KickFeel::None;
+  if (session.feel != KickFeel::None)
+    return false;
+  return session.mode != KickMode::CountToTen ||
+         session.count <= kKickCountToTenTarget;
 }
 
 const char *kick_period_name(KickPeriod period) {
@@ -50,16 +65,32 @@ bool KickService::upsert(KickSession session, uint32_t *session_id) {
   }
   if (count_ >= kCapacity)
     return false;
-  if (session.id == 0U)
-    session.id = next_id_++;
+  if (session.id == 0U) {
+    if (next_id_ == 0U) return false;
+    session.id = next_id_;
+  }
   if (!kick_session_valid(session))
     return false;
-  if (session.id >= next_id_)
-    next_id_ = session.id + 1U;
+  if (next_id_ != 0U && session.id >= next_id_)
+    next_id_ = session.id == UINT32_MAX ? 0U : session.id + 1U;
   sessions_[count_++] = session;
   if (session_id != nullptr)
     *session_id = session.id;
   return true;
+}
+
+bool KickService::set_next_id_floor(uint64_t next_id) {
+  if (next_id == 0U || next_id > static_cast<uint64_t>(UINT32_MAX) + 1U)
+    return false;
+  if (next_id_ != 0U && next_id > next_id_)
+    next_id_ = next_id > UINT32_MAX ? 0U : static_cast<uint32_t>(next_id);
+  return true;
+}
+
+const KickSession *KickService::find(uint32_t id) const {
+  for (size_t i = 0U; i < count_; ++i)
+    if (sessions_[i].id == id) return &sessions_[i];
+  return nullptr;
 }
 
 bool KickService::remove(uint32_t id) {
@@ -103,7 +134,9 @@ bool KickService::summarize(const PregnancyDate &date,
   bool found = false;
   int latest_minute_of_day = -1;
   for (size_t i = 0U; i < count_; ++i) {
-    if (!same_date(sessions_[i].date, date))
+    // Awareness check-ins have no count and stay out of movement totals.
+    if (!same_date(sessions_[i].date, date) ||
+        sessions_[i].mode == KickMode::Awareness)
       continue;
     found = true;
     add_period(output, sessions_[i].period, sessions_[i].count);

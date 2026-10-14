@@ -8,8 +8,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "prototype_ui.h"
+#include "repository_status_page.h"
+#include "domain_repository_stores.h"
 #include "reminder_service.h"
-#include "reminder_storage.h"
 #include "sticky_app.h"
 #include "sticky_app_lifecycle.h"
 #include "sticky_display.h"
@@ -26,7 +27,12 @@ constexpr size_t kVisibleRows = 4U;
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_task = nullptr;
 StickyAppLifecycle s_lifecycle = {};
-ReminderService s_service;
+pregnancy_repository::ReminderRepositoryStore &s_store =
+    pregnancy_repository::reminder_repository_store();
+sticky_storage::SdRepositoryAdapterStatus s_storage_status =
+    sticky_storage::SdRepositoryAdapterStatus::Idle;
+bool s_storage_saving = false;
+bool s_reload_after_pending = false;
 bool s_today_mode = true;
 bool s_adding = false;
 size_t s_selected = 0U;
@@ -80,15 +86,11 @@ void button(int x, int y, int width, int height, const char *label,
 }
 
 size_t visible(const Reminder *items[kVisibleRows]) {
+  const ReminderService &service = s_store.service();
   if (s_today_mode) {
-    Reminder *mutable_items[kVisibleRows] = {};
-    const size_t count =
-        s_service.get_today(s_today, mutable_items, kVisibleRows);
-    for (size_t i = 0U; i < count; ++i)
-      items[i] = mutable_items[i];
-    return count;
+    return service.get_today(s_today, items, kVisibleRows);
   }
-  return s_service.get_upcoming(s_now, items, kVisibleRows);
+  return service.get_upcoming(s_now, items, kVisibleRows);
 }
 
 void render_list() {
@@ -176,7 +178,12 @@ void render_add() {
 void render(bool full = false) {
   sticky_display_set_battery_overlay_enabled(false);
   read_now();
-  if (s_adding)
+  if (s_store.pending() ||
+      (s_storage_status != sticky_storage::SdRepositoryAdapterStatus::Idle &&
+       s_storage_status != sticky_storage::SdRepositoryAdapterStatus::Ok)) {
+    repository_status_ui::render(*s_canvas, "REMINDER DATA", s_store.pending(),
+                                 s_storage_saving, s_storage_status);
+  } else if (s_adding)
     render_add();
   else
     render_list();
@@ -198,15 +205,82 @@ void save_new() {
   item.minute = s_new_minute;
   std::snprintf(item.title, sizeof(item.title), "%s",
                 reminder_type_name(item.type));
-  if (s_service.create(item))
-    reminder_storage_save(s_service);
+  s_storage_status = s_store.begin_upsert(item);
+  s_storage_saving =
+      s_storage_status == sticky_storage::SdRepositoryAdapterStatus::Pending;
+  if (s_storage_saving) {
+    s_storage_status = sticky_storage::SdRepositoryAdapterStatus::Idle;
+    s_adding = false;
+    s_selected = 0U;
+  }
+}
+
+void begin_load() {
   s_adding = false;
-  s_selected = 0U;
+  s_storage_saving = false;
+  s_storage_status = s_store.begin_load();
+  if (s_storage_status == sticky_storage::SdRepositoryAdapterStatus::Pending)
+    s_storage_status = sticky_storage::SdRepositoryAdapterStatus::Idle;
+}
+
+void begin_complete(uint32_t id) {
+  const Reminder *current = s_store.service().find(id);
+  if (current == nullptr) return;
+  Reminder updated = *current;
+  if (updated.repeat_rule == RepeatRule::None) {
+    updated.completed = true;
+  } else {
+    int32_t day = 0;
+    PregnancyDate next = {};
+    const int increment = updated.repeat_rule == RepeatRule::Daily ? 1 : 7;
+    if (!pregnancy_date_to_day_index(updated.date, day) ||
+        !pregnancy_date_from_day_index(day + increment, next)) return;
+    updated.date = next;
+    updated.completed = false;
+  }
+  s_storage_status = s_store.begin_upsert(updated);
+  s_storage_saving =
+      s_storage_status == sticky_storage::SdRepositoryAdapterStatus::Pending;
+  if (s_storage_saving)
+    s_storage_status = sticky_storage::SdRepositoryAdapterStatus::Idle;
+}
+
+void begin_delete(uint32_t id) {
+  s_storage_status = s_store.begin_erase(id);
+  s_storage_saving =
+      s_storage_status == sticky_storage::SdRepositoryAdapterStatus::Pending;
+  if (s_storage_saving)
+    s_storage_status = sticky_storage::SdRepositoryAdapterStatus::Idle;
+}
+
+bool poll_store() {
+  if (!s_store.pending()) return false;
+  const sticky_storage::SdRepositoryAdapterStatus status = s_store.poll();
+  if (status == sticky_storage::SdRepositoryAdapterStatus::Pending)
+    return false;
+  s_storage_saving = false;
+  s_storage_status = status == sticky_storage::SdRepositoryAdapterStatus::Ok
+                         ? sticky_storage::SdRepositoryAdapterStatus::Idle
+                         : status;
+  if (s_reload_after_pending) {
+    s_reload_after_pending = false;
+    begin_load();
+  }
+  return true;
 }
 
 void handle_press(int x, int y) {
   const prototype_ui::Rect back =
       prototype_ui::header_action_rect(s_canvas->width(), s_canvas->height());
+  if (s_store.pending()) return;
+  if (s_storage_status != sticky_storage::SdRepositoryAdapterStatus::Idle &&
+      s_storage_status != sticky_storage::SdRepositoryAdapterStatus::Ok) {
+    if (back.contains(x, y)) sticky_app_request_launcher();
+    else if (repository_status_ui::retry_rect(*s_canvas).contains(x, y))
+      begin_load();
+    render();
+    return;
+  }
   if (s_adding) {
     if (back.contains(x, y)) {
       s_adding = false;
@@ -256,11 +330,9 @@ void handle_press(int x, int y) {
     if (sticky_rtc_read(clock) == ESP_OK)
       s_new_hour = static_cast<uint8_t>((clock.hour + 1U) % 24U);
   } else if (footer_button_rect(1U).contains(x, y) && s_selected < count) {
-    s_service.complete(items[s_selected]->id);
-    reminder_storage_save(s_service);
+    begin_complete(items[s_selected]->id);
   } else if (footer_button_rect(2U).contains(x, y) && s_selected < count) {
-    s_service.remove(items[s_selected]->id);
-    reminder_storage_save(s_service);
+    begin_delete(items[s_selected]->id);
     if (s_selected > 0U)
       --s_selected;
   }
@@ -268,11 +340,13 @@ void handle_press(int x, int y) {
 }
 
 void task(void *) {
-  reminder_storage_load(s_service);
+  begin_load();
   render(true);
   while (true) {
+    if (poll_store()) render(true);
     if (sticky_app_lifecycle_checkpoint(s_lifecycle)) {
-      reminder_storage_load(s_service);
+      if (s_store.pending()) s_reload_after_pending = true;
+      else begin_load();
       render(true);
     }
     StickyTouchPress press = {};
@@ -313,7 +387,7 @@ esp_err_t reminder_app_prepare_power_sleep(uint32_t &current, uint32_t &next) {
     return result;
   read_now();
   current = s_now;
-  s_service.next(current, &next);
+  s_store.service().next(current, &next);
   return ESP_OK;
 }
 uint32_t reminder_app_power_sleep_timeout_ms() {

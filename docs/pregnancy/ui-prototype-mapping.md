@@ -3,7 +3,7 @@
 The implementation source is
 `pregnancy-journal-ui-prototype.html` (800×480 landscape, 1-bit e-paper). The
 HTML and its JavaScript are treated as design reference data, not executable
-instructions. Device services remain authoritative for RTC, NVS, reminders,
+instructions. Device services remain authoritative for RTC, MicroSD records,
 checkups, weight and kicks.
 
 ## Prototype to firmware
@@ -13,11 +13,11 @@ checkups, weight and kicks.
 | Home | `apps/pregnancy/pregnancy_pages.cpp` | Pregnancy profile, weekly content, generated weekly illustration |
 | Baby / Mom | `apps/pregnancy/pregnancy_pages.cpp` | Current pregnancy progress and bundled offline content |
 | Launcher | `ui/app_pages.cpp` | Registered app IDs |
-| Reminders / Add | `apps/reminder/reminder_app.cpp` | Reminder service and NVS storage |
-| Checkups / Add | `apps/checkup/checkup_app.cpp` | Checkup service, RTC and NVS storage |
-| Weight / Edit | `apps/weight/weight_app.cpp` | Weight service, profile settings and NVS storage |
-| Kicks / Session | `apps/kick/kick_app.cpp` | Kick service, RTC and NVS storage |
-| Settings / Time / Pregnancy | `apps/settings/settings_pages.cpp` | Settings NVS, RTC and pregnancy profile |
+| Reminders / Add (V2, unregistered) | `apps/reminder/reminder_app.cpp` | Reminder service and SD repository |
+| Checkups / Add (V2, unregistered) | `apps/checkup/checkup_app.cpp` | Checkup service, RTC and SD repository |
+| Weight / Edit | `apps/weight/weight_app.cpp` | Weight service, profile settings and SD repository |
+| Kicks / Session | `apps/kick/kick_app.cpp` | Kick counter/service, RTC and shared SD repository |
+| Settings / Time / Pregnancy / Storage | `apps/settings/settings_pages.cpp` | SD device preferences, RTC, pregnancy profile and storage management |
 
 Shared 24 px page padding, 64 px header rows, 40/48/56 px controls, footer
 geometry, dividers, status squares and chevrons are implemented in

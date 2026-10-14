@@ -478,7 +478,12 @@ static esp_err_t spi_write_level(seeed_epaper_panel_t *panel, int dc_level, cons
             .length = chunk * 8U,
             .tx_buffer = panel->spi_tx_buffer,
         };
-        esp_err_t err = spi_device_transmit(panel->config.spi_handle, &trans);
+        // This device has one synchronous caller and never pipelines transfers.
+        // Poll completion directly instead of depending on a queued ISR result
+        // (observed stuck indefinitely on the shared SDSPI/display bus).
+        // IDF owns the bus for this chunk and releases it on completion, so SD
+        // can still run between chunks. Keep the DMA buffer alive until return.
+        esp_err_t err = spi_device_polling_transmit(panel->config.spi_handle, &trans);
         if (err != ESP_OK) {
             APP_EPAPER_DEBUG_LOGE(TAG,
                      "spi transmit failed: dc=%d chunk=%u remaining=%u total=%u elapsed=%llums err=%s",

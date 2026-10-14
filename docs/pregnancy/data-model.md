@@ -1,3 +1,5 @@
+> V1 UI includes Pregnancy, Weight, Kicks and Settings only. Reminder/checkup models below remain for legacy migration and V2.
+
 # Data model
 
 All persisted records carry a schema version. User-facing text uses bounded
@@ -51,7 +53,7 @@ also retains the hour/minute fields for future editing support.
   weight when unset)
 - display unit flag (`kg` or `lb`)
 
-These settings are stored with the weight namespace. Weight values are always
+These settings are stored in the MicroSD preference repository. Weight values are always
 stored as tenths of a kilogram; lb is a display/input conversion only.
 
 ## WeightRecord
@@ -60,7 +62,7 @@ stored as tenths of a kilogram; lb is a display/input conversion only.
 - weight stored as integer tenths of a kilogram
 - bounded note
 
-Capacity is 32. Adding another value on the same date updates the existing
+Capacity is 366. Adding another value on the same date updates the existing
 record. Height and pre-pregnancy baseline are stored as profile settings. BMI,
 total gain and weekly change are derived at runtime.
 
@@ -68,13 +70,28 @@ total gain and weekly change are derived at runtime.
 
 - id, date and start time
 - period: morning, afternoon or evening
-- duration in minutes and counted movements
+- duration in minutes, elapsed seconds and counted movements
+- mode: 1-hour count (Timed), Count to 10, or Feel check-in (Awareness)
+- feel (check-ins only): as usual, weaker, fewer or pattern changed
 - bounded note
 
-Capacity is 42. Sessions are valid for 0–120 minutes and 0–500 movements; the
+Schema 2 adds mode, feel and elapsed seconds. Schema-1 MicroSD payloads decode
+as Timed sessions with elapsed seconds derived from minutes; the frozen 60-byte
+legacy NVS layout (`KickSessionV1`) is used only by the old-device import.
+Check-ins must have a feel and zero count; counted sessions must have no feel;
+Count to 10 never exceeds ten movements.
+
+Capacity is 400. Sessions are valid for 0–120 minutes and 0–500 movements; the
 current UI caps an active session at 60 minutes and filters repeat taps within
 400 ms. Daily summaries include period totals, session count, total duration
 and the latest session. Seven-day summaries retain each calendar day's raw
 recorded total and derive recorded-day/session counts, average per recorded day
 and time-of-day distribution. No model field represents a diagnosis, universal
 target, inferred 12-hour count or normal/abnormal state.
+
+`kick_comparison.*` derives, at runtime only, a comparison against the median
+of the same record type in the seven days before a record (Timed: same period,
+movements per hour; Count to 10: seconds, with an hour-long unfinished session
+counted as 60 minutes). Three baseline records are required. The result holds
+direction (less/more/same), absolute difference and percentage; nothing is
+persisted.

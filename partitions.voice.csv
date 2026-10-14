@@ -1,0 +1,7 @@
+# Dedicated S0 classifier profile. Production profiles continue to use partitions.csv.
+# Name,   Type, SubType, Offset,   Size,      Flags
+nvs,      data, nvs,     0x9000,   0x6000,
+phy_init, data, phy,     0xF000,   0x1000,
+factory,  app,  factory, 0x10000,  0x800000,
+model,    data, spiffs,  0x810000, 0x50C000,
+coredump, data, coredump, 0xD1C000, 0x20000,

@@ -42,8 +42,11 @@ const char *reminder_type_name(ReminderType type) {
 bool ReminderService::create(Reminder reminder, uint32_t *created_id) {
   if (count_ >= kCapacity)
     return false;
-  if (reminder.id == 0U)
+  if (reminder.id == 0U) {
+    if (next_id_ == 0U)
+      return false;
     reminder.id = next_id_++;
+  }
   if (!reminder_valid(reminder) || find(reminder.id) != nullptr)
     return false;
   if (reminder.id >= next_id_)
@@ -120,6 +123,17 @@ void ReminderService::clear() {
   next_id_ = 1U;
 }
 
+bool ReminderService::set_next_id_floor(uint64_t next_id) {
+  if (next_id == 0U)
+    return false;
+  if (next_id > UINT32_MAX) {
+    next_id_ = 0U;
+  } else if (next_id_ != 0U && next_id_ < next_id) {
+    next_id_ = static_cast<uint32_t>(next_id);
+  }
+  return true;
+}
+
 const Reminder *ReminderService::at(size_t index) const {
   return index < count_ ? &reminders_[index] : nullptr;
 }
@@ -139,7 +153,8 @@ const Reminder *ReminderService::find(uint32_t id) const {
 }
 
 size_t ReminderService::get_today(const PregnancyDate &today,
-                                  Reminder *output[], size_t capacity) {
+                                  const Reminder *output[],
+                                  size_t capacity) const {
   size_t found = 0U;
   for (size_t index = 0U; index < count_ && found < capacity; ++index) {
     const Reminder &item = reminders_[index];

@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cstdint>
 #include <fstream>
+#include <initializer_list>
 
 #include "app_pages.h"
 #include "canvas.h"
@@ -47,18 +48,15 @@ int main() {
   write_preview(canvas, "/tmp/app_launcher.ppm");
   StickyAppId selected = StickyAppId::Settings;
   assert(app_page_launcher_app_at(800, 480, 100, 150, selected));
-  assert(selected == StickyAppId::Checkup);
-  assert(app_page_launcher_app_at(800, 480, 500, 150, selected));
-  assert(selected == StickyAppId::Reminder);
-  assert(app_page_launcher_app_at(800, 480, 100, 260, selected));
-  assert(selected == StickyAppId::Weight);
-  assert(app_page_launcher_app_at(800, 480, 500, 260, selected));
-  assert(selected == StickyAppId::Kicks);
-  assert(app_page_launcher_app_at(800, 480, 100, 360, selected));
   assert(selected == StickyAppId::Pregnancy);
-  assert(app_page_launcher_app_at(800, 480, 500, 360, selected));
+  assert(app_page_launcher_app_at(800, 480, 500, 150, selected));
+  assert(selected == StickyAppId::Weight);
+  assert(app_page_launcher_app_at(800, 480, 100, 310, selected));
+  assert(selected == StickyAppId::Kicks);
+  assert(app_page_launcher_app_at(800, 480, 500, 310, selected));
   assert(selected == StickyAppId::Settings);
-  assert(!app_page_launcher_app_at(800, 480, 400, 260, selected));
+  assert(!app_page_launcher_app_at(800, 480, 400, 310, selected));
+  assert(!app_page_launcher_app_at(800, 480, 100, 430, selected));
   assert(app_page_launcher_close_at(800, 480, 720, 45));
   assert(app_page_launcher_close_at(800, 480, 720, 67));
   assert(!app_page_launcher_close_at(800, 480, 720, 68));
@@ -75,11 +73,14 @@ int main() {
   assert(canvas.width() == 480U);
   assert(canvas.height() == 800U);
   assert(app_page_launcher_app_at(480, 800, 100, 150, selected));
-  assert(selected == StickyAppId::Checkup);
-  assert(app_page_launcher_app_at(480, 800, 100, 260, selected));
-  assert(selected == StickyAppId::Reminder);
-  assert(app_page_launcher_app_at(480, 800, 100, 680, selected));
+  assert(selected == StickyAppId::Pregnancy);
+  assert(app_page_launcher_app_at(480, 800, 100, 310, selected));
+  assert(selected == StickyAppId::Weight);
+  assert(app_page_launcher_app_at(480, 800, 100, 450, selected));
+  assert(selected == StickyAppId::Kicks);
+  assert(app_page_launcher_app_at(480, 800, 100, 600, selected));
   assert(selected == StickyAppId::Settings);
+  assert(!app_page_launcher_app_at(480, 800, 100, 720, selected));
   assert(app_page_launcher_close_at(480, 800, 400, 40));
   assert(app_page_launcher_close_at(480, 800, 400, 67));
   assert(!app_page_launcher_close_at(480, 800, 400, 68));
@@ -87,5 +88,24 @@ int main() {
   assert(count_level(canvas, GrayLevel::DarkGray) == 0U);
   assert(count_level(canvas, GrayLevel::LightGray) == 0U);
   write_preview(canvas, "/tmp/app_launcher_portrait_zh.ppm");
+  for (const CanvasRotation rotation : {CanvasRotation::Deg0,
+                                        CanvasRotation::Deg90Clockwise,
+                                        CanvasRotation::Deg180,
+                                        CanvasRotation::Deg90CounterClockwise}) {
+    canvas.set_rotation(rotation);
+    for (int y = 0; y < canvas.height(); ++y) {
+      for (int x = 0; x < canvas.width(); ++x) {
+        if (app_page_launcher_app_at(canvas.width(), canvas.height(), x, y,
+                                    selected)) {
+          assert(selected == StickyAppId::Pregnancy ||
+                 selected == StickyAppId::Weight ||
+                 selected == StickyAppId::Kicks ||
+                 selected == StickyAppId::Settings);
+          assert(!app_page_launcher_close_at(canvas.width(), canvas.height(),
+                                             x, y));
+        }
+      }
+    }
+  }
   return 0;
 }

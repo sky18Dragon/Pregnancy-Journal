@@ -8,10 +8,9 @@ their own seven-day logging pattern. It does not label a day normal or abnormal,
 set a universal target, extrapolate a 12-hour count or advise waiting for a timer
 to finish before seeking care.
 
-The persistent safety message is: if the baby moves less than usual, stops
-moving or the usual pattern changes, contact maternity care immediately. The
-wording deliberately does not defer action until the next day or until a
-counting session ends.
+Product decision (2026-10-15): the Kicks pages no longer carry the persistent
+"contact maternity care" message. They show recorded data and comparisons with
+the user's own seven-day baseline only, with no advice text.
 
 ## Evidence used
 

@@ -40,6 +40,26 @@ esp_err_t configure_output(gpio_num_t pin, uint32_t level)
 
 }  // namespace
 
+esp_err_t board_shared_spi_init()
+{
+    static bool initialized = false;
+    if (initialized) {
+        return ESP_OK;
+    }
+    spi_bus_config_t config = {};
+    config.mosi_io_num = PIN_EPD_MOSI;
+    config.miso_io_num = PIN_EPD_MISO;
+    config.sclk_io_num = PIN_EPD_CLK;
+    // Unused pins must be -1, otherwise GPIO0 conflicts with sensor I2C.
+    config.quadwp_io_num = config.quadhd_io_num = -1;
+    config.data4_io_num = config.data5_io_num = -1;
+    config.data6_io_num = config.data7_io_num = -1;
+    config.max_transfer_sz = 800 * 480 / 8;
+    const esp_err_t result = spi_bus_initialize(SPI2_HOST, &config, SPI_DMA_CH_AUTO);
+    initialized = result == ESP_OK;
+    return result;
+}
+
 esp_err_t board_shared_spi_prepare()
 {
     app_log_register_tag(kTag);
@@ -56,6 +76,11 @@ esp_err_t board_shared_spi_prepare()
 
     esp_err_t result = configure_output(
         static_cast<gpio_num_t>(PIN_SD_CS), kReferenceIdleLevel);
+    if (result != ESP_OK) {
+        return result;
+    }
+
+    result = configure_output(static_cast<gpio_num_t>(PIN_EPD_CS), 1);
     if (result != ESP_OK) {
         return result;
     }

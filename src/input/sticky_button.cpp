@@ -14,9 +14,14 @@
 namespace {
 
 constexpr char kTag[] = "sticky_button";
-constexpr uint16_t kLongPressTimeMs = 2000U;
+#ifndef STICKY_TOP_LONG_PRESS_MS
+#define STICKY_TOP_LONG_PRESS_MS 2000
+#endif
+
+constexpr uint16_t kTopLongPressTimeMs = STICKY_TOP_LONG_PRESS_MS;
+constexpr uint16_t kSideLongPressTimeMs = 2000U;
 constexpr uint16_t kShortPressTimeMs = 180U;
-constexpr UBaseType_t kEventQueueCapacity = 4U;
+constexpr UBaseType_t kEventQueueCapacity = 8U;
 constexpr int64_t kSleepChordHoldUs = 2000000LL;
 constexpr int64_t kSleepChordPressWindowUs = 500000LL;
 
@@ -56,6 +61,20 @@ void button_double_click_callback(void *button_handle, void *user_data)
     queue_event(StickyButtonEvent::DoubleClick);
 }
 
+void button_long_press_start_callback(void *button_handle, void *user_data)
+{
+    (void)button_handle;
+    (void)user_data;
+    queue_event(StickyButtonEvent::LongPressStart);
+}
+
+void button_long_press_up_callback(void *button_handle, void *user_data)
+{
+    (void)button_handle;
+    (void)user_data;
+    queue_event(StickyButtonEvent::LongPressEnd);
+}
+
 void side_button_callback(void *button_handle, void *user_data)
 {
     const bool pressed = reinterpret_cast<uintptr_t>(user_data) != 0U;
@@ -74,7 +93,7 @@ void side_button_callback(void *button_handle, void *user_data)
 esp_err_t create_side_button(int pin, button_handle_t &button)
 {
     button_config_t button_config = {};
-    button_config.long_press_time = kLongPressTimeMs;
+    button_config.long_press_time = kSideLongPressTimeMs;
     button_config.short_press_time = kShortPressTimeMs;
 
     button_gpio_config_t gpio_config = {};
@@ -123,7 +142,7 @@ esp_err_t sticky_button_init()
     }
 
     button_config_t button_config = {};
-    button_config.long_press_time = kLongPressTimeMs;
+    button_config.long_press_time = kTopLongPressTimeMs;
     button_config.short_press_time = kShortPressTimeMs;
 
     button_gpio_config_t gpio_config = {};
@@ -173,6 +192,29 @@ esp_err_t sticky_button_init()
     }
 
 
+    result = iot_button_register_cb(s_button,
+                                    BUTTON_LONG_PRESS_START,
+                                    nullptr,
+                                    button_long_press_start_callback,
+                                    nullptr);
+    if (result != ESP_OK) {
+        iot_button_delete(s_button);
+        s_button = nullptr;
+        return result;
+    }
+
+    result = iot_button_register_cb(s_button,
+                                    BUTTON_LONG_PRESS_UP,
+                                    nullptr,
+                                    button_long_press_up_callback,
+                                    nullptr);
+    if (result != ESP_OK) {
+        iot_button_delete(s_button);
+        s_button = nullptr;
+        return result;
+    }
+
+
     result = create_side_button(PIN_SIDE_BUTTON_LEFT, s_left_button);
     if (result != ESP_OK) {
         return result;
@@ -183,10 +225,11 @@ esp_err_t sticky_button_init()
     }
 
     STICKY_LOGI(kTag,
-                "button=ready ai_pin=%d side_pins=%d,%d active_level=low press=imu_start single=launcher double=pregnancy_home sleep_chord_ms=2000 click_window_ms=%u result=ok",
+                "button=ready ai_pin=%d side_pins=%d,%d active_level=low press=imu_start long_start_ms=%u single=launcher double=pregnancy_home sleep_chord_ms=2000 click_window_ms=%u result=ok",
                 PIN_TOP_BUTTON,
                 PIN_SIDE_BUTTON_LEFT,
                 PIN_SIDE_BUTTON_RIGHT,
+                static_cast<unsigned>(kTopLongPressTimeMs),
                 static_cast<unsigned>(kShortPressTimeMs));
     return ESP_OK;
 }

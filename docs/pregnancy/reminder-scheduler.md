@@ -1,3 +1,5 @@
+> V1: Reminder/Checkup apps and business wake alarms are disabled. The following service behavior is retained for V2 and migration; active sleep policy schedules only daily maintenance and active-app system events.
+
 # Reminder and scheduler
 
 Apps never program RTC wake sources directly. At sleep preparation the

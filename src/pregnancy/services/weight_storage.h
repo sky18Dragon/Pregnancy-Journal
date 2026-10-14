@@ -1,15 +1,19 @@
 #pragma once
 
+#include <cstdint>
+
 #include "esp_err.h"
 #include "weight_service.h"
 
-struct WeightProfileSettings {
-  uint16_t height_cm = 165U;
-  uint16_t baseline_tenths_kg = 0U;
-  bool use_pounds = false;
+constexpr uint32_t kWeightStorageMagic = 0x57475431U;
+constexpr uint16_t kWeightStorageVersion = 1U;
+
+struct WeightStorageRecord {
+  uint32_t magic = 0U;
+  uint16_t version = 0U;
+  uint16_t size = 0U;
+  WeightRecord item = {};
+  uint32_t checksum = 0U;
 };
 
-esp_err_t weight_storage_load(WeightService &service,
-                              WeightProfileSettings &settings);
-esp_err_t weight_storage_save(const WeightService &service,
-                              const WeightProfileSettings &settings);
+bool weight_storage_record_valid(const WeightStorageRecord &record);

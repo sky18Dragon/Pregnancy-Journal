@@ -1,0 +1,7 @@
+# Excerpt from mozillazg/pinyin-data pinyin.txt, commit
+# 923b108dc5d45dee061324c011b478fb649f8b73 (MIT).
+# These are the three GB2312 Level-1 characters absent from kMandarin_8105.txt.
+U+77FD: xì,xī  # 矽
+U+7877: jiǎn  # 硷
+U+78FA: huáng,kuàng,gǒng  # 磺
+

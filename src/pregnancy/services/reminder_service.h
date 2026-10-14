@@ -17,13 +17,15 @@ public:
   void set_all_enabled(bool enabled);
   bool any_enabled() const;
   void clear();
+  bool set_next_id_floor(uint64_t next_id);
 
   size_t count() const { return count_; }
+  uint32_t next_id() const { return next_id_; }
   const Reminder *at(size_t index) const;
   Reminder *find(uint32_t id);
   const Reminder *find(uint32_t id) const;
-  size_t get_today(const PregnancyDate &today, Reminder *output[],
-                   size_t capacity);
+  size_t get_today(const PregnancyDate &today, const Reminder *output[],
+                   size_t capacity) const;
   size_t get_upcoming(uint32_t now, const Reminder *output[],
                       size_t capacity) const;
   const Reminder *next(uint32_t now, uint32_t *epoch_seconds = nullptr) const;

@@ -1,5 +1,7 @@
 #include <cassert>
 #include <cstdint>
+#include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <vector>
 
@@ -74,9 +76,189 @@ KickTrendSummary populated_trend() {
   return value;
 }
 
+KickComparison ready_timed() {
+  KickComparison value = {};
+  value.status = KickComparisonStatus::Ready;
+  value.mode = KickMode::Timed;
+  value.period = KickPeriod::Evening;
+  value.current = 7U;
+  value.baseline = 14U;
+  value.difference = 7U;
+  value.percent = 50U;
+  value.percent_known = true;
+  value.direction = KickDirection::Less;
+  value.baseline_sessions = 5U;
+  return value;
+}
+
+KickComparison ready_ten() {
+  KickComparison value = {};
+  value.status = KickComparisonStatus::Ready;
+  value.mode = KickMode::CountToTen;
+  value.current = 1080U;
+  value.baseline = 690U;
+  value.difference = 390U;
+  value.percent = 57U;
+  value.percent_known = true;
+  value.direction = KickDirection::More;
+  value.baseline_sessions = 4U;
+  return value;
+}
+
+void test_formatting() {
+  ui_language_set(UiLanguage::ChineseSimplified);
+  KickComparisonText text = {};
+  kick_format_comparison(ready_timed(), text);
+  assert(std::strcmp(text.value, "每小时 7 次") == 0);
+  assert(std::strcmp(text.baseline,
+                     "过去 7 天同时段中位数：每小时 14 次（5 条记录）") == 0);
+  assert(std::strcmp(text.difference, "比平时少 7 次/小时，少 50%") == 0);
+
+  kick_format_comparison(ready_ten(), text);
+  assert(std::strcmp(text.value, "数到 10 用时 18分00秒") == 0);
+  assert(std::strcmp(text.baseline, "过去 7 天中位数：11分30秒（4 条记录）") == 0);
+  assert(std::strcmp(text.difference, "比平时多用 6分30秒，多 57%") == 0);
+
+  KickComparison capped = ready_ten();
+  capped.current = 3600U;
+  capped.difference = 2910U;
+  capped.current_capped = true;
+  kick_format_comparison(capped, text);
+  assert(std::strcmp(text.value, "60 分钟内未数满 10 次") == 0);
+  assert(std::strcmp(text.difference, "比平时至少多用 48分30秒") == 0);
+
+  KickComparison same = ready_timed();
+  same.direction = KickDirection::Same;
+  same.difference = 0U;
+  same.current = 14U;
+  kick_format_comparison(same, text);
+  assert(std::strcmp(text.difference, "与平时持平") == 0);
+
+  KickComparison zero = ready_timed();
+  zero.baseline = 0U;
+  zero.percent_known = false;
+  zero.direction = KickDirection::More;
+  kick_format_comparison(zero, text);
+  assert(std::strcmp(text.difference, "比平时多 7 次/小时") == 0);
+
+  KickComparison collecting = ready_timed();
+  collecting.status = KickComparisonStatus::CollectingBaseline;
+  collecting.baseline_sessions = 2U;
+  kick_format_comparison(collecting, text);
+  assert(std::strcmp(text.baseline, "基线积累中：过去 7 天已有 2 条，需 3 条") == 0);
+  assert(text.difference[0] == '\0');
+
+  KickComparison short_session = ready_timed();
+  short_session.status = KickComparisonStatus::NotComparable;
+  kick_format_comparison(short_session, text);
+  assert(std::strcmp(text.value, "本次不足 15 分钟") == 0);
+
+  char line[160] = {};
+  kick_format_comparison_compact(ready_timed(), line, sizeof(line));
+  assert(std::strcmp(line, "每小时 7 次 · 比平时少 7 次/小时，少 50%") == 0);
+  KickAwarenessSummary awareness = {};
+  awareness.usual = 4U;
+  awareness.weaker = 1U;
+  awareness.fewer = 1U;
+  kick_format_awareness(awareness, line, sizeof(line));
+  assert(std::strcmp(line, "一样 4 · 变弱 1 · 变少 1 · 规律变了 0") == 0);
+
+  ui_language_set(UiLanguage::English);
+  kick_format_comparison(ready_timed(), text);
+  assert(std::strcmp(text.difference, "7 PER HOUR FEWER THAN USUAL (-50%)") == 0);
+  kick_format_comparison(ready_ten(), text);
+  assert(std::strcmp(text.value, "TEN IN 18:00") == 0);
+  assert(std::strcmp(text.difference, "6:30 LONGER THAN USUAL (+57%)") == 0);
+  ui_language_set(UiLanguage::ChineseSimplified);
+}
+
+void render_new_pages(Canvas &canvas, const char *suffix) {
+  const int width = canvas.width();
+  const int height = canvas.height();
+  const bool portrait = height > width;
+  char path[96] = {};
+
+  kick_page_render_mode_select(canvas);
+  assert_binary_and_visible(canvas);
+  std::snprintf(path, sizeof(path), "/tmp/kick_modes_%s_zh.ppm", suffix);
+  write_preview(canvas, path);
+  assert(kick_page_action_at(KickPage::ModeSelect, width, height, 40,
+                             portrait ? 130 : 110) == KickAction::StartTimed);
+  assert(kick_page_action_at(KickPage::ModeSelect, width, height, 40,
+                             portrait ? 300 : 200) ==
+         KickAction::StartCountToTen);
+  assert(kick_page_action_at(KickPage::ModeSelect, width, height, 40,
+                             portrait ? 480 : 300) ==
+         KickAction::StartAwareness);
+  assert(kick_page_action_at(KickPage::ModeSelect, width, height, 40,
+                             portrait ? 700 : 440) == KickAction::None);
+
+  kick_page_render_feel(canvas);
+  assert_binary_and_visible(canvas);
+  std::snprintf(path, sizeof(path), "/tmp/kick_feel_%s_zh.ppm", suffix);
+  write_preview(canvas, path);
+  assert(kick_page_action_at(KickPage::Feel, width, height, 40,
+                             portrait ? 130 : 120) == KickAction::FeelUsual);
+  assert(kick_page_action_at(KickPage::Feel, width, height,
+                             portrait ? 40 : 420, portrait ? 280 : 120) ==
+         KickAction::FeelWeaker);
+  assert(kick_page_action_at(KickPage::Feel, width, height, 40,
+                             portrait ? 420 : 270) == KickAction::FeelFewer);
+  assert(kick_page_action_at(KickPage::Feel, width, height,
+                             portrait ? 40 : 420, portrait ? 570 : 270) ==
+         KickAction::FeelChanged);
+
+  KickSession session = {};
+  session.hour = 20U;
+  session.minute = 5U;
+  session.count = 7U;
+  session.elapsed_seconds = 3600U;
+  session.mode = KickMode::Timed;
+  KickAwarenessSummary awareness = {};
+  awareness.usual = 4U;
+  awareness.weaker = 1U;
+  kick_page_render_result(canvas, session, ready_timed(), awareness);
+  assert_binary_and_visible(canvas);
+  std::snprintf(path, sizeof(path), "/tmp/kick_result_%s_zh.ppm", suffix);
+  write_preview(canvas, path);
+  assert(kick_page_action_at(KickPage::Result, width, height, 30,
+                             portrait ? 730 : 410) == KickAction::Done);
+  assert(kick_page_action_at(KickPage::Result, width, height, width - 30,
+                             portrait ? 730 : 410) == KickAction::ShowCompare);
+
+  KickSession feel = {};
+  feel.mode = KickMode::Awareness;
+  feel.feel = KickFeel::Weaker;
+  kick_page_render_result(canvas, feel, {}, awareness);
+  assert_binary_and_visible(canvas);
+
+  const KickComparison periods[3] = {ready_timed(), {}, ready_timed()};
+  KickComparison collecting = ready_timed();
+  collecting.status = KickComparisonStatus::CollectingBaseline;
+  collecting.baseline_sessions = 1U;
+  const KickComparison mixed[3] = {periods[0], collecting, periods[2]};
+  const bool has[3] = {true, true, false};
+  kick_page_render_compare(canvas, mixed, has, true, ready_ten(), true,
+                           awareness);
+  assert_binary_and_visible(canvas);
+  std::snprintf(path, sizeof(path), "/tmp/kick_compare_%s_zh.ppm", suffix);
+  write_preview(canvas, path);
+  assert(kick_page_action_at(KickPage::Compare, width, height, 30,
+                             portrait ? 730 : 410) == KickAction::Start);
+  assert(kick_page_action_at(KickPage::Compare, width, height, width - 30,
+                             portrait ? 30 : 30) == KickAction::Back);
+
+  kick_page_render_counter(canvas, KickPeriod::Evening, 7U, 5U,
+                           KickMode::CountToTen);
+  assert_binary_and_visible(canvas);
+  std::snprintf(path, sizeof(path), "/tmp/kick_counter_ten_%s_zh.ppm", suffix);
+  write_preview(canvas, path);
+}
+
 } // namespace
 
 int main() {
+  test_formatting();
   std::vector<uint8_t> framebuffer(800U * 480U / 4U, 0xFFU);
   Canvas canvas(800U, 480U, framebuffer.data(), framebuffer.size());
   ui_language_set(UiLanguage::ChineseSimplified);
@@ -103,7 +285,7 @@ int main() {
   assert(kick_page_action_at(KickPage::Insights, 800, 480, 24, 400) ==
          KickAction::Start);
   assert(kick_page_action_at(KickPage::Insights, 800, 480, 775, 455) ==
-         KickAction::Start);
+         KickAction::ShowCompare);
 
   kick_page_render_counter(canvas, KickPeriod::Afternoon, 12U, 8U);
   assert_binary_and_visible(canvas);
@@ -134,7 +316,7 @@ int main() {
   assert(kick_page_action_at(KickPage::Insights, 480, 800, 24, 720) ==
          KickAction::Start);
   assert(kick_page_action_at(KickPage::Insights, 480, 800, 455, 775) ==
-         KickAction::Start);
+         KickAction::ShowCompare);
 
   kick_page_render_counter(canvas, KickPeriod::Evening, 7U, 3U);
   assert_binary_and_visible(canvas);
@@ -147,6 +329,11 @@ int main() {
          KickAction::Undo);
   assert(kick_page_action_at(KickPage::Counter, 480, 800, 455, 775) ==
          KickAction::Finish);
+
+  render_new_pages(canvas, "portrait");
+  canvas.set_rotation(CanvasRotation::Deg0);
+  render_new_pages(canvas, "landscape");
+  canvas.set_rotation(CanvasRotation::Deg90Clockwise);
 
   KickTrendSummary empty = {};
   kick_page_render_insights(canvas, {}, empty);

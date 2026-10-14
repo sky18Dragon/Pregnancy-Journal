@@ -41,6 +41,11 @@
 #define PIN_SD_MISO PIN_EPD_MISO
 #define PIN_SD_CLK PIN_EPD_CLK
 
+// Onboard PDM microphone; verified against Seeed Sticky dashboard demo.
+#define PIN_MIC_CLK 19
+#define PIN_MIC_DATA 20
+#define PIN_MIC_EN 38
+
 // GT911 touch controller on I2C0 / I2C0总线上的GT911触摸控制器
 #define PIN_TOUCH_SCL 2
 #define PIN_TOUCH_SDA 3

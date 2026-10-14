@@ -8,14 +8,14 @@ coordinator owns global input, display hand-off, app switching and sleep.
 App registry / coordinator
   Launcher · app lifecycle · wake selection · deep sleep
              |
-Six apps
-  Baby Week · Reminders · Checkups · Weight · Kicks · Settings
+Four apps
+  Baby Week · Weight · Kicks · Settings
              |
 Domain and content services
   Pregnancy · Content · Reminder · Checkup · Weight · Kick
              |
 Sticky Core
-  AppManager · Scheduler · lifecycle · Canvas · NVS stores
+  AppManager · Scheduler · lifecycle · Canvas · SD worker
              |
 Device HAL
   RTC · e-paper · touch · buttons · battery · buzzer · power · IMU
@@ -31,19 +31,14 @@ and restores it when activation fails. Each app renders through the shared
 `Canvas`; inactive apps are paused and cannot consume display or touch input.
 
 `src/app/sticky_app.cpp` is the framework coordinator. It owns launcher
-gestures, top-button routing, deep sleep, timer wake selection, due-alert
-handling and persistence of the last app. The coordinator never includes a
+gestures, top-button routing, deep sleep, timer wake selection, maintenance wake
+selection and persistence of the last app. The coordinator never includes a
 concrete business page, so apps remain independently testable.
 
 ## App boundaries
 
 - **Baby Week** owns pregnancy profile setup, progress calculation and offline
-  week content. Its dashboard, Baby and Mom pages are all landscape.
-- **Reminders** owns the six reminder types, Today/Upcoming presentation and
-  completion/deletion. Its service supports daily and weekly recurrence even
-  though the current editor only creates a one-time item.
-- **Checkups** owns dated appointments and completion/deletion. The editor uses
-  a seven-day default and fixed 09:00 time.
+  week content. Its pages support landscape and portrait.
 - **Weight** owns daily records, kg/lb conversion, height/baseline settings and
   derived BMI/trend summaries.
 - **Kicks** owns timed sessions, accidental-double-tap filtering, undo, daily
@@ -53,7 +48,7 @@ concrete business page, so apps remain independently testable.
   cleanup. It may request a return to Baby Week but never switches apps itself.
 
 All app data services use bounded arrays. The current capacities are 12
-reminders, 8 checkups, 32 weight records and 42 kick sessions. The framework
+preserved reminders, 8 preserved checkups, 366 weight records and 42 kick sessions. The framework
 app manager supports at most eight registered apps, leaving room for future
 additions without changing persisted IDs.
 
@@ -81,15 +76,16 @@ RTC no-init context.
 Stable pages time out after 60 seconds without external power. Settings uses a
 three-minute timeout, while editors and an active kick session keep the device
 awake. Before sleep, one coordinator chooses the closest future event from the
-daily 03:00 refresh, an app request, the earliest enabled reminder and the next
-incomplete checkup, then arms one ESP32 timer wake up to 15 seconds early.
+daily 03:00 maintenance refresh or an active-app request, then arms one ESP32
+timer wake up to 15 seconds early. Business-alert wake/buzzer paths are disabled.
 
 ## Persistence and failure boundaries
 
-Device settings use alternating versioned/checksummed NVS slots. The pregnancy
-profile uses a primary and backup record and migrates the legacy due-date-only
-format. Reminders, checkups, weights and kick sessions use independent bounded
-NVS namespaces; a corrupt slot is skipped without discarding valid siblings.
+Device settings, pregnancy profile, weights and Kicks use the dataset-bound
+MicroSD repository. Reminder/checkup storage remains for legacy preservation.
+Kicks has independent read-only import and verified cleanup; common cleanup
+never erases reminder/checkup or Kicks namespaces. The shared recovery index
+holds 1,024 keys including tombstones and has no garbage collector.
 
 RTC or battery failures degrade to unavailable status rather than blocking
 navigation. Invalid dates and invalid records are rejected at the service

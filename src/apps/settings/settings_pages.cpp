@@ -7,6 +7,7 @@
 #include "prototype_ui.h"
 #include "text_layout.h"
 #include "ui_language.h"
+#include "ui_tokens.h"
 
 namespace {
 
@@ -39,6 +40,13 @@ Rect setting_row(size_t index, int width, int height) {
   return kLandscapeRows[index];
 }
 
+Rect form_row(size_t index, int width, int height) {
+  const bool is_portrait = portrait(width, height);
+  return {24, (is_portrait ? 120 : 96) +
+                  static_cast<int>(index) * (is_portrait ? 116 : 66),
+          width - 48, is_portrait ? 116 : 66};
+}
+
 Rect key_rect(size_t index, int width, int height) {
   if (portrait(width, height))
     return {24 + static_cast<int>(index % 3U) * 148,
@@ -50,6 +58,65 @@ Rect pregnancy_button(size_t index, int width, int height) {
   if (portrait(width, height))
     return {24 + static_cast<int>(index) * 224, 720, 208, 56};
   return index == 0U ? Rect{24, 400, 368, 56} : Rect{408, 400, 368, 56};
+}
+
+Rect storage_split_button(size_t index, int width, int height) {
+  if (portrait(width, height))
+    return {24 + static_cast<int>(index) * 224, 720, 208, 56};
+  return index == 0U ? Rect{24, 400, 368, 56} : Rect{408, 400, 368, 56};
+}
+
+Rect storage_confirm_button(size_t index, int width, int height) {
+  if (portrait(width, height))
+    return {24 + static_cast<int>(index) * 224, 720, 208, 56};
+  return index == 0U ? Rect{24, 400, 368, 56} : Rect{408, 400, 368, 56};
+}
+
+const char *storage_card_value(SettingsStorageCardView card) {
+  switch (card) {
+  case SettingsStorageCardView::Missing:
+    return "MISSING";
+  case SettingsStorageCardView::ReadWrite:
+  case SettingsStorageCardView::ReadOnly:
+  case SettingsStorageCardView::Full:
+    return "INSERTED";
+  case SettingsStorageCardView::Unavailable:
+    return "UNAVAILABLE";
+  }
+  return "UNAVAILABLE";
+}
+
+const char *storage_access_value(SettingsStorageCardView card) {
+  switch (card) {
+  case SettingsStorageCardView::ReadWrite:
+    return "READ + WRITE";
+  case SettingsStorageCardView::ReadOnly:
+    return "READ ONLY";
+  case SettingsStorageCardView::Full:
+    return "FULL";
+  case SettingsStorageCardView::Missing:
+  case SettingsStorageCardView::Unavailable:
+    return "UNAVAILABLE";
+  }
+  return "UNAVAILABLE";
+}
+
+const char *storage_dataset_value(SettingsStorageDatasetView dataset) {
+  switch (dataset) {
+  case SettingsStorageDatasetView::Unknown:
+    return "UNAVAILABLE";
+  case SettingsStorageDatasetView::NotInitialized:
+    return "NOT INITIALIZED";
+  case SettingsStorageDatasetView::Ready:
+    return "READY";
+  case SettingsStorageDatasetView::Degraded:
+    return "DEGRADED";
+  case SettingsStorageDatasetView::Corrupt:
+    return "CORRUPT";
+  case SettingsStorageDatasetView::ReadError:
+    return "READ ERROR";
+  }
+  return "UNAVAILABLE";
 }
 
 void draw_setting(Canvas &canvas, size_t index, const char *title,
@@ -91,11 +158,13 @@ void draw_form_row(Canvas &canvas, int index, const char *label,
 } // namespace
 
 void settings_page_render_main(Canvas &canvas, bool rtc_ready,
-                               const char *clock_text, const char *due_text) {
+                               const char *clock_text, const char *due_text,
+                               bool save_failed) {
   prototype_ui::begin_page(canvas);
   prototype_ui::draw_header(canvas, "SETTINGS",
                             "DEVICE SETTINGS AND PREGNANCY PROFILE", "HOME");
-  draw_setting(canvas, 0, "LANGUAGE", "SAVED ON THIS DEVICE",
+  draw_setting(canvas, 0, "LANGUAGE",
+               save_failed ? "SAVE FAILED - RETRYING" : "SAVED ON MICROSD",
                ui_language_is_chinese() ? "简体中文" : "ENGLISH");
   draw_setting(canvas, 1, "DEVICE TIME", "USED BY ALL DAILY RECORDS",
                rtc_ready ? clock_text : "UNAVAILABLE");
@@ -103,7 +172,7 @@ void settings_page_render_main(Canvas &canvas, bool rtc_ready,
                due_text);
   draw_setting(canvas, 3, "DISPLAY CLEAN REFRESH", "CLEARS E-INK GHOSTING",
                "RUN");
-  draw_setting(canvas, 4, "RETURN TO BABY WEEK", "DEFAULT HOME SCREEN", "");
+  draw_setting(canvas, 4, "MICROSD STORAGE", "USER DATA", "VIEW");
   const bool is_portrait = portrait(canvas.width(), canvas.height());
   ui_draw_wrapped_text_pixels(
       canvas, 24, is_portrait ? 660 : 424, canvas.width() - 48,
@@ -112,6 +181,243 @@ void settings_page_render_main(Canvas &canvas, bool rtc_ready,
           : "ALL RECORDS STAY ON DEVICE. INFORMATION ONLY; NOT MEDICAL ADVICE.",
       is_portrait ? 14 : 12, GrayLevel::Black, is_portrait ? 3 : 2, 5,
       FontWeight::Regular);
+}
+
+void settings_page_render_storage(Canvas &canvas,
+                                  const SettingsStoragePageState &state) {
+  prototype_ui::begin_page(canvas);
+  const bool is_portrait = portrait(canvas.width(), canvas.height());
+  prototype_ui::draw_header(canvas, "MICROSD STORAGE",
+                            is_portrait
+                                ? "USER DATA"
+                                : "USER DATA ON THE MEMORY CARD",
+                            "BACK");
+  draw_form_row(canvas, 0, "MEMORY CARD", "CURRENT MEDIA",
+                storage_card_value(state.card));
+  draw_form_row(canvas, 1, "ACCESS", nullptr,
+                storage_access_value(state.card));
+  draw_form_row(canvas, 2, "DATASET", "MANIFEST STATUS · TAP TO DELETE",
+                storage_dataset_value(state.dataset));
+  draw_form_row(canvas, 3, "DEVICE RESET", "RESET LOCAL DEVICE", "MANAGE");
+
+  char capacity[36] = "CAPACITY UNAVAILABLE";
+  if (state.capacity_known) {
+    std::snprintf(capacity, sizeof(capacity), "FREE %u / %u MiB",
+                  static_cast<unsigned>(state.free_mib),
+                  static_cast<unsigned>(state.total_mib));
+  }
+  char identity[64] = "DATASET ID UNAVAILABLE";
+  if (state.dataset_id_prefix[0] != '\0') {
+    std::snprintf(identity, sizeof(identity), "ID %.8s...  GEN %llu",
+                  state.dataset_id_prefix,
+                  static_cast<unsigned long long>(state.dataset_generation));
+  }
+
+  ui_draw_wrapped_text_pixels(
+      canvas, 24, is_portrait ? 594 : 360, canvas.width() - 48,
+      ui_text(state.operation_message != nullptr
+                  ? state.operation_message
+                  : capacity),
+      is_portrait ? 15 : 12, GrayLevel::Black, 1, 3,
+      FontWeight::Regular);
+  ui_draw_wrapped_text_pixels(
+      canvas, 24, is_portrait ? 628 : 378, canvas.width() - 48,
+      ui_text(identity), is_portrait ? 15 : 12, GrayLevel::Black, 1, 3,
+      FontWeight::Regular);
+  prototype_ui::draw_button(
+      canvas, storage_split_button(0U, canvas.width(), canvas.height()),
+      state.initialize_enabled
+          ? "INITIALIZE CARD"
+          : (state.eject_enabled ? "SAFE EJECT" : "STORAGE UNAVAILABLE"),
+      state.initialize_enabled || state.eject_enabled, 2);
+  prototype_ui::draw_button(
+      canvas, storage_split_button(1U, canvas.width(), canvas.height()),
+      "OLD DEVICE DATA", true, 2);
+}
+
+void settings_page_render_storage_confirm(Canvas &canvas) {
+  prototype_ui::begin_page(canvas);
+  const bool is_portrait = portrait(canvas.width(), canvas.height());
+  prototype_ui::draw_header(
+      canvas, "INITIALIZE MICROSD",
+      is_portrait ? "PREGJNL DATASET · NO FORMAT"
+                  : "CREATE PREGJNL DATASET · CARD IS NOT FORMATTED",
+      "BACK");
+  const int rule_y = is_portrait ? 112 : 98;
+  canvas.draw_line(24, rule_y, canvas.width() - 24, rule_y,
+                   GrayLevel::Black);
+  canvas.draw_text_pixels(24, is_portrait ? 144 : 122,
+                          ui_text("CONFIRM NEW DATASET"),
+                          ui_tokens::kSectionHeading, GrayLevel::Black,
+                          FontWeight::Medium);
+  ui_draw_wrapped_text_pixels(
+      canvas, 24, is_portrait ? 196 : 170, canvas.width() - 48,
+      ui_text("THIS CREATES THE PREGJNL DATA FOLDER. IT DOES NOT FORMAT THE "
+              "CARD OR DELETE OTHER FILES."),
+      ui_tokens::kBody, GrayLevel::Black, is_portrait ? 5 : 3,
+      ui_tokens::kBodyLineGap, FontWeight::Regular);
+  ui_draw_wrapped_text_pixels(
+      canvas, 24, is_portrait ? 350 : 270, canvas.width() - 48,
+      ui_text("FUTURE USER RECORDS AND AUDIO WILL BE SAVED ON THIS CARD."),
+      ui_tokens::kBody, GrayLevel::Black, is_portrait ? 4 : 2,
+      ui_tokens::kBodyLineGap, FontWeight::Medium);
+  prototype_ui::draw_button(
+      canvas, storage_confirm_button(0U, canvas.width(), canvas.height()),
+      "CANCEL", false, 2);
+  prototype_ui::draw_button(
+      canvas, storage_confirm_button(1U, canvas.width(), canvas.height()),
+      "CREATE DATASET", true, 2);
+}
+
+void settings_page_render_legacy_source(Canvas &canvas) {
+  prototype_ui::begin_page(canvas);
+  prototype_ui::draw_header(canvas, "OLD DEVICE DATA", "SELECT IMPORT", "BACK");
+  prototype_ui::draw_button(canvas, {24, 148, canvas.width() - 48, 64},
+                            "PROFILE / WEIGHT / SETTINGS", false, 2);
+  prototype_ui::draw_button(canvas, {24, 236, canvas.width() - 48, 64},
+                            "KICKS", false, 2);
+  ui_draw_wrapped_text_pixels(canvas, 24, 328, canvas.width() - 48,
+      ui_text("REMINDER AND CHECKUP COPIES ARE PRESERVED FOR V2."),
+      ui_tokens::kBody, GrayLevel::Black, 3, ui_tokens::kBodyLineGap, FontWeight::Regular);
+}
+
+void settings_page_render_legacy_migration(
+    Canvas &canvas, const SettingsMigrationPageState &state) {
+  prototype_ui::begin_page(canvas);
+  const bool is_portrait = portrait(canvas.width(), canvas.height());
+  prototype_ui::draw_header(canvas, state.kicks_only ? "KICKS" : "OLD DEVICE DATA",
+                            "NVS TO CURRENT MICROSD DATASET", "BACK");
+  const char *status = "NOT SCANNED";
+  switch (state.view) {
+  case SettingsMigrationView::Importing: status = "IMPORTING"; break;
+  case SettingsMigrationView::Verified: status = "IMPORT VERIFIED"; break;
+  case SettingsMigrationView::NeedsReview: status = "REVIEW REQUIRED"; break;
+  case SettingsMigrationView::SourceError: status = "NVS READ ERROR"; break;
+  case SettingsMigrationView::StorageError: status = "MICROSD ERROR"; break;
+  case SettingsMigrationView::Cleared: status = "OLD COPIES CLEARED"; break;
+  case SettingsMigrationView::NotScanned: break;
+  }
+  char valid[24] = {};
+  char imported[24] = {};
+  char conflicts[24] = {};
+  std::snprintf(valid, sizeof(valid), "%u", static_cast<unsigned>(state.valid));
+  std::snprintf(imported, sizeof(imported), "%u + %u EXISTING",
+                static_cast<unsigned>(state.imported),
+                static_cast<unsigned>(state.already_present));
+  std::snprintf(conflicts, sizeof(conflicts), "%u / %u",
+                static_cast<unsigned>(state.conflicts),
+                static_cast<unsigned>(state.corrupt));
+  draw_form_row(canvas, 0, "STATUS", "CURRENT RESULT", status);
+  draw_form_row(canvas, 1, "VALID OLD RECORDS", nullptr, valid);
+  draw_form_row(canvas, 2, "IMPORTED", "NEW + ALREADY ON CARD", imported);
+  draw_form_row(canvas, 3, "CONFLICT / CORRUPT", nullptr, conflicts);
+  ui_draw_wrapped_text_pixels(
+      canvas, 24, is_portrait ? 606 : 366, canvas.width() - 48,
+      ui_text(state.kicks_only
+                  ? "KICK COPIES ARE CLEARED ONLY AFTER VERIFIED IMPORT."
+                  : state.kicks_preserved
+                  ? "LEGACY KICK DATA IS PRESENT AND WILL BE PRESERVED."
+                  : "LEGACY KICK DATA IS NEVER DELETED BY THIS TOOL."),
+      is_portrait ? 15 : 12, GrayLevel::Black, is_portrait ? 3 : 1, 4,
+      FontWeight::Regular);
+  prototype_ui::draw_button(
+      canvas, storage_split_button(0U, canvas.width(), canvas.height()),
+      state.view == SettingsMigrationView::Importing ? "IMPORTING"
+                                                     : "SCAN + IMPORT",
+      state.import_enabled, 2);
+  prototype_ui::draw_button(
+      canvas, storage_split_button(1U, canvas.width(), canvas.height()),
+      "CLEAR OLD COPIES", state.clear_enabled, 2);
+}
+
+void settings_page_render_legacy_clear_confirm(Canvas &canvas, bool kicks_only) {
+  prototype_ui::begin_page(canvas);
+  const bool is_portrait = portrait(canvas.width(), canvas.height());
+  prototype_ui::draw_header(canvas, "CLEAR OLD COPIES",
+                            "ONLY AFTER VERIFIED IMPORT", "BACK");
+  canvas.draw_text_pixels(24, is_portrait ? 144 : 122,
+                          ui_text("CONFIRM NVS CLEANUP"),
+                          ui_tokens::kSectionHeading, GrayLevel::Black,
+                          FontWeight::Medium);
+  ui_draw_wrapped_text_pixels(
+      canvas, 24, is_portrait ? 196 : 170, canvas.width() - 48,
+      ui_text(kicks_only
+          ? "REMOVES ONLY VERIFIED OLD KICK COPIES. MICROSD RECORDS ARE NOT CHANGED."
+          : "REMOVES OLD PREGNANCY, WEIGHT AND DEVICE SETTING COPIES. MICROSD RECORDS ARE NOT CHANGED."),
+      ui_tokens::kBody, GrayLevel::Black, is_portrait ? 6 : 3,
+      ui_tokens::kBodyLineGap, FontWeight::Regular);
+  ui_draw_wrapped_text_pixels(
+      canvas, 24, is_portrait ? 390 : 290, canvas.width() - 48,
+      ui_text("REMINDER AND CHECKUP COPIES ARE PRESERVED FOR V2."),
+      ui_tokens::kBody, GrayLevel::Black, is_portrait ? 3 : 2,
+      ui_tokens::kBodyLineGap, FontWeight::Medium);
+  prototype_ui::draw_button(
+      canvas, storage_split_button(0U, canvas.width(), canvas.height()),
+      "CANCEL", false, 2);
+  prototype_ui::draw_button(
+      canvas, storage_split_button(1U, canvas.width(), canvas.height()),
+      "CLEAR VERIFIED COPIES", true, 2);
+}
+
+void settings_page_render_card_data_delete_confirm(
+    Canvas &canvas, const char *dataset_id_prefix) {
+  prototype_ui::begin_page(canvas);
+  const bool is_portrait = portrait(canvas.width(), canvas.height());
+  prototype_ui::draw_header(canvas, "DELETE CARD APP DATA",
+                            "CURRENT PREGJNL DATASET ONLY", "BACK");
+  char identity[48] = "DATASET ID UNAVAILABLE";
+  if (dataset_id_prefix != nullptr && dataset_id_prefix[0] != '\0')
+    std::snprintf(identity, sizeof(identity), "DATASET %.8s...",
+                  dataset_id_prefix);
+  canvas.draw_text_pixels(24, is_portrait ? 144 : 122, ui_text(identity),
+                          ui_tokens::kSectionHeading, GrayLevel::Black,
+                          FontWeight::Medium);
+  ui_draw_wrapped_text_pixels(
+      canvas, 24, is_portrait ? 196 : 170, canvas.width() - 48,
+      ui_text("PERMANENTLY REMOVES THE PREGJNL APPLICATION DIRECTORY. IT "
+              "DOES NOT FORMAT THE CARD OR DELETE OTHER CARD FILES."),
+      ui_tokens::kBody, GrayLevel::Black, is_portrait ? 6 : 3,
+      ui_tokens::kBodyLineGap, FontWeight::Regular);
+  ui_draw_wrapped_text_pixels(
+      canvas, 24, is_portrait ? 390 : 290, canvas.width() - 48,
+      ui_text("DEVICE RESET AND OLD NVS COPY CLEANUP ARE SEPARATE ACTIONS."),
+      ui_tokens::kBody, GrayLevel::Black, is_portrait ? 3 : 2,
+      ui_tokens::kBodyLineGap, FontWeight::Medium);
+  prototype_ui::draw_button(
+      canvas, storage_split_button(0U, canvas.width(), canvas.height()),
+      "CANCEL", false, 2);
+  prototype_ui::draw_button(
+      canvas, storage_split_button(1U, canvas.width(), canvas.height()),
+      "DELETE PREGJNL DATA", true, 2);
+}
+
+void settings_page_render_device_reset_confirm(Canvas &canvas) {
+  prototype_ui::begin_page(canvas);
+  const bool is_portrait = portrait(canvas.width(), canvas.height());
+  prototype_ui::draw_header(canvas, "RESET DEVICE BINDING",
+                            "LOCAL NETWORK CREDENTIAL KEY ONLY", "BACK");
+  canvas.draw_text_pixels(24, is_portrait ? 144 : 122,
+                          ui_text("CONFIRM LOCAL RESET"),
+                          ui_tokens::kSectionHeading, GrayLevel::Black,
+                          FontWeight::Medium);
+  ui_draw_wrapped_text_pixels(
+      canvas, 24, is_portrait ? 196 : 170, canvas.width() - 48,
+      ui_text("FORGETS THIS DEVICE'S LOCAL NETWORK KEY AND CLEARS THE RAM-ONLY "
+              "WI-FI CONFIGURATION. NETWORK AUTHORIZATION MUST BE SET UP AGAIN."),
+      ui_tokens::kBody, GrayLevel::Black, is_portrait ? 7 : 3,
+      ui_tokens::kBodyLineGap, FontWeight::Regular);
+  ui_draw_wrapped_text_pixels(
+      canvas, 24, is_portrait ? 420 : 290, canvas.width() - 48,
+      ui_text("MICROSD PREGJNL DATA, OTHER CARD FILES AND OLD NVS RECORDS ARE "
+              "NOT DELETED."),
+      ui_tokens::kBody, GrayLevel::Black, is_portrait ? 4 : 2,
+      ui_tokens::kBodyLineGap, FontWeight::Medium);
+  prototype_ui::draw_button(
+      canvas, storage_split_button(0U, canvas.width(), canvas.height()),
+      "CANCEL", false, 2);
+  prototype_ui::draw_button(
+      canvas, storage_split_button(1U, canvas.width(), canvas.height()),
+      "RESET THIS DEVICE", true, 2);
 }
 
 void settings_page_render_time_editor(Canvas &canvas, const char *digits,
@@ -194,7 +500,9 @@ void settings_page_render_pregnancy(Canvas &canvas,
 }
 
 SettingsAction settings_page_action_at(SettingsPage page, int width, int height,
-                                       int x, int y) {
+                                       int x, int y,
+                                       bool primary_action_enabled,
+                                       bool secondary_action_enabled) {
   if (prototype_ui::header_action_rect(width, height).contains(x, y))
     return SettingsAction::Back;
   if (page == SettingsPage::Main) {
@@ -207,7 +515,7 @@ SettingsAction settings_page_action_at(SettingsPage page, int width, int height,
     if (setting_row(3U, width, height).contains(x, y))
       return SettingsAction::RefreshDisplay;
     if (setting_row(4U, width, height).contains(x, y))
-      return SettingsAction::Home;
+      return SettingsAction::StorageSettings;
     return SettingsAction::None;
   }
   if (page == SettingsPage::PregnancySummary) {
@@ -215,6 +523,63 @@ SettingsAction settings_page_action_at(SettingsPage page, int width, int height,
       return SettingsAction::EditPregnancy;
     if (pregnancy_button(1U, width, height).contains(x, y))
       return SettingsAction::Home;
+    return SettingsAction::None;
+  }
+  if (page == SettingsPage::StorageSummary) {
+    if (form_row(2U, width, height).contains(x, y))
+      return SettingsAction::BeginCardDataDelete;
+    if (form_row(3U, width, height).contains(x, y))
+      return SettingsAction::BeginDeviceReset;
+    if (primary_action_enabled &&
+        storage_split_button(0U, width, height).contains(x, y))
+      return SettingsAction::BeginStorageInitialization;
+    if (secondary_action_enabled &&
+        storage_split_button(1U, width, height).contains(x, y))
+      return SettingsAction::ManageLegacyData;
+    return SettingsAction::None;
+  }
+  if (page == SettingsPage::StorageConfirm) {
+    if (storage_confirm_button(0U, width, height).contains(x, y))
+      return SettingsAction::CancelStorageInitialization;
+    if (storage_confirm_button(1U, width, height).contains(x, y))
+      return SettingsAction::ConfirmStorageInitialization;
+    return SettingsAction::None;
+  }
+  if (page == SettingsPage::LegacySource) {
+    if (Rect{24, 148, width - 48, 64}.contains(x, y))
+      return SettingsAction::ManageLegacyCommon;
+    if (Rect{24, 236, width - 48, 64}.contains(x, y))
+      return SettingsAction::ManageLegacyKicks;
+    return SettingsAction::None;
+  }
+  if (page == SettingsPage::LegacyMigration) {
+    if (primary_action_enabled &&
+        storage_split_button(0U, width, height).contains(x, y))
+      return SettingsAction::BeginLegacyImport;
+    if (secondary_action_enabled &&
+        storage_split_button(1U, width, height).contains(x, y))
+      return SettingsAction::BeginLegacyClear;
+    return SettingsAction::None;
+  }
+  if (page == SettingsPage::LegacyClearConfirm) {
+    if (storage_split_button(0U, width, height).contains(x, y))
+      return SettingsAction::CancelLegacyClear;
+    if (storage_split_button(1U, width, height).contains(x, y))
+      return SettingsAction::ConfirmLegacyClear;
+    return SettingsAction::None;
+  }
+  if (page == SettingsPage::CardDataDeleteConfirm) {
+    if (storage_split_button(0U, width, height).contains(x, y))
+      return SettingsAction::CancelCardDataDelete;
+    if (storage_split_button(1U, width, height).contains(x, y))
+      return SettingsAction::ConfirmCardDataDelete;
+    return SettingsAction::None;
+  }
+  if (page == SettingsPage::DeviceResetConfirm) {
+    if (storage_split_button(0U, width, height).contains(x, y))
+      return SettingsAction::CancelDeviceReset;
+    if (storage_split_button(1U, width, height).contains(x, y))
+      return SettingsAction::ConfirmDeviceReset;
     return SettingsAction::None;
   }
   for (size_t index = 0U; index < 12U; ++index) {
@@ -230,4 +595,17 @@ bool settings_action_digit(SettingsAction action, char &digit) {
   digit = static_cast<char>('0' + static_cast<int>(action) -
                             static_cast<int>(SettingsAction::Digit0));
   return true;
+}
+
+bool settings_storage_state_equal(const SettingsStoragePageState &a,
+                                  const SettingsStoragePageState &b) {
+  return a.mount_generation == b.mount_generation && a.card == b.card &&
+      a.dataset == b.dataset && a.requests_open == b.requests_open &&
+      a.initialize_enabled == b.initialize_enabled && a.eject_enabled == b.eject_enabled &&
+      a.migration_enabled == b.migration_enabled && a.delete_enabled == b.delete_enabled &&
+      a.capacity_known == b.capacity_known && a.total_mib == b.total_mib &&
+      a.free_mib == b.free_mib && a.dataset_generation == b.dataset_generation &&
+      std::strcmp(a.dataset_id_prefix, b.dataset_id_prefix) == 0 &&
+      std::strcmp(a.operation_message ? a.operation_message : "",
+                  b.operation_message ? b.operation_message : "") == 0;
 }

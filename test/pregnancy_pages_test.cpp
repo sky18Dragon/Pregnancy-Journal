@@ -163,12 +163,7 @@ int main() {
   write_preview(buffer, "/tmp/pregnancy_dashboard.ppm");
 
   ui_language_set(UiLanguage::ChineseSimplified);
-  PregnancyImportantDate important = {};
-  important.date = {2026U, 9U, 18U};
-  important.hour = 9U;
-  std::strcpy(important.title, "ROUTINE CHECKUP");
-  pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress,
-                                  &important);
+  pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress);
   assert(count_level(buffer, GrayLevel::Black) > 8000U);
   write_preview(buffer, "/tmp/pregnancy_dashboard_zh.ppm");
 
@@ -181,8 +176,7 @@ int main() {
   write_canvas_preview(canvas, "/tmp/pregnancy_baby_landscape_zh.ppm");
 
   canvas.set_rotation(CanvasRotation::Deg90Clockwise);
-  pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress,
-                                  &important);
+  pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress);
   assert(canvas.width() == 480U);
   assert(canvas.height() == 800U);
   assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 440,

@@ -2,19 +2,34 @@
 
 Pregnancy Journal is an offline pregnancy organizer for the Seeed Studio
 reTerminal Sticky. The current firmware combines a Baby Week dashboard,
-reminders, checkups, weight records and kick-count sessions on the existing
+weight records, kick-count sessions and Settings on the existing
 Sticky Core hardware framework. It is informational record-keeping software,
 not a diagnostic, treatment or emergency-alert device.
+
+## Delivery plan
+
+The 2026-10-10 scope decision targets a first delivery with four apps: Weight,
+Kicks, Settings and Baby Week. Reminders, Checkups and business alerts, Habits,
+Notes, recording/classification, provisioning and speech-to-text move to the
+next delivery. The MicroSD data requirement remains in force, including a new
+Kicks repository and validated legacy migration. See the
+[current specification](docs/PROJECT-SPEC.md), [active tasks](TODO.md) and
+[V2 extension specification](docs/V2-PROJECT-SPEC.md).
+
+The four-app implementation is now available as an unaccepted firmware candidate.
+Automatic validation and the remaining physical gate are recorded in
+[V1 validation](docs/V1-VALIDATION.md).
 
 ## Current product
 
 - Target: ESP32-S3 reTerminal Sticky with an 800×480 monochrome e-paper panel.
 - Firmware version: `2.0.0`.
-- Six registered apps: Baby Week, Reminders, Checkups, Weight, Kicks and
-  Settings.
-- English and Simplified Chinese UI, stored locally in NVS.
-- Pregnancy, reminder, checkup, weight and kick data stay on the device. There
-  is no account, network dependency, telemetry, cloud log, OTA or AI service.
+- Four registered apps: Baby Week, Weight, Kicks and Settings.
+- English and Simplified Chinese UI; device preferences are stored in the
+  selected MicroSD dataset.
+- Pregnancy, weight, Kicks and preferences use the MicroSD repository.
+  Legacy records have explicit verified migration; reminder/checkup copies are
+  preserved for V2. There is no active cloud upload or transcription path.
 
 For the complete behavior and limits of the current image, see
 [Current functionality reference](docs/pregnancy/current-functionality.md).
@@ -28,7 +43,7 @@ Apps -> domain/content services -> Sticky Core runtime -> device HAL
 `app_registry.cpp` is the composition root. `StickyAppManager` owns app
 lifecycle and display/input ownership; the framework coordinator owns the
 launcher, app switching, scheduling and deep sleep. Fixed-capacity services and
-checksummed NVS records keep memory and persistence behavior predictable. See
+the journaled MicroSD repository keep memory and persistence predictable. See
 [architecture](docs/pregnancy/architecture.md).
 
 ## Build
@@ -43,9 +58,12 @@ pio run -e sticky-power-test
 tools/run_host_tests.sh
 ```
 
-The target is `sticky_esp32s3` with the custom `partitions.csv` layout. The
-current release gate is 20/20 host tests plus a successful release build; a
-physical-device pass is tracked separately.
+The target is `sticky_esp32s3` with the custom `partitions.csv` layout, which
+includes a 128 KiB `coredump` partition (read a crash back with
+`idf.py coredump-info`). `sticky-release` additionally applies
+`sdkconfig.release.defaults` (-O2, silent assertions, INFO log ceiling). The
+current release gate is 76/76 host tests plus successful release, debug and
+power-test builds; a physical-device pass is tracked separately.
 
 ## Flash
 
@@ -73,20 +91,17 @@ later from Settings → Pregnancy Settings.
 - Swipe up from the bottom edge opens Launcher; swipe down from the lower 30%
   closes it.
 - Double-click the top button returns to Baby Week.
-- Tap a launcher card to open Baby Week, Checkups, Reminders, Weight or Kicks;
-  Settings is the header action.
-- The launcher language control toggles English and 简体中文.
+- Tap a launcher entry to open Baby Week, Weight, Kicks or Settings.
+- Settings changes English / 简体中文.
 
 ## Apps at a glance
 
 | App | What it does | Main limits |
 | --- | --- | --- |
 | Baby Week | Week/day, trimester, due-date countdown, 40-week progress, Baby and Mom offline content | Informational content is clamped to weeks 1–40 |
-| Reminders | Today/Upcoming list, six types, complete/delete, global enable switch | 12 records; four visible rows; recurrence is daily/weekly in the domain model |
-| Checkups | Add, complete and delete dated appointments | 8 records; four visible rows; new item defaults to +7 days at 09:00 |
-| Weight | Daily kg/lb record, BMI, baseline gain and seven-point trend | 32 records; one record per day; height 100–220 cm |
-| Kicks | Any-time sessions, today's totals and a seven-day recorded-data trend | 42 sessions; undo plus 400 ms accidental-double-tap guard; active session ends at 60 minutes |
-| Settings | Language, RTC time, pregnancy setup, clean refresh and return home | Time editor keeps the device awake |
+| Weight | Daily kg/lb record, baseline change, 7/30 calendar-day trend, history editing/deletion | 366 records; one per date; replacement/deletion confirmation |
+| Kicks | 1-hour count, Count to 10 and Feel check-in; each record compared with the median of the user's own previous seven days (direction and size of the difference only) | 400 records; undo plus 400 ms accidental-double-tap guard; active session ends at 60 minutes |
+| Settings | Language, RTC time, pregnancy setup, clean refresh and MicroSD status/confirmation | Time editor keeps the device awake; card initialization requires two explicit actions |
 
 All health-related values are prompts for personal records and care-team
 discussion, never medical recommendations.
@@ -96,22 +111,32 @@ discussion, never medical recommendations.
 Stable pages enter deep sleep after 60 seconds of inactivity when external power
 is absent. Settings uses a three-minute timeout; editors and an active kick
 session keep the device awake. A two-second chord on both side buttons requests
-sleep. The coordinator selects the closest of the daily 03:00 refresh, an app
-request, the next enabled reminder and the next incomplete checkup, then arms a
-timer up to 15 seconds early. A due reminder/checkup starts the buzzer on wake;
-any touch or button stops it.
+sleep. The coordinator schedules daily 03:00 maintenance and an active-app
+request, with the timer up to 15 seconds early. V1 has no business-alert timer
+wake or buzzer path.
 
 ## Storage and privacy
 
-Device settings use two alternating versioned/checksummed NVS slots. Pregnancy
-profile uses a primary and backup record with migration from the legacy due-date
-format. Reminders, checkups, weight records and kick sessions use bounded,
-versioned records in independent NVS namespaces; corrupt slots are skipped while
-valid siblings remain available. See [storage](docs/pregnancy/storage.md) and
-[data model](docs/pregnancy/data-model.md).
+All four apps use a dataset-bound, journaled MicroSD repository with no Flash
+fallback. Settings offers verified legacy import (including an independent
+Kicks path), safe eject, device reset and card-application-data deletion.
+Reminder/checkup NVS copies remain intact. The recovery index holds 1,024 keys
+including tombstones; journal/object garbage collection is not implemented.
+See [storage](docs/pregnancy/storage.md), [data model](docs/pregnancy/data-model.md)
+and [V1 validation](docs/V1-VALIDATION.md).
 
 ## Documentation map
 
+- [First-delivery specification (four offline apps)](docs/PROJECT-SPEC.md)
+- [V2 extension specification (reminders and speech-to-text)](docs/V2-PROJECT-SPEC.md)
+- [Development design and task plan](TODO.md)
+- [Contributor and agent guide](AGENTS.md)
+- [E-paper product design system](DESIGN.md)
+- [Architecture entry point](docs/ARCHITECTURE.md)
+- [Component guidelines](docs/COMPONENT-GUIDELINES.md)
+- [Page and navigation structure](docs/PAGE-STRUCTURE.md)
+- [Development workflow](docs/DEVELOPMENT.md)
+- [reTerminal Sticky hardware reference](docs/HARDWARE-REFERENCE.md)
 - [Current functionality reference](docs/pregnancy/current-functionality.md)
 - [UI prototype implementation mapping](docs/pregnancy/ui-prototype-mapping.md)
 - [Architecture](docs/pregnancy/architecture.md)

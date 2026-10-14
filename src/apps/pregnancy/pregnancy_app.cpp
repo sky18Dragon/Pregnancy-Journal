@@ -5,15 +5,14 @@
 
 #include "app_log.h"
 #include "battery_status_overlay.h"
-#include "checkup_service.h"
-#include "checkup_storage.h"
 #include "content_service.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "pregnancy_pages.h"
+#include "pregnancy_repository_store.h"
 #include "pregnancy_state.h"
-#include "pregnancy_storage.h"
+#include "prototype_ui.h"
 #include "sticky_app.h"
 #include "sticky_app_lifecycle.h"
 #include "sticky_display.h"
@@ -48,6 +47,66 @@ size_t s_date_length = 0U;
 int32_t s_last_day_index = -1;
 int64_t s_next_rtc_poll_us = 0;
 std::atomic<bool> s_setup_requested{false};
+pregnancy_repository::PregnancyRepositoryStore &s_profile_store =
+    pregnancy_repository::pregnancy_repository_store();
+PregnancyProfile s_pending_profile = {};
+bool s_profile_loading = false;
+bool s_profile_saving = false;
+bool s_retry_save = false;
+bool s_reload_after_pending = false;
+bool s_setup_after_load = false;
+sticky_storage::SdRepositoryAdapterStatus s_storage_error =
+    sticky_storage::SdRepositoryAdapterStatus::Idle;
+
+prototype_ui::Rect storage_retry_rect() {
+  return s_canvas->height() > s_canvas->width()
+             ? prototype_ui::Rect{24, 720, 432, 56}
+             : prototype_ui::Rect{24, 400, 752, 56};
+}
+
+const char *storage_error_copy(
+    sticky_storage::SdRepositoryAdapterStatus status) {
+  using sticky_storage::SdRepositoryAdapterStatus;
+  switch (status) {
+  case SdRepositoryAdapterStatus::CardMissing:
+    return "MICROSD CARD IS REQUIRED";
+  case SdRepositoryAdapterStatus::CardReadOnly:
+    return "MICROSD CARD IS READ ONLY";
+  case SdRepositoryAdapterStatus::CardFull:
+  case SdRepositoryAdapterStatus::CapacityReached:
+    return "MICROSD STORAGE IS FULL";
+  case SdRepositoryAdapterStatus::DatasetUnavailable:
+    return "CREATE OR SELECT A DATASET IN SETTINGS";
+  case SdRepositoryAdapterStatus::RecoveryUnavailable:
+  case SdRepositoryAdapterStatus::Corrupt:
+    return "MICROSD DATA NEEDS REVIEW";
+  case SdRepositoryAdapterStatus::StaleGeneration:
+    return "MICROSD CARD CHANGED";
+  default:
+    return "MICROSD STORAGE UNAVAILABLE";
+  }
+}
+
+void render_storage_state() {
+  prototype_ui::begin_page(*s_canvas);
+  prototype_ui::draw_header(*s_canvas, "MICROSD DATA",
+                            "PREGNANCY PROFILE STORAGE", "BACK");
+  const bool portrait = s_canvas->height() > s_canvas->width();
+  if (s_profile_loading || s_profile_saving) {
+    s_canvas->draw_text(32, portrait ? 260 : 176,
+                        s_profile_saving ? "SAVING TO MICROSD"
+                                         : "LOADING FROM MICROSD",
+                        4, GrayLevel::Black);
+    return;
+  }
+  s_canvas->draw_text(32, portrait ? 226 : 154,
+                      storage_error_copy(s_storage_error), 3,
+                      GrayLevel::Black);
+  s_canvas->draw_text(32, portrait ? 286 : 210,
+                      "NO FLASH FALLBACK WAS USED", 2,
+                      GrayLevel::Black);
+  prototype_ui::draw_button(*s_canvas, storage_retry_rect(), "RETRY", true, 2);
+}
 
 void fill_clock_digits(const StickyRtcDateTime &value) {
   const uint16_t year = static_cast<uint16_t>(value.year % 10000U);
@@ -132,23 +191,6 @@ bool update_progress_from_clock() {
          pregnancy_progress_calculate(s_today, s_profile, s_progress);
 }
 
-bool next_important_date(PregnancyImportantDate &important) {
-  StickyRtcDateTime clock = {};
-  uint32_t now = 0U;
-  CheckupService checkups;
-  if (!read_rtc(clock) || !sticky_rtc_epoch_seconds(clock, now) ||
-      checkup_storage_load(checkups) != ESP_OK)
-    return false;
-  const Checkup *next = checkups.next(now);
-  if (next == nullptr)
-    return false;
-  important.date = next->date;
-  important.hour = next->hour;
-  important.minute = next->minute;
-  std::snprintf(important.title, sizeof(important.title), "%s", next->title);
-  return true;
-}
-
 void refresh_display(bool partial) {
   const esp_err_t result = partial ? sticky_display_refresh_partial()
                                    : sticky_display_refresh_monochrome();
@@ -161,6 +203,13 @@ void refresh_display(bool partial) {
 void render_page(bool partial) {
   sticky_display_set_battery_overlay_enabled(false);
   s_canvas->set_rotation(s_display_rotation);
+  if (s_profile_loading || s_profile_saving ||
+      (s_storage_error != sticky_storage::SdRepositoryAdapterStatus::Idle &&
+       s_storage_error != sticky_storage::SdRepositoryAdapterStatus::Ok)) {
+    render_storage_state();
+    refresh_display(partial);
+    return;
+  }
   switch (s_page) {
   case PregnancyPage::ClockSetup:
     pregnancy_page_render_clock_setup(*s_canvas, s_clock_digits, s_input_error,
@@ -174,11 +223,8 @@ void render_page(bool partial) {
                                              s_input_error, s_due_date_primary);
     break;
   case PregnancyPage::Dashboard: {
-    PregnancyImportantDate important = {};
-    const bool has_important = next_important_date(important);
     pregnancy_page_render_dashboard(*s_canvas, s_profile.estimated_due_date,
-                                    s_progress,
-                                    has_important ? &important : nullptr);
+                                    s_progress);
     if (s_canvas->width() > s_canvas->height())
       battery_status_overlay_draw_compact(*s_canvas, 620, 29);
   } break;
@@ -269,20 +315,17 @@ bool apply_profile_date() {
   if (!parse_profile_date(value) ||
       !(s_due_date_primary ? pregnancy_profile_from_due_date(value, profile)
                            : pregnancy_profile_from_lmp(value, profile)) ||
-      !pregnancy_progress_calculate(s_today, profile, s_progress) ||
-      pregnancy_storage_save(profile) != ESP_OK) {
+      !pregnancy_progress_calculate(s_today, profile, s_progress)) {
     s_input_error = true;
     return true;
   }
-  s_profile = profile;
-  s_configured = true;
-  s_page = PregnancyPage::Dashboard;
-  s_input_error = false;
-  s_next_rtc_poll_us = esp_timer_get_time() + kRtcPollIntervalUs;
-  STICKY_LOGI(kTag, "profile=saved source=%s week=%d day=%u result=ok",
-              s_due_date_primary ? "due_date" : "lmp",
-              static_cast<int>(s_progress.weeks),
-              static_cast<unsigned>(s_progress.days));
+  s_pending_profile = profile;
+  s_retry_save = true;
+  s_storage_error = s_profile_store.begin_save(profile);
+  s_profile_saving =
+      s_storage_error == sticky_storage::SdRepositoryAdapterStatus::Pending;
+  if (s_profile_saving) s_storage_error =
+      sticky_storage::SdRepositoryAdapterStatus::Idle;
   return true;
 }
 
@@ -336,9 +379,6 @@ bool handle_action(PregnancyAction action) {
   case PregnancyAction::OpenLauncher:
     sticky_app_request_launcher();
     return false;
-  case PregnancyAction::OpenCheckup:
-    sticky_app_request(StickyAppId::Checkup);
-    return false;
   default:
     return false;
   }
@@ -352,27 +392,90 @@ PregnancyAction action_for_press(const StickyTouchPress &press) {
 }
 
 void initialize_state() {
-  const esp_err_t load = pregnancy_storage_load(s_profile, s_configured);
-  if (load != ESP_OK) {
-    STICKY_LOGW(kTag, "profile=load result=%s fallback=setup",
-                esp_err_to_name(load));
-    s_configured = false;
-  }
   StickyRtcDateTime clock = {};
   if (!read_rtc(clock)) {
     open_clock_setup();
-    return;
-  }
-  fill_clock_digits(clock);
-  s_today = {clock.year, clock.month, clock.day};
-  pregnancy_date_to_day_index(s_today, s_last_day_index);
-  if (s_configured &&
-      pregnancy_progress_calculate(s_today, s_profile, s_progress)) {
-    s_page = PregnancyPage::Dashboard;
-    s_next_rtc_poll_us = esp_timer_get_time() + kRtcPollIntervalUs;
   } else {
+    fill_clock_digits(clock);
+    s_today = {clock.year, clock.month, clock.day};
+    pregnancy_date_to_day_index(s_today, s_last_day_index);
     open_source_setup();
   }
+  s_configured = false;
+  s_retry_save = false;
+  s_storage_error = s_profile_store.begin_load();
+  s_profile_loading =
+      s_storage_error == sticky_storage::SdRepositoryAdapterStatus::Pending;
+  if (s_profile_loading) {
+    s_storage_error = sticky_storage::SdRepositoryAdapterStatus::Idle;
+  }
+}
+
+bool poll_profile_storage() {
+  if (!s_profile_loading && !s_profile_saving) return false;
+  const sticky_storage::SdRepositoryAdapterStatus status =
+      s_profile_store.poll();
+  if (status == sticky_storage::SdRepositoryAdapterStatus::Pending)
+    return false;
+  const bool was_loading = s_profile_loading;
+  s_profile_loading = false;
+  s_profile_saving = false;
+  if (status != sticky_storage::SdRepositoryAdapterStatus::Ok) {
+    s_storage_error = status;
+  } else {
+    s_storage_error = sticky_storage::SdRepositoryAdapterStatus::Idle;
+    if (was_loading) {
+      s_configured = s_profile_store.found();
+      if (s_configured) s_profile = s_profile_store.profile();
+    } else {
+      s_profile = s_pending_profile;
+      s_configured = true;
+      s_retry_save = false;
+      s_input_error = false;
+      STICKY_LOGI(kTag, "profile=save backend=microsd result=ok");
+    }
+  }
+  if (s_reload_after_pending) {
+    s_reload_after_pending = false;
+    s_retry_save = false;
+    s_storage_error = s_profile_store.begin_load();
+    s_profile_loading =
+        s_storage_error == sticky_storage::SdRepositoryAdapterStatus::Pending;
+    if (s_profile_loading)
+      s_storage_error = sticky_storage::SdRepositoryAdapterStatus::Idle;
+    return true;
+  }
+  if (status != sticky_storage::SdRepositoryAdapterStatus::Ok) {
+    // A queued write may have reached durable storage before an I/O error was
+    // reported. Reload on retry instead of blindly replaying the old revision.
+    s_retry_save = false;
+    return true;
+  }
+  if (s_page != PregnancyPage::ClockSetup) {
+    if (s_setup_after_load) {
+      s_setup_after_load = false;
+      open_source_setup();
+    } else if (s_configured &&
+        pregnancy_progress_calculate(s_today, s_profile, s_progress)) {
+      s_page = PregnancyPage::Dashboard;
+      s_next_rtc_poll_us = esp_timer_get_time() + kRtcPollIntervalUs;
+    } else {
+      open_source_setup();
+    }
+  }
+  return true;
+}
+
+void retry_profile_storage() {
+  s_storage_error = s_retry_save
+                        ? s_profile_store.begin_save(s_pending_profile)
+                        : s_profile_store.begin_load();
+  s_profile_saving = s_retry_save &&
+      s_storage_error == sticky_storage::SdRepositoryAdapterStatus::Pending;
+  s_profile_loading = !s_retry_save &&
+      s_storage_error == sticky_storage::SdRepositoryAdapterStatus::Pending;
+  if (s_profile_loading || s_profile_saving)
+    s_storage_error = sticky_storage::SdRepositoryAdapterStatus::Idle;
 }
 
 void update_for_date_rollover() {
@@ -404,16 +507,55 @@ void app_task(void *) {
   initialize_state();
   render_page(false);
   while (true) {
+    if (poll_profile_storage()) render_page(false);
+    if (!s_profile_store.pending() &&
+        s_profile_store.status() == sticky_storage::SdRepositoryAdapterStatus::Ok &&
+        !s_profile_store.ready()) {
+      s_configured = false;
+      s_retry_save = false;
+      s_storage_error = s_profile_store.begin_load();
+      s_profile_loading = s_storage_error == sticky_storage::SdRepositoryAdapterStatus::Pending;
+      if (s_profile_loading) s_storage_error = sticky_storage::SdRepositoryAdapterStatus::Idle;
+      render_page(true);
+    }
     if (sticky_app_lifecycle_checkpoint(s_lifecycle)) {
       sticky_touch_clear_press();
-      if (s_setup_requested.exchange(false))
-        open_source_setup();
-      else if (s_configured)
-        update_progress_from_clock();
+      s_setup_after_load = s_setup_after_load || s_setup_requested.exchange(false);
+      if (s_profile_store.pending()) {
+        s_reload_after_pending = true;
+      } else {
+        s_retry_save = false;
+        s_storage_error = s_profile_store.begin_load();
+        s_profile_loading =
+            s_storage_error ==
+            sticky_storage::SdRepositoryAdapterStatus::Pending;
+        if (s_profile_loading)
+          s_storage_error = sticky_storage::SdRepositoryAdapterStatus::Idle;
+      }
       render_page(false);
     }
     StickyTouchPress press = {};
     if (sticky_touch_take_press(press)) {
+      if (s_profile_loading || s_profile_saving) {
+        sticky_touch_clear_press();
+        vTaskDelay(kPollInterval);
+        continue;
+      }
+      if (s_storage_error !=
+              sticky_storage::SdRepositoryAdapterStatus::Idle &&
+          s_storage_error != sticky_storage::SdRepositoryAdapterStatus::Ok) {
+        int x = 0, y = 0;
+        s_canvas->physical_to_logical(press.x, press.y, x, y);
+        if (prototype_ui::header_action_rect(
+                s_canvas->width(), s_canvas->height()).contains(x, y)) {
+          sticky_app_request_launcher();
+        } else if (storage_retry_rect().contains(x, y)) {
+          retry_profile_storage();
+          render_page(true);
+        }
+        sticky_touch_clear_press();
+        continue;
+      }
       const PregnancyAction action = action_for_press(press);
       if (handle_action(action)) {
         sticky_touch_clear_press();

@@ -7,6 +7,8 @@
 enum class StickyButtonEvent : uint8_t {
     None,
     PressDown,
+    LongPressStart,
+    LongPressEnd,
     SingleClick,
     DoubleClick,
     SleepChord,

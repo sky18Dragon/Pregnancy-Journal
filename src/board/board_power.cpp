@@ -15,6 +15,7 @@ constexpr char kTag[] = "sticky_power";
 constexpr TickType_t kPowerSettleDelay = pdMS_TO_TICKS(100);
 constexpr TickType_t kReleasePollInterval = pdMS_TO_TICKS(20);
 constexpr TickType_t kReleaseDebounceTime = pdMS_TO_TICKS(60);
+constexpr TickType_t kReleaseTimeout = pdMS_TO_TICKS(5000);
 
 esp_err_t set_power_level(gpio_num_t pin, uint32_t level)
 {
@@ -48,10 +49,21 @@ void wait_for_sleep_chord_release()
                 "power=sleep_chord state=waiting_for_release pins=%d,%d",
                 PIN_SIDE_BUTTON_LEFT,
                 PIN_SIDE_BUTTON_RIGHT);
+    // Peripherals are already stopped here, so a stuck or shorted side button
+    // must not block forever. Side buttons are not deep-sleep wake sources;
+    // continuing to sleep with one held cannot cause an immediate wake.
+    // 此时外设已停止；侧键卡住时不能无限等待。侧键不是唤醒源，超时后继续睡眠是安全的。
+    const TickType_t started = xTaskGetTickCount();
     while (gpio_get_level(
                static_cast<gpio_num_t>(PIN_SIDE_BUTTON_LEFT)) == 0 ||
            gpio_get_level(
                static_cast<gpio_num_t>(PIN_SIDE_BUTTON_RIGHT)) == 0) {
+        if (xTaskGetTickCount() - started >= kReleaseTimeout) {
+            STICKY_LOGW(kTag,
+                        "power=sleep_chord state=release_timeout "
+                        "action=continue_sleep");
+            return;
+        }
         vTaskDelay(kReleasePollInterval);
     }
     vTaskDelay(kReleaseDebounceTime);

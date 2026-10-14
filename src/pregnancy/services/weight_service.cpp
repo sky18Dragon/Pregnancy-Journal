@@ -1,5 +1,7 @@
 #include "weight_service.h"
 
+#include <cstring>
+
 namespace {
 bool same_date(const PregnancyDate &a, const PregnancyDate &b) {
   return a.year == b.year && a.month == b.month && a.day == b.day;
@@ -13,7 +15,8 @@ bool date_index(const PregnancyDate &date, int32_t &value) {
 bool weight_record_valid(const WeightRecord &record) {
   return record.schema_version == kWeightRecordSchemaVersion &&
          record.id != 0U && pregnancy_date_valid(record.date) &&
-         record.weight_tenths_kg >= 300U && record.weight_tenths_kg <= 2000U;
+         record.weight_tenths_kg >= 300U && record.weight_tenths_kg <= 2000U &&
+         std::memchr(record.note, '\0', sizeof(record.note)) != nullptr;
 }
 
 bool WeightService::upsert(WeightRecord record, uint32_t *record_id) {
@@ -30,12 +33,15 @@ bool WeightService::upsert(WeightRecord record, uint32_t *record_id) {
   }
   if (count_ >= kCapacity)
     return false;
-  if (record.id == 0U)
-    record.id = next_id_++;
+  if (record.id == 0U) {
+    if (next_id_ == 0U)
+      return false;
+    record.id = next_id_;
+  }
   if (!weight_record_valid(record))
     return false;
-  if (record.id >= next_id_)
-    next_id_ = record.id + 1U;
+  if (next_id_ != 0U && record.id >= next_id_)
+    next_id_ = record.id == UINT32_MAX ? 0U : record.id + 1U;
   records_[count_++] = record;
   if (record_id != nullptr)
     *record_id = record.id;
@@ -61,8 +67,33 @@ void WeightService::clear() {
   next_id_ = 1U;
 }
 
+bool WeightService::set_next_id_floor(uint64_t next_id) {
+  if (next_id == 0U || next_id > static_cast<uint64_t>(UINT32_MAX) + 1U)
+    return false;
+  if (next_id > UINT32_MAX) {
+    next_id_ = 0U;
+  } else if (next_id_ != 0U && next_id_ < next_id) {
+    next_id_ = static_cast<uint32_t>(next_id);
+  }
+  return true;
+}
+
 const WeightRecord *WeightService::at(size_t index) const {
   return index < count_ ? &records_[index] : nullptr;
+}
+
+WeightRecord *WeightService::find(uint32_t id) {
+  for (size_t index = 0U; index < count_; ++index)
+    if (records_[index].id == id)
+      return &records_[index];
+  return nullptr;
+}
+
+const WeightRecord *WeightService::find(uint32_t id) const {
+  for (size_t index = 0U; index < count_; ++index)
+    if (records_[index].id == id)
+      return &records_[index];
+  return nullptr;
 }
 
 const WeightRecord *WeightService::latest() const {
@@ -84,6 +115,39 @@ const WeightRecord *WeightService::find_date(const PregnancyDate &date) const {
     if (same_date(records_[i].date, date))
       return &records_[i];
   return nullptr;
+}
+
+const WeightRecord *WeightService::history_at(size_t position) const {
+  if (position >= count_) return nullptr;
+  // Bounded rank selection, independent of repository insertion order.
+  for (size_t candidate = 0U; candidate < count_; ++candidate) {
+    int32_t candidate_day = 0;
+    date_index(records_[candidate].date, candidate_day);
+    size_t newer = 0U;
+    for (size_t other = 0U; other < count_; ++other) {
+      int32_t day = 0;
+      date_index(records_[other].date, day);
+      if (day > candidate_day) ++newer;
+    }
+    if (newer == position) return &records_[candidate];
+  }
+  return nullptr;
+}
+
+bool WeightService::trend(const PregnancyDate &end_date, uint8_t days, WeightTrend &output) const {
+  output = {};
+  int32_t end = 0;
+  if ((days != 7U && days != 30U) || !date_index(end_date, end)) return false;
+  output.days = days;
+  for (uint8_t index = 0U; index < days; ++index) {
+    if (!pregnancy_date_from_day_index(end - (days - 1U - index), output.dates[index])) continue;
+    const auto *record = find_date(output.dates[index]);
+    if (record == nullptr) continue;
+    output.present[index] = true;
+    output.values[index] = record->weight_tenths_kg;
+    ++output.count;
+  }
+  return true;
 }
 
 bool WeightService::summary(uint16_t height_cm, uint16_t baseline_tenths_kg,
@@ -123,19 +187,5 @@ bool WeightService::summary(uint16_t height_cm, uint16_t baseline_tenths_kg,
                              7 / best_delta);
   }
 
-  const uint32_t baseline_bmi_tenths =
-      (static_cast<uint32_t>(baseline_tenths_kg) * 10000U +
-       height_squared / 2U) /
-      height_squared;
-  int16_t maximum_gain_tenths = 160;
-  if (baseline_bmi_tenths < 185U)
-    maximum_gain_tenths = 180;
-  else if (baseline_bmi_tenths >= 250U && baseline_bmi_tenths < 300U)
-    maximum_gain_tenths = 115;
-  else if (baseline_bmi_tenths >= 300U)
-    maximum_gain_tenths = 90;
-  output.outside_recommended_gain =
-      output.change_tenths_kg > maximum_gain_tenths ||
-      output.weekly_change_tenths_kg > 5;
   return true;
 }

@@ -15,3 +15,4 @@ uint32_t settings_app_power_sleep_timeout_ms();
 bool settings_app_power_sleep_allowed();
 bool settings_app_take_home_request();
 bool settings_app_take_pregnancy_request();
+void settings_app_notify_preferences_changed();

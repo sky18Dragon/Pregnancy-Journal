@@ -1,350 +1,230 @@
 #include "weight_app.h"
 
-#include <cstdio>
-#include <cstdlib>
-
 #include "app_log.h"
 #include "canvas.h"
+#include "domain_repository_stores.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "prototype_ui.h"
+#include "repository_status_page.h"
 #include "sticky_app.h"
 #include "sticky_app_lifecycle.h"
 #include "sticky_display.h"
 #include "sticky_rtc.h"
 #include "sticky_touch.h"
-#include "ui_language.h"
-#include "ui_tokens.h"
-#include "weight_service.h"
-#include "weight_storage.h"
+#include "weight_pages.h"
 
 namespace {
 constexpr char kTag[] = "WEIGHT";
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_task = nullptr;
 StickyAppLifecycle s_lifecycle = {};
-WeightService s_service;
-WeightProfileSettings s_settings = {};
-PregnancyDate s_today = {};
-bool s_editing = false;
-uint16_t s_weight = 600U;
-
-bool portrait() { return s_canvas->height() > s_canvas->width(); }
-
-prototype_ui::Rect unit_button_rect() {
-  return portrait()
-             ? prototype_ui::Rect{336, 88, 120,
-                                  ui_tokens::kMinimumTouchHeight}
-             : prototype_ui::Rect{548, 20, 92,
-                                  ui_tokens::kMinimumTouchHeight};
-}
-
-prototype_ui::Rect dashboard_button_rect(size_t index) {
-  if (portrait())
-    return {24 + static_cast<int>(index) * 148, 720, 136, 56};
-  return {24 + static_cast<int>(index) * 256, 400, 240, 56};
-}
-
-prototype_ui::Rect adjust_button_rect(size_t index) {
-  if (portrait())
-    return {24 + static_cast<int>(index % 2U) * 224,
-            330 + static_cast<int>(index / 2U) * 72, 208, 56};
-  return {56 + static_cast<int>(index) * 176, 260, 160, 48};
-}
-
-prototype_ui::Rect save_button_rect() {
-  return portrait() ? prototype_ui::Rect{24, 720, 432, 56}
-                    : prototype_ui::Rect{24, 400, 752, 56};
-}
-
-uint16_t display_weight(uint16_t tenths_kg) {
-  return s_settings.use_pounds
-             ? static_cast<uint16_t>(
-                   (static_cast<uint32_t>(tenths_kg) * 22046U + 5000U) / 10000U)
-             : tenths_kg;
-}
-
-int16_t display_change(int16_t tenths_kg) {
-  return s_settings.use_pounds
-             ? static_cast<int16_t>(static_cast<int32_t>(tenths_kg) * 22046L /
-                                    10000L)
-             : tenths_kg;
-}
-
-uint16_t stored_weight(uint16_t display_tenths) {
-  return s_settings.use_pounds
-             ? static_cast<uint16_t>(
-                   (static_cast<uint32_t>(display_tenths) * 453592U + 500000U) /
-                   1000000U)
-             : display_tenths;
-}
-
-const char *unit_name() { return s_settings.use_pounds ? "LB" : "KG"; }
-
-void button(int x, int y, int width, int height, const char *label,
-            bool filled) {
-  prototype_ui::draw_button(*s_canvas, {x, y, width, height}, label, filled, 2);
-}
+auto &s_store = pregnancy_repository::weight_repository_store();
+using sticky_storage::SdRepositoryAdapterStatus;
+SdRepositoryAdapterStatus s_storage_status = SdRepositoryAdapterStatus::Idle;
+WeightPageState s_state = {};
+WeightProfileSettings s_pending_settings = {};
+bool s_storage_saving = false;
+bool s_save_preferences_after_record = false;
 
 bool read_today() {
   StickyRtcDateTime value = {};
-  if (sticky_rtc_read(value) != ESP_OK)
-    return false;
-  s_today = {value.year, value.month, value.day};
-  return true;
+  if (sticky_rtc_read(value) != ESP_OK) return false;
+  s_state.today = {value.year, value.month, value.day};
+  return pregnancy_date_valid(s_state.today);
 }
-
-void draw_trend() {
-  const int x = portrait() ? 24 : 333;
-  const int y = portrait() ? 330 : 116;
-  const int width = portrait() ? 432 : 443;
-  const int height = portrait() ? 238 : 186;
-  s_canvas->draw_line(x, y + height, x + width, y + height, GrayLevel::Black);
-  s_canvas->draw_line(x, y, x, y + height, GrayLevel::Black);
-  if (s_service.count() == 0U) {
-    s_canvas->draw_text(x + 70, y + 70, ui_text("NO WEIGHT RECORDS"), 2,
-                        GrayLevel::Black);
-    return;
-  }
-  const size_t start = s_service.count() > 7U ? s_service.count() - 7U : 0U;
-  uint16_t minimum = 2000U, maximum = 0U;
-  for (size_t i = start; i < s_service.count(); ++i) {
-    const uint16_t value = s_service.at(i)->weight_tenths_kg;
-    if (value < minimum)
-      minimum = value;
-    if (value > maximum)
-      maximum = value;
-  }
-  if (maximum - minimum < 20U) {
-    maximum += 10U;
-    minimum -= minimum > 10U ? 10U : 0U;
-  }
-  const size_t points = s_service.count() - start;
-  int previous_x = x, previous_y = y + height;
-  for (size_t i = 0U; i < points; ++i) {
-    const uint16_t value = s_service.at(start + i)->weight_tenths_kg;
-    const int px = x + 16 +
-                   static_cast<int>(i) * (width - 32) /
-                       static_cast<int>(points > 1U ? points - 1U : 1U);
-    const int py = y + height - 12 -
-                   static_cast<int>(value - minimum) * (height - 24) /
-                       static_cast<int>(maximum - minimum);
-    s_canvas->fill_circle(px, py, 5, GrayLevel::Black);
-    if (i > 0U)
-      s_canvas->draw_line(previous_x, previous_y, px, py, GrayLevel::Black);
-    previous_x = px;
-    previous_y = py;
-  }
-}
-
-void render_dashboard() {
-  prototype_ui::begin_page(*s_canvas);
-  prototype_ui::draw_header(*s_canvas, "WEIGHT TREND",
-                            "FOCUS ON THE LONG-TERM TREND", "BACK");
-  const prototype_ui::Rect unit = unit_button_rect();
-  button(unit.x, unit.y, unit.width, unit.height,
-         s_settings.use_pounds ? "LB / KG" : "KG / LB", false);
-  const WeightRecord *latest = s_service.latest();
-  if (latest == nullptr) {
-    s_canvas->draw_text(24, portrait() ? 140 : 108, "--.-", 8,
-                        GrayLevel::Black);
-    s_canvas->draw_text(230, portrait() ? 182 : 150, "KG", 3, GrayLevel::Black);
-  } else {
-    char value[24] = {};
-    const uint16_t shown = display_weight(latest->weight_tenths_kg);
-    std::snprintf(value, sizeof(value), "%u.%u", shown / 10U, shown % 10U);
-    s_canvas->draw_text(24, portrait() ? 140 : 108, value, 8, GrayLevel::Black);
-    s_canvas->draw_text(230, portrait() ? 182 : 150, unit_name(), 3,
-                        GrayLevel::Black);
-    WeightSummary summary = {};
-    if (s_service.summary(s_settings.height_cm, s_settings.baseline_tenths_kg,
-                          summary)) {
-      const int16_t change = display_change(summary.change_tenths_kg);
-      char bmi[16] = {}, delta[24] = {};
-      std::snprintf(bmi, sizeof(bmi), "%u.%u", summary.bmi_tenths / 10U,
-                    summary.bmi_tenths % 10U);
-      std::snprintf(delta, sizeof(delta), "%+d.%d %s", change / 10,
-                    std::abs(change % 10), unit_name());
-      const int summary_label_y = portrait() ? 242 : 204;
-      const int summary_value_y = portrait() ? 264 : 224;
-      s_canvas->draw_text(24, summary_label_y, "BMI", 1, GrayLevel::Black);
-      s_canvas->draw_text(24, summary_value_y, bmi, 3, GrayLevel::Black);
-      s_canvas->draw_text(124, summary_label_y, ui_text("FROM BASELINE"), 1,
-                          GrayLevel::Black);
-      s_canvas->draw_text(124, summary_value_y, delta, 3, GrayLevel::Black);
-    }
-  }
-  s_canvas->draw_text(portrait() ? 24 : 333, portrait() ? 300 : 90,
-                      ui_text("LATEST 7 RECORDS"), 2, GrayLevel::Black);
-  draw_trend();
-  const int divider_y = portrait() ? 600 : 368;
-  s_canvas->draw_line(24, divider_y, s_canvas->width() - 24, divider_y,
-                      GrayLevel::Black);
-  char profile[80] = {};
-  const uint16_t baseline = display_weight(s_settings.baseline_tenths_kg);
-  std::snprintf(profile, sizeof(profile),
-                ui_language_is_chinese()
-                    ? "身高 %u CM     基线 %u.%u %s     记录 %u 次"
-                    : "HEIGHT %u CM     BASELINE %u.%u %s     RECORDS %u",
-                s_settings.height_cm, baseline / 10U, baseline % 10U,
-                unit_name(), static_cast<unsigned>(s_service.count()));
-  s_canvas->draw_text(24, portrait() ? 620 : 380, profile, 1, GrayLevel::Black);
-  const char *labels[] = {"ADD TODAY", "HEIGHT", "REMOVE LATEST"};
-  for (size_t i = 0U; i < 3U; ++i) {
-    const prototype_ui::Rect rect = dashboard_button_rect(i);
-    button(rect.x, rect.y, rect.width, rect.height, labels[i], i == 0U);
-  }
-}
-
-void render_editor() {
-  prototype_ui::begin_page(*s_canvas);
-  prototype_ui::draw_header(*s_canvas, "RECORD TODAY'S WEIGHT",
-                            "SAVING AGAIN REPLACES TODAY'S RECORD", "CANCEL");
-  char value[24] = {};
-  std::snprintf(value, sizeof(value), "%u.%u", s_weight / 10U, s_weight % 10U);
-  const int tx = (s_canvas->width() - ui_text_width(value, 10U)) / 2;
-  s_canvas->draw_text(tx, portrait() ? 150 : 112, value, 10, GrayLevel::Black);
-  const int ux = (s_canvas->width() - ui_text_width(unit_name(), 3U)) / 2;
-  s_canvas->draw_text(ux, portrait() ? 238 : 198, unit_name(), 3,
-                      GrayLevel::Black);
-  const char *labels[] = {"- 1.0", "- 0.1", "+ 0.1", "+ 1.0"};
-  for (size_t i = 0U; i < 4U; ++i) {
-    const prototype_ui::Rect rect = adjust_button_rect(i);
-    button(rect.x, rect.y, rect.width, rect.height, labels[i], false);
-  }
-  const prototype_ui::Rect save = save_button_rect();
-  button(save.x, save.y, save.width, save.height, "SAVE TODAY", true);
-}
-
 void render(bool full = false) {
   sticky_display_set_battery_overlay_enabled(false);
-  if (s_editing)
-    render_editor();
-  else
-    render_dashboard();
-  if (full)
-    sticky_display_refresh_monochrome();
-  else
-    sticky_display_refresh_partial();
+  if (s_store.pending() || (s_storage_status != SdRepositoryAdapterStatus::Idle &&
+                            s_storage_status != SdRepositoryAdapterStatus::Ok)) {
+    repository_status_ui::render(*s_canvas, "WEIGHT DATA", s_store.pending(),
+                                  s_storage_saving, s_storage_status);
+  } else weight_page_render(*s_canvas, s_store.service(), s_store.settings(), s_state);
+  if (full) sticky_display_refresh_monochrome();
+  else sticky_display_refresh_partial();
 }
-
-void save() {
+void begin_load() {
+  s_state.page = WeightPage::Dashboard;
+  s_storage_saving = false;
+  s_save_preferences_after_record = false;
+  s_storage_status = s_store.begin_load();
+  if (s_storage_status == SdRepositoryAdapterStatus::Pending)
+    s_storage_status = SdRepositoryAdapterStatus::Idle;
+}
+void begin_preferences_save(const WeightProfileSettings &settings) {
+  s_pending_settings = settings;
+  s_storage_saving = true;
+  s_storage_status = s_store.begin_save_preferences(settings);
+  if (s_storage_status == SdRepositoryAdapterStatus::Pending)
+    s_storage_status = SdRepositoryAdapterStatus::Idle;
+}
+bool poll_store() {
+  if (!s_store.pending()) return false;
+  auto status = s_store.poll();
+  if (status == SdRepositoryAdapterStatus::Pending) return false;
+  if (status == SdRepositoryAdapterStatus::Ok && s_save_preferences_after_record) {
+    s_save_preferences_after_record = false;
+    begin_preferences_save(s_pending_settings);
+    return true;
+  }
+  if (status == SdRepositoryAdapterStatus::Ok && s_storage_saving)
+    s_state.page = s_state.editing_history ? WeightPage::History : WeightPage::Dashboard;
+  s_storage_saving = false;
+  s_storage_status = status;
+  return true;
+}
+void save_record() {
   WeightRecord record = {};
-  record.date = s_today;
-  record.weight_tenths_kg = stored_weight(s_weight);
-  if (s_settings.baseline_tenths_kg == 0U)
-    s_settings.baseline_tenths_kg = record.weight_tenths_kg;
-  if (s_service.upsert(record))
-    weight_storage_save(s_service, s_settings);
-  s_editing = false;
+  if (s_state.edit_id != 0U) {
+    const auto *existing = s_store.service().find(s_state.edit_id);
+    if (existing != nullptr) record = *existing;  // Preserve notes while editing the number.
+  }
+  record.id = s_state.edit_id;
+  record.date = s_state.edit_date;
+  record.weight_tenths_kg = weight_stored_value(s_state.edit_display_weight, s_store.settings().use_pounds);
+  s_pending_settings = s_store.settings();
+  s_save_preferences_after_record = s_pending_settings.baseline_tenths_kg == 0U;
+  if (s_save_preferences_after_record) {
+    const auto &service = s_store.service();
+    const auto *first = service.count() == 0U ? nullptr : service.history_at(service.count() - 1U);
+    s_pending_settings.baseline_tenths_kg = first ? first->weight_tenths_kg : record.weight_tenths_kg;
+  }
+  s_storage_saving = true;
+  s_storage_status = s_store.begin_upsert(record);
+  if (s_storage_status == SdRepositoryAdapterStatus::Pending)
+    s_storage_status = SdRepositoryAdapterStatus::Idle;
+  else s_save_preferences_after_record = false;
 }
-
+void open_editor(const WeightRecord *record, bool history) {
+  s_state.editing_history = history;
+  s_state.edit_id = record ? record->id : 0U;
+  s_state.edit_date = record ? record->date : s_state.today;
+  const auto *latest = s_store.service().latest();
+  s_state.edit_display_weight = weight_display_value(record ? record->weight_tenths_kg : latest ? latest->weight_tenths_kg : 600U,
+                                                      s_store.settings().use_pounds);
+  s_state.page = WeightPage::Editor;
+}
 void handle(int x, int y) {
-  const prototype_ui::Rect back =
-      prototype_ui::header_action_rect(s_canvas->width(), s_canvas->height());
-  if (s_editing) {
-    if (back.contains(x, y)) {
-      s_editing = false;
-    } else {
-      const uint16_t minimum = display_weight(300U);
-      const uint16_t maximum = display_weight(2000U);
-      if (adjust_button_rect(0U).contains(x, y) && s_weight >= minimum + 10U)
-        s_weight -= 10U;
-      else if (adjust_button_rect(1U).contains(x, y) && s_weight > minimum)
-        --s_weight;
-      else if (adjust_button_rect(2U).contains(x, y) && s_weight < maximum)
-        ++s_weight;
-      else if (adjust_button_rect(3U).contains(x, y) &&
-               s_weight <= maximum - 10U)
-        s_weight += 10U;
-      else if (save_button_rect().contains(x, y))
-        save();
+  if (s_store.pending()) return;
+  const auto back = prototype_ui::header_action_rect(s_canvas->width(), s_canvas->height());
+  if (s_storage_status != SdRepositoryAdapterStatus::Idle && s_storage_status != SdRepositoryAdapterStatus::Ok) {
+    if (back.contains(x, y)) { sticky_app_request_launcher(); return; }
+    if (repository_status_ui::retry_rect(*s_canvas).contains(x, y)) begin_load();
+    render(true);
+    return;
+  }
+  const WeightPage page_before = s_state.page;
+  const auto hit = weight_page_action_at(s_state.page, s_canvas->width(), s_canvas->height(), x, y);
+  const bool pounds = s_store.settings().use_pounds;
+  switch (hit.action) {
+  case WeightAction::None: return;
+  case WeightAction::Back:
+    if (s_state.page == WeightPage::Dashboard) { sticky_app_request_launcher(); return; }
+    if (s_state.page == WeightPage::ReplaceConfirm || s_state.page == WeightPage::DeleteConfirm)
+      s_state.page = WeightPage::Editor;
+    else s_state.page = s_state.editing_history && s_state.page == WeightPage::Editor ? WeightPage::History : WeightPage::Dashboard;
+    break;
+  case WeightAction::ToggleUnit: {
+    auto settings = s_store.settings(); settings.use_pounds = !settings.use_pounds;
+    s_state.editing_history = false;
+    begin_preferences_save(settings);
+    break;
+  }
+  case WeightAction::ToggleTrend: s_state.trend_days = s_state.trend_days == 7U ? 30U : 7U; break;
+  case WeightAction::AddToday:
+    if (!read_today()) { s_storage_status = SdRepositoryAdapterStatus::InvalidArgument; break; }
+    open_editor(s_store.service().find_date(s_state.today), false); break;
+  case WeightAction::History: s_state.history_offset = 0U; s_state.page = WeightPage::History; break;
+  case WeightAction::Profile:
+    s_state.profile = s_store.settings();
+    if (s_state.profile.baseline_tenths_kg == 0U) s_state.profile.baseline_tenths_kg = 600U;
+    s_state.editing_history = false; s_state.page = WeightPage::Profile; break;
+  case WeightAction::SelectRecord: {
+    const auto *record = s_store.service().history_at(s_state.history_offset + hit.row);
+    if (record) open_editor(record, true);
+    break;
+  }
+  case WeightAction::Previous:
+    if (s_state.history_offset >= kWeightHistoryRows) s_state.history_offset -= kWeightHistoryRows;
+    break;
+  case WeightAction::Next:
+    if (s_state.history_offset + kWeightHistoryRows < s_store.service().count()) s_state.history_offset += kWeightHistoryRows;
+    break;
+  case WeightAction::MinusOne: case WeightAction::MinusTenth:
+  case WeightAction::PlusTenth: case WeightAction::PlusOne: {
+    const int delta = hit.action == WeightAction::MinusOne ? -10 : hit.action == WeightAction::MinusTenth ? -1 : hit.action == WeightAction::PlusTenth ? 1 : 10;
+    const int value = static_cast<int>(s_state.edit_display_weight) + delta;
+    if (value >= weight_display_value(300U, pounds) && value <= weight_display_value(2000U, pounds))
+      s_state.edit_display_weight = static_cast<uint16_t>(value);
+    break;
+  }
+  case WeightAction::HeightDown: if (s_state.profile.height_cm > 100U) --s_state.profile.height_cm; break;
+  case WeightAction::HeightUp: if (s_state.profile.height_cm < 220U) ++s_state.profile.height_cm; break;
+  case WeightAction::BaselineDown: if (s_state.profile.baseline_tenths_kg > 300U) --s_state.profile.baseline_tenths_kg; break;
+  case WeightAction::BaselineUp: if (s_state.profile.baseline_tenths_kg < 2000U) ++s_state.profile.baseline_tenths_kg; break;
+  case WeightAction::Save:
+    if (s_state.page == WeightPage::Profile) begin_preferences_save(s_state.profile);
+    else if (s_store.service().find_date(s_state.edit_date) != nullptr) s_state.page = WeightPage::ReplaceConfirm;
+    else save_record();
+    break;
+  case WeightAction::Delete: if (s_state.edit_id != 0U) s_state.page = WeightPage::DeleteConfirm; break;
+  case WeightAction::Cancel: s_state.page = WeightPage::Editor; break;
+  case WeightAction::Confirm:
+    if (s_state.page == WeightPage::ReplaceConfirm) save_record();
+    else {
+      s_storage_saving = true;
+      s_storage_status = s_store.begin_erase(s_state.edit_id);
+      if (s_storage_status == SdRepositoryAdapterStatus::Pending) s_storage_status = SdRepositoryAdapterStatus::Idle;
     }
-    render();
-    return;
+    break;
   }
-  if (back.contains(x, y)) {
-    sticky_app_request_launcher();
-    return;
-  }
-  if (unit_button_rect().contains(x, y)) {
-    s_settings.use_pounds = !s_settings.use_pounds;
-    weight_storage_save(s_service, s_settings);
-    render();
-    return;
-  }
-  if (dashboard_button_rect(0U).contains(x, y)) {
-    read_today();
-    const WeightRecord *today = s_service.find_date(s_today);
-    const WeightRecord *latest = s_service.latest();
-    const uint16_t stored = today != nullptr    ? today->weight_tenths_kg
-                            : latest != nullptr ? latest->weight_tenths_kg
-                                                : 600U;
-    s_weight = display_weight(stored);
-    s_editing = true;
-  } else if (dashboard_button_rect(1U).contains(x, y)) {
-    const prototype_ui::Rect height = dashboard_button_rect(1U);
-    if (x < height.x + height.width / 2 && s_settings.height_cm > 100U)
-      --s_settings.height_cm;
-    else if (x >= height.x + height.width / 2 && s_settings.height_cm < 220U)
-      ++s_settings.height_cm;
-    weight_storage_save(s_service, s_settings);
-  } else if (dashboard_button_rect(2U).contains(x, y)) {
-    const WeightRecord *latest = s_service.latest();
-    if (latest != nullptr) {
-      s_service.remove(latest->id);
-      weight_storage_save(s_service, s_settings);
-    }
-  } else
-    return;
-  render();
+  // Page changes get a full refresh; value edits on the same page stay partial
+  // (the display layer still forces periodic cleanup).
+  render(s_state.page != page_before);
 }
-
 void task(void *) {
-  weight_storage_load(s_service, s_settings);
-  read_today();
-  render(true);
+  begin_load(); read_today(); render(true);
+  unsigned clock_polls = 0U;
   while (true) {
+    if (poll_store()) render(true);
+    if (!s_store.pending() && s_storage_status == SdRepositoryAdapterStatus::Ok && !s_store.ready()) {
+      begin_load(); render(true);
+    }
     if (sticky_app_lifecycle_checkpoint(s_lifecycle)) {
-      weight_storage_load(s_service, s_settings);
-      read_today();
-      render(true);
+      if (!s_store.pending() && !s_store.ready()) {
+        begin_load();
+      }
+      read_today(); render(true);
+    }
+    if (++clock_polls >= 25U && s_state.page == WeightPage::Dashboard && !s_store.pending()) {
+      clock_polls = 0U;
+      const auto before = s_state.today;
+      if (read_today() && (before.year != s_state.today.year || before.month != s_state.today.month || before.day != s_state.today.day)) render(true);
     }
     StickyTouchPress press = {};
     if (sticky_touch_take_press(press)) {
       int x = 0, y = 0;
       s_canvas->physical_to_logical(press.x, press.y, x, y);
-      handle(x, y);
-      sticky_touch_clear_press();
+      handle(x, y); sticky_touch_clear_press();
     }
     vTaskDelay(pdMS_TO_TICKS(40));
   }
 }
-} // namespace
+}  // namespace
 
 esp_err_t weight_app_start(Canvas &canvas) {
   app_log_register_tag(kTag);
-  if (s_task != nullptr)
-    return ESP_OK;
+  if (s_task) return ESP_OK;
   s_canvas = &canvas;
-  return xTaskCreate(task, "weight", 5120U, nullptr, 3U, &s_task) == pdPASS
-             ? ESP_OK
-             : ESP_ERR_NO_MEM;
+  return xTaskCreate(task, "weight", 5120U, nullptr, 3U, &s_task) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM;
 }
-esp_err_t weight_app_pause() {
-  return sticky_app_lifecycle_pause(s_lifecycle, s_task);
-}
+esp_err_t weight_app_pause() { return sticky_app_lifecycle_pause(s_lifecycle, s_task); }
 esp_err_t weight_app_resume() {
-  if (s_task == nullptr)
-    return ESP_ERR_INVALID_STATE;
-  sticky_app_lifecycle_resume(s_lifecycle);
-  return ESP_OK;
+  if (!s_task) return ESP_ERR_INVALID_STATE;
+  sticky_app_lifecycle_resume(s_lifecycle); return ESP_OK;
 }
 esp_err_t weight_app_prepare_power_sleep(uint32_t &current, uint32_t &next) {
-  current = 0U;
-  next = 0U;
-  return weight_app_pause();
+  current = 0U; next = 0U; return weight_app_pause();
 }
 uint32_t weight_app_power_sleep_timeout_ms() {
-  return s_editing ? 0U : 60U * 1000U;
+  return s_store.pending() || (s_state.page != WeightPage::Dashboard && s_state.page != WeightPage::History) ? 0U : 60U * 1000U;
 }

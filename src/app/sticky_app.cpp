@@ -10,17 +10,19 @@
 #include "board_charger.h"
 #include "board_power.h"
 #include "canvas.h"
-#include "checkup_storage.h"
+#include "domain_repository_stores.h"
+#include "device_preferences_sync.h"
 #include "esp_attr.h"
 #include "esp_sleep.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "pregnancy_app.h"
-#include "reminder_storage.h"
+#include "pregnancy_repository_store.h"
 #include "scheduler.h"
+#include "sticky_sleep_schedule.h"
 #include "settings_app.h"
-#include "settings_store.h"
+#include "sd_storage_service.h"
 #include "sticky_app_display_orientation.h"
 #include "sticky_app_gesture.h"
 #include "sticky_button.h"
@@ -41,7 +43,6 @@ constexpr uint32_t kTaskStackSize = 4608U;
 constexpr UBaseType_t kTaskPriority = 4U;
 constexpr uint32_t kSleepContextMagic = 0x53434657U;
 constexpr uint32_t kLauncherIdleCloseMs = 30000U;
-constexpr uint32_t kScheduledWakeLeadSeconds = 15U;
 
 struct StickySleepContext {
   uint32_t magic;
@@ -57,9 +58,70 @@ StickyAppManager s_manager(sticky_app_registry_data(),
 StickyScheduler s_scheduler;
 bool s_launcher_open = false;
 uint32_t s_last_activity_ms = 0U;
+uint8_t s_sleep_failures = 0U;
+uint32_t s_sleep_retry_at_ms = 0U;
 std::atomic<int> s_requested_app{-1};
 std::atomic<bool> s_launcher_requested{false};
+std::atomic<bool> s_language_toggle_requested{false};
+std::atomic<bool> s_application_data_deleted{false};
 StickyImuOrientation s_last_orientation = StickyImuOrientation::Unknown;
+DevicePreferencesSync s_device_preferences;
+std::atomic<bool> s_preferences_save_failed{false};
+
+void render_launcher(bool full_refresh = false);
+
+uint32_t monotonic_ms() {
+  return static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
+}
+
+// User input restarts the idle timer and clears any sleep retry back-off.
+void mark_activity(uint32_t at_ms) {
+  s_last_activity_ms = at_ms;
+  s_sleep_failures = 0U;
+}
+
+bool sleep_retry_allowed(uint32_t now_ms) {
+  return s_sleep_failures == 0U ||
+         static_cast<int32_t>(now_ms - s_sleep_retry_at_ms) >= 0;
+}
+
+template <typename Store>
+bool reload_repository_store(Store &store, const char *name) {
+  constexpr unsigned kMaximumPolls = 125U;
+  bool load_started = false;
+  sticky_storage::SdRepositoryAdapterStatus status = store.status();
+  for (unsigned poll = 0U; poll < kMaximumPolls; ++poll) {
+    if (store.pending()) {
+      status = store.poll();
+      if (status == sticky_storage::SdRepositoryAdapterStatus::Pending) {
+        vTaskDelay(kPollInterval);
+        continue;
+      }
+      if (!load_started) continue;
+      if (status == sticky_storage::SdRepositoryAdapterStatus::Ok &&
+          store.ready()) return true;
+      break;
+    }
+    if (!load_started) {
+      status = store.begin_load();
+      load_started =
+          status == sticky_storage::SdRepositoryAdapterStatus::Pending;
+      if (load_started) continue;
+      const sticky_storage::SdStorageServiceStatus storage =
+          sticky_storage::sd_storage_service_status();
+      if (storage.card_state == sticky_storage::SdCardState::Mounting ||
+          (storage.running && !storage.manifest_known) ||
+          (storage.manifest_selected && !storage.recovery_known)) {
+        vTaskDelay(kPollInterval);
+        continue;
+      }
+      break;
+    }
+  }
+  STICKY_LOGW(kTag, "repository=%s reload=%u result=unavailable", name,
+              static_cast<unsigned>(status));
+  return false;
+}
 
 void configure_app_rotation(StickyAppId app, CanvasRotation rotation) {
   if (app == StickyAppId::Pregnancy)
@@ -88,41 +150,35 @@ StickyImuState read_initial_imu_state() {
   return {};
 }
 
-bool scheduled_alert_due(uint32_t now) {
-  const uint32_t lower = now > 60U ? now - 60U : 0U;
-  const uint32_t upper = now + 30U;
-  ReminderService reminders;
-  if (reminder_storage_load(reminders) == ESP_OK) {
-    for (size_t index = 0U; index < reminders.count(); ++index) {
-      const Reminder *item = reminders.at(index);
-      uint32_t epoch = 0U;
-      if (item != nullptr && !item->completed && reminder_epoch(*item, epoch) &&
-          epoch >= lower && epoch <= upper)
-        return true;
-    }
+void poll_device_settings() {
+  const bool previously_failed = s_device_preferences.saving_failed();
+  s_device_preferences.tick(
+      pregnancy_repository::device_preferences_repository_store(),
+      sticky_storage::sd_storage_service_status(),
+      monotonic_ms());
+  s_preferences_save_failed.store(s_device_preferences.saving_failed());
+  const UiLanguage previous = ui_language_get();
+  ui_language_set(s_device_preferences.desired().language);
+  if (previous != ui_language_get()) {
+    if (s_launcher_open) render_launcher();
+    settings_app_notify_preferences_changed();
   }
-  CheckupService checkups;
-  if (checkup_storage_load(checkups) == ESP_OK) {
-    for (size_t index = 0U; index < checkups.count(); ++index) {
-      const Checkup *item = checkups.at(index);
-      uint32_t epoch = 0U;
-      if (item != nullptr && !item->completed && checkup_epoch(*item, epoch) &&
-          epoch >= lower && epoch <= upper)
-        return true;
-    }
+  if (previously_failed != s_device_preferences.saving_failed()) {
+    STICKY_LOGW(kTag, "preferences=sync retry_pending=%u",
+                s_device_preferences.saving_failed() ? 1U : 0U);
+    settings_app_notify_preferences_changed();
   }
-  return false;
 }
 
 void persist_current_app() {
-  StickyDeviceSettings settings = {};
-  if (sticky_settings_load(settings) != ESP_OK)
-    return;
-  settings.last_app = s_manager.current_id();
-  sticky_settings_save(settings);
+  s_device_preferences.set_last_app(s_manager.current_id());
 }
 
-void render_launcher(bool full_refresh = false) {
+void toggle_language() {
+  s_device_preferences.toggle_language();
+}
+
+void render_launcher(bool full_refresh) {
   sticky_display_set_battery_overlay_enabled(false);
   CanvasRotation rotation = s_canvas->rotation();
   sticky_app_launcher_rotation(s_last_orientation, rotation, rotation);
@@ -172,14 +228,17 @@ void select_app(StickyAppId app, const char *source) {
   const CanvasRotation previous_rotation = s_canvas->rotation();
   const CanvasRotation destination_rotation =
       rotation_for_app(app, s_last_orientation, previous_rotation);
+  if (!s_launcher_open && s_manager.pause_current() != ESP_OK) return;
   s_canvas->set_rotation(destination_rotation);
   configure_app_rotation(app, destination_rotation);
-  const esp_err_t result = s_launcher_open
-                               ? s_manager.switch_from_paused_to(app)
-                               : s_manager.switch_to(app);
+  const esp_err_t result = s_manager.switch_from_paused_to(app);
   if (result != ESP_OK) {
-    s_canvas->set_rotation(previous_rotation);
-    configure_app_rotation(previous, previous_rotation);
+    s_launcher_open = false;
+    if (s_manager.pause_current() == ESP_OK) {
+      s_canvas->set_rotation(previous_rotation);
+      configure_app_rotation(previous, previous_rotation);
+      s_manager.resume_current();
+    }
     STICKY_LOGE(kTag, "app=switch from=%s to=%s source=%s result=%s",
                 sticky_app_id_name(previous), sticky_app_id_name(app), source,
                 esp_err_to_name(result));
@@ -249,54 +308,53 @@ void enter_sleep(const char *source) {
   const StickyAppDescriptor *app = s_manager.current();
   if (app == nullptr || !app->sleep_allowed())
     return;
-  if (s_launcher_open) {
-    s_launcher_open = false;
-  }
+  const bool launcher_was_open = s_launcher_open;
+  const auto rollback = [&]() {
+    if (s_sleep_failures < UINT8_MAX) ++s_sleep_failures;
+    const uint32_t delay_ms = sticky_sleep_retry_delay_ms(s_sleep_failures);
+    s_sleep_retry_at_ms = monotonic_ms() + delay_ms;
+    STICKY_LOGW(kTag, "power=sleep source=%s failures=%u retry_ms=%u "
+                "result=rolled_back",
+                source, static_cast<unsigned>(s_sleep_failures),
+                static_cast<unsigned>(delay_ms));
+    if (launcher_was_open) {
+      s_launcher_open = true;
+      render_launcher(true);
+    } else {
+      s_manager.resume_current();
+    }
+  };
   uint32_t now = 0U;
   uint32_t next = 0U;
   const esp_err_t prepare = app->prepare_sleep(now, next);
-  if (prepare != ESP_OK)
+  if (prepare != ESP_OK) {
+    rollback();
     return;
+  }
 
   if (now == 0U) {
     StickyRtcDateTime clock = {};
     if (sticky_rtc_read(clock) != ESP_OK ||
-        !sticky_rtc_epoch_seconds(clock, now))
+        !sticky_rtc_epoch_seconds(clock, now)) {
+      rollback();
       return;
+    }
   }
 
-  s_scheduler.cancel(1U);
-  s_scheduler.cancel(2U);
-  s_scheduler.cancel(3U);
-  s_scheduler.cancel(4U);
-  const uint32_t day_start = now / 86400U * 86400U;
-  uint32_t daily_refresh = day_start + 3U * 3600U;
-  if (daily_refresh <= now)
-    daily_refresh += 86400U;
-  s_scheduler.schedule(1U, daily_refresh,
-                       StickyScheduledEventType::DailyRefresh);
-  if (next > now)
-    s_scheduler.schedule(4U, next, StickyScheduledEventType::System);
-  uint32_t reminder_epoch = 0U;
-  if (reminder_storage_next_event(now, reminder_epoch)) {
-    s_scheduler.schedule(2U, reminder_epoch,
-                         StickyScheduledEventType::Reminder);
-  }
-  uint32_t checkup_epoch = 0U;
-  if (checkup_storage_next_event(now, checkup_epoch)) {
-    s_scheduler.schedule(3U, checkup_epoch, StickyScheduledEventType::Checkup);
-  }
-  StickyScheduledEvent event = {};
-  uint64_t wake_us = 0U;
-  if (s_scheduler.next(now, event)) {
-    uint32_t wake_epoch = event.epoch_seconds > kScheduledWakeLeadSeconds
-                              ? event.epoch_seconds - kScheduledWakeLeadSeconds
-                              : event.epoch_seconds;
-    if (wake_epoch <= now)
-      wake_epoch = now + 1U;
-    wake_us = static_cast<uint64_t>(wake_epoch - now) * 1000000ULL;
+  sticky_sleep_schedule_configure(s_scheduler, now, next);
+  const uint64_t wake_us = sticky_sleep_schedule_wake_us(s_scheduler, now);
+
+  const esp_err_t storage_prepare =
+      sticky_storage::sd_storage_service_prepare_sleep();
+  if (storage_prepare != ESP_OK) {
+    STICKY_LOGE(kTag,
+                "power=sleep source=%s storage=%s result=blocked",
+                source, esp_err_to_name(storage_prepare));
+    rollback();
+    return;
   }
 
+  s_launcher_open = false;
   s_sleep_context = {kSleepContextMagic, s_manager.current_id(),
                      s_canvas->rotation()};
   sticky_display_set_battery_overlay_enabled(true);
@@ -345,16 +403,7 @@ void handle_launcher_press(const StickyTouchPress &press) {
   }
   if (app_page_launcher_language_at(s_canvas->width(), s_canvas->height(), x,
                                     y)) {
-    StickyDeviceSettings settings = {};
-    if (sticky_settings_load(settings) == ESP_OK) {
-      settings.language = ui_language_is_chinese()
-                              ? UiLanguage::English
-                              : UiLanguage::ChineseSimplified;
-      if (sticky_settings_save(settings) == ESP_OK) {
-        ui_language_set(settings.language);
-        render_launcher();
-      }
-    }
+    toggle_language();
     return;
   }
   StickyAppId selected = StickyAppId::Pregnancy;
@@ -366,10 +415,35 @@ void handle_launcher_press(const StickyTouchPress &press) {
 
 void app_task(void *) {
   while (true) {
+    if (s_application_data_deleted.exchange(false)) {
+      reload_repository_store(pregnancy_repository::pregnancy_repository_store(),
+                              "pregnancy-after-delete");
+      reload_repository_store(pregnancy_repository::kick_repository_store(),
+                              "kicks-after-delete");
+      reload_repository_store(pregnancy_repository::weight_repository_store(),
+                              "weight-after-delete");
+      reload_repository_store(
+          pregnancy_repository::device_preferences_repository_store(),
+          "preferences-after-delete");
+      reload_repository_store(
+          pregnancy_repository::network_authorization_repository_store(),
+          "network-authorization-after-delete");
+      s_scheduler.cancel(1U);
+      s_scheduler.cancel(2U);
+      s_scheduler.cancel(3U);
+      s_scheduler.cancel(4U);
+      s_device_preferences = {};
+      ui_language_set(UiLanguage::English);
+      settings_app_notify_preferences_changed();
+      STICKY_LOGI(kTag,
+                  "storage=application-data-deleted caches=invalidated");
+    }
+    poll_device_settings();
+    if (s_language_toggle_requested.exchange(false)) toggle_language();
     update_display_orientation();
     StickyButtonEvent event = StickyButtonEvent::None;
     if (sticky_button_take_event(event)) {
-      s_last_activity_ms = static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
+      mark_activity(monotonic_ms());
       sticky_buzzer_stop();
       if (event == StickyButtonEvent::SingleClick) {
         if (s_launcher_open)
@@ -385,14 +459,14 @@ void app_task(void *) {
 
     StickyTouchInteraction interaction = {};
     while (sticky_touch_take_interaction(interaction)) {
-      s_last_activity_ms = interaction.ended_at_ms;
+      mark_activity(interaction.ended_at_ms);
       sticky_buzzer_stop();
       handle_interaction(interaction);
     }
     if (s_launcher_open) {
       StickyTouchPress press = {};
       if (sticky_touch_take_press(press)) {
-        s_last_activity_ms = press.captured_at_ms;
+        mark_activity(press.captured_at_ms);
         handle_launcher_press(press);
       }
     } else if (s_launcher_requested.exchange(false)) {
@@ -411,8 +485,7 @@ void app_task(void *) {
       select_app(StickyAppId::Pregnancy, "settings");
     }
 
-    const uint32_t now_ms =
-        static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
+    const uint32_t now_ms = monotonic_ms();
     if (s_launcher_open &&
         now_ms - s_last_activity_ms >= kLauncherIdleCloseMs) {
       close_launcher();
@@ -420,7 +493,8 @@ void app_task(void *) {
     const StickyAppDescriptor *app = s_manager.current();
     if (!s_launcher_open && app != nullptr && app->sleep_timeout_ms() > 0U &&
         app->sleep_allowed() && !board_charger_external_power_present() &&
-        now_ms - s_last_activity_ms >= app->sleep_timeout_ms()) {
+        now_ms - s_last_activity_ms >= app->sleep_timeout_ms() &&
+        sleep_retry_allowed(now_ms)) {
       enter_sleep("idle_timeout");
     }
     vTaskDelay(kPollInterval);
@@ -438,24 +512,31 @@ esp_err_t sticky_app_start(Canvas &canvas) {
   if (result != ESP_OK)
     return result;
 
+  // RTC_NOINIT memory survives deep sleep but not power loss; validate every
+  // field instead of trusting the magic value alone.
   const bool valid_context =
       s_sleep_context.magic == kSleepContextMagic &&
-      sticky_app_registry_find(s_sleep_context.app) != nullptr;
+      sticky_app_registry_find(s_sleep_context.app) != nullptr &&
+      static_cast<uint8_t>(s_sleep_context.rotation) <=
+          static_cast<uint8_t>(CanvasRotation::Deg90CounterClockwise);
+  reload_repository_store(pregnancy_repository::pregnancy_repository_store(),
+                          "pregnancy");
   StickyAppId initial =
-      valid_context ? s_sleep_context.app : StickyAppId::Pregnancy;
-  bool timer_alert_due = false;
+      valid_context
+          ? s_sleep_context.app
+          : (pregnancy_repository::device_preferences_repository_store().ready()
+                 ? pregnancy_repository::device_preferences_repository_store()
+                       .settings()
+                       .last_app
+                 : StickyAppId::Pregnancy);
+  // A stored V2-only app must resolve before applying its rotation policy.
+  if (sticky_app_registry_find(initial) == nullptr)
+    initial = StickyAppId::Pregnancy;
   if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER) {
     StickyRtcDateTime clock = {};
-    uint32_t now = 0U;
     if (sticky_rtc_read(clock) == ESP_OK &&
-        sticky_rtc_epoch_seconds(clock, now)) {
-      timer_alert_due = scheduled_alert_due(now);
-      const bool daily_refresh_window =
-          (clock.hour == 2U && clock.minute >= 59U) ||
-          (clock.hour == 3U && clock.minute <= 2U);
-      if (!timer_alert_due && daily_refresh_window)
-        initial = StickyAppId::Pregnancy;
-    }
+        sticky_sleep_schedule_is_daily_window(clock.hour, clock.minute))
+      initial = StickyAppId::Pregnancy;
   }
   const CanvasRotation fallback_rotation =
       valid_context ? s_sleep_context.rotation : CanvasRotation::Deg0;
@@ -482,11 +563,7 @@ esp_err_t sticky_app_start(Canvas &canvas) {
     sticky_imu_stop_monitoring();
     return result;
   }
-  if (timer_alert_due) {
-    sticky_buzzer_start_alarm();
-    STICKY_LOGI(kTag, "scheduler=wake alert=due result=started");
-  }
-  s_last_activity_ms = static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
+  mark_activity(monotonic_ms());
   if (xTaskCreate(app_task, "app_coordinator", kTaskStackSize, nullptr,
                   kTaskPriority, &s_task) != pdPASS) {
     sticky_imu_stop_monitoring();
@@ -505,3 +582,15 @@ void sticky_app_request(StickyAppId app) {
 }
 
 void sticky_app_request_launcher() { s_launcher_requested.store(true); }
+
+void sticky_app_request_language_toggle() {
+  s_language_toggle_requested.store(true);
+}
+
+void sticky_app_notify_application_data_deleted() {
+  s_application_data_deleted.store(true);
+}
+
+bool sticky_app_preferences_save_failed() {
+  return s_preferences_save_failed.load();
+}

@@ -58,6 +58,55 @@ def cpp_bytes(data: bytes) -> list[str]:
     return rows
 
 
+def extend_existing(font_path: Path, source_root: Path, output: Path) -> None:
+    """Add missing characters with a pinned supplemental font, preserving strikes.
+
+    Existing glyph bitmaps, metrics and offsets remain byte-identical. New glyph
+    data is appended to each bitmap and its sorted lookup table is regenerated.
+    Re-running with the same sources is a no-op.
+    """
+    text = output.read_text(encoding="utf-8")
+    wanted = ui_characters(source_root)
+    pattern = r"constexpr ChineseFontGlyph (k(?:Regular|Medium)(\d+))Glyphs\[\] = \{(.*?)\n\};"
+    tables = list(re.finditer(pattern, text, re.S))
+    added = 0
+    for match in tables:
+        stem, size, body = match.groups()
+        glyphs = {int(re.search(r"0x([0-9A-F]+)U", line).group(1), 16): line
+                  for line in body.splitlines() if "// U+" in line}
+        missing = [char for char in wanted if ord(char) not in glyphs]
+        if not missing:
+            continue
+        bitmap_pattern = rf"constexpr uint8_t {stem}Bitmap\[\] = \{{(.*?)\n\}};"
+        bitmap_match = re.search(bitmap_pattern, text, re.S)
+        if bitmap_match is None:
+            raise ValueError(f"missing bitmap for {stem}")
+        bitmap_body = bitmap_match.group(1)
+        offset = len(re.findall(r"0x[0-9A-F]{2}U", bitmap_body))
+        appended = bytearray()
+        font = ImageFont.truetype(str(font_path), int(size), index=0)
+        threshold = 176 if stem.startswith("kRegular") and int(size) <= 18 else 144
+        for char in missing:
+            width, height, left, top, advance, pixels = rasterize(font, char, threshold)
+            glyphs[ord(char)] = (
+                f"    {{0x{ord(char):04X}U, {offset}U, {width}U, {height}U, "
+                f"{left}, {top}, {advance}U}},  // U+{ord(char):04X}"
+            )
+            appended.extend(pixels)
+            offset += len(pixels)
+        table = f"constexpr ChineseFontGlyph {stem}Glyphs[] = {{\n" + "\n".join(
+            glyphs[codepoint] for codepoint in sorted(glyphs)
+        ) + "\n};"
+        text = text.replace(match.group(0), table)
+        extended_bitmap = bitmap_match.group(0).replace(
+            "\n};", "\n" + "\n".join(cpp_bytes(bytes(appended))) + "\n};"
+        )
+        text = text.replace(bitmap_match.group(0), extended_bitmap)
+        added += len(missing)
+    output.write_text(text, encoding="utf-8")
+    print(f"extended {len(tables)} strikes, added {added} glyph strikes")
+
+
 def generate(
     font_path: Path,
     regular_font_index: int,
@@ -194,6 +243,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--font", type=Path, required=True)
     parser.add_argument("--source-root", type=Path, default=Path("src"))
+    parser.add_argument("--extend-existing", action="store_true",
+                        help="append missing glyphs using face 0, retaining existing strikes")
     parser.add_argument("--regular-font-index", type=int, default=0)
     parser.add_argument("--medium-font-index", type=int, default=2)
     parser.add_argument("--small-regular-font-index", type=int, default=2)
@@ -212,6 +263,9 @@ def main() -> None:
     parser.add_argument("--regular-threshold", type=int, default=128)
     parser.add_argument("--medium-threshold", type=int, default=144)
     args = parser.parse_args()
+    if args.extend_existing:
+        extend_existing(args.font, args.source_root, args.output)
+        return
     sizes = tuple(sorted({int(value) for value in args.sizes.split(",")}))
     if not sizes or any(size < 1 or size > 255 for size in sizes):
         parser.error("--sizes must contain values from 1 to 255")

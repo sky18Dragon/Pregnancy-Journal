@@ -6,11 +6,11 @@ bool sticky_app_lifecycle_checkpoint(StickyAppLifecycle &lifecycle)
         return false;
     }
 
-    lifecycle.paused.store(true, std::memory_order_release);
-    while (lifecycle.pause_requested.load(std::memory_order_acquire)) {
+    uint32_t request = 0U;
+    while ((request = lifecycle.pause_requested.load(std::memory_order_acquire)) != 0U) {
+        lifecycle.acknowledged.store(request, std::memory_order_release);
         vTaskDelay(pdMS_TO_TICKS(10));
     }
-    lifecycle.paused.store(false, std::memory_order_release);
     return true;
 }
 
@@ -22,12 +22,14 @@ esp_err_t sticky_app_lifecycle_pause(StickyAppLifecycle &lifecycle,
         return ESP_ERR_INVALID_STATE;
     }
 
-    lifecycle.pause_requested.store(true, std::memory_order_release);
+    if (++lifecycle.next_request == 0U) ++lifecycle.next_request;
+    const uint32_t request = lifecycle.next_request;
+    lifecycle.pause_requested.store(request, std::memory_order_release);
     const TickType_t started_at = xTaskGetTickCount();
     const TickType_t timeout = pdMS_TO_TICKS(timeout_ms);
-    while (!lifecycle.paused.load(std::memory_order_acquire)) {
+    while (lifecycle.acknowledged.load(std::memory_order_acquire) != request) {
         if (xTaskGetTickCount() - started_at >= timeout) {
-            lifecycle.pause_requested.store(false,
+            lifecycle.pause_requested.store(0U,
                                              std::memory_order_release);
             return ESP_ERR_TIMEOUT;
         }
@@ -38,5 +40,5 @@ esp_err_t sticky_app_lifecycle_pause(StickyAppLifecycle &lifecycle,
 
 void sticky_app_lifecycle_resume(StickyAppLifecycle &lifecycle)
 {
-    lifecycle.pause_requested.store(false, std::memory_order_release);
+    lifecycle.pause_requested.store(0U, std::memory_order_release);
 }

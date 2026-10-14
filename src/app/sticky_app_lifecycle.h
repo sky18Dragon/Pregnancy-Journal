@@ -8,8 +8,10 @@
 #include "freertos/task.h"
 
 struct StickyAppLifecycle {
-    std::atomic<bool> pause_requested{false};
-    std::atomic<bool> paused{false};
+    std::atomic<uint32_t> pause_requested{0U};
+    std::atomic<uint32_t> acknowledged{0U};
+    uint32_t next_request = 0U; // Only the coordinator issues pause/resume.
+
 };
 
 // Waits at a safe app-loop boundary while another page owns the display.

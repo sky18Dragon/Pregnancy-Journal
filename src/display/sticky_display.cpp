@@ -5,6 +5,7 @@
 #include <new>
 
 #include "app_log.h"
+#include "board_shared_spi.h"
 #include "battery_status_overlay.h"
 #include "canvas.h"
 #include "driver/gpio.h"
@@ -24,6 +25,12 @@ constexpr size_t kFramebufferStride = kStickyDisplayWidth / 4U;
 constexpr size_t kFramebufferSize = kFramebufferStride * kStickyDisplayHeight;
 constexpr size_t kMonochromeStride = kStickyDisplayWidth / 8U;
 constexpr uint8_t kFastAppTransitionsBeforeCleanup = 5U;
+// Panel vendors require a full refresh after a handful of consecutive partial
+// refreshes; otherwise ghosting accumulates and can become permanent. Pages
+// may clean up earlier, but none can exceed this ceiling. It matches the
+// hardware-validated Kicks cadence so that page keeps its current behavior.
+// 墨水屏厂商要求连续局刷数次后必须全刷；显示层统一兜底，上限与已实机验证的胎动页一致。
+constexpr uint32_t kPartialRefreshesBeforeCleanup = 8U;
 
 seeed_epaper_panel_handle_t s_panel = nullptr;
 spi_device_handle_t s_spi_device = nullptr;
@@ -117,24 +124,8 @@ esp_err_t sticky_display_init() {
   STICKY_LOGD(kTag, "display=power_on pin=%d settle_ms=100 result=ok",
               PIN_EPD_EN);
 
-  spi_bus_config_t bus_config = {};
-  bus_config.mosi_io_num = PIN_EPD_MOSI;
-  bus_config.miso_io_num = PIN_EPD_MISO;
-  bus_config.sclk_io_num = PIN_EPD_CLK;
-  // ESP-IDF requires every unused SPI data pin to be -1. Leaving these
-  // zero-initialized assigns GPIO0 to the SPI bus, but GPIO0 is also the
-  // sensor I2C SCL pin. That made SHT40 work before display init and fail
-  // immediately afterwards.
-  // ESP-IDF要求未使用的SPI数据脚显式设为-1，否则零初始化会错误占用GPIO0。
-  bus_config.quadwp_io_num = -1;
-  bus_config.quadhd_io_num = -1;
-  bus_config.data4_io_num = -1;
-  bus_config.data5_io_num = -1;
-  bus_config.data6_io_num = -1;
-  bus_config.data7_io_num = -1;
-  bus_config.max_transfer_sz = kStickyDisplayWidth * kStickyDisplayHeight / 8;
   ESP_RETURN_ON_ERROR(
-      spi_bus_initialize(SPI2_HOST, &bus_config, SPI_DMA_CH_AUTO),
+      board_shared_spi_init(),
       "sticky_display", "initialize SPI2");
   STICKY_LOGD(
       kTag, "display=spi_bus_ready host=%d mosi=%d miso=%d clk=%d result=ok",
@@ -240,10 +231,20 @@ esp_err_t sticky_display_refresh() {
   return result;
 }
 
+static esp_err_t refresh_full_frame();
+
 esp_err_t sticky_display_refresh_partial() {
   if (s_panel == nullptr || s_canvas == nullptr ||
       s_rotated_framebuffer == nullptr) {
     return ESP_ERR_INVALID_STATE;
+  }
+  if (s_partial_refresh_count_since_full.load(std::memory_order_acquire) >=
+      kPartialRefreshesBeforeCleanup) {
+    STICKY_LOGI(kTag,
+                "display=refresh_promote mode=monochrome_full "
+                "reason=partial_limit limit=%u",
+                static_cast<unsigned>(kPartialRefreshesBeforeCleanup));
+    return refresh_full_frame();
   }
 
   // SSD1677 applies its partial waveform across the panel even when only a
@@ -300,6 +301,11 @@ esp_err_t sticky_display_refresh_monochrome() {
         esp_err_to_name(result));
     return result;
   }
+  return refresh_full_frame();
+}
+
+static esp_err_t refresh_full_frame() {
+  const int64_t refresh_started_us = esp_timer_get_time();
   STICKY_LOGI(kTag, "display=refresh_begin mode=monochrome_full");
   draw_battery_overlay_if_enabled();
   rotate_framebuffer_180(s_canvas->data(), s_rotated_framebuffer);

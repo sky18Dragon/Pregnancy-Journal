@@ -31,6 +31,24 @@ Rect full_button_rect(int width, int height) {
                                  : Rect{24, 400, 752, 56};
 }
 
+Rect mode_option_rect(int width, int height, size_t index) {
+  return portrait(width, height)
+             ? Rect{24, 112 + static_cast<int>(index) * 176, 432, 156}
+             : Rect{24, 96 + static_cast<int>(index) * 96, 752, 84};
+}
+
+Rect feel_option_rect(int width, int height, size_t index) {
+  if (portrait(width, height))
+    return Rect{24, 112 + static_cast<int>(index) * 148, 432, 128};
+  return Rect{index % 2U == 0U ? 24 : 408,
+              index < 2U ? 104 : 256, 368, 136};
+}
+
+constexpr KickMode kModeOptions[] = {KickMode::Timed, KickMode::CountToTen,
+                                     KickMode::Awareness};
+constexpr KickFeel kFeelOptions[] = {KickFeel::Usual, KickFeel::Weaker,
+                                     KickFeel::Fewer, KickFeel::Changed};
+
 bool counter_target_contains(int width, int height, int x, int y) {
   const bool is_portrait = portrait(width, height);
   const int center_x = 240;
@@ -79,22 +97,6 @@ void draw_period_values(Canvas &canvas, int x, int y, int column_width,
   }
 }
 
-void draw_safety_note(Canvas &canvas, const Rect &rect, bool compact) {
-  canvas.draw_rect(rect.x, rect.y, rect.width, rect.height, GrayLevel::Black);
-  canvas.draw_circle(rect.x + 24, rect.y + 25, 9, GrayLevel::Black);
-  canvas.draw_line(rect.x + 24, rect.y + 19, rect.x + 24, rect.y + 26,
-                   GrayLevel::Black);
-  canvas.draw_line(rect.x + 24, rect.y + 29, rect.x + 24, rect.y + 30,
-                   GrayLevel::Black);
-  canvas.draw_text_pixels(rect.x + 44, rect.y + 13, ui_text("IMPORTANT"), 18,
-                          GrayLevel::Black, FontWeight::Medium);
-  ui_draw_wrapped_text_pixels(
-      canvas, rect.x + 16, rect.y + 52, rect.width - 32,
-      ui_text("IF MOVEMENTS ARE LESS THAN USUAL, STOP, OR CHANGE, CONTACT MATERNITY CARE NOW"),
-      compact ? 14U : 16U, GrayLevel::Black, 3U, 5,
-      FontWeight::Regular);
-}
-
 void draw_bar_chart(Canvas &canvas, const Rect &rect,
                     const KickTrendSummary &trend) {
   canvas.draw_line(rect.x, rect.y + rect.height - 30,
@@ -136,6 +138,49 @@ void draw_bar_chart(Canvas &canvas, const Rect &rect,
     draw_centered(canvas, center, rect.y + rect.height - 22, day, 14,
                   index + 1U == kKickTrendDays ? FontWeight::Medium
                                               : FontWeight::Regular);
+  }
+}
+
+void draw_option(Canvas &canvas, const Rect &rect, const char *title,
+                 const char *description, bool compact) {
+  canvas.draw_rect(rect.x, rect.y, rect.width, rect.height, GrayLevel::Black);
+  canvas.draw_rect(rect.x + 1, rect.y + 1, rect.width - 2, rect.height - 2,
+                   GrayLevel::Black);
+  canvas.draw_text_pixels(rect.x + 20, rect.y + 14, ui_text(title), 20,
+                          GrayLevel::Black, FontWeight::Medium);
+  ui_draw_wrapped_text_pixels(canvas, rect.x + 20, rect.y + 46,
+                              rect.width - 40, ui_text(description),
+                              compact ? 14U : 16U, GrayLevel::Black,
+                              compact ? 2 : 4, 4, FontWeight::Regular);
+}
+
+const char *mode_description(KickMode mode) {
+  if (mode == KickMode::Timed)
+    return "UP TO ONE HOUR · MOVEMENTS PER HOUR VS THE SAME PERIOD IN THE LAST 7 DAYS";
+  if (mode == KickMode::CountToTen)
+    return "STOPS AT TEN · TIME TAKEN VS THE LAST 7 DAYS";
+  return "NO COUNTING · HOW TODAY'S MOVEMENTS FELT";
+}
+
+void draw_comparison_block(Canvas &canvas, int x, int y, int width,
+                           const KickComparison &comparison, bool compact) {
+  KickComparisonText text = {};
+  kick_format_comparison(comparison, text);
+  int line = y;
+  canvas.draw_text_pixels(x, line, text.value, compact ? 24U : 28U,
+                          GrayLevel::Black, FontWeight::Medium);
+  line += compact ? 44 : 52;
+  if (text.baseline[0] != '\0') {
+    line += 2 + ui_draw_wrapped_text_pixels(canvas, x, line, width,
+                                            text.baseline, 16U,
+                                            GrayLevel::Black, 2, 6,
+                                            FontWeight::Regular) *
+                    26;
+  }
+  if (text.difference[0] != '\0') {
+    ui_draw_wrapped_text_pixels(canvas, x, line + 8, width, text.difference,
+                                compact ? 20U : 22U, GrayLevel::Black, 2, 6,
+                                FontWeight::Medium);
   }
 }
 
@@ -191,9 +236,8 @@ void kick_page_render_today(Canvas &canvas, const KickDaySummary &today,
       canvas.draw_text_pixels(24, 376, ui_text("NO SESSIONS YET"), 18,
                               GrayLevel::Black, FontWeight::Regular);
     }
-    draw_safety_note(canvas, {24, 432, 432, 136}, false);
     canvas.draw_text_pixels(
-        24, 592,
+        24, 432,
         ui_text("RECORDS HELP REVIEW PATTERNS; THEY DO NOT REPLACE CARE"), 14,
         GrayLevel::Black, FontWeight::Regular);
   } else {
@@ -228,7 +272,6 @@ void kick_page_render_today(Canvas &canvas, const KickDaySummary &today,
                             FontWeight::Regular);
     canvas.draw_line(384, 100, 384, 336, GrayLevel::Black);
     draw_period_values(canvas, 416, 108, 120, today, true);
-    draw_safety_note(canvas, {408, 196, 368, 140}, true);
   }
   if (save_failed) {
     canvas.draw_text_pixels(is_portrait ? 24 : 24, is_portrait ? 632 : 352,
@@ -265,7 +308,6 @@ void kick_page_render_insights(Canvas &canvas, const KickDaySummary &today,
     canvas.draw_text_pixels(24, 472, ui_text("TODAY BY PERIOD"), 16,
                             GrayLevel::Black, FontWeight::Medium);
     draw_period_values(canvas, 24, 504, 148, today, true);
-    draw_safety_note(canvas, {24, 576, 432, 112}, true);
   } else {
     canvas.draw_text_pixels(24, 94, ui_text("LAST 7 DAYS"), 16,
                             GrayLevel::Black, FontWeight::Medium);
@@ -290,22 +332,21 @@ void kick_page_render_insights(Canvas &canvas, const KickDaySummary &today,
     canvas.draw_text_pixels(496, 264, ui_text("TODAY BY PERIOD"), 14,
                             GrayLevel::Black, FontWeight::Medium);
     draw_period_values(canvas, 496, 288, 92, today, true);
-    canvas.draw_text_pixels(
-        24, 360,
-        ui_text("IF MOVEMENTS ARE LESS THAN USUAL, STOP, OR CHANGE, CONTACT MATERNITY CARE NOW"),
-        14, GrayLevel::Black, FontWeight::Medium);
   }
-  render_button(canvas, full_button_rect(canvas.width(), canvas.height()),
+  render_button(canvas, primary_button_rect(canvas.width(), canvas.height()),
                 "START COUNTING", true);
+  render_button(canvas, secondary_button_rect(canvas.width(), canvas.height()),
+                "COMPARE WITH USUAL", false);
 }
 
 void kick_page_render_counter(Canvas &canvas, KickPeriod period,
-                              uint16_t count, uint16_t elapsed_minutes) {
+                              uint16_t count, uint16_t elapsed_minutes,
+                              KickMode mode) {
   prototype_ui::begin_page(canvas);
   char title[48] = {};
   std::snprintf(title, sizeof(title),
-                ui_language_is_chinese() ? "胎动 · %s" : "KICKS · %s",
-                period_label(period));
+                ui_language_is_chinese() ? "%s · %s" : "%s · %s",
+                ui_text(kick_mode_label(mode)), period_label(period));
   prototype_ui::draw_header(canvas, title,
                             "TAP ONCE FOR EACH DISTINCT MOVEMENT", "CANCEL");
   const bool is_portrait = portrait(canvas.width(), canvas.height());
@@ -315,8 +356,13 @@ void kick_page_render_counter(Canvas &canvas, KickPeriod period,
   canvas.draw_circle(center_x, center_y, radius, GrayLevel::Black);
   canvas.draw_circle(center_x, center_y, radius - 1, GrayLevel::Black);
   char count_text[16] = {};
-  std::snprintf(count_text, sizeof(count_text), "%u",
-                static_cast<unsigned>(count));
+  if (mode == KickMode::CountToTen)
+    std::snprintf(count_text, sizeof(count_text), "%u/%u",
+                  static_cast<unsigned>(count),
+                  static_cast<unsigned>(kKickCountToTenTarget));
+  else
+    std::snprintf(count_text, sizeof(count_text), "%u",
+                  static_cast<unsigned>(count));
   draw_centered(canvas, center_x, center_y - 56, count_text, 70,
                 FontWeight::Medium);
   draw_centered(canvas, center_x, center_y + 34, ui_text("TAP TO RECORD"), 18,
@@ -331,8 +377,8 @@ void kick_page_render_counter(Canvas &canvas, KickPeriod period,
   if (is_portrait) {
     ui_draw_wrapped_text_pixels(
         canvas, 48, 526, 384,
-        ui_text("DO NOT WAIT TO FINISH COUNTING IF MOVEMENTS FEEL REDUCED OR CHANGED"),
-        16, GrayLevel::Black, 3, 6, FontWeight::Medium);
+        ui_text("A CONTINUOUS SERIES OF MOTIONS CAN BE RECORDED AS ONE MOVEMENT"),
+        16, GrayLevel::Black, 3, 6, FontWeight::Regular);
   } else {
     canvas.draw_text_pixels(432, 126, ui_text("COUNT DISTINCT MOVEMENTS"), 18,
                             GrayLevel::Black, FontWeight::Medium);
@@ -340,11 +386,6 @@ void kick_page_render_counter(Canvas &canvas, KickPeriod period,
         canvas, 432, 166, 344,
         ui_text("A CONTINUOUS SERIES OF MOTIONS CAN BE RECORDED AS ONE MOVEMENT"),
         16, GrayLevel::Black, 3, 6, FontWeight::Regular);
-    canvas.draw_line(432, 248, 776, 248, GrayLevel::Black);
-    ui_draw_wrapped_text_pixels(
-        canvas, 432, 272, 344,
-        ui_text("DO NOT WAIT TO FINISH COUNTING IF MOVEMENTS FEEL REDUCED OR CHANGED"),
-        16, GrayLevel::Black, 3, 6, FontWeight::Medium);
   }
   render_button(canvas, primary_button_rect(canvas.width(), canvas.height()),
                 "UNDO ONE", false);
@@ -364,6 +405,31 @@ KickAction kick_page_action_at(KickPage page, int width, int height, int x,
     if (secondary_button_rect(width, height).contains(x, y))
       return KickAction::ShowInsights;
   } else if (page == KickPage::Insights) {
+    if (primary_button_rect(width, height).contains(x, y))
+      return KickAction::Start;
+    if (secondary_button_rect(width, height).contains(x, y))
+      return KickAction::ShowCompare;
+  } else if (page == KickPage::ModeSelect) {
+    constexpr KickAction kActions[] = {KickAction::StartTimed,
+                                       KickAction::StartCountToTen,
+                                       KickAction::StartAwareness};
+    for (size_t index = 0U; index < 3U; ++index)
+      if (mode_option_rect(width, height, index).contains(x, y))
+        return kActions[index];
+  } else if (page == KickPage::Feel) {
+    constexpr KickAction kActions[] = {KickAction::FeelUsual,
+                                       KickAction::FeelWeaker,
+                                       KickAction::FeelFewer,
+                                       KickAction::FeelChanged};
+    for (size_t index = 0U; index < 4U; ++index)
+      if (feel_option_rect(width, height, index).contains(x, y))
+        return kActions[index];
+  } else if (page == KickPage::Result) {
+    if (primary_button_rect(width, height).contains(x, y))
+      return KickAction::Done;
+    if (secondary_button_rect(width, height).contains(x, y))
+      return KickAction::ShowCompare;
+  } else if (page == KickPage::Compare) {
     if (full_button_rect(width, height).contains(x, y))
       return KickAction::Start;
   } else {
@@ -375,4 +441,321 @@ KickAction kick_page_action_at(KickPage page, int width, int height, int x,
       return KickAction::Count;
   }
   return KickAction::None;
+}
+
+const char *kick_mode_label(KickMode mode) {
+  if (mode == KickMode::CountToTen)
+    return "COUNT TO 10";
+  if (mode == KickMode::Awareness)
+    return "FEEL CHECK-IN";
+  return "1-HOUR COUNT";
+}
+
+const char *kick_feel_label(KickFeel feel) {
+  switch (feel) {
+  case KickFeel::Usual:
+    return "AS USUAL";
+  case KickFeel::Weaker:
+    return "WEAKER";
+  case KickFeel::Fewer:
+    return "FEWER";
+  case KickFeel::Changed:
+    return "PATTERN CHANGED";
+  case KickFeel::None:
+    break;
+  }
+  return "--";
+}
+
+void kick_format_duration(uint16_t seconds, char *output, size_t size) {
+  if (output == nullptr || size == 0U)
+    return;
+  const unsigned minutes = seconds / 60U;
+  const unsigned remainder = seconds % 60U;
+  std::snprintf(output, size,
+                ui_language_is_chinese() ? "%u分%02u秒" : "%u:%02u", minutes,
+                remainder);
+}
+
+namespace {
+
+const char *timed_unit() {
+  return ui_language_is_chinese() ? "次/小时" : "PER HOUR";
+}
+
+void format_percent(const KickComparison &comparison, char *output,
+                    size_t size) {
+  output[0] = '\0';
+  if (!comparison.percent_known || comparison.direction == KickDirection::Same)
+    return;
+  const bool less = comparison.direction == KickDirection::Less;
+  if (ui_language_is_chinese())
+    std::snprintf(output, size, "，%s %u%%", less ? "少" : "多",
+                  static_cast<unsigned>(comparison.percent));
+  else
+    std::snprintf(output, size, " (%c%u%%)", less ? '-' : '+',
+                  static_cast<unsigned>(comparison.percent));
+}
+
+} // namespace
+
+void kick_format_comparison(const KickComparison &comparison,
+                            KickComparisonText &output) {
+  output = {};
+  const bool zh = ui_language_is_chinese();
+  const bool timed = comparison.mode == KickMode::Timed;
+  if (comparison.status == KickComparisonStatus::Unsupported)
+    return;
+  if (comparison.status == KickComparisonStatus::NotComparable) {
+    std::snprintf(output.value, sizeof(output.value), "%s",
+                  timed ? (zh ? "本次不足 15 分钟" : "UNDER 15 MINUTES")
+                        : (zh ? "本次未数满 10 次" : "ENDED BEFORE TEN"));
+    std::snprintf(output.baseline, sizeof(output.baseline), "%s",
+                  zh ? "不参与比对" : "NOT COMPARED");
+    return;
+  }
+
+  char current[24] = {};
+  char baseline[24] = {};
+  if (timed) {
+    std::snprintf(output.value, sizeof(output.value),
+                  zh ? "每小时 %u 次" : "%u PER HOUR",
+                  static_cast<unsigned>(comparison.current));
+  } else if (comparison.current_capped) {
+    std::snprintf(output.value, sizeof(output.value), "%s",
+                  zh ? "60 分钟内未数满 10 次" : "UNDER 10 IN 60 MIN");
+  } else {
+    kick_format_duration(comparison.current, current, sizeof(current));
+    std::snprintf(output.value, sizeof(output.value),
+                  zh ? "数到 10 用时 %s" : "TEN IN %s", current);
+  }
+
+  if (comparison.status == KickComparisonStatus::CollectingBaseline) {
+    std::snprintf(output.baseline, sizeof(output.baseline),
+                  zh ? "基线积累中：过去 7 天已有 %u 条，需 %u 条"
+                     : "BUILDING BASELINE: %u OF %u RECORDS IN 7 DAYS",
+                  static_cast<unsigned>(comparison.baseline_sessions),
+                  static_cast<unsigned>(kKickBaselineMinimumSessions));
+    return;
+  }
+
+  if (timed) {
+    std::snprintf(output.baseline, sizeof(output.baseline),
+                  zh ? "过去 7 天同时段中位数：每小时 %u 次（%u 条记录）"
+                     : "LAST 7 DAYS SAME-PERIOD MEDIAN: %u PER HOUR (%u RECORDS)",
+                  static_cast<unsigned>(comparison.baseline),
+                  static_cast<unsigned>(comparison.baseline_sessions));
+  } else {
+    kick_format_duration(comparison.baseline, baseline, sizeof(baseline));
+    std::snprintf(output.baseline, sizeof(output.baseline),
+                  zh ? "过去 7 天中位数：%s（%u 条记录）"
+                     : "LAST 7 DAYS MEDIAN: %s (%u RECORDS)",
+                  baseline,
+                  static_cast<unsigned>(comparison.baseline_sessions));
+  }
+
+  if (comparison.direction == KickDirection::Same) {
+    std::snprintf(output.difference, sizeof(output.difference), "%s",
+                  zh ? "与平时持平" : "SAME AS USUAL");
+    return;
+  }
+  char percent[24] = {};
+  format_percent(comparison, percent, sizeof(percent));
+  const bool less = comparison.direction == KickDirection::Less;
+  if (timed) {
+    if (zh)
+      std::snprintf(output.difference, sizeof(output.difference),
+                    "比平时%s %u %s%s", less ? "少" : "多",
+                    static_cast<unsigned>(comparison.difference), timed_unit(),
+                    percent);
+    else
+      std::snprintf(output.difference, sizeof(output.difference),
+                    "%u %s %s THAN USUAL%s",
+                    static_cast<unsigned>(comparison.difference), timed_unit(),
+                    less ? "FEWER" : "MORE", percent);
+    return;
+  }
+  char difference[24] = {};
+  kick_format_duration(comparison.difference, difference, sizeof(difference));
+  if (comparison.current_capped) {
+    std::snprintf(output.difference, sizeof(output.difference),
+                  zh ? "比平时至少多用 %s" : "AT LEAST %s LONGER THAN USUAL",
+                  difference);
+    return;
+  }
+  if (zh)
+    std::snprintf(output.difference, sizeof(output.difference),
+                  "比平时%s用 %s%s", less ? "少" : "多", difference, percent);
+  else
+    std::snprintf(output.difference, sizeof(output.difference),
+                  "%s %s THAN USUAL%s", difference,
+                  less ? "SHORTER" : "LONGER", percent);
+}
+
+void kick_format_comparison_compact(const KickComparison &comparison,
+                                    char *output, size_t size) {
+  if (output == nullptr || size == 0U)
+    return;
+  KickComparisonText text = {};
+  kick_format_comparison(comparison, text);
+  if (comparison.status == KickComparisonStatus::Ready)
+    std::snprintf(output, size, "%s · %s", text.value, text.difference);
+  else
+    std::snprintf(output, size, "%s · %s", text.value, text.baseline);
+}
+
+void kick_format_awareness(const KickAwarenessSummary &summary, char *output,
+                           size_t size) {
+  if (output == nullptr || size == 0U)
+    return;
+  if (ui_language_is_chinese())
+    std::snprintf(output, size, "一样 %u · 变弱 %u · 变少 %u · 规律变了 %u",
+                  static_cast<unsigned>(summary.usual),
+                  static_cast<unsigned>(summary.weaker),
+                  static_cast<unsigned>(summary.fewer),
+                  static_cast<unsigned>(summary.changed));
+  else
+    std::snprintf(output, size, "USUAL %u · WEAKER %u · FEWER %u · CHANGED %u",
+                  static_cast<unsigned>(summary.usual),
+                  static_cast<unsigned>(summary.weaker),
+                  static_cast<unsigned>(summary.fewer),
+                  static_cast<unsigned>(summary.changed));
+}
+
+void kick_page_render_mode_select(Canvas &canvas) {
+  prototype_ui::begin_page(canvas);
+  prototype_ui::draw_header(canvas, "CHOOSE A RECORD TYPE",
+                            "COMPARED WITH YOUR OWN LAST 7 DAYS", "BACK");
+  const bool compact = !portrait(canvas.width(), canvas.height());
+  for (size_t index = 0U; index < 3U; ++index) {
+    draw_option(canvas, mode_option_rect(canvas.width(), canvas.height(), index),
+                kick_mode_label(kModeOptions[index]),
+                mode_description(kModeOptions[index]), compact);
+  }
+}
+
+void kick_page_render_feel(Canvas &canvas) {
+  prototype_ui::begin_page(canvas);
+  prototype_ui::draw_header(canvas, "FEEL CHECK-IN",
+                            "TODAY'S MOVEMENTS COMPARED WITH USUAL", "BACK");
+  for (size_t index = 0U; index < 4U; ++index) {
+    prototype_ui::draw_button(
+        canvas, feel_option_rect(canvas.width(), canvas.height(), index),
+        kick_feel_label(kFeelOptions[index]), false, 3U);
+  }
+}
+
+void kick_page_render_result(Canvas &canvas, const KickSession &session,
+                             const KickComparison &comparison,
+                             const KickAwarenessSummary &awareness) {
+  prototype_ui::begin_page(canvas);
+  prototype_ui::draw_header(canvas, "THIS RECORD",
+                            kick_mode_label(session.mode), "BACK");
+  const bool is_portrait = portrait(canvas.width(), canvas.height());
+  const int width = is_portrait ? 432 : 752;
+  char line[96] = {};
+  if (session.mode == KickMode::Awareness) {
+    std::snprintf(line, sizeof(line),
+                  ui_language_is_chinese() ? "已记录：%s" : "RECORDED: %s",
+                  ui_text(kick_feel_label(session.feel)));
+    canvas.draw_text_pixels(24, 112, line, is_portrait ? 24U : 28U,
+                            GrayLevel::Black, FontWeight::Medium);
+    canvas.draw_text_pixels(24, is_portrait ? 176 : 172,
+                            ui_text("LAST 7 DAYS"), 16, GrayLevel::Black,
+                            FontWeight::Medium);
+    kick_format_awareness(awareness, line, sizeof(line));
+    ui_draw_wrapped_text_pixels(canvas, 24, is_portrait ? 208 : 202, width,
+                                line, 20U, GrayLevel::Black, 2, 6,
+                                FontWeight::Regular);
+  } else {
+    char duration[24] = {};
+    kick_format_duration(session.elapsed_seconds, duration, sizeof(duration));
+    std::snprintf(line, sizeof(line),
+                  ui_language_is_chinese() ? "%02u:%02u 开始 · %u 次 · 用时 %s"
+                                           : "%02u:%02u · %u MOVES · %s",
+                  static_cast<unsigned>(session.hour),
+                  static_cast<unsigned>(session.minute),
+                  static_cast<unsigned>(session.count), duration);
+    canvas.draw_text_pixels(24, 100, line, 16, GrayLevel::Black,
+                            FontWeight::Regular);
+    canvas.draw_line(24, 132, 24 + width, 132, GrayLevel::Black);
+    draw_comparison_block(canvas, 24, 152, width, comparison, is_portrait);
+  }
+  render_button(canvas, primary_button_rect(canvas.width(), canvas.height()),
+                "DONE", true);
+  render_button(canvas, secondary_button_rect(canvas.width(), canvas.height()),
+                "COMPARE WITH USUAL", false);
+}
+
+void kick_page_render_compare(Canvas &canvas, const KickComparison periods[3],
+                              const bool has_period[3], bool has_ten,
+                              const KickComparison &ten, bool has_awareness,
+                              const KickAwarenessSummary &awareness) {
+  prototype_ui::begin_page(canvas);
+  prototype_ui::draw_header(canvas, "COMPARE WITH USUAL",
+                            "TODAY VS YOUR LAST 7 DAYS · MEDIAN", "BACK");
+  const bool is_portrait = portrait(canvas.width(), canvas.height());
+  const int label_width = is_portrait ? 0 : 136;
+  const int text_x = 24 + label_width;
+  const int text_width = (is_portrait ? 432 : 752) - label_width;
+  const int row_height = is_portrait ? 112 : 58;
+  int y = is_portrait ? 100 : 96;
+  char text[160] = {};
+
+  // Portrait rows stack the value over its comparison; landscape keeps one
+  // line per row after the label column.
+  const auto draw_row = [&](const char *label, const char *first,
+                            const char *second) {
+    canvas.draw_text_pixels(24, y, label, 16, GrayLevel::Black,
+                            FontWeight::Medium);
+    if (is_portrait) {
+      canvas.draw_text_pixels(24, y + 28, first, 16, GrayLevel::Black,
+                              FontWeight::Regular);
+      if (second != nullptr && second[0] != '\0')
+        ui_draw_wrapped_text_pixels(canvas, 24, y + 54, text_width, second,
+                                    16U, GrayLevel::Black, 1, 4,
+                                    FontWeight::Medium);
+    } else {
+      std::snprintf(text, sizeof(text), "%s%s%s", first,
+                    second != nullptr && second[0] != '\0' ? " · " : "",
+                    second != nullptr ? second : "");
+      ui_draw_wrapped_text_pixels(canvas, text_x, y, text_width, text, 16U,
+                                  GrayLevel::Black, 2, 4,
+                                  FontWeight::Regular);
+    }
+    canvas.draw_line(24, y + row_height - 10, is_portrait ? 456 : 776,
+                     y + row_height - 10, GrayLevel::Black);
+    y += row_height;
+  };
+
+  const auto draw_comparison_row = [&](const char *label, bool has,
+                                       const KickComparison &comparison,
+                                       const char *empty) {
+    if (!has) {
+      draw_row(label, ui_text(empty), nullptr);
+      return;
+    }
+    KickComparisonText lines = {};
+    kick_format_comparison(comparison, lines);
+    draw_row(label, lines.value,
+             comparison.status == KickComparisonStatus::Ready
+                 ? lines.difference
+                 : lines.baseline);
+  };
+
+  const KickPeriod order[] = {KickPeriod::Morning, KickPeriod::Afternoon,
+                              KickPeriod::Evening};
+  for (size_t index = 0U; index < 3U; ++index)
+    draw_comparison_row(period_label(order[index]), has_period[index],
+                        periods[index], "NO 1-HOUR COUNT TODAY");
+  draw_comparison_row(ui_text("COUNT TO 10"), has_ten, ten,
+                      "NO COUNT-TO-10 IN 7 DAYS");
+  char awareness_text[96] = {};
+  if (has_awareness)
+    kick_format_awareness(awareness, awareness_text, sizeof(awareness_text));
+  draw_row(ui_text("FEEL CHECK-IN"),
+           has_awareness ? awareness_text : ui_text("NO CHECK-INS IN 7 DAYS"),
+           nullptr);
+  render_button(canvas, full_button_rect(canvas.width(), canvas.height()),
+                "START COUNTING", true);
 }

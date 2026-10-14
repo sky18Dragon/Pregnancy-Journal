@@ -448,6 +448,11 @@ esp_err_t sticky_buzzer_play_pattern(StickyBuzzerPattern pattern,
 
 esp_err_t sticky_buzzer_stop()
 {
+    // Startup continues silently when the buzzer is unavailable.
+    // 蜂鸣器初始化失败时系统静音运行，停止操作直接返回。
+    if (s_buzzer_task == nullptr) {
+        return ESP_OK;
+    }
     const StickyBuzzerPattern previous = s_pattern.exchange(
         StickyBuzzerPattern::None);
     ESP_RETURN_ON_ERROR(set_duty(0U), kTag, "stop alarm");

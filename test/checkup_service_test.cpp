@@ -17,6 +17,10 @@ int main()
     assert(service.next(1U) == nullptr);
     assert(service.remove(id));
     assert(service.count() == 0U);
+    assert(service.set_next_id_floor(9U));
+    item.id = 0U;
+    assert(service.create(item, &id) && id == 9U);
+    assert(service.remove(id));
     for (size_t index = 0U; index < CheckupService::kCapacity; ++index) {
         item.id = 0U;
         item.date.day = static_cast<uint8_t>(index + 1U);

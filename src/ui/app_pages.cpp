@@ -19,42 +19,14 @@ struct Entry {
 };
 
 constexpr Entry kEntries[] = {
-    {StickyAppId::Checkup,
-     "01",
-     "Checkups",
-     "产检",
-     "Appointments and care dates",
-     "预约日期与产检安排"},
-    {StickyAppId::Reminder,
-     "02",
-     "Reminders",
-     "提醒",
-     "Today's tasks and alerts",
-     "查看今天的待办提醒"},
-    {StickyAppId::Weight,
-     "03",
-     "Weight",
-     "体重",
-     "Latest record and trend",
-     "最近记录与长期趋势"},
-    {StickyAppId::Kicks,
-     "04",
-     "Kicks",
-     "胎动",
-     "Three periods each day",
-     "早中晚三个时段记录"},
-    {StickyAppId::Pregnancy,
-     "05",
-     "Baby / Mom",
-     "宝宝 / 妈妈",
-     "This week's development",
-     "查看本周发育与变化"},
-    {StickyAppId::Settings,
-     "06",
-     "Settings",
-     "设置",
-     "Device and pregnancy profile",
-     "设备设置与孕期资料"},
+    {StickyAppId::Pregnancy, "01", "Baby Week", "孕周",
+     "This week's development", "查看本周发育与变化"},
+    {StickyAppId::Weight, "02", "Weight", "体重",
+     "Latest record and trend", "最近记录与长期趋势"},
+    {StickyAppId::Kicks, "03", "Kicks", "胎动",
+     "Today's sessions and trend", "早中晚三个时段记录"},
+    {StickyAppId::Settings, "04", "Settings", "设置",
+     "Device and pregnancy profile", "设备设置与孕期资料"},
 };
 
 constexpr Rect kCloseRect = {656, 20, 120, ui_tokens::kMinimumTouchHeight};
@@ -69,9 +41,9 @@ Rect close_rect(int width, int height) {
 
 Rect entry_rect(size_t index, int width, int height) {
   if (portrait_layout(width, height))
-    return {24, 108 + static_cast<int>(index) * 106, 432, 98};
+    return {24, 108 + static_cast<int>(index) * 148, 432, 140};
   return {24 + static_cast<int>(index % 2U) * 388,
-          100 + static_cast<int>(index / 2U) * 112, 364, 112};
+          100 + static_cast<int>(index / 2U) * 160, 364, 152};
 }
 
 } // namespace
@@ -105,7 +77,8 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app) {
                             FontWeight::Medium);
     canvas.draw_text_pixels(rect.x + 64, rect.y + (portrait ? 20 : 24),
                             chinese ? entry.title_zh : entry.title_en,
-                            22, GrayLevel::Black, FontWeight::Medium);
+                            ui_tokens::kSectionHeading, GrayLevel::Black,
+                            FontWeight::Medium);
     canvas.draw_text_pixels(rect.x + 64, rect.y + (portrait ? 54 : 58),
                             chinese ? entry.summary_zh : entry.summary_en,
                             ui_tokens::kCompactLabel, GrayLevel::Black,

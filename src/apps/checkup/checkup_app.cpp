@@ -6,11 +6,11 @@
 #include "app_log.h"
 #include "canvas.h"
 #include "checkup_service.h"
-#include "checkup_storage.h"
+#include "domain_repository_stores.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "pregnancy_storage.h"
 #include "prototype_ui.h"
+#include "repository_status_page.h"
 #include "sticky_app.h"
 #include "sticky_app_lifecycle.h"
 #include "sticky_display.h"
@@ -23,7 +23,12 @@ constexpr char kTag[] = "CHECKUP";
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_task = nullptr;
 StickyAppLifecycle s_lifecycle = {};
-CheckupService s_service;
+pregnancy_repository::CheckupRepositoryStore &s_store =
+    pregnancy_repository::checkup_repository_store();
+sticky_storage::SdRepositoryAdapterStatus s_storage_status =
+    sticky_storage::SdRepositoryAdapterStatus::Idle;
+bool s_storage_saving = false;
+bool s_reload_after_pending = false;
 size_t s_selected = 0U;
 bool s_adding = false;
 PregnancyDate s_new_date = {};
@@ -64,19 +69,20 @@ void button(int x, int y, int w, int h, const char *label,
 }
 
 void render_list() {
+  const CheckupService &service = s_store.service();
   prototype_ui::begin_page(*s_canvas);
   prototype_ui::draw_header(*s_canvas, "CHECKUPS",
                             "CONFIRM APPOINTMENTS WITH YOUR CARE TEAM", "BACK");
-  if (s_service.count() == 0U) {
+  if (service.count() == 0U) {
     s_canvas->draw_text(32, portrait() ? 232 : 164,
                         ui_text("NO CHECKUPS ADDED"), 4, GrayLevel::Black);
     s_canvas->draw_text(32, portrait() ? 282 : 214,
                         ui_text("REFERENCE PLANS VARY BY CARE TEAM"), 2,
                         GrayLevel::Black);
   }
-  const size_t count = s_service.count() < 4U ? s_service.count() : 4U;
+  const size_t count = service.count() < 4U ? service.count() : 4U;
   for (size_t i = 0U; i < count; ++i) {
-    const Checkup *item = s_service.at(i);
+    const Checkup *item = service.at(i);
     const prototype_ui::Rect row = row_rect(i);
     const int y = row.y;
     const bool selected = i == s_selected;
@@ -143,7 +149,12 @@ void render_add() {
 
 void render(bool full = false) {
   sticky_display_set_battery_overlay_enabled(false);
-  if (s_adding)
+  if (s_store.pending() ||
+      (s_storage_status != sticky_storage::SdRepositoryAdapterStatus::Idle &&
+       s_storage_status != sticky_storage::SdRepositoryAdapterStatus::Ok)) {
+    repository_status_ui::render(*s_canvas, "CHECKUP DATA", s_store.pending(),
+                                 s_storage_saving, s_storage_status);
+  } else if (s_adding)
     render_add();
   else
     render_list();
@@ -151,6 +162,46 @@ void render(bool full = false) {
     sticky_display_refresh_monochrome();
   else
     sticky_display_refresh_partial();
+}
+
+void begin_load() {
+  s_adding = false;
+  s_storage_saving = false;
+  s_storage_status = s_store.begin_load();
+  if (s_storage_status == sticky_storage::SdRepositoryAdapterStatus::Pending)
+    s_storage_status = sticky_storage::SdRepositoryAdapterStatus::Idle;
+}
+
+void begin_save(const Checkup &item) {
+  s_storage_status = s_store.begin_upsert(item);
+  s_storage_saving =
+      s_storage_status == sticky_storage::SdRepositoryAdapterStatus::Pending;
+  if (s_storage_saving)
+    s_storage_status = sticky_storage::SdRepositoryAdapterStatus::Idle;
+}
+
+void begin_delete(uint32_t id) {
+  s_storage_status = s_store.begin_erase(id);
+  s_storage_saving =
+      s_storage_status == sticky_storage::SdRepositoryAdapterStatus::Pending;
+  if (s_storage_saving)
+    s_storage_status = sticky_storage::SdRepositoryAdapterStatus::Idle;
+}
+
+bool poll_store() {
+  if (!s_store.pending()) return false;
+  const sticky_storage::SdRepositoryAdapterStatus status = s_store.poll();
+  if (status == sticky_storage::SdRepositoryAdapterStatus::Pending)
+    return false;
+  s_storage_saving = false;
+  s_storage_status = status == sticky_storage::SdRepositoryAdapterStatus::Ok
+                         ? sticky_storage::SdRepositoryAdapterStatus::Idle
+                         : status;
+  if (s_reload_after_pending) {
+    s_reload_after_pending = false;
+    begin_load();
+  }
+  return true;
 }
 
 void shift_date(int days) {
@@ -164,6 +215,15 @@ void shift_date(int days) {
 void handle(int x, int y) {
   const prototype_ui::Rect back =
       prototype_ui::header_action_rect(s_canvas->width(), s_canvas->height());
+  if (s_store.pending()) return;
+  if (s_storage_status != sticky_storage::SdRepositoryAdapterStatus::Idle &&
+      s_storage_status != sticky_storage::SdRepositoryAdapterStatus::Ok) {
+    if (back.contains(x, y)) sticky_app_request_launcher();
+    else if (repository_status_ui::retry_rect(*s_canvas).contains(x, y))
+      begin_load();
+    render();
+    return;
+  }
   if (s_adding) {
     if (back.contains(x, y))
       s_adding = false;
@@ -180,9 +240,8 @@ void handle(int x, int y) {
       item.date = s_new_date;
       std::strcpy(item.title, "ROUTINE CHECKUP");
       std::strcpy(item.note, "CONFIRM DETAILS WITH YOUR CARE TEAM");
-      if (s_service.create(item))
-        checkup_storage_save(s_service);
-      s_adding = false;
+      begin_save(item);
+      if (s_store.pending()) s_adding = false;
     }
     render();
     return;
@@ -191,7 +250,8 @@ void handle(int x, int y) {
     sticky_app_request_launcher();
     return;
   }
-  const size_t count = s_service.count() < 4U ? s_service.count() : 4U;
+  const CheckupService &service = s_store.service();
+  const size_t count = service.count() < 4U ? service.count() : 4U;
   for (size_t i = 0U; i < count; ++i) {
     if (row_rect(i).contains(x, y)) {
       s_selected = i;
@@ -207,11 +267,11 @@ void handle(int x, int y) {
       s_adding = true;
     }
   } else if (footer_button_rect(1U).contains(x, y) && s_selected < count) {
-    s_service.complete(s_service.at(s_selected)->id);
-    checkup_storage_save(s_service);
+    Checkup updated = *service.at(s_selected);
+    updated.completed = true;
+    begin_save(updated);
   } else if (footer_button_rect(2U).contains(x, y) && s_selected < count) {
-    s_service.remove(s_service.at(s_selected)->id);
-    checkup_storage_save(s_service);
+    begin_delete(service.at(s_selected)->id);
     if (s_selected > 0U)
       --s_selected;
   }
@@ -219,11 +279,13 @@ void handle(int x, int y) {
 }
 
 void task(void *) {
-  checkup_storage_load(s_service);
+  begin_load();
   render(true);
   while (true) {
+    if (poll_store()) render(true);
     if (sticky_app_lifecycle_checkpoint(s_lifecycle)) {
-      checkup_storage_load(s_service);
+      if (s_store.pending()) s_reload_after_pending = true;
+      else begin_load();
       render(true);
     }
     StickyTouchPress press = {};
@@ -265,7 +327,7 @@ esp_err_t checkup_app_prepare_power_sleep(uint32_t &current, uint32_t &next) {
   PregnancyDate today = {};
   read_today(today);
   current = s_now;
-  s_service.next(current, &next);
+  s_store.service().next(current, &next);
   return ESP_OK;
 }
 uint32_t checkup_app_power_sleep_timeout_ms() {

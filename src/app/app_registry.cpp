@@ -1,9 +1,7 @@
 #include "app_registry.h"
 
-#include "checkup_app.h"
 #include "kick_app.h"
 #include "pregnancy_app.h"
-#include "reminder_app.h"
 #include "settings_app.h"
 #include "weight_app.h"
 
@@ -17,14 +15,6 @@ const StickyAppDescriptor kApps[] = {
      pregnancy_app_pause, pregnancy_app_resume,
      pregnancy_app_prepare_power_sleep, pregnancy_app_power_sleep_timeout_ms,
      allow_sleep},
-    {StickyAppId::Reminder, "reminder", "Reminders",
-     StickyAppRotationPolicy::FollowDevice, reminder_app_start,
-     reminder_app_pause, reminder_app_resume, reminder_app_prepare_power_sleep,
-     reminder_app_power_sleep_timeout_ms, allow_sleep},
-    {StickyAppId::Checkup, "checkup", "Checkups",
-     StickyAppRotationPolicy::FollowDevice, checkup_app_start,
-     checkup_app_pause, checkup_app_resume, checkup_app_prepare_power_sleep,
-     checkup_app_power_sleep_timeout_ms, allow_sleep},
     {StickyAppId::Weight, "weight", "Weight",
      StickyAppRotationPolicy::FollowDevice, weight_app_start, weight_app_pause,
      weight_app_resume, weight_app_prepare_power_sleep,

@@ -373,10 +373,8 @@ void pregnancy_page_render_profile_date_setup(Canvas &canvas,
 
 void pregnancy_page_render_dashboard(Canvas &canvas,
                                      const PregnancyDate &due_date,
-                                     const PregnancyProgress &progress,
-                                     const PregnancyImportantDate *important) {
+                                     const PregnancyProgress &progress) {
   (void)due_date;
-  (void)important;
   prototype_ui::begin_page(canvas);
   const PregnancyWeekVisual &visual = pregnancy_week_visual(progress.weeks);
   const WeekContent content = pregnancy_content_for_week(progress.weeks);
@@ -838,8 +836,6 @@ const char *pregnancy_action_name(PregnancyAction action) {
     return "show_mom";
   case PregnancyAction::OpenLauncher:
     return "open_launcher";
-  case PregnancyAction::OpenCheckup:
-    return "open_checkup";
   }
   return "unknown";
 }
