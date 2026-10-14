@@ -8,6 +8,7 @@
 #include "canvas.h"
 #include "font.h"
 #include "pregnancy_pages.h"
+#include "ui_tokens.h"
 #include "pregnancy_week_visual.h"
 #include "ui_language.h"
 
@@ -76,7 +77,45 @@ size_t count_black_rect(Canvas &canvas, int x, int y, int width, int height) {
 
 } // namespace
 
+// The geometry contract: every target of every page is on screen, large enough
+// to tap, and does not overlap another target; the hit test returns exactly the
+// target under the point.
+void test_target_contract() {
+  const PregnancyPage pages[] = {
+      PregnancyPage::ClockSetup, PregnancyPage::SourceSetup,
+      PregnancyPage::DateSetup,  PregnancyPage::Dashboard,
+      PregnancyPage::Baby,       PregnancyPage::Mom};
+  const int sizes[2][2] = {{800, 480}, {480, 800}};
+  for (const auto &size : sizes) {
+    for (PregnancyPage page : pages) {
+      for (bool can_cancel : {false, true}) {
+        PregnancyTarget targets[16];
+        const size_t count = pregnancy_page_targets(
+            page, can_cancel, size[0], size[1], targets, 16U);
+        assert(count > 0U);
+        for (size_t a = 0U; a < count; ++a) {
+          const auto &r = targets[a].rect;
+          assert(r.x >= 0 && r.y >= 0 && r.x + r.width <= size[0] &&
+                 r.y + r.height <= size[1]);
+          assert(r.height >= ui_tokens::kMinimumTouchHeight);
+          assert(r.width >= ui_tokens::kMinimumTouchHeight);
+          assert(pregnancy_page_action_at(page, can_cancel, size[0], size[1],
+                                          r.x + r.width / 2,
+                                          r.y + r.height / 2) ==
+                 targets[a].action);
+          for (size_t b = a + 1U; b < count; ++b) {
+            const auto &o = targets[b].rect;
+            assert(!(r.x < o.x + o.width && o.x < r.x + r.width &&
+                     r.y < o.y + o.height && o.y < r.y + r.height));
+          }
+        }
+      }
+    }
+  }
+}
+
 int main() {
+  test_target_contract();
   std::vector<uint8_t> regular_glyph_buffer(kStride * kHeight, 0xFFU);
   std::vector<uint8_t> medium_glyph_buffer(kStride * kHeight, 0xFFU);
   Canvas regular_glyph_canvas(kWidth, kHeight, regular_glyph_buffer.data(),

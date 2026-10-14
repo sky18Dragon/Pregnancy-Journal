@@ -1,9 +1,11 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #include "content_service.h"
 #include "pregnancy_state.h"
+#include "prototype_ui.h"
 
 class Canvas;
 
@@ -56,6 +58,19 @@ void pregnancy_page_render_dashboard(
 void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
                                   const PregnancyProgress &progress,
                                   const WeekContent &content);
+
+// One tappable rectangle. The renderers draw these same rectangles.
+struct PregnancyTarget {
+  prototype_ui::Rect rect;
+  PregnancyAction action;
+};
+
+// Lists the active hit targets of `page` for the given logical size (at most
+// `capacity` are written; the return value is the number written). The hit
+// test is defined as the first target containing the point.
+size_t pregnancy_page_targets(PregnancyPage page, bool can_cancel, int width,
+                              int height, PregnancyTarget *out,
+                              size_t capacity);
 
 PregnancyAction pregnancy_page_action_at(PregnancyPage page, bool can_cancel,
                                          int x, int y);

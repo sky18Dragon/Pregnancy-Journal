@@ -589,15 +589,18 @@ void app_task(void *) {
       }
       const PregnancyAction action = action_for_press(press);
       {
+        // The tapped target comes from the same table the renderer drew.
         int x = 0, y = 0;
         s_canvas->physical_to_logical(press.x, press.y, x, y);
-        const int w = s_canvas->width(), h = s_canvas->height();
-        press_feedback::Rect target = {};
-        if (press_feedback::hit_bounds(w, h, x, y, [&](int px, int py) {
-              return static_cast<int>(pregnancy_page_action_at(
-                  s_page, s_configured, w, h, px, py));
-            }, target)) {
-          s_press.set(target);
+        PregnancyTarget targets[16];
+        const size_t count = pregnancy_page_targets(
+            s_page, s_configured, s_canvas->width(), s_canvas->height(),
+            targets, sizeof(targets) / sizeof(targets[0]));
+        for (size_t index = 0U; index < count; ++index) {
+          if (targets[index].rect.contains(x, y)) {
+            s_press.set(targets[index].rect);
+            break;
+          }
         }
       }
       if (handle_action(action)) {

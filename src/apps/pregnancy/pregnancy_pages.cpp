@@ -19,24 +19,65 @@ namespace {
 constexpr int kScreenWidth = 800;
 constexpr int kScreenHeight = 480;
 
-struct Rect {
-  int x;
-  int y;
-  int width;
-  int height;
+using prototype_ui::Rect;
 
-  bool contains(int point_x, int point_y) const {
-    return point_x >= x && point_y >= y && point_x < x + width &&
-           point_y < y + height;
-  }
+// One PageLayout per orientation is the single source of geometry for the
+// pregnancy pages: renderers draw these rectangles and pregnancy_page_targets()
+// (and so pregnancy_page_action_at()) hit-tests the very same ones.
+// 每个方向只有一份布局：页面绘制与点击命中都使用这里的同一组矩形。
+struct PageLayout {
+  Rect keys[12];      // 1-9, DEL, 0, NEXT
+  Rect back;          // CANCEL on the setup pages
+  Rect home;          // HOME on the Baby/Mom pages
+  Rect due_source;    // source setup: estimated due date
+  Rect lmp_source;    // source setup: last menstrual period
+  Rect tabs[3];       // Baby/Mom pages: overview, baby, mom
+  Rect menu;          // dashboard menu box
+  Rect rows[3];       // dashboard "this week" rows
+  Rect input;         // setup pages: value box (not a hit target)
 };
 
-constexpr Rect kKeyRects[] = {
-    {500, 70, 84, 66},  {594, 70, 84, 66},  {688, 70, 84, 66},
-    {500, 146, 84, 66}, {594, 146, 84, 66}, {688, 146, 84, 66},
-    {500, 222, 84, 66}, {594, 222, 84, 66}, {688, 222, 84, 66},
-    {500, 298, 84, 66}, {594, 298, 84, 66}, {688, 298, 84, 66},
+constexpr PageLayout kLandscape = {
+    {{500, 70, 84, 66},  {594, 70, 84, 66},  {688, 70, 84, 66},
+     {500, 146, 84, 66}, {594, 146, 84, 66}, {688, 146, 84, 66},
+     {500, 222, 84, 66}, {594, 222, 84, 66}, {688, 222, 84, 66},
+     {500, 298, 84, 66}, {594, 298, 84, 66}, {688, 298, 84, 66}},
+    {30, 390, 180, ui_tokens::kButtonHeight},
+    {656, 20, 120, ui_tokens::kMinimumTouchHeight},
+    {54, 150, 320, 170},
+    {426, 150, 320, 170},
+    {{24, 408, 128, ui_tokens::kMinimumTouchHeight},
+     {152, 408, 128, ui_tokens::kMinimumTouchHeight},
+     {280, 408, 128, ui_tokens::kMinimumTouchHeight}},
+    {736, 8, ui_tokens::kButtonHeight, ui_tokens::kButtonHeight},
+    {{32, 284, 352, ui_tokens::kButtonHeight},
+     {32, 340, 352, ui_tokens::kButtonHeight},
+     {32, 396, 352, ui_tokens::kButtonHeight}},
+    {30, 118, 430, 86},
 };
+
+constexpr PageLayout kPortrait = {
+    {{24, 278, 132, 72}, {174, 278, 132, 72}, {324, 278, 132, 72},
+     {24, 366, 132, 72}, {174, 366, 132, 72}, {324, 366, 132, 72},
+     {24, 454, 132, 72}, {174, 454, 132, 72}, {324, 454, 132, 72},
+     {24, 542, 132, 72}, {174, 542, 132, 72}, {324, 542, 132, 72}},
+    {24, 678, 432, ui_tokens::kButtonHeight},
+    {336, 20, 120, ui_tokens::kMinimumTouchHeight},
+    {24, 150, 432, 190},
+    {24, 370, 432, 190},
+    {{24, 728, 144, ui_tokens::kMinimumTouchHeight},
+     {168, 728, 144, ui_tokens::kMinimumTouchHeight},
+     {312, 728, 144, ui_tokens::kMinimumTouchHeight}},
+    {416, 8, ui_tokens::kButtonHeight, ui_tokens::kButtonHeight},
+    {{24, 628, 432, ui_tokens::kMinimumTouchHeight},
+     {24, 676, 432, ui_tokens::kMinimumTouchHeight},
+     {24, 724, 432, ui_tokens::kMinimumTouchHeight}},
+    {24, 102, 432, 76},
+};
+
+const PageLayout &layout_for(bool portrait) {
+  return portrait ? kPortrait : kLandscape;
+}
 
 constexpr PregnancyAction kKeyActions[] = {
     PregnancyAction::Digit1, PregnancyAction::Digit2, PregnancyAction::Digit3,
@@ -48,37 +89,6 @@ constexpr PregnancyAction kKeyActions[] = {
 constexpr const char *kKeyLabels[] = {
     "1", "2", "3", "4", "5", "6", "7", "8", "9", "DEL", "0", "NEXT",
 };
-
-constexpr Rect kBackRect = {30, 390, 180, ui_tokens::kButtonHeight};
-constexpr Rect kEditRect = {656, 20, 120, ui_tokens::kMinimumTouchHeight};
-constexpr Rect kDueSourceRect = {54, 150, 320, 170};
-constexpr Rect kLmpSourceRect = {426, 150, 320, 170};
-constexpr Rect kOverviewTab = {24, 408, 128, ui_tokens::kMinimumTouchHeight};
-constexpr Rect kBabyTab = {152, 408, 128, ui_tokens::kMinimumTouchHeight};
-constexpr Rect kMomTab = {280, 408, 128, ui_tokens::kMinimumTouchHeight};
-constexpr Rect kHomeMenu = {736, 8, 56, ui_tokens::kButtonHeight};
-// Dashboard "this week" rows. The same rectangles are drawn and hit-tested:
-// baby development opens Baby; mother changes and daily advice open Mom.
-constexpr Rect kHomeRows[3] = {
-    {32, 284, 352, ui_tokens::kButtonHeight}, {32, 340, 352, ui_tokens::kButtonHeight}, {32, 396, 352, ui_tokens::kButtonHeight}};
-
-constexpr Rect kPortraitKeyRects[] = {
-    {24, 278, 132, 72}, {174, 278, 132, 72}, {324, 278, 132, 72},
-    {24, 366, 132, 72}, {174, 366, 132, 72}, {324, 366, 132, 72},
-    {24, 454, 132, 72}, {174, 454, 132, 72}, {324, 454, 132, 72},
-    {24, 542, 132, 72}, {174, 542, 132, 72}, {324, 542, 132, 72},
-};
-constexpr Rect kPortraitBackRect = {24, 678, 432, ui_tokens::kButtonHeight};
-constexpr Rect kPortraitDueSourceRect = {24, 150, 432, 190};
-constexpr Rect kPortraitLmpSourceRect = {24, 370, 432, 190};
-constexpr Rect kPortraitEditRect = {336, 20, 120,
-                                    ui_tokens::kMinimumTouchHeight};
-constexpr Rect kPortraitOverviewTab = {24, 728, 144, ui_tokens::kMinimumTouchHeight};
-constexpr Rect kPortraitBabyTab = {168, 728, 144, ui_tokens::kMinimumTouchHeight};
-constexpr Rect kPortraitMomTab = {312, 728, 144, ui_tokens::kMinimumTouchHeight};
-constexpr Rect kPortraitHomeMenu = {416, 8, 56, ui_tokens::kButtonHeight};
-constexpr Rect kPortraitHomeRows[3] = {
-    {24, 628, 432, ui_tokens::kMinimumTouchHeight}, {24, 676, 432, ui_tokens::kMinimumTouchHeight}, {24, 724, 432, ui_tokens::kMinimumTouchHeight}};
 constexpr PregnancyAction kHomeRowActions[3] = {
     PregnancyAction::ShowBaby, PregnancyAction::ShowMom,
     PregnancyAction::ShowMom};
@@ -296,7 +306,7 @@ void render_keypad(Canvas &canvas, bool portrait) {
   for (size_t index = 0U; index < 12U; ++index) {
     const bool primary = index == 11U;
     const int scale = index == 9U || index == 11U ? 2 : 4;
-    draw_button(canvas, portrait ? kPortraitKeyRects[index] : kKeyRects[index],
+    draw_button(canvas, layout_for(portrait).keys[index],
                 kKeyLabels[index], primary, scale);
   }
 }
@@ -308,9 +318,8 @@ void render_setup(Canvas &canvas, const char *title, const char *caption,
   if (portrait) {
     canvas.draw_text(24, 24, title, 4, GrayLevel::Black);
     canvas.draw_text(24, 66, caption, 1, GrayLevel::Black);
-    constexpr Rect kPortraitInputRect = {24, 102, 432, 76};
-    draw_beveled_rect(canvas, kPortraitInputRect, GrayLevel::Black);
-    canvas.draw_text(kPortraitInputRect.x + 18, kPortraitInputRect.y + 24,
+    draw_beveled_rect(canvas, kPortrait.input, GrayLevel::Black);
+    canvas.draw_text(kPortrait.input.x + 18, kPortrait.input.y + 24,
                      value, 3, GrayLevel::Black);
     canvas.draw_text(24, 204,
                      input_error ? "CHECK THE DATE AND TRY AGAIN"
@@ -318,16 +327,15 @@ void render_setup(Canvas &canvas, const char *title, const char *caption,
                      2, GrayLevel::Black);
     canvas.draw_text(24, 242, "SAVED ONLY ON THIS DEVICE", 1, GrayLevel::Black);
     if (can_cancel)
-      draw_button(canvas, kPortraitBackRect, "CANCEL", false, 3);
+      draw_button(canvas, kPortrait.back, "CANCEL", false, 3);
     render_keypad(canvas, true);
     return;
   }
   canvas.draw_text(30, 28, title, 4, GrayLevel::Black);
   canvas.draw_text(30, 72, caption, 2, GrayLevel::Black);
 
-  constexpr Rect kInputRect = {30, 118, 430, 86};
-  draw_beveled_rect(canvas, kInputRect, GrayLevel::Black);
-  canvas.draw_text(kInputRect.x + 20, kInputRect.y + 27, value, 4,
+  draw_beveled_rect(canvas, kLandscape.input, GrayLevel::Black);
+  canvas.draw_text(kLandscape.input.x + 20, kLandscape.input.y + 27, value, 4,
                    GrayLevel::Black);
 
   canvas.draw_text(30, 235,
@@ -337,7 +345,7 @@ void render_setup(Canvas &canvas, const char *title, const char *caption,
   canvas.draw_text(30, 278, "SAVED ONLY ON THIS DEVICE", 2, GrayLevel::Black);
 
   if (can_cancel) {
-    draw_button(canvas, kBackRect, "CANCEL", false, 3);
+    draw_button(canvas, kLandscape.back, "CANCEL", false, 3);
   }
   render_keypad(canvas, false);
 }
@@ -366,29 +374,29 @@ void pregnancy_page_render_source_setup(Canvas &canvas, bool can_cancel) {
     canvas.draw_text(24, 26, ui_text("PREGNANCY SETUP"), 4, GrayLevel::Black);
     canvas.draw_text(24, 72, ui_text("CHOOSE THE DATE YOU KNOW"), 2,
                      GrayLevel::Black);
-    draw_button(canvas, kPortraitDueSourceRect, ui_text("ESTIMATED DUE DATE"),
+    draw_button(canvas, kPortrait.due_source, ui_text("ESTIMATED DUE DATE"),
                 true, 3);
-    draw_button(canvas, kPortraitLmpSourceRect,
+    draw_button(canvas, kPortrait.lmp_source,
                 ui_text("LAST MENSTRUAL PERIOD"), false, 3);
     ui_draw_wrapped_text_pixels(
         canvas, ui_tokens::kContentMargin, 594, 432,
         ui_text("A CLINICIAN-CONFIRMED DUE DATE IS PREFERRED"),
         ui_tokens::kSecondaryBody, GrayLevel::Black, 2, 2, FontWeight::Regular);
     if (can_cancel)
-      draw_button(canvas, kPortraitBackRect, "CANCEL", false, 3);
+      draw_button(canvas, kPortrait.back, "CANCEL", false, 3);
     return;
   }
   canvas.draw_text(42, 28, ui_text("PREGNANCY SETUP"), 5, GrayLevel::Black);
   canvas.draw_text(42, 86, ui_text("CHOOSE THE DATE YOU KNOW"), 2,
                    GrayLevel::Black);
-  draw_button(canvas, kDueSourceRect, ui_text("ESTIMATED DUE DATE"), true, 3);
-  draw_button(canvas, kLmpSourceRect, ui_text("LAST MENSTRUAL PERIOD"), false,
+  draw_button(canvas, kLandscape.due_source, ui_text("ESTIMATED DUE DATE"), true, 3);
+  draw_button(canvas, kLandscape.lmp_source, ui_text("LAST MENSTRUAL PERIOD"), false,
               3);
   canvas.draw_text(54, 350,
                    ui_text("A CLINICIAN-CONFIRMED DUE DATE IS PREFERRED"), 2,
                    GrayLevel::Black);
   if (can_cancel)
-    draw_button(canvas, kBackRect, "CANCEL", false, 3);
+    draw_button(canvas, kLandscape.back, "CANCEL", false, 3);
 }
 
 void pregnancy_page_render_profile_date_setup(Canvas &canvas,
@@ -486,14 +494,14 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
     draw_baby_icon(canvas, 44, 588, GrayLevel::Black);
     canvas.draw_text_pixels(82, 588, "本周成长", ui_tokens::kCardTitle, GrayLevel::Black);
     canvas.draw_line(44, 624, 436, 624, GrayLevel::Black);
-    draw_home_row(canvas, kPortraitHomeRows[0], draw_ruler_icon,
+    draw_home_row(canvas, kPortrait.rows[0], draw_ruler_icon,
                   content.baby_development_zh, true, false);
-    draw_home_row(canvas, kPortraitHomeRows[1], draw_heart_icon,
+    draw_home_row(canvas, kPortrait.rows[1], draw_heart_icon,
                   content.mother_changes_zh, true, true);
-    draw_home_row(canvas, kPortraitHomeRows[2], draw_reminder_icon,
+    draw_home_row(canvas, kPortrait.rows[2], draw_reminder_icon,
                   content.daily_advice_zh, true, true);
 
-    draw_menu_button(canvas, kPortraitHomeMenu);
+    draw_menu_button(canvas, kPortrait.menu);
     return;
   }
 
@@ -546,11 +554,11 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
   canvas.draw_text_pixels(92, 232, "本周成长", ui_tokens::kSectionHeading, GrayLevel::Black);
   canvas.draw_line(52, 276, 364, 276, GrayLevel::Black);
 
-  draw_home_row(canvas, kHomeRows[0], draw_ruler_icon,
+  draw_home_row(canvas, kLandscape.rows[0], draw_ruler_icon,
                 content.baby_development_zh, false, false);
-  draw_home_row(canvas, kHomeRows[1], draw_heart_icon,
+  draw_home_row(canvas, kLandscape.rows[1], draw_heart_icon,
                 content.mother_changes_zh, false, true);
-  draw_home_row(canvas, kHomeRows[2], draw_reminder_icon,
+  draw_home_row(canvas, kLandscape.rows[2], draw_reminder_icon,
                 content.daily_advice_zh, false, true);
 
   pixel_asset_draw_centered(canvas, 592, 204,
@@ -570,7 +578,7 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
                             "—  用熟悉的东西感受宝宝正在长大  —", ui_tokens::kSecondaryBody,
                             GrayLevel::Black, FontWeight::Regular);
 
-  draw_menu_button(canvas, kHomeMenu);
+  draw_menu_button(canvas, kLandscape.menu);
 }
 
 void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
@@ -586,7 +594,7 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
                         : (page == PregnancyPage::Baby ? "BABY" : "MOM"));
   if (portrait_layout(canvas)) {
     canvas.draw_text(24, 22, title, 3, GrayLevel::Black);
-    draw_button(canvas, kPortraitEditRect, chinese ? "返回" : "HOME", false, 2);
+    draw_button(canvas, kPortrait.home, chinese ? "返回" : "HOME", false, 2);
     canvas.draw_line(24, 82, 456, 82, GrayLevel::Black);
     canvas.draw_text(24, 108, chinese ? "孕周" : "WEEK", 2, GrayLevel::Black);
     char stat[20] = {};
@@ -638,10 +646,10 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
                                    : content.daily_advice,
                            2, GrayLevel::Black, 4, 8);
     }
-    draw_button(canvas, kPortraitOverviewTab, ui_text("OVERVIEW"), false, 2);
-    draw_button(canvas, kPortraitBabyTab, ui_text("BABY"),
+    draw_button(canvas, kPortrait.tabs[0], ui_text("OVERVIEW"), false, 2);
+    draw_button(canvas, kPortrait.tabs[1], ui_text("BABY"),
                 page == PregnancyPage::Baby, 2);
-    draw_button(canvas, kPortraitMomTab, ui_text("MOM"),
+    draw_button(canvas, kPortrait.tabs[2], ui_text("MOM"),
                 page == PregnancyPage::Mom, 2);
     return;
   }
@@ -653,7 +661,7 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
               : (page == PregnancyPage::Baby ? "THIS WEEK'S DEVELOPMENT"
                                              : "CHANGES AND GENTLE REMINDERS"),
       2, GrayLevel::Black);
-  draw_button(canvas, kEditRect, chinese ? "返回首页" : "HOME", false, 2);
+  draw_button(canvas, kLandscape.home, chinese ? "返回首页" : "HOME", false, 2);
   canvas.draw_line(214, 86, 214, 348, GrayLevel::Black);
   if (page == PregnancyPage::Baby) {
     canvas.draw_text(24, 108, chinese ? "孕周" : "WEEK", 2, GrayLevel::Black);
@@ -726,10 +734,43 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
     canvas.draw_text(614, 287, chinese ? "联系医护" : "CONTACT CARE", 2,
                      GrayLevel::Black);
   }
-  draw_button(canvas, kOverviewTab, ui_text("OVERVIEW"), false, 2);
-  draw_button(canvas, kBabyTab, ui_text("BABY"), page == PregnancyPage::Baby,
+  draw_button(canvas, kLandscape.tabs[0], ui_text("OVERVIEW"), false, 2);
+  draw_button(canvas, kLandscape.tabs[1], ui_text("BABY"), page == PregnancyPage::Baby,
               2);
-  draw_button(canvas, kMomTab, ui_text("MOM"), page == PregnancyPage::Mom, 2);
+  draw_button(canvas, kLandscape.tabs[2], ui_text("MOM"), page == PregnancyPage::Mom, 2);
+}
+
+size_t pregnancy_page_targets(PregnancyPage page, bool can_cancel, int width,
+                              int height, PregnancyTarget *out,
+                              size_t capacity) {
+  const PageLayout &layout = layout_for(height > width);
+  size_t count = 0U;
+  const auto add = [&](const Rect &rect, PregnancyAction action) {
+    if (out != nullptr && count < capacity)
+      out[count] = {rect, action};
+    ++count;
+  };
+  if (page == PregnancyPage::SourceSetup) {
+    add(layout.due_source, PregnancyAction::SelectDueDate);
+    add(layout.lmp_source, PregnancyAction::SelectLmp);
+    if (can_cancel)
+      add(layout.back, PregnancyAction::Back);
+  } else if (page == PregnancyPage::Dashboard) {
+    add(layout.menu, PregnancyAction::OpenLauncher);
+    for (size_t row = 0U; row < 3U; ++row)
+      add(layout.rows[row], kHomeRowActions[row]);
+  } else if (page == PregnancyPage::Baby || page == PregnancyPage::Mom) {
+    add(layout.home, PregnancyAction::ShowOverview);
+    add(layout.tabs[0], PregnancyAction::ShowOverview);
+    add(layout.tabs[1], PregnancyAction::ShowBaby);
+    add(layout.tabs[2], PregnancyAction::ShowMom);
+  } else {
+    if (can_cancel)
+      add(layout.back, PregnancyAction::Back);
+    for (size_t index = 0U; index < 12U; ++index)
+      add(layout.keys[index], kKeyActions[index]);
+  }
+  return count < capacity ? count : capacity;
 }
 
 PregnancyAction pregnancy_page_action_at(PregnancyPage page, bool can_cancel,
@@ -737,46 +778,12 @@ PregnancyAction pregnancy_page_action_at(PregnancyPage page, bool can_cancel,
   if (x < 0 || y < 0 || x >= width || y >= height) {
     return PregnancyAction::None;
   }
-  const bool portrait = height > width;
-  if (page == PregnancyPage::SourceSetup) {
-    if ((portrait ? kPortraitDueSourceRect : kDueSourceRect).contains(x, y))
-      return PregnancyAction::SelectDueDate;
-    if ((portrait ? kPortraitLmpSourceRect : kLmpSourceRect).contains(x, y))
-      return PregnancyAction::SelectLmp;
-    return can_cancel &&
-                   (portrait ? kPortraitBackRect : kBackRect).contains(x, y)
-               ? PregnancyAction::Back
-               : PregnancyAction::None;
-  }
-  if (page == PregnancyPage::Dashboard || page == PregnancyPage::Baby ||
-      page == PregnancyPage::Mom) {
-    if (page == PregnancyPage::Dashboard) {
-      if ((portrait ? kPortraitHomeMenu : kHomeMenu).contains(x, y))
-        return PregnancyAction::OpenLauncher;
-      for (size_t row = 0U; row < 3U; ++row) {
-        if ((portrait ? kPortraitHomeRows[row] : kHomeRows[row]).contains(x, y))
-          return kHomeRowActions[row];
-      }
-      return PregnancyAction::None;
-    }
-    if ((portrait ? kPortraitEditRect : kEditRect).contains(x, y))
-      return PregnancyAction::ShowOverview;
-    if ((portrait ? kPortraitOverviewTab : kOverviewTab).contains(x, y))
-      return PregnancyAction::ShowOverview;
-    if ((portrait ? kPortraitBabyTab : kBabyTab).contains(x, y))
-      return PregnancyAction::ShowBaby;
-    if ((portrait ? kPortraitMomTab : kMomTab).contains(x, y))
-      return PregnancyAction::ShowMom;
-    return PregnancyAction::None;
-  }
-  if (can_cancel && (portrait ? kPortraitBackRect : kBackRect).contains(x, y)) {
-    return PregnancyAction::Back;
-  }
-  for (size_t index = 0U; index < 12U; ++index) {
-    if ((portrait ? kPortraitKeyRects[index] : kKeyRects[index])
-            .contains(x, y)) {
-      return kKeyActions[index];
-    }
+  PregnancyTarget targets[16];
+  const size_t count = pregnancy_page_targets(
+      page, can_cancel, width, height, targets, sizeof(targets) / sizeof(targets[0]));
+  for (size_t index = 0U; index < count; ++index) {
+    if (targets[index].rect.contains(x, y))
+      return targets[index].action;
   }
   return PregnancyAction::None;
 }
