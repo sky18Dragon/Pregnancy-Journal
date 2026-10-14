@@ -22,6 +22,12 @@ struct WeightPageState {
   WeightProfileSettings profile = {};
 };
 struct WeightHit { WeightAction action = WeightAction::None; size_t row = 0U; };
+// One tappable rectangle of a page; `row` is the history row for SelectRecord.
+struct WeightTarget { prototype_ui::Rect rect; WeightAction action; size_t row = 0U; };
+// Lists the page's hit targets (at most `capacity` written; returns the count
+// written). The hit test is the first target containing the point.
+size_t weight_page_targets(WeightPage page, int width, int height,
+                           WeightTarget *out, size_t capacity);
 WeightHit weight_page_action_at(WeightPage page, int width, int height, int x, int y);
 void weight_page_render(Canvas &canvas, const WeightService &service,
                         const WeightProfileSettings &settings, const WeightPageState &state);

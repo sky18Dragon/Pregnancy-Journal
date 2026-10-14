@@ -90,31 +90,48 @@ uint16_t weight_stored_value(uint16_t value, bool pounds) {
   return pounds ? static_cast<uint16_t>((static_cast<uint32_t>(value) * 453592U + 500000U) / 1000000U) : value;
 }
 
-WeightHit weight_page_action_at(WeightPage page, int width, int height, int x, int y) {
-  if (prototype_ui::header_action_rect(width, height).contains(x, y)) return {WeightAction::Back};
+// The hit targets of a page, built from the same rectangle functions the
+// renderer draws with. weight_page_action_at() is the first target containing
+// the point, so drawing and hit-testing cannot drift apart.
+size_t weight_page_targets(WeightPage page, int width, int height,
+                           WeightTarget *out, size_t capacity) {
+  size_t count = 0U;
+  const auto add = [&](const Rect &rect, WeightAction action, size_t row = 0U) {
+    if (out != nullptr && count < capacity) out[count] = {rect, action, row};
+    ++count;
+  };
+  add(prototype_ui::header_action_rect(width, height), WeightAction::Back);
   if (page == WeightPage::Dashboard) {
-    if (unit(width, height).contains(x, y)) return {WeightAction::ToggleUnit};
-    if (trend_toggle(width, height).contains(x, y)) return {WeightAction::ToggleTrend};
+    add(unit(width, height), WeightAction::ToggleUnit);
+    add(trend_toggle(width, height), WeightAction::ToggleTrend);
     const WeightAction actions[] = {WeightAction::AddToday, WeightAction::History, WeightAction::Profile};
-    for (size_t i = 0U; i < 3U; ++i) if (footer(i, 3U, width, height).contains(x, y)) return {actions[i]};
+    for (size_t i = 0U; i < 3U; ++i) add(footer(i, 3U, width, height), actions[i]);
   } else if (page == WeightPage::History) {
     for (size_t i = 0U; i < kWeightHistoryRows; ++i)
-      if (history_row(i, width, height).contains(x, y)) return {WeightAction::SelectRecord, i};
-    if (footer(0U, 2U, width, height).contains(x, y)) return {WeightAction::Previous};
-    if (footer(1U, 2U, width, height).contains(x, y)) return {WeightAction::Next};
+      add(history_row(i, width, height), WeightAction::SelectRecord, i);
+    add(footer(0U, 2U, width, height), WeightAction::Previous);
+    add(footer(1U, 2U, width, height), WeightAction::Next);
   } else if (page == WeightPage::Editor) {
     const WeightAction actions[] = {WeightAction::MinusOne, WeightAction::MinusTenth, WeightAction::PlusTenth, WeightAction::PlusOne};
-    for (size_t i = 0U; i < 4U; ++i) if (adjustment(i, width, height).contains(x, y)) return {actions[i]};
-    if (footer(0U, 2U, width, height).contains(x, y)) return {WeightAction::Delete};
-    if (footer(1U, 2U, width, height).contains(x, y)) return {WeightAction::Save};
+    for (size_t i = 0U; i < 4U; ++i) add(adjustment(i, width, height), actions[i]);
+    add(footer(0U, 2U, width, height), WeightAction::Delete);
+    add(footer(1U, 2U, width, height), WeightAction::Save);
   } else if (page == WeightPage::Profile) {
     const WeightAction actions[] = {WeightAction::HeightDown, WeightAction::HeightUp, WeightAction::BaselineDown, WeightAction::BaselineUp};
-    for (size_t i = 0U; i < 4U; ++i) if (profile_adjust(i, width, height).contains(x, y)) return {actions[i]};
-    if (footer(0U, 1U, width, height).contains(x, y)) return {WeightAction::Save};
+    for (size_t i = 0U; i < 4U; ++i) add(profile_adjust(i, width, height), actions[i]);
+    add(footer(0U, 1U, width, height), WeightAction::Save);
   } else {
-    if (footer(0U, 2U, width, height).contains(x, y)) return {WeightAction::Cancel};
-    if (footer(1U, 2U, width, height).contains(x, y)) return {WeightAction::Confirm};
+    add(footer(0U, 2U, width, height), WeightAction::Cancel);
+    add(footer(1U, 2U, width, height), WeightAction::Confirm);
   }
+  return count < capacity ? count : capacity;
+}
+
+WeightHit weight_page_action_at(WeightPage page, int width, int height, int x, int y) {
+  WeightTarget targets[16];
+  const size_t count = weight_page_targets(page, width, height, targets, 16U);
+  for (size_t i = 0U; i < count; ++i)
+    if (targets[i].rect.contains(x, y)) return {targets[i].action, targets[i].row};
   return {};
 }
 

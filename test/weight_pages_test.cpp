@@ -17,7 +17,35 @@ void preview(Canvas &canvas, const char *path) {
     }
 }
 
+// Geometry contract: every target is on screen, at least 48 px each way, does
+// not overlap another target, and the hit test returns the target under the
+// point. (The segmented unit/trend toggles are single targets.)
+void test_target_contract() {
+  const WeightPage pages[] = {WeightPage::Dashboard, WeightPage::Editor, WeightPage::History,
+                              WeightPage::Profile, WeightPage::ReplaceConfirm, WeightPage::DeleteConfirm};
+  const int sizes[2][2] = {{800, 480}, {480, 800}};
+  for (const auto &size : sizes) {
+    for (WeightPage page : pages) {
+      WeightTarget targets[16];
+      const size_t count = weight_page_targets(page, size[0], size[1], targets, 16U);
+      assert(count >= 3U);
+      for (size_t a = 0U; a < count; ++a) {
+        const auto &r = targets[a].rect;
+        assert(r.x >= 0 && r.y >= 0 && r.x + r.width <= size[0] && r.y + r.height <= size[1]);
+        assert(r.height >= 48 && r.width >= 48);
+        const WeightHit hit = weight_page_action_at(page, size[0], size[1], r.x + r.width / 2, r.y + r.height / 2);
+        assert(hit.action == targets[a].action && hit.row == targets[a].row);
+        for (size_t b = a + 1U; b < count; ++b) {
+          const auto &o = targets[b].rect;
+          assert(!(r.x < o.x + o.width && o.x < r.x + r.width && r.y < o.y + o.height && o.y < r.y + r.height));
+        }
+      }
+    }
+  }
+}
+
 int main() {
+  test_target_contract();
   for (uint16_t value = 300U; value <= 2000U; ++value)
     assert(weight_stored_value(weight_display_value(value, true), true) == value);
   WeightService service;

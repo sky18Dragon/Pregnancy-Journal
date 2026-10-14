@@ -136,9 +136,11 @@ void remember_press_target(int x, int y) {
     const auto back = prototype_ui::header_action_rect(w, h);
     found = retry.contains(x, y) ? (target = retry, true) : back.contains(x, y) ? (target = back, true) : false;
   } else {
-    found = press_feedback::hit_bounds(w, h, x, y, [&](int px, int py) {
-      return static_cast<int>(weight_page_action_at(s_state.page, w, h, px, py).action);
-    }, target);
+    WeightTarget targets[16];
+    const size_t count = weight_page_targets(s_state.page, w, h, targets, 16U);
+    for (size_t i = 0U; i < count && !found; ++i) {
+      if (targets[i].rect.contains(x, y)) { target = targets[i].rect; found = true; }
+    }
   }
   if (found) s_press.set(target);
 }
