@@ -31,7 +31,8 @@ The canonical tokens are in `src/ui/ui_tokens.h`:
 | Safe/content margin | 24 px |
 | Minimum touch height | 48 px |
 | Preferred/button height | 56 px |
-| Body text | 18 px |
+| Body / operation text (minimum) | 18 px |
+| Caption (subtitle, footer, chart tick; minimum) | 16 px |
 | Section heading | 24 px |
 | Page heading | 28 px |
 | Display number | 52–56 px |

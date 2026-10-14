@@ -1,9 +1,19 @@
 #include "text_layout.h"
 
+#include <cctype>
 #include <cstddef>
 #include <cstring>
 
 #include "font.h"
+
+#ifdef UI_TEXT_OBSERVER
+namespace {
+TextTruncationObserver s_truncation_observer = nullptr;
+}
+void ui_set_truncation_observer(TextTruncationObserver observer) {
+  s_truncation_observer = observer;
+}
+#endif
 
 int ui_draw_wrapped_text_pixels(Canvas &canvas, int x, int y,
                                 int maximum_width, const char *text,
@@ -20,7 +30,8 @@ int ui_draw_wrapped_text_pixels(Canvas &canvas, int x, int y,
       ++cursor;
     const char *probe = cursor;
     size_t accepted = 0U;
-    size_t last_space = 0U;
+    size_t break_length = 0U; // line length at the last break opportunity
+    size_t break_skip = 0U;   // characters consumed after the break (the space)
     char candidate[192] = {};
     while (*probe != '\0') {
       const char *next = probe;
@@ -35,8 +46,17 @@ int ui_draw_wrapped_text_pixels(Canvas &canvas, int x, int y,
       if (font_text_width_pixels(candidate, pixel_size, weight) > maximum_width)
         break;
       accepted = candidate_length;
-      if (codepoint == static_cast<uint32_t>(' '))
-        last_space = static_cast<size_t>(probe - cursor);
+      if (codepoint == static_cast<uint32_t>(' ')) {
+        break_length = static_cast<size_t>(probe - cursor);
+        break_skip = 1U;
+      } else if (codepoint == static_cast<uint32_t>('-') && probe > cursor &&
+                 std::isalpha(static_cast<unsigned char>(probe[-1])) != 0 &&
+                 std::isalpha(static_cast<unsigned char>(*next)) != 0) {
+        // A hyphen between letters is a break opportunity; it stays at the end
+        // of the line (so "-50%" or "10-12" are never split).
+        break_length = candidate_length;
+        break_skip = 0U;
+      }
       probe = next;
     }
     if (accepted == 0U) {
@@ -47,17 +67,24 @@ int ui_draw_wrapped_text_pixels(Canvas &canvas, int x, int y,
       accepted = static_cast<size_t>(next - cursor);
     }
     size_t line_length = accepted;
-    if (*probe != '\0' && last_space > 0U)
-      line_length = last_space;
+    const bool wrap_at_break = *probe != '\0' && break_length > 0U;
+    if (wrap_at_break)
+      line_length = break_length;
     while (line_length > 0U && cursor[line_length - 1U] == ' ')
       --line_length;
     char line[192] = {};
     std::memcpy(line, cursor, line_length);
     canvas.draw_text_pixels(x, y + rendered * (pixel_size + line_gap), line,
                             pixel_size, color, weight);
-    cursor += (*probe != '\0' && last_space > 0U) ? last_space + 1U : accepted;
+    cursor += wrap_at_break ? break_length + break_skip : accepted;
     ++rendered;
   }
+#ifdef UI_TEXT_OBSERVER
+  while (*cursor == ' ')
+    ++cursor;
+  if (*cursor != '\0' && s_truncation_observer != nullptr)
+    s_truncation_observer(text);
+#endif
   return rendered;
 }
 

@@ -25,6 +25,11 @@ constexpr int kFooterHeight = 56;
 bool portrait_layout(int width, int height);
 Rect header_action_rect(int width, int height);
 void begin_page(Canvas &canvas);
+// Draws already-translated `text` centred in `rect`. A label wider than the
+// rectangle is split over two lines instead of spilling out of it.
+void draw_centered_label(Canvas &canvas, const Rect &rect, const char *text,
+                         uint8_t pixel_size, GrayLevel color,
+                         FontWeight weight = FontWeight::Medium);
 void draw_button(Canvas &canvas, const Rect &rect, const char *label,
                  bool filled = false, uint8_t scale = 2);
 void draw_header(Canvas &canvas, const char *title, const char *subtitle,

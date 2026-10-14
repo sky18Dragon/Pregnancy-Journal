@@ -269,7 +269,7 @@ compile_and_run press_feedback_test -Isrc/ui -Isrc/ui/assets \
     src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp
 compile_and_run app_launcher_test -Isrc/app -Isrc/ui -Isrc/ui/assets \
     test/app_launcher_test.cpp src/ui/app_pages.cpp src/ui/canvas.cpp \
-    src/ui/font.cpp src/ui/prototype_ui.cpp src/ui/ui_language.cpp \
+    src/ui/font.cpp src/ui/prototype_ui.cpp src/ui/text_layout.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp
 compile_and_run font_test_screen_test -Isrc/ui -Isrc/ui/assets \
     test/font_test_screen_test.cpp src/ui/font_test_screen.cpp \

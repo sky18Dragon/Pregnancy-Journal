@@ -222,12 +222,28 @@ void Canvas::draw_text(int x, int y, const char *text, uint8_t scale,
   draw_text_pixels(x, y, text, font_ui_pixel_size(scale), color, weight);
 }
 
+#ifdef UI_TEXT_OBSERVER
+namespace {
+CanvasTextObserver s_text_observer = nullptr;
+}
+void canvas_set_text_observer(CanvasTextObserver observer) {
+  s_text_observer = observer;
+}
+#endif
+
 void Canvas::draw_text_pixels(int x, int y, const char *text,
                               uint8_t pixel_size, GrayLevel color,
                               FontWeight weight) {
   if (text == nullptr || pixel_size == 0U) {
     return;
   }
+#ifdef UI_TEXT_OBSERVER
+  if (s_text_observer != nullptr) {
+    const char *shown = ui_text(text);
+    s_text_observer(x, y, font_text_width_pixels(shown, pixel_size, weight),
+                    pixel_size, shown);
+  }
+#endif
 
   const ChineseFontStrike &strike = chinese_font_strike(pixel_size, weight);
   int cursor_x = x;

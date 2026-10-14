@@ -89,13 +89,10 @@ bool portrait_layout(const Canvas &canvas) {
 
 void draw_centered_text_in_rect(Canvas &canvas, const Rect &rect,
                                 const char *text, int scale, GrayLevel color) {
-  const int width =
-      font_text_width(text, static_cast<uint8_t>(scale), FontWeight::Medium);
-  const int x = rect.x + (rect.width - width) / 2;
-  const int y =
-      rect.y +
-      (rect.height - font_ui_pixel_size(static_cast<uint8_t>(scale))) / 2;
-  canvas.draw_text(x, y, text, scale, color, FontWeight::Medium);
+  prototype_ui::draw_centered_label(
+      canvas, {rect.x, rect.y, rect.width, rect.height}, text,
+      font_ui_pixel_size(static_cast<uint8_t>(scale)), color,
+      FontWeight::Medium);
 }
 
 void draw_beveled_rect(Canvas &canvas, const Rect &rect, GrayLevel color) {
@@ -262,12 +259,15 @@ void draw_home_row(Canvas &canvas, const Rect &row,
     canvas.draw_line(row.x + 20, row.y, row.x + row.width - 20, row.y,
                      GrayLevel::Black);
   icon(canvas, row.x + 20, row.y + 12, GrayLevel::Black);
+  // Body copy: 18 px, at most two lines (every week fits; see widths in tests).
   if (portrait) {
-    ui_draw_wrapped_text_pixels(canvas, row.x + 58, row.y + 17, 326, text, 14,
-                                GrayLevel::Black, 1, 4, FontWeight::Regular);
+    ui_draw_wrapped_text_pixels(canvas, row.x + 58, row.y + 4, 326, text,
+                                ui_tokens::kBody, GrayLevel::Black, 2, 4,
+                                FontWeight::Regular);
   } else {
-    ui_draw_wrapped_text_pixels(canvas, row.x + 60, row.y + 8, 272, text, 16,
-                                GrayLevel::Black, 2, 6, FontWeight::Regular);
+    ui_draw_wrapped_text_pixels(canvas, row.x + 60, row.y + 7, 272, text,
+                                ui_tokens::kBody, GrayLevel::Black, 2, 6,
+                                FontWeight::Regular);
   }
   prototype_ui::draw_chevron(canvas, row.x + row.width - (portrait ? 28 : 18),
                              row.y + (portrait ? 16 : 20));
@@ -370,9 +370,10 @@ void pregnancy_page_render_source_setup(Canvas &canvas, bool can_cancel) {
                 true, 3);
     draw_button(canvas, kPortraitLmpSourceRect,
                 ui_text("LAST MENSTRUAL PERIOD"), false, 3);
-    canvas.draw_text(24, 594,
-                     ui_text("A CLINICIAN-CONFIRMED DUE DATE IS PREFERRED"), 1,
-                     GrayLevel::Black);
+    ui_draw_wrapped_text_pixels(
+        canvas, 24, 594, 432,
+        ui_text("A CLINICIAN-CONFIRMED DUE DATE IS PREFERRED"),
+        ui_tokens::kSecondaryBody, GrayLevel::Black, 2, 2, FontWeight::Regular);
     if (can_cancel)
       draw_button(canvas, kPortraitBackRect, "CANCEL", false, 3);
     return;
@@ -454,11 +455,11 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
     constexpr int kCountdownHeartGap = 8;
     constexpr int kCountdownHeartWidth = 24;
     const int countdown_width =
-        font_text_width_pixels(countdown, 16, FontWeight::Regular);
+        font_text_width_pixels(countdown, 18, FontWeight::Regular);
     const int countdown_group_width =
         countdown_width + kCountdownHeartGap + kCountdownHeartWidth;
     const int countdown_x = (canvas.width() - countdown_group_width) / 2;
-    canvas.draw_text_pixels(countdown_x, 174, countdown, 16, GrayLevel::Black,
+    canvas.draw_text_pixels(countdown_x, 174, countdown, 18, GrayLevel::Black,
                             FontWeight::Regular);
     draw_heart_icon(canvas, countdown_x + countdown_width + kCountdownHeartGap,
                     171, GrayLevel::Black);
@@ -477,7 +478,7 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
                               title_pixels, GrayLevel::Black,
                               FontWeight::Medium);
     draw_centered_text_pixels(canvas, {24, 548, 432, 20},
-                              "—  用熟悉的东西感受宝宝正在长大  —", 14,
+                              "—  用熟悉的东西感受宝宝正在长大  —", 16,
                               GrayLevel::Black, FontWeight::Regular);
 
     constexpr Rect kGrowthCard = {24, 574, 432, 200};
@@ -533,10 +534,10 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
     std::snprintf(countdown, sizeof(countdown), "距离预产期还有 %d 天",
                   progress.days_until_due_date);
   }
-  canvas.draw_text_pixels(32, 168, countdown, 16, GrayLevel::Black,
+  canvas.draw_text_pixels(32, 168, countdown, 18, GrayLevel::Black,
                           FontWeight::Regular);
   draw_heart_icon(
-      canvas, 40 + font_text_width_pixels(countdown, 16, FontWeight::Regular),
+      canvas, 40 + font_text_width_pixels(countdown, 18, FontWeight::Regular),
       165, GrayLevel::Black);
 
   constexpr Rect kGrowthCard = {32, 216, 352, 240};
@@ -566,7 +567,7 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
                             size_title_pixels, GrayLevel::Black,
                             FontWeight::Medium);
   draw_centered_text_pixels(canvas, {408, 408, 368, 20},
-                            "—  用熟悉的东西感受宝宝正在长大  —", 14,
+                            "—  用熟悉的东西感受宝宝正在长大  —", 16,
                             GrayLevel::Black, FontWeight::Regular);
 
   draw_menu_button(canvas, kHomeMenu);
@@ -599,7 +600,9 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
     std::snprintf(remaining, sizeof(remaining),
                   chinese ? "距离预产期约 %d 天" : "ABOUT %d DAYS TO DUE DATE",
                   progress.days_until_due_date);
-    canvas.draw_text(230, 180, remaining, 1, GrayLevel::Black);
+    ui_draw_wrapped_text_pixels(canvas, 230, 176, 226, remaining,
+                                ui_tokens::kSecondaryBody, GrayLevel::Black, 2, 2,
+                                FontWeight::Regular);
     canvas.draw_line(24, 220, 456, 220, GrayLevel::Black);
 
     if (page == PregnancyPage::Baby) {
@@ -685,8 +688,10 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
     canvas.draw_text(426, 287, content.baby_weight_text, 2, GrayLevel::Black);
     canvas.draw_text(614, 266, chinese ? "本周关键词" : "KEYWORD", 1,
                      GrayLevel::Black);
-    canvas.draw_text(614, 287, chinese ? "感知 · 活动" : "SENSES · MOTION", 2,
-                     GrayLevel::Black);
+    ui_draw_wrapped_text_pixels(canvas, 614, 287, 162,
+                                chinese ? "感知 · 活动" : "SENSES · MOTION",
+                                ui_tokens::kBody, GrayLevel::Black, 2, 2,
+                                FontWeight::Medium);
   } else {
     canvas.draw_text(24, 108, chinese ? "本周重点" : "THIS WEEK", 2,
                      GrayLevel::Black);
@@ -696,7 +701,7 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
     ui_draw_wrapped_text(canvas, 24, 254, 166,
                          chinese ? "关注身体变化，按医护建议安排产检。"
                                  : "NOTICE CHANGES AND FOLLOW YOUR CARE PLAN.",
-                         1, GrayLevel::Black, 3, 5);
+                         1, GrayLevel::Black, 4, 5);
     canvas.draw_text(238, 94,
                      chinese ? "身体负担正在逐渐增加"
                              : "YOUR BODY IS CARRYING MORE",

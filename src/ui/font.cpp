@@ -167,7 +167,9 @@ uint8_t font_ui_pixel_size(uint8_t scale) {
   if (scale == 0U) {
     return 0U;
   }
-  return scale == 1U ? 12U : static_cast<uint8_t>(7U * scale);
+  if (scale == 1U) return 16U;
+  if (scale == 2U) return 18U;
+  return static_cast<uint8_t>(7U * scale);
 }
 
 uint8_t font_ui_spacing(uint8_t scale) {

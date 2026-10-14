@@ -24,8 +24,9 @@ const FontGlyph &font_get_glyph(char character);
 bool font_decode_utf8(const char *&text, uint32_t &codepoint);
 
 // Maps the legacy integer scale to a unified UI text pixel height.
-// scale=1 intentionally maps to 12 px so secondary copy remains legible on
-// the physical e-paper panel; larger sizes preserve the 7 px scale rhythm.
+// 1 -> 16 px (secondary caption), 2 -> 18 px (body/operation text, the
+// minimum for anything the user must read to act), 3 and above keep the 7 px
+// rhythm (21, 28, ...). 12 px is not produced: it is not legible on the panel.
 uint8_t font_ui_pixel_size(uint8_t scale);
 
 // Returns the tracking used by the unified UI raster face.

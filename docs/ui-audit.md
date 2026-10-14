@@ -261,7 +261,7 @@ flowchart TD
 
 | # | 问题 | 位置 | 严重 |
 | --- | --- | --- | --- |
-| V1 | **字号大量低于自家规范**：`DESIGN.md` 规定正文 18 px，但页头副标题固定 14 px（`prototype_ui.cpp:34-35`）、启动器摘要/底部提示 14 px、仪表盘成长卡片正文 14 px、倒计时 16 px、胎动柱状图数字 14 px。`kMicro=12` 令牌虽定义，实际屏幕上 14 px 的 CJK 在 235 ppi 屏上约 1.5 mm，笔画 1 px，可读性差 | `ui_tokens.h`、`prototype_ui.cpp:34`、`pregnancy_pages.cpp:409-512`、`kick_pages.cpp:118-130`、`app_pages.cpp:78-98` | **高** |
+| V1 | **【已修复，待实机复测，2026-10-15】** 根因是旧 `scale` 映射（2→14 px）使所有按钮和标签都是 14 px；现改为 1→16、2→18，页头副标题、启动器、各页说明文字统一 ≥16 px，孕周首页卡片正文 18 px，并修复由此暴露的横竖屏重叠/越界/截断（预览新增字号与版面检查）。原问题：**字号大量低于自家规范**：`DESIGN.md` 规定正文 18 px，但页头副标题固定 14 px（`prototype_ui.cpp:34-35`）、启动器摘要/底部提示 14 px、仪表盘成长卡片正文 14 px、倒计时 16 px、胎动柱状图数字 14 px。`kMicro=12` 令牌虽定义，实际屏幕上 14 px 的 CJK 在 235 ppi 屏上约 1.5 mm，笔画 1 px，可读性差 | `ui_tokens.h`、`prototype_ui.cpp:34`、`pregnancy_pages.cpp:409-512`、`kick_pages.cpp:118-130`、`app_pages.cpp:78-98` | **高** |
 | V2 | **令牌几乎没被使用**：`ui_tokens::` 在 pregnancy_pages 仅 2 处、weight_pages 2 处、kick_pages **0 处**，settings_pages 21 处。字号/间距/坐标基本是页面内字面量，层级随页面不同 | `pregnancy_pages.cpp`、`kick_pages.cpp`、`weight_pages.cpp` | 高 |
 | V3 | 1 px 线条是主要分隔/描边手段（`kRuleStroke=1`、`kBorderStroke=1`），在真机上偏弱；而强调描边 3 px 令牌(`kEmphasisStroke`)几乎不用于选中态。选中/激活状态没有统一的视觉语言（反色 / 粗框 / 勾选不一） | `ui_tokens.h`，`kick_pages.cpp:146-147`（手工叠两层 draw_rect 做粗框），`prototype_ui.cpp:draw_button` | 中 |
 | V4 | 同类组件多套实现：`prototype_ui::draw_button` 与 `pregnancy_pages.cpp:231` 私有 `draw_button` 同名并存；圆角、斜切角、胶囊、粗框各页自画 | `pregnancy_pages.cpp:98-170,231` | 中 |
@@ -285,7 +285,7 @@ flowchart TD
 
 | # | 问题 | 位置 | 严重 |
 | --- | --- | --- | --- |
-| V8 | 竖屏启动器：副标题“Record, review and manage pregnancy information.”与右上“CLOSE”按钮重叠；底部提示 “TOP BUTTON CLOSES / DOUBLE-CLICK RETURNS HOME” 被右边缘截断 | `app_pages.cpp:55-98`（`build/ui_preview/launcher_portrait_en.png`） | 中 |
+| V8 | **【已修复】** 原问题：竖屏启动器：副标题“Record, review and manage pregnancy information.”与右上“CLOSE”按钮重叠；底部提示 “TOP BUTTON CLOSES / DOUBLE-CLICK RETURNS HOME” 被右边缘截断 | `app_pages.cpp:55-98`（`build/ui_preview/launcher_portrait_en.png`） | 中 |
 | V9 | 启动器卡片内部大片留白，序号“01”紧贴卡片左边框 | `app_pages.cpp:70-90` | 低 |
 
 ### 4.5 严重度汇总

@@ -14,6 +14,9 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 MIN_TOUCH = 48  # ui_tokens::kMinimumTouchHeight
+CAPTION_MIN = 16  # ui_tokens::kSecondaryBody: nothing smaller may be drawn
+# 16-17 px text is a caption tier: allowed for subtitles/footers/chart ticks only,
+# never for anything the user must read to act (review those by eye).
 
 
 def parse_meta(path):
@@ -24,6 +27,11 @@ def parse_meta(path):
             meta["w"], meta["h"] = int(parts[1]), int(parts[2])
         elif parts[0] in ("gray_dark", "gray_light"):
             meta[parts[0]] = int(parts[1])
+        elif parts[0] == "truncated":
+            meta.setdefault("truncated", []).append(line[len("truncated "):])
+        elif parts[0] == "text":
+            size, x, y, width = map(int, parts[1:5])
+            meta.setdefault("texts", []).append((size, x, y, width, " ".join(parts[5:])))
         elif parts[0] == "hit":
             meta["hits"].append((parts[1], *map(int, parts[2:6])))
     return meta
@@ -56,20 +64,58 @@ def render(mono_path):
         warnings.append(
             f"gray pixels before threshold: dark={meta.get('gray_dark', 0)} "
             f"light={meta.get('gray_light', 0)}")
+    texts = meta.get("texts", [])
+    fonts = [f"TRUNCATED (cut by line limit): {t}" for t in meta.get("truncated", [])]
+    for size, x, y, tw, text in texts:
+        if size < CAPTION_MIN:
+            fonts.append(f"FORBIDDEN {size}px: {text}")
+        elif size < 18:
+            fonts.append(f"caption {size}px: {text}")
+        if x < 0 or y < 0 or x + tw > w or y + size > h:
+            fonts.append(f"outside canvas ({x},{y},{tw}x{size}): {text}")
+    for i, (sa, xa, ya, wa, ta) in enumerate(texts):
+        for sb, xb, yb, wb, tb in texts[i + 1:]:
+            if xa < xb + wb and xb < xa + wa and ya < yb + sb and yb < ya + sa:
+                fonts.append(f"text overlap: '{ta}' / '{tb}'")
+    # A label whose centre lies inside a hit target must fit inside it.
+    for size, x, y, tw, text in texts:
+        cx, cy = x + tw // 2, y + size // 2
+        for name, hx, hy, hw, hh in meta["hits"]:
+            centred = abs(cx - (hx + hw // 2)) <= 6
+            if hx <= cx < hx + hw and hy <= cy < hy + hh and size >= 16 and centred:
+                if x < hx + 4 or x + tw > hx + hw - 4:
+                    fonts.append(f"label overflows target {name} ({hw}px): {text}")
     pressed = mono_path.with_suffix(".pressed.raw")
     if pressed.exists():
         Image.frombytes("L", (w, h), pressed.read_bytes()).convert("1").save(
             mono_path.with_suffix(".pressed.png"))
         pressed.unlink()
-    return warnings
+    return warnings, fonts
 
 
 def main():
     out = Path(sys.argv[1])
     rows = []
+    fontlint = {}
     for mono in sorted(out.glob("*.mono")):
-        warns = render(mono)
+        warns, fonts = render(mono)
         rows.append((mono.stem, warns))
+        page = mono.stem.rsplit("_", 2)[0]
+        for item in fonts:
+            fontlint.setdefault(page, {}).setdefault(item, []).append(
+                mono.stem[len(page) + 1:])
+    lines = []
+    for page in sorted(fontlint):
+        lines.append(f"## {page}")
+        for item, where in sorted(fontlint[page].items()):
+            lines.append(f"  [{','.join(sorted(set(where)))}] {item}")
+    (out / "fontlint.txt").write_text("\n".join(lines) + "\n")
+    forbidden = sum(1 for p in fontlint.values() for i in p if i.startswith("FORBIDDEN"))
+    caption = sum(1 for p in fontlint.values() for i in p if i.startswith("caption"))
+    other = sum(1 for p in fontlint.values() for i in p
+                if not i.startswith(("FORBIDDEN", "caption")))
+    print(f"font lint: {forbidden} below {CAPTION_MIN}px (must be 0), {caption} caption-tier "
+          f"({CAPTION_MIN}-17px, review), {other} layout (overlap/outside) -> {out}/fontlint.txt")
     cells = []
     for stem, warns in rows:
         w = "".join(f"<li>{html.escape(x)}</li>" for x in warns)

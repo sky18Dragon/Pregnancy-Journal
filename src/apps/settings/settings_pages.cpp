@@ -179,7 +179,7 @@ void settings_page_render_main(Canvas &canvas, bool rtc_ready,
       ui_language_is_chinese()
           ? "所有孕期记录仅保存在设备。本产品用于信息整理，不替代专业医疗建议。"
           : "ALL RECORDS STAY ON DEVICE. INFORMATION ONLY; NOT MEDICAL ADVICE.",
-      is_portrait ? 14 : 12, GrayLevel::Black, is_portrait ? 3 : 2, 5,
+      ui_tokens::kSecondaryBody, GrayLevel::Black, is_portrait ? 3 : 2, 5,
       FontWeight::Regular);
 }
 
@@ -218,11 +218,11 @@ void settings_page_render_storage(Canvas &canvas,
       ui_text(state.operation_message != nullptr
                   ? state.operation_message
                   : capacity),
-      is_portrait ? 15 : 12, GrayLevel::Black, 1, 3,
+      ui_tokens::kSecondaryBody, GrayLevel::Black, 1, 3,
       FontWeight::Regular);
   ui_draw_wrapped_text_pixels(
       canvas, 24, is_portrait ? 628 : 378, canvas.width() - 48,
-      ui_text(identity), is_portrait ? 15 : 12, GrayLevel::Black, 1, 3,
+      ui_text(identity), ui_tokens::kSecondaryBody, GrayLevel::Black, 1, 3,
       FontWeight::Regular);
   prototype_ui::draw_button(
       canvas, storage_split_button(0U, canvas.width(), canvas.height()),
@@ -318,7 +318,7 @@ void settings_page_render_legacy_migration(
                   : state.kicks_preserved
                   ? "LEGACY KICK DATA IS PRESENT AND WILL BE PRESERVED."
                   : "LEGACY KICK DATA IS NEVER DELETED BY THIS TOOL."),
-      is_portrait ? 15 : 12, GrayLevel::Black, is_portrait ? 3 : 1, 4,
+      ui_tokens::kSecondaryBody, GrayLevel::Black, is_portrait ? 3 : 1, 4,
       FontWeight::Regular);
   prototype_ui::draw_button(
       canvas, storage_split_button(0U, canvas.width(), canvas.height()),

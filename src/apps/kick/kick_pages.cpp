@@ -34,7 +34,7 @@ Rect full_button_rect(int width, int height) {
 Rect mode_option_rect(int width, int height, size_t index) {
   return portrait(width, height)
              ? Rect{24, 112 + static_cast<int>(index) * 176, 432, 156}
-             : Rect{24, 96 + static_cast<int>(index) * 96, 752, 84};
+             : Rect{24, 96 + static_cast<int>(index) * 100, 752, 92};
 }
 
 Rect feel_option_rect(int width, int height, size_t index) {
@@ -87,12 +87,34 @@ void draw_period_values(Canvas &canvas, int x, int y, int column_width,
                                 KickPeriod::Evening};
   for (size_t index = 0U; index < 3U; ++index) {
     const int left = x + static_cast<int>(index) * column_width;
-    canvas.draw_text_pixels(left, y, period_label(periods[index]), 14,
+    canvas.draw_text_pixels(left, y, period_label(periods[index]), 16,
                             GrayLevel::Black, FontWeight::Regular);
     char value[16] = {};
     std::snprintf(value, sizeof(value), "%u",
                   static_cast<unsigned>(values[index]));
     canvas.draw_text_pixels(left, y + 28, value, compact ? 24U : 28U,
+                            GrayLevel::Black, FontWeight::Medium);
+  }
+}
+
+// Landscape insights: one row per period, label left and value right-aligned.
+// Long English period names do not fit three columns beside the chart.
+void draw_period_rows(Canvas &canvas, int x, int y, int width,
+                      const KickDaySummary &summary) {
+  const uint16_t values[] = {summary.morning, summary.afternoon,
+                             summary.evening};
+  const KickPeriod periods[] = {KickPeriod::Morning, KickPeriod::Afternoon,
+                                KickPeriod::Evening};
+  for (size_t index = 0U; index < 3U; ++index) {
+    const int row_y = y + static_cast<int>(index) * 36;
+    canvas.draw_text_pixels(x, row_y + 6, period_label(periods[index]), 16,
+                            GrayLevel::Black, FontWeight::Regular);
+    char value[16] = {};
+    std::snprintf(value, sizeof(value), "%u",
+                  static_cast<unsigned>(values[index]));
+    const int value_width =
+        font_text_width_pixels(value, 24, FontWeight::Medium);
+    canvas.draw_text_pixels(x + width - value_width, row_y, value, 24,
                             GrayLevel::Black, FontWeight::Medium);
   }
 }
@@ -124,7 +146,7 @@ void draw_bar_chart(Canvas &canvas, const Rect &rect,
       std::snprintf(count, sizeof(count), "%u",
                     static_cast<unsigned>(value));
       draw_centered(canvas, center,
-                    rect.y + available_height - bar_height - 20, count, 14,
+                    rect.y + available_height - bar_height - 20, count, 16,
                     FontWeight::Regular);
     }
     char day[12] = {};
@@ -135,7 +157,7 @@ void draw_bar_chart(Canvas &canvas, const Rect &rect,
                     static_cast<unsigned>(trend.dates[index].month),
                     static_cast<unsigned>(trend.dates[index].day));
     }
-    draw_centered(canvas, center, rect.y + rect.height - 22, day, 14,
+    draw_centered(canvas, center, rect.y + rect.height - 22, day, 16,
                   index + 1U == kKickTrendDays ? FontWeight::Medium
                                               : FontWeight::Regular);
   }
@@ -150,7 +172,7 @@ void draw_option(Canvas &canvas, const Rect &rect, const char *title,
                           GrayLevel::Black, FontWeight::Medium);
   ui_draw_wrapped_text_pixels(canvas, rect.x + 20, rect.y + 46,
                               rect.width - 40, ui_text(description),
-                              compact ? 14U : 16U, GrayLevel::Black,
+                              ui_tokens::kSecondaryBody, GrayLevel::Black,
                               compact ? 2 : 4, 4, FontWeight::Regular);
 }
 
@@ -184,14 +206,24 @@ void draw_comparison_block(Canvas &canvas, int x, int y, int width,
   }
 }
 
-void draw_insight_stat(Canvas &canvas, int x, int y, const char *label,
-                       uint16_t value) {
-  canvas.draw_text_pixels(x, y, ui_text(label), 14, GrayLevel::Black,
-                          FontWeight::Regular);
+// A label of up to two lines (long English labels wrap inside `width`) over a
+// value. The value always sits at y + kStatValueOffset so a row of stats aligns.
+constexpr int kStatValueOffset = 40;
+
+void draw_insight_stat(Canvas &canvas, int x, int y, int width,
+                       const char *label, const char *value, uint8_t value_size) {
+  ui_draw_wrapped_text_pixels(canvas, x, y, width, ui_text(label),
+                              ui_tokens::kSecondaryBody, GrayLevel::Black, 2, 2,
+                              FontWeight::Regular);
+  canvas.draw_text_pixels(x, y + kStatValueOffset, value, value_size,
+                          GrayLevel::Black, FontWeight::Medium);
+}
+
+void draw_insight_stat(Canvas &canvas, int x, int y, int width,
+                       const char *label, uint16_t value) {
   char text[16] = {};
   std::snprintf(text, sizeof(text), "%u", static_cast<unsigned>(value));
-  canvas.draw_text_pixels(x, y + 26, text, 24, GrayLevel::Black,
-                          FontWeight::Medium);
+  draw_insight_stat(canvas, x, y, width, label, text, 24);
 }
 
 } // namespace
@@ -215,7 +247,7 @@ void kick_page_render_today(Canvas &canvas, const KickDaySummary &today,
                                 12,
                             170, ui_text("MOVEMENTS"), 16, GrayLevel::Black,
                             FontWeight::Regular);
-    draw_insight_stat(canvas, 320, 128, "SESSIONS", today.session_count);
+    draw_insight_stat(canvas, 320, 128, 136, "SESSIONS", today.session_count);
     canvas.draw_line(24, 220, 456, 220, GrayLevel::Black);
     draw_period_values(canvas, 24, 244, 148, today, false);
     canvas.draw_line(24, 320, 456, 320, GrayLevel::Black);
@@ -236,10 +268,10 @@ void kick_page_render_today(Canvas &canvas, const KickDaySummary &today,
       canvas.draw_text_pixels(24, 376, ui_text("NO SESSIONS YET"), 18,
                               GrayLevel::Black, FontWeight::Regular);
     }
-    canvas.draw_text_pixels(
-        24, 432,
-        ui_text("RECORDS HELP REVIEW PATTERNS; THEY DO NOT REPLACE CARE"), 14,
-        GrayLevel::Black, FontWeight::Regular);
+    ui_draw_wrapped_text_pixels(
+        canvas, 24, 432, 432,
+        ui_text("RECORDS HELP REVIEW PATTERNS; THEY DO NOT REPLACE CARE"),
+        ui_tokens::kSecondaryBody, GrayLevel::Black, 2, 4, FontWeight::Regular);
   } else {
     canvas.draw_text_pixels(24, 104, ui_text("TODAY'S MOVEMENTS"), 16,
                             GrayLevel::Black, FontWeight::Medium);
@@ -253,8 +285,8 @@ void kick_page_render_today(Canvas &canvas, const KickDaySummary &today,
                                 12,
                             166, ui_text("MOVEMENTS"), 16, GrayLevel::Black,
                             FontWeight::Regular);
-    draw_insight_stat(canvas, 248, 132, "SESSIONS", today.session_count);
-    canvas.draw_text_pixels(24, 226, ui_text("LATEST SESSION"), 14,
+    draw_insight_stat(canvas, 248, 132, 208, "SESSIONS", today.session_count);
+    canvas.draw_text_pixels(24, 226, ui_text("LATEST SESSION"), 16,
                             GrayLevel::Black, FontWeight::Medium);
     char latest[64] = {};
     if (today.has_latest) {
@@ -275,7 +307,7 @@ void kick_page_render_today(Canvas &canvas, const KickDaySummary &today,
   }
   if (save_failed) {
     canvas.draw_text_pixels(is_portrait ? 24 : 24, is_portrait ? 632 : 352,
-                            ui_text("SAVE FAILED · TRY AGAIN"), 14,
+                            ui_text("SAVE FAILED · TRY AGAIN"), 16,
                             GrayLevel::Black, FontWeight::Medium);
   }
   const Rect start = primary_button_rect(canvas.width(), canvas.height());
@@ -300,9 +332,9 @@ void kick_page_render_insights(Canvas &canvas, const KickDaySummary &today,
       draw_centered(canvas, 240, 214, ui_text("NO RECORDS IN 7 DAYS"), 18,
                     FontWeight::Regular);
     }
-    draw_insight_stat(canvas, 24, 376, "RECORDED DAYS", trend.recorded_days);
-    draw_insight_stat(canvas, 174, 376, "SESSIONS", trend.session_count);
-    draw_insight_stat(canvas, 324, 376, "DAILY AVERAGE",
+    draw_insight_stat(canvas, 24, 366, 136, "RECORDED DAYS", trend.recorded_days);
+    draw_insight_stat(canvas, 174, 366, 136, "SESSIONS", trend.session_count);
+    draw_insight_stat(canvas, 324, 366, 132, "DAILY AVERAGE",
                       trend.average_per_recorded_day);
     canvas.draw_line(24, 448, 456, 448, GrayLevel::Black);
     canvas.draw_text_pixels(24, 472, ui_text("TODAY BY PERIOD"), 16,
@@ -312,26 +344,23 @@ void kick_page_render_insights(Canvas &canvas, const KickDaySummary &today,
     canvas.draw_text_pixels(24, 94, ui_text("LAST 7 DAYS"), 16,
                             GrayLevel::Black, FontWeight::Medium);
     if (trend.has_data) {
-      draw_bar_chart(canvas, {24, 118, 440, 226}, trend);
+      draw_bar_chart(canvas, {24, 118, 428, 226}, trend);
     } else {
-      canvas.draw_rect(24, 118, 440, 226, GrayLevel::Black);
-      draw_centered(canvas, 244, 212, ui_text("NO RECORDS IN 7 DAYS"), 18,
+      canvas.draw_rect(24, 118, 428, 226, GrayLevel::Black);
+      draw_centered(canvas, 238, 212, ui_text("NO RECORDS IN 7 DAYS"), 18,
                     FontWeight::Regular);
     }
-    draw_insight_stat(canvas, 496, 104, "RECORDED DAYS", trend.recorded_days);
-    draw_insight_stat(canvas, 640, 104, "SESSIONS", trend.session_count);
-    draw_insight_stat(canvas, 496, 176, "DAILY AVERAGE",
+    draw_insight_stat(canvas, 476, 92, 136, "RECORDED DAYS", trend.recorded_days);
+    draw_insight_stat(canvas, 628, 92, 148, "SESSIONS", trend.session_count);
+    draw_insight_stat(canvas, 476, 160, 136, "DAILY AVERAGE",
                       trend.average_per_recorded_day);
-    canvas.draw_text_pixels(640, 176, ui_text("MOST RECORDED"), 14,
-                            GrayLevel::Black, FontWeight::Regular);
-    canvas.draw_text_pixels(640, 202,
-                            trend.has_data ? period_label(trend.busiest_period)
-                                           : "--",
-                            20, GrayLevel::Black, FontWeight::Medium);
-    canvas.draw_line(496, 244, 776, 244, GrayLevel::Black);
-    canvas.draw_text_pixels(496, 264, ui_text("TODAY BY PERIOD"), 14,
+    draw_insight_stat(canvas, 628, 160, 148, "MOST RECORDED",
+                      trend.has_data ? period_label(trend.busiest_period) : "--",
+                      20);
+    canvas.draw_line(476, 232, 776, 232, GrayLevel::Black);
+    canvas.draw_text_pixels(476, 248, ui_text("TODAY BY PERIOD"), 16,
                             GrayLevel::Black, FontWeight::Medium);
-    draw_period_values(canvas, 496, 288, 92, today, true);
+    draw_period_rows(canvas, 476, 274, 300, today);
   }
   render_button(canvas, primary_button_rect(canvas.width(), canvas.height()),
                 "START COUNTING", true);
@@ -695,11 +724,11 @@ void kick_page_render_compare(Canvas &canvas, const KickComparison periods[3],
   prototype_ui::draw_header(canvas, "COMPARE WITH USUAL",
                             "TODAY VS YOUR LAST 7 DAYS · MEDIAN", "BACK");
   const bool is_portrait = portrait(canvas.width(), canvas.height());
-  const int label_width = is_portrait ? 0 : 136;
+  const int label_width = is_portrait ? 0 : 152;
   const int text_x = 24 + label_width;
   const int text_width = (is_portrait ? 432 : 752) - label_width;
   const int row_height = is_portrait ? 112 : 58;
-  int y = is_portrait ? 100 : 96;
+  int y = is_portrait ? 108 : 96;
   char text[160] = {};
 
   // Portrait rows stack the value over its comparison; landscape keeps one
@@ -709,8 +738,8 @@ void kick_page_render_compare(Canvas &canvas, const KickComparison periods[3],
     canvas.draw_text_pixels(24, y, label, 16, GrayLevel::Black,
                             FontWeight::Medium);
     if (is_portrait) {
-      canvas.draw_text_pixels(24, y + 28, first, 16, GrayLevel::Black,
-                              FontWeight::Regular);
+      ui_draw_wrapped_text_pixels(canvas, 24, y + 28, text_width, first, 16U,
+                                  GrayLevel::Black, 2, 2, FontWeight::Regular);
       if (second != nullptr && second[0] != '\0')
         ui_draw_wrapped_text_pixels(canvas, 24, y + 54, text_width, second,
                                     16U, GrayLevel::Black, 1, 4,

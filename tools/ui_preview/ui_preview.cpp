@@ -22,6 +22,7 @@
 #include "press_feedback.h"
 #include "prototype_ui.h"
 #include "settings_pages.h"
+#include "text_layout.h"
 #include "ui_language.h"
 #include "weight_pages.h"
 
@@ -314,6 +315,18 @@ void register_settings() {
       hit(SettingsPage::DeviceResetConfirm), names);
 }
 
+// ---- text lint hook --------------------------------------------------------
+
+struct TextItem { int x, y, width, size; std::string text; };
+std::vector<TextItem> g_texts;
+
+std::vector<std::string> g_truncated;
+void observe_truncation(const char *text) { g_truncated.push_back(text); }
+
+void observe_text(int x, int y, int width, int size, const char *text) {
+  g_texts.push_back({x, y, width, size, text});
+}
+
 // ---- output ----------------------------------------------------------------
 
 struct Rect { int id, x0, y0, x1, y1; };
@@ -383,6 +396,13 @@ void emit(const Case &c, Canvas &canvas, const char *orientation,
       std::fprintf(f, "hit %s %d %d %d %d\n", name, r.x0, r.y0, r.x1 - r.x0 + 1,
                    r.y1 - r.y0 + 1);
     }
+    for (const std::string &t : g_truncated)
+      std::fprintf(f, "truncated %s\n", t.c_str());
+    for (const TextItem &t : g_texts) {
+      std::string flat = t.text;
+      for (char &ch : flat) if (ch == '\n' || ch == '\r') ch = ' ';
+      std::fprintf(f, "text %d %d %d %d %s\n", t.size, t.x, t.y, t.width, flat.c_str());
+    }
     std::fclose(f);
   }
 
@@ -420,7 +440,13 @@ int main(int argc, char **argv) {
       ui_language_set(lang == 0 ? UiLanguage::English : UiLanguage::ChineseSimplified);
       for (int portrait = 0; portrait < 2; ++portrait) {
         canvas.set_rotation(portrait ? CanvasRotation::Deg90Clockwise : CanvasRotation::Deg0);
+        g_texts.clear();
+        g_truncated.clear();
+        canvas_set_text_observer(observe_text);
+        ui_set_truncation_observer(observe_truncation);
         c.render(canvas);
+        canvas_set_text_observer(nullptr);
+        ui_set_truncation_observer(nullptr);
         emit(c, canvas, portrait ? "portrait" : "landscape", lang == 0 ? "en" : "zh", dir);
         ++count;
       }

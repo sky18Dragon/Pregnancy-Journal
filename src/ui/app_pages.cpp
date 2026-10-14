@@ -2,6 +2,7 @@
 
 #include "canvas.h"
 #include "prototype_ui.h"
+#include "text_layout.h"
 #include "ui_language.h"
 #include "ui_tokens.h"
 
@@ -54,14 +55,15 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app) {
   canvas.draw_text_pixels(24, 20, ui_language_is_chinese() ? "功能" : "APPS",
                           ui_tokens::kPageHeading, GrayLevel::Black,
                           FontWeight::Medium);
-  canvas.draw_text_pixels(
-      24, 58,
+  const bool portrait = canvas.height() > canvas.width();
+  const Rect close = close_rect(canvas.width(), canvas.height());
+  // The subtitle wraps clear of the close button instead of running under it.
+  ui_draw_wrapped_text_pixels(
+      canvas, 24, 58, close.x - 12 - 24,
       ui_language_is_chinese()
           ? "记录、查看与管理你的孕期信息。"
           : "Record, review and manage pregnancy information.",
-      ui_tokens::kCompactLabel, GrayLevel::Black, FontWeight::Regular);
-  const bool portrait = canvas.height() > canvas.width();
-  const Rect close = close_rect(canvas.width(), canvas.height());
+      ui_tokens::kSecondaryBody, GrayLevel::Black, 2, 2, FontWeight::Regular);
   prototype_ui::draw_button(canvas, close,
                             ui_language_is_chinese() ? "关闭" : "CLOSE", false,
                             2);
@@ -81,19 +83,19 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app) {
                             FontWeight::Medium);
     canvas.draw_text_pixels(rect.x + 64, rect.y + (portrait ? 54 : 58),
                             chinese ? entry.summary_zh : entry.summary_en,
-                            ui_tokens::kCompactLabel, GrayLevel::Black,
+                            ui_tokens::kSecondaryBody, GrayLevel::Black,
                             FontWeight::Regular);
     prototype_ui::draw_chevron(canvas, rect.x + rect.width - 18,
                                rect.y + (portrait ? 38 : 44));
     canvas.draw_line(rect.x, rect.y + rect.height - 1, rect.x + rect.width,
                      rect.y + rect.height - 1, GrayLevel::Black);
   }
-  canvas.draw_text_pixels(
-      24, portrait ? 758 : 444,
+  ui_draw_wrapped_text_pixels(
+      canvas, 24, portrait ? 750 : 444, canvas.width() - 48,
       ui_language_is_chinese()
           ? "顶部按键关闭 · 双击返回孕周首页"
           : "TOP BUTTON CLOSES / DOUBLE-CLICK RETURNS HOME",
-      ui_tokens::kCompactLabel, GrayLevel::Black, FontWeight::Regular);
+      ui_tokens::kSecondaryBody, GrayLevel::Black, 2, 2, FontWeight::Regular);
 }
 
 bool app_page_launcher_language_at(int width, int height, int x, int y) {

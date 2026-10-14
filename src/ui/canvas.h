@@ -19,6 +19,14 @@ enum class CanvasRotation : uint8_t {
     Deg90CounterClockwise,
 };
 
+#ifdef UI_TEXT_OBSERVER
+// Host preview only: reports every drawn string so the preview tool can lint
+// font sizes and text boxes. Never defined in firmware builds.
+using CanvasTextObserver = void (*)(int x, int y, int width, int pixel_size,
+                                    const char *text);
+void canvas_set_text_observer(CanvasTextObserver observer);
+#endif
+
 class Canvas {
 public:
     // Wraps a caller-owned 2-bit grayscale buffer as an 800x480 drawing surface.

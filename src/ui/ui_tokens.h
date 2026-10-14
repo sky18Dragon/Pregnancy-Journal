@@ -4,8 +4,10 @@
 
 namespace ui_tokens {
 
-constexpr uint8_t kMicro = 12U;
-constexpr uint8_t kCompactLabel = 14U;
+// Text tiers. Nothing below 16 px is allowed on the panel.
+//   kSecondaryBody (16): captions, subtitles, footers, chart tick labels.
+//   kBody (18): body copy and anything the user must read to act (buttons,
+//   list rows, values, warnings).
 constexpr uint8_t kSecondaryBody = 16U;
 constexpr uint8_t kBody = 18U;
 constexpr uint8_t kEmphasis = 20U;

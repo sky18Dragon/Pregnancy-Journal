@@ -8,7 +8,7 @@ BIN="${TMPDIR:-/tmp}/sticky_ui_preview"
 cd "${ROOT}"
 mkdir -p "${OUT}"
 rm -f "${OUT}"/*.mono "${OUT}"/*.meta "${OUT}"/*.png "${OUT}"/*.raw
-g++ -std=c++17 -Wall -Wextra -O1 \
+g++ -std=c++17 -Wall -Wextra -O1 -DUI_TEXT_OBSERVER \
   -Isrc/app -Isrc/apps/kick -Isrc/apps/pregnancy -Isrc/apps/settings -Isrc/apps/weight \
   -Isrc/pregnancy/content -Isrc/pregnancy/models -Isrc/pregnancy/services \
   -Isrc/ui -Isrc/ui/assets -Itest/support \
