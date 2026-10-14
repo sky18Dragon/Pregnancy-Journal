@@ -68,7 +68,7 @@ StickyImuOrientation s_last_orientation = StickyImuOrientation::Unknown;
 DevicePreferencesSync s_device_preferences;
 std::atomic<bool> s_preferences_save_failed{false};
 
-void render_launcher(bool full_refresh = false);
+void render_launcher(bool full_refresh = true);
 
 uint32_t monotonic_ms() {
   return static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
@@ -178,6 +178,7 @@ void toggle_language() {
   s_device_preferences.toggle_language();
 }
 
+// The launcher replaces the whole page, so every render defaults to a full refresh.
 void render_launcher(bool full_refresh) {
   sticky_display_set_battery_overlay_enabled(false);
   CanvasRotation rotation = s_canvas->rotation();

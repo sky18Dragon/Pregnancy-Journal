@@ -14,6 +14,7 @@
 #include "domain_repository_stores.h"
 #include "repository_status_page.h"
 #include "prototype_ui.h"
+#include "refresh_policy.h"
 #include "ui_language.h"
 #include "sticky_app.h"
 #include "sticky_app_lifecycle.h"
@@ -39,7 +40,8 @@ bool s_storage_saving = false;
 KickSession s_pending_session = {};
 bool s_retry_session = false;
 uint32_t s_session_generation = 0U;
-uint8_t s_partial_refreshes = 0U;
+PageRefreshTracker s_refresh;
+constexpr int kStatusPageId = 1000;
 PregnancyDate s_today = {};
 uint8_t s_hour = 0U;
 uint8_t s_minute = 0U;
@@ -78,6 +80,7 @@ void render(bool full = false) {
                             s_storage_status != SdRepositoryAdapterStatus::Ok)) {
     repository_status_ui::render(*s_canvas, ui_text("KICKS"), s_store.pending(),
                                   s_storage_saving, s_storage_status);
+    s_refresh.needs_full(kStatusPageId, true);
     sticky_display_refresh_monochrome();
     return;
   }
@@ -115,13 +118,11 @@ void render(bool full = false) {
   } else {
     kick_page_render_today(*s_canvas, today, s_save_failed);
   }
-  if (full || s_partial_refreshes >= 8U) {
-    s_partial_refreshes = 0U;
+  // Page changes are full; the display layer owns the partial-refresh ceiling.
+  if (s_refresh.needs_full(static_cast<int>(s_page), full))
     sticky_display_refresh_monochrome();
-  } else {
-    ++s_partial_refreshes;
+  else
     sticky_display_refresh_partial();
-  }
 }
 
 void save_session(const KickSession &session) {
@@ -252,7 +253,6 @@ void handle(int x, int y) {
     return;
   }
   const int64_t now = esp_timer_get_time();
-  const KickPage page_before = s_page;
   const KickAction action = kick_page_action_at(
       s_page, s_canvas->width(), s_canvas->height(), x, y);
   if (action == KickAction::None)
@@ -320,8 +320,8 @@ void handle(int x, int y) {
   case KickAction::None:
     return;
   }
-  // Page changes get a full refresh; counter taps stay partial.
-  render(s_page != page_before);
+  // Counter taps stay partial; the tracker promotes page changes to full.
+  render();
 }
 
 void task(void *) {

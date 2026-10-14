@@ -8,6 +8,7 @@
 #include "repository_status_page.h"
 #include "sticky_app.h"
 #include "sticky_app_lifecycle.h"
+#include "refresh_policy.h"
 #include "sticky_display.h"
 #include "sticky_rtc.h"
 #include "sticky_touch.h"
@@ -32,14 +33,19 @@ bool read_today() {
   s_state.today = {value.year, value.month, value.day};
   return pregnancy_date_valid(s_state.today);
 }
+PageRefreshTracker s_refresh;
+constexpr int kStatusPageId = 1000;
+
 void render(bool full = false) {
   sticky_display_set_battery_overlay_enabled(false);
+  int page_id = static_cast<int>(s_state.page);
   if (s_store.pending() || (s_storage_status != SdRepositoryAdapterStatus::Idle &&
                             s_storage_status != SdRepositoryAdapterStatus::Ok)) {
     repository_status_ui::render(*s_canvas, "WEIGHT DATA", s_store.pending(),
                                   s_storage_saving, s_storage_status);
+    page_id = kStatusPageId;
   } else weight_page_render(*s_canvas, s_store.service(), s_store.settings(), s_state);
-  if (full) sticky_display_refresh_monochrome();
+  if (s_refresh.needs_full(page_id, full)) sticky_display_refresh_monochrome();
   else sticky_display_refresh_partial();
 }
 void begin_load() {
@@ -112,7 +118,6 @@ void handle(int x, int y) {
     render(true);
     return;
   }
-  const WeightPage page_before = s_state.page;
   const auto hit = weight_page_action_at(s_state.page, s_canvas->width(), s_canvas->height(), x, y);
   const bool pounds = s_store.settings().use_pounds;
   switch (hit.action) {
@@ -177,9 +182,9 @@ void handle(int x, int y) {
     }
     break;
   }
-  // Page changes get a full refresh; value edits on the same page stay partial
-  // (the display layer still forces periodic cleanup).
-  render(s_state.page != page_before);
+  // The tracker promotes a page change to a full refresh; value edits on the
+  // same page stay partial (the display layer still forces periodic cleanup).
+  render();
 }
 void task(void *) {
   begin_load(); read_today(); render(true);

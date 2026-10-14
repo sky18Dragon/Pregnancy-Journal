@@ -18,6 +18,7 @@
 #include "sticky_app.h"
 #include "sticky_app_lifecycle.h"
 #include "sticky_display.h"
+#include "refresh_policy.h"
 #include "sticky_rtc.h"
 #include "sticky_touch.h"
 #include "ui_language.h"
@@ -252,6 +253,8 @@ unsigned parse(size_t offset, size_t length) {
   return value;
 }
 
+PageRefreshTracker s_refresh;
+
 void render(bool full = false) {
   sticky_display_set_battery_overlay_enabled(false);
   if (s_page == SettingsPage::Main) {
@@ -296,7 +299,8 @@ void render(bool full = false) {
   } else {
     settings_page_render_device_reset_confirm(*s_canvas);
   }
-  if (full)
+  // A page change is a full-screen replacement: always full, never partial.
+  if (s_refresh.needs_full(static_cast<int>(s_page), full))
     sticky_display_refresh_monochrome();
   else
     sticky_display_refresh_partial();

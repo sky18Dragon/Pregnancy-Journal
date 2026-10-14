@@ -13,6 +13,7 @@
 #include "pregnancy_repository_store.h"
 #include "pregnancy_state.h"
 #include "prototype_ui.h"
+#include "refresh_policy.h"
 #include "sticky_app.h"
 #include "sticky_app_lifecycle.h"
 #include "sticky_display.h"
@@ -33,6 +34,8 @@ TaskHandle_t s_app_task = nullptr;
 StickyAppLifecycle s_lifecycle = {};
 CanvasRotation s_display_rotation = CanvasRotation::Deg0;
 PregnancyPage s_page = PregnancyPage::ClockSetup;
+PageRefreshTracker s_refresh;
+constexpr int kStatusPageId = 1000;
 PregnancyDate s_today = {};
 PregnancyProfile s_profile = {};
 PregnancyProgress s_progress = {};
@@ -191,12 +194,15 @@ bool update_progress_from_clock() {
          pregnancy_progress_calculate(s_today, s_profile, s_progress);
 }
 
-void refresh_display(bool partial) {
-  const esp_err_t result = partial ? sticky_display_refresh_partial()
-                                   : sticky_display_refresh_monochrome();
+// Page changes always use the full waveform; `partial` only applies when the
+// page on screen stays the same (see PageRefreshTracker).
+void refresh_display(bool partial, int page_id) {
+  const bool full = s_refresh.needs_full(page_id, !partial);
+  const esp_err_t result = full ? sticky_display_refresh_monochrome()
+                                : sticky_display_refresh_partial();
   if (result != ESP_OK) {
     STICKY_LOGE(kTag, "display=refresh mode=%s result=%s",
-                partial ? "partial" : "full", esp_err_to_name(result));
+                full ? "full" : "partial", esp_err_to_name(result));
   }
 }
 
@@ -207,7 +213,7 @@ void render_page(bool partial) {
       (s_storage_error != sticky_storage::SdRepositoryAdapterStatus::Idle &&
        s_storage_error != sticky_storage::SdRepositoryAdapterStatus::Ok)) {
     render_storage_state();
-    refresh_display(partial);
+    refresh_display(partial, kStatusPageId);
     return;
   }
   switch (s_page) {
@@ -234,7 +240,7 @@ void render_page(bool partial) {
                                  pregnancy_content_for_week(s_progress.weeks));
     break;
   }
-  refresh_display(partial);
+  refresh_display(partial, static_cast<int>(s_page));
 }
 
 void open_clock_setup() {
