@@ -4,6 +4,7 @@
 For each page it writes:
   <name>.png          exact 1-bit panel image (what the SSD1677 receives)
   <name>.hits.png     same image with every hit rectangle outlined and named
+  <name>.pressed.png  every hit target in its tap-feedback (pressed) state
 and a contact sheet (index.html) listing all pages with lint warnings.
 """
 import html
@@ -55,6 +56,11 @@ def render(mono_path):
         warnings.append(
             f"gray pixels before threshold: dark={meta.get('gray_dark', 0)} "
             f"light={meta.get('gray_light', 0)}")
+    pressed = mono_path.with_suffix(".pressed.raw")
+    if pressed.exists():
+        Image.frombytes("L", (w, h), pressed.read_bytes()).convert("1").save(
+            mono_path.with_suffix(".pressed.png"))
+        pressed.unlink()
     return warnings
 
 

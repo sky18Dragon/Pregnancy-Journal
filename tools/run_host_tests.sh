@@ -264,6 +264,9 @@ compile_and_run app_registry_test -Itest/support -Isrc/app -Isrc/ui \
     -Isrc/apps/weight -Isrc/apps/kick -Isrc/apps/settings \
     test/app_registry_test.cpp src/app/app_registry.cpp
 compile_and_run refresh_policy_test -Isrc/ui test/refresh_policy_test.cpp
+compile_and_run press_feedback_test -Isrc/ui -Isrc/ui/assets \
+    test/press_feedback_test.cpp src/ui/canvas.cpp src/ui/font.cpp \
+    src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp
 compile_and_run app_launcher_test -Isrc/app -Isrc/ui -Isrc/ui/assets \
     test/app_launcher_test.cpp src/ui/app_pages.cpp src/ui/canvas.cpp \
     src/ui/font.cpp src/ui/prototype_ui.cpp src/ui/ui_language.cpp \

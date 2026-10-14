@@ -12,6 +12,7 @@
 #include "pregnancy_pages.h"
 #include "pregnancy_repository_store.h"
 #include "pregnancy_state.h"
+#include "press_feedback.h"
 #include "prototype_ui.h"
 #include "refresh_policy.h"
 #include "sticky_app.h"
@@ -36,6 +37,16 @@ CanvasRotation s_display_rotation = CanvasRotation::Deg0;
 PregnancyPage s_page = PregnancyPage::ClockSetup;
 PageRefreshTracker s_refresh;
 constexpr int kStatusPageId = 1000;
+press_feedback::Pending s_press;
+
+// Draws the tapped target pressed and shows it once, before a page change
+// whose full refresh would otherwise leave the panel unchanged for ~2 s.
+void show_press_feedback() {
+  press_feedback::Rect rect = {};
+  if (!s_press.take(rect)) return;
+  press_feedback::draw(*s_canvas, rect);
+  sticky_display_refresh_partial();
+}
 PregnancyDate s_today = {};
 PregnancyProfile s_profile = {};
 PregnancyProgress s_progress = {};
@@ -206,12 +217,21 @@ void refresh_display(bool partial, int page_id) {
   }
 }
 
+bool status_page_active() {
+  return s_profile_loading || s_profile_saving ||
+         (s_storage_error != sticky_storage::SdRepositoryAdapterStatus::Idle &&
+          s_storage_error != sticky_storage::SdRepositoryAdapterStatus::Ok);
+}
+
 void render_page(bool partial) {
   sticky_display_set_battery_overlay_enabled(false);
   s_canvas->set_rotation(s_display_rotation);
-  if (s_profile_loading || s_profile_saving ||
-      (s_storage_error != sticky_storage::SdRepositoryAdapterStatus::Idle &&
-       s_storage_error != sticky_storage::SdRepositoryAdapterStatus::Ok)) {
+  const bool status = status_page_active();
+  if (s_refresh.page_changes(status ? kStatusPageId : static_cast<int>(s_page)))
+    show_press_feedback();
+  else
+    s_press.clear();
+  if (status) {
     render_storage_state();
     refresh_display(partial, kStatusPageId);
     return;
@@ -383,6 +403,7 @@ bool handle_action(PregnancyAction action) {
     open_source_setup();
     return true;
   case PregnancyAction::OpenLauncher:
+    show_press_feedback();
     sticky_app_request_launcher();
     return false;
   default:
@@ -554,8 +575,12 @@ void app_task(void *) {
         s_canvas->physical_to_logical(press.x, press.y, x, y);
         if (prototype_ui::header_action_rect(
                 s_canvas->width(), s_canvas->height()).contains(x, y)) {
+          s_press.set(prototype_ui::header_action_rect(s_canvas->width(),
+                                                       s_canvas->height()));
+          show_press_feedback();
           sticky_app_request_launcher();
         } else if (storage_retry_rect().contains(x, y)) {
+          s_press.set(storage_retry_rect());
           retry_profile_storage();
           render_page(true);
         }
@@ -563,10 +588,23 @@ void app_task(void *) {
         continue;
       }
       const PregnancyAction action = action_for_press(press);
+      {
+        int x = 0, y = 0;
+        s_canvas->physical_to_logical(press.x, press.y, x, y);
+        const int w = s_canvas->width(), h = s_canvas->height();
+        press_feedback::Rect target = {};
+        if (press_feedback::hit_bounds(w, h, x, y, [&](int px, int py) {
+              return static_cast<int>(pregnancy_page_action_at(
+                  s_page, s_configured, w, h, px, py));
+            }, target)) {
+          s_press.set(target);
+        }
+      }
       if (handle_action(action)) {
         sticky_touch_clear_press();
         render_page(true);
       }
+      s_press.clear();
     }
     update_for_date_rollover();
     vTaskDelay(kPollInterval);

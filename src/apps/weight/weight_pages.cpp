@@ -39,6 +39,13 @@ Rect profile_adjust(size_t index, int width, int height) {
 void page_button(Canvas &canvas, Rect rect, const char *label, bool filled = false) {
   prototype_ui::draw_button(canvas, rect, label, filled, 2);
 }
+// Two-state toggle: both options are visible and the active one is inverted.
+// The whole rectangle stays one hit target that flips the state.
+void segmented_toggle(Canvas &canvas, Rect rect, const char *first, const char *second, bool first_active) {
+  const int half = rect.width / 2;
+  prototype_ui::draw_button(canvas, {rect.x, rect.y, half, rect.height}, first, first_active, 2);
+  prototype_ui::draw_button(canvas, {rect.x + half, rect.y, rect.width - half, rect.height}, second, !first_active, 2);
+}
 const char *unit_name(bool pounds) { return pounds ? "LB" : "KG"; }
 void date_text(const PregnancyDate &date, char *output, size_t capacity) {
   std::snprintf(output, capacity, "%04u-%02u-%02u", date.year, date.month, date.day);
@@ -120,7 +127,7 @@ void weight_page_render(Canvas &canvas, const WeightService &service,
   char text[80] = {};
   if (state.page == WeightPage::Dashboard) {
     prototype_ui::draw_header(canvas, "WEIGHT TREND", "FOCUS ON THE LONG-TERM TREND", "BACK");
-    page_button(canvas, unit(width, height), pounds ? "LB / KG" : "KG / LB");
+    segmented_toggle(canvas, unit(width, height), "KG", "LB", !pounds);
     const auto *latest = service.latest();
     if (latest) {
       const auto shown = weight_display_value(latest->weight_tenths_kg, pounds);
@@ -136,7 +143,7 @@ void weight_page_render(Canvas &canvas, const WeightService &service,
       canvas.draw_text(24, vertical ? 264 : 238, text, 3, GrayLevel::Black);
     }
     canvas.draw_text(vertical ? 24 : 333, vertical ? 304 : 100, ui_text("WEIGHT TREND"), 2, GrayLevel::Black);
-    page_button(canvas, trend_toggle(width, height), state.trend_days == 7U ? "7 DAYS / 30" : "30 DAYS / 7");
+    segmented_toggle(canvas, trend_toggle(width, height), "7 DAYS", "30 DAYS", state.trend_days == 7U);
     draw_trend(canvas, service, state);
     std::snprintf(text, sizeof(text), ui_language_is_chinese() ? "身高 %u CM   记录 %u / 366" : "HEIGHT %u CM   RECORDS %u / 366", settings.height_cm, static_cast<unsigned>(service.count()));
     canvas.draw_text(24, vertical ? 622 : 372, text, 1, GrayLevel::Black);

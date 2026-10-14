@@ -8,6 +8,7 @@
 #include "repository_status_page.h"
 #include "sticky_app.h"
 #include "sticky_app_lifecycle.h"
+#include "press_feedback.h"
 #include "refresh_policy.h"
 #include "sticky_display.h"
 #include "sticky_rtc.h"
@@ -35,15 +36,31 @@ bool read_today() {
 }
 PageRefreshTracker s_refresh;
 constexpr int kStatusPageId = 1000;
+press_feedback::Pending s_press;
+
+// Draws the tapped target pressed and shows it once, before a page change
+// whose full refresh would otherwise leave the panel unchanged for ~2 s.
+void show_press_feedback() {
+  press_feedback::Rect rect = {};
+  if (!s_press.take(rect)) return;
+  press_feedback::draw(*s_canvas, rect);
+  sticky_display_refresh_partial();
+}
+
+bool status_page_active() {
+  return s_store.pending() || (s_storage_status != SdRepositoryAdapterStatus::Idle &&
+                               s_storage_status != SdRepositoryAdapterStatus::Ok);
+}
 
 void render(bool full = false) {
   sticky_display_set_battery_overlay_enabled(false);
-  int page_id = static_cast<int>(s_state.page);
-  if (s_store.pending() || (s_storage_status != SdRepositoryAdapterStatus::Idle &&
-                            s_storage_status != SdRepositoryAdapterStatus::Ok)) {
+  const bool status = status_page_active();
+  const int page_id = status ? kStatusPageId : static_cast<int>(s_state.page);
+  if (s_refresh.page_changes(page_id)) show_press_feedback();
+  else s_press.clear();
+  if (status) {
     repository_status_ui::render(*s_canvas, "WEIGHT DATA", s_store.pending(),
                                   s_storage_saving, s_storage_status);
-    page_id = kStatusPageId;
   } else weight_page_render(*s_canvas, s_store.service(), s_store.settings(), s_state);
   if (s_refresh.needs_full(page_id, full)) sticky_display_refresh_monochrome();
   else sticky_display_refresh_partial();
@@ -109,11 +126,27 @@ void open_editor(const WeightRecord *record, bool history) {
                                                       s_store.settings().use_pounds);
   s_state.page = WeightPage::Editor;
 }
+// Records the tapped target so render() can show it pressed before a page change.
+void remember_press_target(int x, int y) {
+  press_feedback::Rect target = {};
+  const int w = s_canvas->width(), h = s_canvas->height();
+  bool found = false;
+  if (status_page_active()) {
+    const auto retry = repository_status_ui::retry_rect(*s_canvas);
+    const auto back = prototype_ui::header_action_rect(w, h);
+    found = retry.contains(x, y) ? (target = retry, true) : back.contains(x, y) ? (target = back, true) : false;
+  } else {
+    found = press_feedback::hit_bounds(w, h, x, y, [&](int px, int py) {
+      return static_cast<int>(weight_page_action_at(s_state.page, w, h, px, py).action);
+    }, target);
+  }
+  if (found) s_press.set(target);
+}
 void handle(int x, int y) {
   if (s_store.pending()) return;
   const auto back = prototype_ui::header_action_rect(s_canvas->width(), s_canvas->height());
   if (s_storage_status != SdRepositoryAdapterStatus::Idle && s_storage_status != SdRepositoryAdapterStatus::Ok) {
-    if (back.contains(x, y)) { sticky_app_request_launcher(); return; }
+    if (back.contains(x, y)) { s_press.set(back); show_press_feedback(); sticky_app_request_launcher(); return; }
     if (repository_status_ui::retry_rect(*s_canvas).contains(x, y)) begin_load();
     render(true);
     return;
@@ -123,7 +156,7 @@ void handle(int x, int y) {
   switch (hit.action) {
   case WeightAction::None: return;
   case WeightAction::Back:
-    if (s_state.page == WeightPage::Dashboard) { sticky_app_request_launcher(); return; }
+    if (s_state.page == WeightPage::Dashboard) { show_press_feedback(); sticky_app_request_launcher(); return; }
     if (s_state.page == WeightPage::ReplaceConfirm || s_state.page == WeightPage::DeleteConfirm)
       s_state.page = WeightPage::Editor;
     else s_state.page = s_state.editing_history && s_state.page == WeightPage::Editor ? WeightPage::History : WeightPage::Dashboard;
@@ -209,7 +242,10 @@ void task(void *) {
     if (sticky_touch_take_press(press)) {
       int x = 0, y = 0;
       s_canvas->physical_to_logical(press.x, press.y, x, y);
-      handle(x, y); sticky_touch_clear_press();
+      remember_press_target(x, y);
+      handle(x, y);
+      s_press.clear();
+      sticky_touch_clear_press();
     }
     vTaskDelay(pdMS_TO_TICKS(40));
   }

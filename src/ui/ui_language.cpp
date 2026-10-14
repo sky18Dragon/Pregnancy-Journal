@@ -51,6 +51,8 @@ constexpr Translation kTranslations[] = {
     {"HISTORY", "查看记录"},
     {"30 DAYS / 7", "30 日 / 7 日"},
     {"7 DAYS / 30", "7 日 / 30 日"},
+    {"7 DAYS", "7 日"},
+    {"30 DAYS", "30 日"},
     {"USER DATA ON THE MEMORY CARD", "孕期数据保存在内存卡"},
     {"USER DATA", "孕期数据"},
     {"SAVED ON MICROSD", "界面语言保存在内存卡"},

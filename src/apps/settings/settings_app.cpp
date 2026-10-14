@@ -18,6 +18,7 @@
 #include "sticky_app.h"
 #include "sticky_app_lifecycle.h"
 #include "sticky_display.h"
+#include "press_feedback.h"
 #include "refresh_policy.h"
 #include "sticky_rtc.h"
 #include "sticky_touch.h"
@@ -254,9 +255,23 @@ unsigned parse(size_t offset, size_t length) {
 }
 
 PageRefreshTracker s_refresh;
+press_feedback::Pending s_press;
+
+// Draws the tapped target pressed and shows it once, before a page change
+// whose full refresh would otherwise leave the panel unchanged for ~2 s.
+void show_press_feedback() {
+  press_feedback::Rect rect = {};
+  if (!s_press.take(rect)) return;
+  press_feedback::draw(*s_canvas, rect);
+  sticky_display_refresh_partial();
+}
 
 void render(bool full = false) {
   sticky_display_set_battery_overlay_enabled(false);
+  if (s_refresh.page_changes(static_cast<int>(s_page)))
+    show_press_feedback();
+  else
+    s_press.clear();
   if (s_page == SettingsPage::Main) {
     StickyRtcDateTime now = {};
     const bool rtc_ready = sticky_rtc_read(now) == ESP_OK;
@@ -539,6 +554,7 @@ void handle(SettingsAction action) {
     s_pregnancy_requested = true;
     break;
   case SettingsAction::Home:
+    show_press_feedback();
     s_home_requested = true;
     break;
   case SettingsAction::Back:
@@ -564,8 +580,10 @@ void handle(SettingsAction action) {
     } else if (s_page != SettingsPage::Main) {
       s_page = SettingsPage::Main;
       render();
-    } else
+    } else {
+      show_press_feedback();
       s_home_requested = true;
+    }
     break;
   case SettingsAction::Delete:
     if (s_length > 0U)
@@ -632,7 +650,17 @@ void task(void *) {
             s_displayed_storage.eject_enabled)
           action = SettingsAction::SafeEjectStorage;
       }
+      press_feedback::Rect target = {};
+      const int w = s_canvas->width(), h = s_canvas->height();
+      if (press_feedback::hit_bounds(w, h, x, y, [&](int px, int py) {
+            return static_cast<int>(settings_page_action_at(
+                s_page, w, h, px, py, primary_action_enabled,
+                secondary_action_enabled));
+          }, target)) {
+        s_press.set(target);
+      }
       handle(action);
+      s_press.clear();
     }
     poll_storage_request();
     if (active_migration().pending()) {

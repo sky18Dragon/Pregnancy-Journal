@@ -19,6 +19,7 @@
 #include "canvas.h"
 #include "kick_pages.h"
 #include "pregnancy_pages.h"
+#include "press_feedback.h"
 #include "prototype_ui.h"
 #include "settings_pages.h"
 #include "ui_language.h"
@@ -374,13 +375,27 @@ void emit(const Case &c, Canvas &canvas, const char *orientation,
       map[static_cast<size_t>(y) * w + x] =
           (id >= 0 && id < static_cast<int>(c.names.size())) ? id : (id >= 0 ? 999 : -1);
     }
+  const std::vector<Rect> rects = hit_rects(map, w, h);
   if (FILE *f = std::fopen((base + ".meta").c_str(), "w")) {
     std::fprintf(f, "size %d %d\ngray_dark %zu\ngray_light %zu\n", w, h, dark, light);
-    for (const Rect &r : hit_rects(map, w, h)) {
+    for (const Rect &r : rects) {
       const char *name = r.id < static_cast<int>(c.names.size()) ? c.names[r.id].c_str() : "?";
       std::fprintf(f, "hit %s %d %d %d %d\n", name, r.x0, r.y0, r.x1 - r.x0 + 1,
                    r.y1 - r.y0 + 1);
     }
+    std::fclose(f);
+  }
+
+  // Every hit target drawn in its pressed state (what the tap feedback shows).
+  // This mutates the canvas, so it must stay the last step.
+  for (const Rect &r : rects)
+    press_feedback::draw(canvas, {r.x0, r.y0, r.x1 - r.x0 + 1, r.y1 - r.y0 + 1});
+  for (int y = 0; y < h; ++y)
+    for (int x = 0; x < w; ++x)
+      mono[static_cast<size_t>(y) * w + x] =
+          static_cast<uint8_t>(canvas.pixel_at(x, y)) >= 2U ? 255U : 0U;
+  if (FILE *f = std::fopen((base + ".pressed.raw").c_str(), "wb")) {
+    std::fwrite(mono.data(), 1U, mono.size(), f);
     std::fclose(f);
   }
 }

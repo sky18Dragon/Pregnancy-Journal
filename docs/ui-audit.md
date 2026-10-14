@@ -250,7 +250,7 @@ flowchart TD
 | --- | --- | --- | --- |
 | I1 | **所有 App 切换必须经启动器**，没有直达；高频任务（胎动、体重）每次都是 顶键→点 App 起步。启动器只有 4 项，却占一整页并占用两次刷新 | `sticky_app.cpp` 全局分发、`app_pages.cpp` | 高 |
 | I2 | **孕周仪表盘的可点区域没有视觉提示**：整张插图(368×440)、故事行(352×124 / 352×56)都是隐形按钮，“宝宝/妈妈”入口没有按钮样式；真正有按钮边框的是右上 32×32 菜单图标，但它的命中区是 56×56，图标与命中区尺寸不一致 | `pregnancy_pages.cpp:55-62,467,731-738` | 高 |
-| I3 | **点按没有按下态/即时反馈**，局刷延迟下用户无法确认触摸是否被接收；多数页面也没有“选中态”（体重编辑 ±键、胎动计数圆等只有结果出现后才变化） | 各 `*_app.cpp` handle 函数 | 高 |
+| I3 | **【已修复，待实机复测，2026-10-15】** 换页类点按先画按下态并局刷一次（`src/ui/press_feedback.h`，孕周/体重/胎动/设置/启动器）；体重的单位与 7/30 日开关改为分段开关（当前项反色）。页内点按（计数、加减、数字键）不加按下态，其自身的局刷就是反馈。原问题：**点按没有按下态/即时反馈**，局刷延迟下用户无法确认触摸是否被接收；多数页面也没有“选中态”（体重编辑 ±键、胎动计数圆等只有结果出现后才变化） | 各 `*_app.cpp` handle 函数 | 高 |
 | I4 | 数字输入统一用 12 键键盘逐位输入 12 位时间 `YYYYMMDDHHMM`（16 步），无格式分段高亮、无逐位错误提示，输入错误要到最后才报 | `settings_app.cpp` 时间编辑、`pregnancy_pages.cpp:261-310` | 中 |
 | I5 | “返回”语义不统一：多数子页返回→启动器(`sticky_app_request_launcher()`)而非上一级；孕周详情页的“编辑”矩形实际执行“总览”；头部返回按钮文案不统一（`draw_header` 调用处出现 BACK ×5、CANCEL ×2） | `pregnancy_pages.cpp:57,735`，`prototype_ui.cpp:draw_header`，各 app handle | 中 |
 | I6 | 启动器的语言切换按钮是空实现(永远返回 false)，但调用链仍保留；教程图标命中函数也只为 Debug 构建 | `app_pages.cpp:99-105,123`，`sticky_app.cpp:404` | 低 |
@@ -280,6 +280,13 @@ flowchart TD
 | C5 | 死代码与未启用模块仍编译：提醒、产检 App、中文输入页产品中不可达；`app_page_launcher_language_at` 空实现 | `src/apps/reminder`、`src/apps/checkup`、`app_pages.cpp:99` | 低 |
 | C6 | 页面坐标是针对 800×480 / 480×800 两个固定尺寸写死的，无法按布局网格推导；新增设备尺寸或字号调整需要逐页改数字 | `kick_pages.cpp`、`weight_pages.cpp` `footer/unit/trend_toggle` 等 | 中 |
 | C7 | 本次审计时工作区有 **298 个未提交改动文件**（`git status`），其中包含显示层、驱动组件(`epaper_panel.c`)、各 App 渲染，说明 UI 相关代码正处于变动中，后续重构基线需要先固定 | `git status --short` | 中 |
+
+### 4.4.1 预览工具新发现（2026-10-15，尚未处理）
+
+| # | 问题 | 位置 | 严重 |
+| --- | --- | --- | --- |
+| V8 | 竖屏启动器：副标题“Record, review and manage pregnancy information.”与右上“CLOSE”按钮重叠；底部提示 “TOP BUTTON CLOSES / DOUBLE-CLICK RETURNS HOME” 被右边缘截断 | `app_pages.cpp:55-98`（`build/ui_preview/launcher_portrait_en.png`） | 中 |
+| V9 | 启动器卡片内部大片留白，序号“01”紧贴卡片左边框 | `app_pages.cpp:70-90` | 低 |
 
 ### 4.5 严重度汇总
 

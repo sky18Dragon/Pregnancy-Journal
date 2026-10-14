@@ -14,6 +14,7 @@
 #include "domain_repository_stores.h"
 #include "repository_status_page.h"
 #include "prototype_ui.h"
+#include "press_feedback.h"
 #include "refresh_policy.h"
 #include "ui_language.h"
 #include "sticky_app.h"
@@ -42,6 +43,16 @@ bool s_retry_session = false;
 uint32_t s_session_generation = 0U;
 PageRefreshTracker s_refresh;
 constexpr int kStatusPageId = 1000;
+press_feedback::Pending s_press;
+
+// Draws the tapped target pressed and shows it once, before a page change
+// whose full refresh would otherwise leave the panel unchanged for ~2 s.
+void show_press_feedback() {
+  press_feedback::Rect rect = {};
+  if (!s_press.take(rect)) return;
+  press_feedback::draw(*s_canvas, rect);
+  sticky_display_refresh_partial();
+}
 PregnancyDate s_today = {};
 uint8_t s_hour = 0U;
 uint8_t s_minute = 0U;
@@ -73,11 +84,20 @@ KickPeriod inferred_period() {
 
 uint16_t elapsed_minutes() { return s_counter.elapsed_minutes(esp_timer_get_time()); }
 
+bool status_page_active() {
+  return s_store.pending() || (s_storage_status != SdRepositoryAdapterStatus::Idle &&
+                               s_storage_status != SdRepositoryAdapterStatus::Ok);
+}
+
 void render(bool full = false) {
   sticky_display_set_battery_overlay_enabled(false);
   KickDaySummary today = {};
-  if (s_store.pending() || (s_storage_status != SdRepositoryAdapterStatus::Idle &&
-                            s_storage_status != SdRepositoryAdapterStatus::Ok)) {
+  const bool status = status_page_active();
+  if (s_refresh.page_changes(status ? kStatusPageId : static_cast<int>(s_page)))
+    show_press_feedback();
+  else
+    s_press.clear();
+  if (status) {
     repository_status_ui::render(*s_canvas, ui_text("KICKS"), s_store.pending(),
                                   s_storage_saving, s_storage_status);
     s_refresh.needs_full(kStatusPageId, true);
@@ -233,6 +253,23 @@ bool poll_store() {
   return true;
 }
 
+// Records the tapped target so render() can show it pressed before a page change.
+void remember_press_target(int x, int y) {
+  press_feedback::Rect target = {};
+  const int w = s_canvas->width(), h = s_canvas->height();
+  bool found = false;
+  if (status_page_active()) {
+    const auto retry = repository_status_ui::retry_rect(*s_canvas);
+    const auto back = prototype_ui::header_action_rect(w, h);
+    found = retry.contains(x, y) ? (target = retry, true) : back.contains(x, y) ? (target = back, true) : false;
+  } else {
+    found = press_feedback::hit_bounds(w, h, x, y, [&](int px, int py) {
+      return static_cast<int>(kick_page_action_at(s_page, w, h, px, py));
+    }, target);
+  }
+  if (found) s_press.set(target);
+}
+
 void handle(int x, int y) {
   if (s_store.pending()) return;
   if (s_storage_status != SdRepositoryAdapterStatus::Idle &&
@@ -240,6 +277,8 @@ void handle(int x, int y) {
     const auto back = prototype_ui::header_action_rect(s_canvas->width(), s_canvas->height());
     if (back.contains(x, y)) {
       s_page = KickPage::Today;
+      s_press.set(back);
+      show_press_feedback();
       sticky_app_request_launcher();
       return;
     }
@@ -261,6 +300,7 @@ void handle(int x, int y) {
   switch (action) {
   case KickAction::Back:
     if (s_page == KickPage::Today) {
+      show_press_feedback();
       sticky_app_request_launcher();
       return;
     }
@@ -361,7 +401,9 @@ void task(void *) {
     if (sticky_touch_take_press(press)) {
       int x = 0, y = 0;
       s_canvas->physical_to_logical(press.x, press.y, x, y);
+      remember_press_target(x, y);
       handle(x, y);
+      s_press.clear();
       sticky_touch_clear_press();
     }
     // Loading reads one record per completion; poll faster while pending so

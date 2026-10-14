@@ -7,7 +7,7 @@ OUT="${1:-${ROOT}/build/ui_preview}"
 BIN="${TMPDIR:-/tmp}/sticky_ui_preview"
 cd "${ROOT}"
 mkdir -p "${OUT}"
-rm -f "${OUT}"/*.mono "${OUT}"/*.meta "${OUT}"/*.png
+rm -f "${OUT}"/*.mono "${OUT}"/*.meta "${OUT}"/*.png "${OUT}"/*.raw
 g++ -std=c++17 -Wall -Wextra -O1 \
   -Isrc/app -Isrc/apps/kick -Isrc/apps/pregnancy -Isrc/apps/settings -Isrc/apps/weight \
   -Isrc/pregnancy/content -Isrc/pregnancy/models -Isrc/pregnancy/services \
