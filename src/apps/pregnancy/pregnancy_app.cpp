@@ -9,6 +9,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "pregnancy_flow.h"
 #include "pregnancy_pages.h"
 #include "pregnancy_repository_store.h"
 #include "pregnancy_state.h"
@@ -34,7 +35,6 @@ Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
 StickyAppLifecycle s_lifecycle = {};
 CanvasRotation s_display_rotation = CanvasRotation::Deg0;
-PregnancyPage s_page = PregnancyPage::ClockSetup;
 PageRefreshTracker s_refresh;
 constexpr int kStatusPageId = 1000;
 press_feedback::Pending s_press;
@@ -47,20 +47,10 @@ void show_press_feedback() {
   press_feedback::draw(*s_canvas, rect);
   sticky_display_refresh_partial();
 }
-PregnancyDate s_today = {};
-PregnancyProfile s_profile = {};
-PregnancyProgress s_progress = {};
-bool s_configured = false;
-bool s_due_date_primary = true;
-bool s_input_error = false;
-DigitFields s_clock_fields{DigitFieldKind::DateTime};
-DigitFields s_date_fields{DigitFieldKind::Date};
-int32_t s_last_day_index = -1;
 int64_t s_next_rtc_poll_us = 0;
 std::atomic<bool> s_setup_requested{false};
 pregnancy_repository::PregnancyRepositoryStore &s_profile_store =
     pregnancy_repository::pregnancy_repository_store();
-PregnancyProfile s_pending_profile = {};
 bool s_profile_loading = false;
 bool s_profile_saving = false;
 bool s_retry_save = false;
@@ -119,72 +109,34 @@ void render_storage_state() {
   prototype_ui::draw_button(*s_canvas, storage_retry_rect(), "RETRY", true, 2);
 }
 
-void fill_clock_digits(const StickyRtcDateTime &value) {
-  char digits[13] = {};
-  std::snprintf(digits, sizeof(digits), "%04u%02u%02u%02u%02u",
-                static_cast<unsigned>(value.year % 10000U),
-                static_cast<unsigned>(value.month % 100U),
-                static_cast<unsigned>(value.day % 100U),
-                static_cast<unsigned>(value.hour % 100U),
-                static_cast<unsigned>(value.minute % 100U));
-  s_clock_fields.set_digits(digits);
-}
-
-void fill_date_digits(const PregnancyDate &value) {
-  char digits[9] = {};
-  std::snprintf(digits, sizeof(digits), "%04u%02u%02u",
-                static_cast<unsigned>(value.year % 10000U),
-                static_cast<unsigned>(value.month % 100U),
-                static_cast<unsigned>(value.day % 100U));
-  s_date_fields.set_digits(digits);
-}
-
-uint16_t digits_u16(const char *digits, size_t offset, size_t count) {
-  uint16_t value = 0U;
-  for (size_t index = 0U; index < count; ++index) {
-    value = static_cast<uint16_t>(
-        value * 10U + static_cast<uint16_t>(digits[offset + index] - '0'));
-  }
-  return value;
-}
-
-bool parse_clock(StickyRtcDateTime &value) {
-  if (!s_clock_fields.complete())
-    return false;
-  value.year = digits_u16(s_clock_fields.digits(), 0U, 4U);
-  value.month = static_cast<uint8_t>(digits_u16(s_clock_fields.digits(), 4U, 2U));
-  value.day = static_cast<uint8_t>(digits_u16(s_clock_fields.digits(), 6U, 2U));
-  value.hour = static_cast<uint8_t>(digits_u16(s_clock_fields.digits(), 8U, 2U));
-  value.minute = static_cast<uint8_t>(digits_u16(s_clock_fields.digits(), 10U, 2U));
-  value.second = 0U;
-  return pregnancy_date_valid({value.year, value.month, value.day}) &&
-         value.hour <= 23U && value.minute <= 59U;
-}
-
-bool parse_profile_date(PregnancyDate &value) {
-  if (!s_date_fields.complete())
-    return false;
-  value.year = digits_u16(s_date_fields.digits(), 0U, 4U);
-  value.month = static_cast<uint8_t>(digits_u16(s_date_fields.digits(), 4U, 2U));
-  value.day = static_cast<uint8_t>(digits_u16(s_date_fields.digits(), 6U, 2U));
-  return pregnancy_date_valid(value);
-}
-
 bool read_rtc(StickyRtcDateTime &value) {
   return sticky_rtc_is_ready() && sticky_rtc_read(value) == ESP_OK;
 }
 
-bool update_progress_from_clock() {
-  StickyRtcDateTime clock = {};
-  if (!read_rtc(clock))
-    return false;
-  s_today = {clock.year, clock.month, clock.day};
-  if (!pregnancy_date_to_day_index(s_today, s_last_day_index))
-    return false;
-  fill_clock_digits(clock);
-  return s_configured &&
-         pregnancy_progress_calculate(s_today, s_profile, s_progress);
-}
+// The RTC behind the flow's clock port.
+class RtcClockPort final : public PregnancyClockPort {
+public:
+  bool read(PregnancyClockTime &time) override {
+    StickyRtcDateTime value = {};
+    if (!read_rtc(value)) return false;
+    time = {value.year, value.month, value.day, value.hour, value.minute,
+            value.second};
+    return true;
+  }
+  bool write(const PregnancyClockTime &time) override {
+    StickyRtcDateTime value = {};
+    value.year = time.year;
+    value.month = time.month;
+    value.day = time.day;
+    value.hour = time.hour;
+    value.minute = time.minute;
+    value.second = time.second;
+    return sticky_rtc_write(value) == ESP_OK;
+  }
+};
+
+RtcClockPort s_clock_port;
+PregnancyFlow s_flow(s_clock_port);
 
 // Page changes always use the full waveform; `partial` only applies when the
 // page on screen stays the same (see PageRefreshTracker).
@@ -208,7 +160,7 @@ void render_page(bool partial) {
   sticky_display_set_battery_overlay_enabled(false);
   s_canvas->set_rotation(s_display_rotation);
   const bool status = status_page_active();
-  if (s_refresh.page_changes(status ? kStatusPageId : static_cast<int>(s_page)))
+  if (s_refresh.page_changes(status ? kStatusPageId : static_cast<int>(s_flow.page())))
     show_press_feedback();
   else
     s_press.clear();
@@ -217,170 +169,69 @@ void render_page(bool partial) {
     refresh_display(partial, kStatusPageId);
     return;
   }
-  switch (s_page) {
+  switch (s_flow.page()) {
   case PregnancyPage::ClockSetup:
-    pregnancy_page_render_clock_setup(*s_canvas, s_clock_fields, s_input_error,
-                                      s_configured);
+    pregnancy_page_render_clock_setup(*s_canvas, s_flow.clock_fields(),
+                                      s_flow.input_error(), s_flow.configured());
     break;
   case PregnancyPage::SourceSetup:
-    pregnancy_page_render_source_setup(*s_canvas, s_configured);
+    pregnancy_page_render_source_setup(*s_canvas, s_flow.configured());
     break;
   case PregnancyPage::DateSetup:
-    pregnancy_page_render_profile_date_setup(*s_canvas, s_date_fields,
-                                             s_input_error, s_due_date_primary);
+    pregnancy_page_render_profile_date_setup(
+        *s_canvas, s_flow.date_fields(), s_flow.input_error(),
+        s_flow.due_date_primary());
     break;
   case PregnancyPage::Dashboard: {
-    pregnancy_page_render_dashboard(*s_canvas, s_profile.estimated_due_date,
-                                    s_progress);
+    pregnancy_page_render_dashboard(*s_canvas,
+                                    s_flow.profile().estimated_due_date,
+                                    s_flow.progress());
     if (s_canvas->width() > s_canvas->height())
       battery_status_overlay_draw_compact(*s_canvas, 620, 29);
   } break;
   case PregnancyPage::Baby:
   case PregnancyPage::Mom:
-    pregnancy_page_render_detail(*s_canvas, s_page, s_progress,
-                                 pregnancy_content_for_week(s_progress.weeks));
+    pregnancy_page_render_detail(
+        *s_canvas, s_flow.page(), s_flow.progress(),
+        pregnancy_content_for_week(s_flow.progress().weeks));
     break;
   }
-  refresh_display(partial, static_cast<int>(s_page));
+  refresh_display(partial, static_cast<int>(s_flow.page()));
 }
 
-void open_clock_setup() {
-  StickyRtcDateTime clock = {};
-  if (read_rtc(clock))
-    fill_clock_digits(clock);
-  else
-    s_clock_fields.begin(DigitFieldKind::DateTime);
-  s_page = PregnancyPage::ClockSetup;
-  s_input_error = false;
-}
-
-void open_source_setup() {
-  s_page = PregnancyPage::SourceSetup;
-  s_input_error = false;
-}
-
-void open_date_setup(bool due_date_primary) {
-  s_due_date_primary = due_date_primary;
-  if (s_configured) {
-    fill_date_digits(due_date_primary ? s_profile.estimated_due_date
-                                      : s_profile.last_menstrual_period);
-  } else {
-    s_date_fields.begin(DigitFieldKind::Date);
-  }
-  s_page = PregnancyPage::DateSetup;
-  s_input_error = false;
-}
-
-bool apply_clock() {
-  StickyRtcDateTime value = {};
-  if (!parse_clock(value) || sticky_rtc_write(value) != ESP_OK) {
-    s_input_error = true;
-    return true;
-  }
-  s_today = {value.year, value.month, value.day};
-  pregnancy_date_to_day_index(s_today, s_last_day_index);
-  if (s_configured &&
-      pregnancy_progress_calculate(s_today, s_profile, s_progress)) {
-    s_page = PregnancyPage::Dashboard;
-  } else {
-    open_source_setup();
-  }
-  return true;
-}
-
-bool apply_profile_date() {
-  PregnancyDate value = {};
-  PregnancyProfile profile = {};
-  if (!parse_profile_date(value) ||
-      !(s_due_date_primary ? pregnancy_profile_from_due_date(value, profile)
-                           : pregnancy_profile_from_lmp(value, profile)) ||
-      !pregnancy_progress_calculate(s_today, profile, s_progress)) {
-    s_input_error = true;
-    return true;
-  }
-  s_pending_profile = profile;
+// Starts saving the profile the flow just validated.
+void begin_profile_save() {
   s_retry_save = true;
-  s_storage_error = s_profile_store.begin_save(profile);
+  s_storage_error = s_profile_store.begin_save(s_flow.pending_profile());
   s_profile_saving =
       s_storage_error == sticky_storage::SdRepositoryAdapterStatus::Pending;
   if (s_profile_saving) s_storage_error =
       sticky_storage::SdRepositoryAdapterStatus::Idle;
-  return true;
 }
 
+// Runs one action through the flow and carries out what it asks for. Returns
+// true when the page must be redrawn.
 bool handle_action(PregnancyAction action) {
-  DigitFields &fields =
-      s_page == PregnancyPage::ClockSetup ? s_clock_fields : s_date_fields;
-  char digit = '\0';
-  size_t field = 0U;
-  if (pregnancy_action_digit(action, digit)) {
-    // An impossible digit (month 13, hour 25...) is refused on the spot.
-    s_input_error = !fields.input_digit(digit);
-    return true;
-  }
-  if (pregnancy_action_field(action, field)) {
-    s_input_error = false;
-    fields.select_field(field);
-    return true;
-  }
-  switch (action) {
-  case PregnancyAction::Delete:
-    s_input_error = false;
-    fields.erase();
-    return true;
-  case PregnancyAction::Continue:
-    return s_page == PregnancyPage::ClockSetup ? apply_clock()
-                                               : apply_profile_date();
-  case PregnancyAction::SelectDueDate:
-    open_date_setup(true);
-    return true;
-  case PregnancyAction::SelectLmp:
-    open_date_setup(false);
-    return true;
-  case PregnancyAction::ShowOverview:
-    s_page = PregnancyPage::Dashboard;
-    return true;
-  case PregnancyAction::ShowBaby:
-    s_page = PregnancyPage::Baby;
-    return true;
-  case PregnancyAction::ShowMom:
-    s_page = PregnancyPage::Mom;
-    return true;
-  case PregnancyAction::Back:
-    if (s_page == PregnancyPage::DateSetup)
-      open_source_setup();
-    else if (s_configured) {
-      update_progress_from_clock();
-      s_page = PregnancyPage::Dashboard;
-    }
-    return true;
-  case PregnancyAction::OpenLauncher:
+  const PregnancyFlowResult result = s_flow.handle_action(action);
+  if (result.open_launcher) {
     show_press_feedback();
     sticky_app_request_launcher();
-    return false;
-  default:
-    return false;
   }
+  if (result.save_profile)
+    begin_profile_save();
+  return result.render;
 }
 
 PregnancyAction action_for_press(const StickyTouchPress &press) {
   int x = 0, y = 0;
   s_canvas->physical_to_logical(press.x, press.y, x, y);
-  return pregnancy_page_action_at(s_page, s_configured, s_canvas->width(),
+  return pregnancy_page_action_at(s_flow.page(), s_flow.configured(),
+                                  s_canvas->width(),
                                   s_canvas->height(), x, y);
 }
 
 void initialize_state() {
-  StickyRtcDateTime clock = {};
-  if (!read_rtc(clock)) {
-    open_clock_setup();
-  } else {
-    fill_clock_digits(clock);
-    s_today = {clock.year, clock.month, clock.day};
-    pregnancy_date_to_day_index(s_today, s_last_day_index);
-    open_source_setup();
-  }
-  s_configured = false;
+  s_flow.begin();
   s_retry_save = false;
   s_storage_error = s_profile_store.begin_load();
   s_profile_loading =
@@ -404,13 +255,10 @@ bool poll_profile_storage() {
   } else {
     s_storage_error = sticky_storage::SdRepositoryAdapterStatus::Idle;
     if (was_loading) {
-      s_configured = s_profile_store.found();
-      if (s_configured) s_profile = s_profile_store.profile();
+      s_flow.profile_loaded(s_profile_store.found(), s_profile_store.profile());
     } else {
-      s_profile = s_pending_profile;
-      s_configured = true;
+      s_flow.profile_saved();
       s_retry_save = false;
-      s_input_error = false;
       STICKY_LOGI(kTag, "profile=save backend=microsd result=ok");
     }
   }
@@ -430,24 +278,17 @@ bool poll_profile_storage() {
     s_retry_save = false;
     return true;
   }
-  if (s_page != PregnancyPage::ClockSetup) {
-    if (s_setup_after_load) {
-      s_setup_after_load = false;
-      open_source_setup();
-    } else if (s_configured &&
-        pregnancy_progress_calculate(s_today, s_profile, s_progress)) {
-      s_page = PregnancyPage::Dashboard;
-      s_next_rtc_poll_us = esp_timer_get_time() + kRtcPollIntervalUs;
-    } else {
-      open_source_setup();
-    }
-  }
+  const bool setup_requested = s_setup_after_load;
+  if (s_flow.page() != PregnancyPage::ClockSetup)
+    s_setup_after_load = false;
+  if (s_flow.settle_after_storage(setup_requested))
+    s_next_rtc_poll_us = esp_timer_get_time() + kRtcPollIntervalUs;
   return true;
 }
 
 void retry_profile_storage() {
   s_storage_error = s_retry_save
-                        ? s_profile_store.begin_save(s_pending_profile)
+                        ? s_profile_store.begin_save(s_flow.pending_profile())
                         : s_profile_store.begin_load();
   s_profile_saving = s_retry_save &&
       s_storage_error == sticky_storage::SdRepositoryAdapterStatus::Pending;
@@ -458,26 +299,14 @@ void retry_profile_storage() {
 }
 
 void update_for_date_rollover() {
-  if ((s_page != PregnancyPage::Dashboard && s_page != PregnancyPage::Baby &&
-       s_page != PregnancyPage::Mom) ||
-      esp_timer_get_time() < s_next_rtc_poll_us)
+  if (!s_flow.showing_week_pages() || esp_timer_get_time() < s_next_rtc_poll_us)
     return;
   s_next_rtc_poll_us = esp_timer_get_time() + kRtcPollIntervalUs;
-  StickyRtcDateTime clock = {};
-  if (!read_rtc(clock))
-    return;
-  const PregnancyDate today = {clock.year, clock.month, clock.day};
-  int32_t day_index = 0;
-  if (!pregnancy_date_to_day_index(today, day_index) ||
-      day_index == s_last_day_index)
-    return;
-  s_today = today;
-  s_last_day_index = day_index;
-  if (pregnancy_progress_calculate(today, s_profile, s_progress)) {
+  if (s_flow.refresh_for_new_day()) {
     render_page(true);
     STICKY_LOGI(kTag, "date=rollover week=%d day=%u result=updated",
-                static_cast<int>(s_progress.weeks),
-                static_cast<unsigned>(s_progress.days));
+                static_cast<int>(s_flow.progress().weeks),
+                static_cast<unsigned>(s_flow.progress().days));
   }
 }
 
@@ -490,7 +319,7 @@ void app_task(void *) {
     if (!s_profile_store.pending() &&
         s_profile_store.status() == sticky_storage::SdRepositoryAdapterStatus::Ok &&
         !s_profile_store.ready()) {
-      s_configured = false;
+      s_flow.unconfigure();
       s_retry_save = false;
       s_storage_error = s_profile_store.begin_load();
       s_profile_loading = s_storage_error == sticky_storage::SdRepositoryAdapterStatus::Pending;
@@ -546,8 +375,8 @@ void app_task(void *) {
         s_canvas->physical_to_logical(press.x, press.y, x, y);
         PregnancyTarget targets[kMaxPregnancyTargets];
         const size_t count = pregnancy_page_targets(
-            s_page, s_configured, s_canvas->width(), s_canvas->height(),
-            targets, kMaxPregnancyTargets);
+            s_flow.page(), s_flow.configured(), s_canvas->width(),
+            s_canvas->height(), targets, kMaxPregnancyTargets);
         for (size_t index = 0U; index < count; ++index) {
           if (targets[index].rect.contains(x, y)) {
             s_press.set(targets[index].rect);
@@ -617,8 +446,5 @@ esp_err_t pregnancy_app_prepare_power_sleep(uint32_t &current, uint32_t &next) {
 }
 
 uint32_t pregnancy_app_power_sleep_timeout_ms() {
-  return s_page == PregnancyPage::Dashboard || s_page == PregnancyPage::Baby ||
-                 s_page == PregnancyPage::Mom
-             ? kDashboardSleepTimeoutMs
-             : 0U;
+  return s_flow.showing_week_pages() ? kDashboardSleepTimeoutMs : 0U;
 }

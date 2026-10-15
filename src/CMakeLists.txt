@@ -76,6 +76,7 @@ idf_component_register(
         "network/wifi_ram_configuration.cpp"
         "system/scheduler.cpp"
         "apps/pregnancy/pregnancy_app.cpp"
+        "apps/pregnancy/pregnancy_flow.cpp"
         "apps/pregnancy/pregnancy_pages.cpp"
         "apps/pregnancy/pregnancy_state.cpp"
         "apps/pregnancy/pregnancy_storage_record.cpp"
