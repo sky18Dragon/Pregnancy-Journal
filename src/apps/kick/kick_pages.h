@@ -5,6 +5,7 @@
 
 #include "kick.h"
 #include "kick_comparison.h"
+#include "prototype_ui.h"
 
 class Canvas;
 
@@ -71,6 +72,28 @@ void kick_page_render_compare(Canvas &canvas, const KickComparison periods[3],
                               const bool has_period[3], bool has_ten,
                               const KickComparison &ten, bool has_awareness,
                               const KickAwarenessSummary &awareness);
+
+// One tappable region. `rect` is the region itself, or the bounding square of
+// the counter circle when `circle` is set (hit-tested as a circle).
+struct KickTarget {
+  prototype_ui::Rect rect;
+  KickAction action;
+  bool circle = false;
+
+  bool contains(int x, int y) const {
+    if (!circle) return rect.contains(x, y);
+    const int radius = rect.width / 2;
+    const int dx = x - (rect.x + radius);
+    const int dy = y - (rect.y + radius);
+    return dx * dx + dy * dy <= radius * radius;
+  }
+};
+
+// Lists the page's hit targets in hit-test order (at most `capacity` written;
+// returns the count written). The hit test is the first target containing the
+// point, and the renderers draw the same rectangles.
+size_t kick_page_targets(KickPage page, int width, int height, KickTarget *out,
+                         size_t capacity);
 
 KickAction kick_page_action_at(KickPage page, int width, int height, int x,
                                int y);

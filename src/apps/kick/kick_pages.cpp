@@ -49,14 +49,14 @@ constexpr KickMode kModeOptions[] = {KickMode::Timed, KickMode::CountToTen,
 constexpr KickFeel kFeelOptions[] = {KickFeel::Usual, KickFeel::Weaker,
                                      KickFeel::Fewer, KickFeel::Changed};
 
-bool counter_target_contains(int width, int height, int x, int y) {
+// The counter circle as its bounding square: drawn as a circle, hit-tested as
+// a circle (KickTarget::circle), and used for press feedback as the square.
+Rect counter_circle(int width, int height) {
   const bool is_portrait = portrait(width, height);
+  const int radius = is_portrait ? 128 : 112;
   const int center_x = 240;
   const int center_y = is_portrait ? 332 : 234;
-  const int radius = is_portrait ? 128 : 112;
-  const int dx = x - center_x;
-  const int dy = y - center_y;
-  return dx * dx + dy * dy <= radius * radius;
+  return {center_x - radius, center_y - radius, 2 * radius, 2 * radius};
 }
 
 void draw_centered(Canvas &canvas, int center_x, int y, const char *text,
@@ -379,9 +379,10 @@ void kick_page_render_counter(Canvas &canvas, KickPeriod period,
   prototype_ui::draw_header(canvas, title,
                             "TAP ONCE FOR EACH DISTINCT MOVEMENT", "CANCEL");
   const bool is_portrait = portrait(canvas.width(), canvas.height());
-  const int center_x = 240;
-  const int center_y = is_portrait ? 332 : 234;
-  const int radius = is_portrait ? 128 : 112;
+  const Rect circle = counter_circle(canvas.width(), canvas.height());
+  const int radius = circle.width / 2;
+  const int center_x = circle.x + radius;
+  const int center_y = circle.y + radius;
   canvas.draw_circle(center_x, center_y, radius, GrayLevel::Black);
   canvas.draw_circle(center_x, center_y, radius - 1, GrayLevel::Black);
   char count_text[16] = {};
@@ -422,52 +423,57 @@ void kick_page_render_counter(Canvas &canvas, KickPeriod period,
                 "FINISH AND SAVE", true);
 }
 
-KickAction kick_page_action_at(KickPage page, int width, int height, int x,
-                               int y) {
-  if (x < 0 || y < 0 || x >= width || y >= height)
-    return KickAction::None;
-  if (prototype_ui::header_action_rect(width, height).contains(x, y))
-    return KickAction::Back;
+size_t kick_page_targets(KickPage page, int width, int height,
+                         KickTarget *out, size_t capacity) {
+  size_t count = 0U;
+  const auto add = [&](const Rect &rect, KickAction action, bool circle = false) {
+    if (out != nullptr && count < capacity) out[count] = {rect, action, circle};
+    ++count;
+  };
+  add(prototype_ui::header_action_rect(width, height), KickAction::Back);
+  const Rect primary = primary_button_rect(width, height);
+  const Rect secondary = secondary_button_rect(width, height);
   if (page == KickPage::Today) {
-    if (primary_button_rect(width, height).contains(x, y))
-      return KickAction::Start;
-    if (secondary_button_rect(width, height).contains(x, y))
-      return KickAction::ShowInsights;
+    add(primary, KickAction::Start);
+    add(secondary, KickAction::ShowInsights);
   } else if (page == KickPage::Insights) {
-    if (primary_button_rect(width, height).contains(x, y))
-      return KickAction::Start;
-    if (secondary_button_rect(width, height).contains(x, y))
-      return KickAction::ShowCompare;
+    add(primary, KickAction::Start);
+    add(secondary, KickAction::ShowCompare);
   } else if (page == KickPage::ModeSelect) {
     constexpr KickAction kActions[] = {KickAction::StartTimed,
                                        KickAction::StartCountToTen,
                                        KickAction::StartAwareness};
     for (size_t index = 0U; index < 3U; ++index)
-      if (mode_option_rect(width, height, index).contains(x, y))
-        return kActions[index];
+      add(mode_option_rect(width, height, index), kActions[index]);
   } else if (page == KickPage::Feel) {
     constexpr KickAction kActions[] = {KickAction::FeelUsual,
                                        KickAction::FeelWeaker,
                                        KickAction::FeelFewer,
                                        KickAction::FeelChanged};
     for (size_t index = 0U; index < 4U; ++index)
-      if (feel_option_rect(width, height, index).contains(x, y))
-        return kActions[index];
+      add(feel_option_rect(width, height, index), kActions[index]);
   } else if (page == KickPage::Result) {
-    if (primary_button_rect(width, height).contains(x, y))
-      return KickAction::Done;
-    if (secondary_button_rect(width, height).contains(x, y))
-      return KickAction::ShowCompare;
+    add(primary, KickAction::Done);
+    add(secondary, KickAction::ShowCompare);
   } else if (page == KickPage::Compare) {
-    if (full_button_rect(width, height).contains(x, y))
-      return KickAction::Start;
+    add(full_button_rect(width, height), KickAction::Start);
   } else {
-    if (primary_button_rect(width, height).contains(x, y))
-      return KickAction::Undo;
-    if (secondary_button_rect(width, height).contains(x, y))
-      return KickAction::Finish;
-    if (counter_target_contains(width, height, x, y))
-      return KickAction::Count;
+    add(primary, KickAction::Undo);
+    add(secondary, KickAction::Finish);
+    add(counter_circle(width, height), KickAction::Count, true);
+  }
+  return count < capacity ? count : capacity;
+}
+
+KickAction kick_page_action_at(KickPage page, int width, int height, int x,
+                               int y) {
+  if (x < 0 || y < 0 || x >= width || y >= height)
+    return KickAction::None;
+  KickTarget targets[16];
+  const size_t count = kick_page_targets(page, width, height, targets, 16U);
+  for (size_t index = 0U; index < count; ++index) {
+    if (targets[index].contains(x, y))
+      return targets[index].action;
   }
   return KickAction::None;
 }
