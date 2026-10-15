@@ -19,6 +19,10 @@ the result.
 - [ ] Top-button single click opens and closes Launcher.
 - [ ] Bottom-edge upward swipe opens it; downward swipe from the lower 30%
   closes it.
+- [ ] Bottom-edge swipe left/right (Launcher closed) switches to the next/previous
+  app and wraps around; a diagonal or short swipe, or one starting mid-screen,
+  does nothing; taps near the footer buttons still work; no accidental switches
+  while tapping the kick counter or typing digits.
 - [ ] Double-click returns to Baby Week from every app.
 - [ ] Baby Week, Weight, Kicks and Settings each open correctly; old Reminder/Checkup
   last-app states fall back to Baby Week without renumbering IDs.

@@ -11,6 +11,12 @@ class Canvas;
 // 在当前屏幕方向绘制可触摸选择的应用卡片。
 void app_page_render_launcher(Canvas &canvas, StickyAppId current_app);
 
+// Returns the application `direction` steps (+1 next, -1 previous) from
+// `current` in launcher order, wrapping around. An application that is not in
+// the launcher (retired IDs) starts from the first card.
+// 按启动器顺序返回相邻应用（+1 下一个，-1 上一个，首尾相接）。
+StickyAppId app_page_launcher_neighbor(StickyAppId current, int direction);
+
 // One tappable launcher region: the close button or an application card.
 struct LauncherTarget {
   prototype_ui::Rect rect;

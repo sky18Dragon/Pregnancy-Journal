@@ -27,6 +27,7 @@ Boot
 | Top button double click | Return to Baby Week |
 | Bottom-edge upward swipe | Open Launcher |
 | Downward swipe beginning in lower 30% | Close Launcher |
+| Bottom-edge swipe left / right (Launcher closed) | Switch to the next / previous app in Launcher order (Baby Week → Weight → Kicks → Settings, wrapping); a bar along the bottom edge acknowledges the swipe |
 | Launcher card tap | Pause current app and activate selected app |
 | Two side buttons held for two seconds | Request deep sleep |
 

@@ -26,6 +26,20 @@ bool valid_vertical_swipe(const StickyAppGestureSample &sample,
            horizontal_distance * 3 <= vertical_distance * 2;
 }
 
+bool valid_horizontal_swipe(const StickyAppGestureSample &sample,
+                            int horizontal_distance)
+{
+    if (sample.width <= 0 || sample.height <= 0 ||
+        sample.duration_ms < kMinimumDurationMs ||
+        sample.duration_ms > kMaximumDurationMs) {
+        return false;
+    }
+    const int vertical_distance = absolute_value(sample.end_y - sample.start_y);
+    // Long enough to be deliberate, and nearly flat so it stays along the edge.
+    return horizontal_distance >= std::max(160, sample.width / 3) &&
+           vertical_distance * 3 <= horizontal_distance;
+}
+
 }  // namespace
 
 StickyAppGestureAction sticky_app_gesture_classify(
@@ -34,6 +48,12 @@ StickyAppGestureAction sticky_app_gesture_classify(
     const int vertical_delta = sample.end_y - sample.start_y;
     if (!sample.launcher_open) {
         const int bottom_edge_height = std::max(48, sample.height / 8);
+        const int horizontal_delta = sample.end_x - sample.start_x;
+        if (sample.start_y >= sample.height - bottom_edge_height &&
+            valid_horizontal_swipe(sample, absolute_value(horizontal_delta))) {
+            return horizontal_delta < 0 ? StickyAppGestureAction::NextApp
+                                        : StickyAppGestureAction::PreviousApp;
+        }
         if (sample.start_y < sample.height - bottom_edge_height ||
             vertical_delta >= 0 ||
             !valid_vertical_swipe(sample, -vertical_delta)) {

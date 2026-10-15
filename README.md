@@ -90,6 +90,9 @@ later from Settings → Pregnancy Settings.
 - Top-button single click toggles Launcher.
 - Swipe up from the bottom edge opens Launcher; swipe down from the lower 30%
   closes it.
+- Swipe left or right along the bottom edge (a long, flat swipe that starts in
+  the bottom band, Launcher closed) switches straight to the next or previous
+  app in Launcher order, wrapping around, without opening Launcher.
 - Double-click the top button returns to Baby Week.
 - Tap a launcher entry to open Baby Week, Weight, Kicks or Settings.
 - Settings changes English / 简体中文.

@@ -61,6 +61,13 @@ void test_target_contract() {
 
 int main() {
   test_target_contract();
+  assert(app_page_launcher_neighbor(StickyAppId::Pregnancy, 1) == StickyAppId::Weight);
+  assert(app_page_launcher_neighbor(StickyAppId::Weight, 1) == StickyAppId::Kicks);
+  assert(app_page_launcher_neighbor(StickyAppId::Kicks, 1) == StickyAppId::Settings);
+  assert(app_page_launcher_neighbor(StickyAppId::Settings, 1) == StickyAppId::Pregnancy);
+  assert(app_page_launcher_neighbor(StickyAppId::Pregnancy, -1) == StickyAppId::Settings);
+  assert(app_page_launcher_neighbor(StickyAppId::Weight, -1) == StickyAppId::Pregnancy);
+  assert(app_page_launcher_neighbor(StickyAppId::Reminder, 1) == StickyAppId::Pregnancy);
   const prototype_ui::Rect landscape_header_action =
       prototype_ui::header_action_rect(800, 480);
   const prototype_ui::Rect portrait_header_action =

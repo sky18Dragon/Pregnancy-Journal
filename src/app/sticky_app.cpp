@@ -374,6 +374,21 @@ void enter_sleep(const char *source) {
   board_power_enter_deep_sleep(wake_us);
 }
 
+// Bottom-edge horizontal swipe: go straight to the next/previous app without
+// opening the launcher. A black bar along the bottom edge acknowledges the
+// swipe during the ~2 s full refresh that follows.
+void switch_to_neighbor_app(int direction) {
+  const StickyAppId target =
+      app_page_launcher_neighbor(s_manager.current_id(), direction);
+  if (target == s_manager.current_id()) return;
+  const int bar_height = 8;
+  press_feedback::draw(*s_canvas,
+                       {0, static_cast<int>(s_canvas->height()) - bar_height,
+                        static_cast<int>(s_canvas->width()), bar_height});
+  sticky_display_refresh_partial();
+  select_app(target, "swipe");
+}
+
 void handle_interaction(const StickyTouchInteraction &interaction) {
   int sx = 0, sy = 0, ex = 0, ey = 0;
   s_canvas->physical_to_logical(interaction.start_x, interaction.start_y, sx,
@@ -394,6 +409,9 @@ void handle_interaction(const StickyTouchInteraction &interaction) {
     open_launcher();
   else if (action == StickyAppGestureAction::CloseLauncher)
     close_launcher();
+  else if (action == StickyAppGestureAction::NextApp ||
+           action == StickyAppGestureAction::PreviousApp)
+    switch_to_neighbor_app(action == StickyAppGestureAction::NextApp ? 1 : -1);
 }
 
 void handle_launcher_press(const StickyTouchPress &press) {

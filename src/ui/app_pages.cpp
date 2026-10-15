@@ -98,6 +98,16 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app) {
       ui_tokens::kSecondaryBody, GrayLevel::Black, 2, 2, FontWeight::Regular);
 }
 
+StickyAppId app_page_launcher_neighbor(StickyAppId current, int direction) {
+  constexpr int kCount = static_cast<int>(sizeof(kEntries) / sizeof(kEntries[0]));
+  int index = -1;
+  for (int i = 0; i < kCount; ++i)
+    if (kEntries[i].app == current) index = i;
+  if (index < 0) return kEntries[0].app;
+  const int step = direction < 0 ? kCount - 1 : 1;
+  return kEntries[(index + step) % kCount].app;
+}
+
 size_t app_page_launcher_targets(int width, int height, LauncherTarget *out,
                                  size_t capacity) {
   size_t count = 0U;
