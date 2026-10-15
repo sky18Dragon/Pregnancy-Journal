@@ -28,6 +28,9 @@ struct WeightPageState {
 bool weight_page_back_target(WeightPage page, bool editing_history,
                              WeightPage &target);
 struct WeightHit { WeightAction action = WeightAction::None; size_t row = 0U; };
+// Upper bound on the targets of any weight page.
+constexpr size_t kMaxWeightTargets = 16U;
+
 // One tappable rectangle of a page; `row` is the history row for SelectRecord.
 struct WeightTarget { prototype_ui::Rect rect; WeightAction action; size_t row = 0U; };
 // Lists the page's hit targets (at most `capacity` written; returns the count

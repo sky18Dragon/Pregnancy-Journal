@@ -15,11 +15,20 @@ Rect footer(size_t index, size_t count, int width, int height) {
   const int item = (width - 2 * ui_tokens::kContentMargin - gap * static_cast<int>(count - 1U)) / static_cast<int>(count);
   return {24 + static_cast<int>(index) * (item + gap), height - 80, item, ui_tokens::kButtonHeight};
 }
+// The KG/LB toggle sits left of the header action in landscape and under it in
+// portrait; the trend toggle is right-aligned to the content margin. Positions
+// follow the screen width instead of fixed x values.
 Rect unit(int width, int height) {
-  return portrait(width, height) ? Rect{336, 88, 120, ui_tokens::kMinimumTouchHeight} : Rect{548, 20, 92, ui_tokens::kMinimumTouchHeight};
+  constexpr int kHeaderGap = 16;
+  if (portrait(width, height))
+    return {width - ui_tokens::kContentMargin - 120, 88, 120, ui_tokens::kMinimumTouchHeight};
+  return {prototype_ui::header_action_rect(width, height).x - kHeaderGap - 92, 20, 92,
+          ui_tokens::kMinimumTouchHeight};
 }
 Rect trend_toggle(int width, int height) {
-  return portrait(width, height) ? Rect{280, 292, 176, ui_tokens::kMinimumTouchHeight} : Rect{560, 86, 216, ui_tokens::kMinimumTouchHeight};
+  if (portrait(width, height))
+    return {width - ui_tokens::kContentMargin - 176, 292, 176, ui_tokens::kMinimumTouchHeight};
+  return {width - ui_tokens::kContentMargin - 216, 86, 216, ui_tokens::kMinimumTouchHeight};
 }
 Rect adjustment(size_t index, int width, int height) {
   if (portrait(width, height)) return {24 + static_cast<int>(index % 2U) * 224,
@@ -51,16 +60,50 @@ const char *unit_name(bool pounds) { return pounds ? "LB" : "KG"; }
 void date_text(const PregnancyDate &date, char *output, size_t capacity) {
   std::snprintf(output, capacity, "%04u-%02u-%02u", date.year, date.month, date.day);
 }
+// Geometry of the dashboard's text and chart for one logical size. Horizontal
+// positions follow from the screen width and the content margin; the vertical
+// stack differs per orientation and is named here instead of scattered through
+// the renderer.
+struct DashboardLayout {
+  int value_y;            // the big weight number (x = content margin)
+  int unit_x, unit_y;     // KG / LB beside the number
+  int baseline_label_y;   // "from baseline" caption
+  int baseline_value_y;   // the change since the baseline
+  int trend_title_x, trend_title_y;
+  Rect chart;             // trend plot area
+  int footer_text_y;      // height / record count line
+};
+
+DashboardLayout dashboard_layout(int width, int height) {
+  constexpr int kMargin = ui_tokens::kContentMargin;
+  constexpr int kLeftColumnWidth = 285; // landscape: number and baseline column
+  constexpr int kUnitX = 230;
+  if (portrait(width, height)) {
+    return {150, kUnitX, 192, 246, 264, kMargin, 304,
+            {kMargin, 356, width - 2 * kMargin, 228}, 622};
+  }
+  // Landscape: the chart takes the right column, from the left column's edge
+  // plus a margin to the right margin.
+  const int right_x = kMargin + kLeftColumnWidth + kMargin;
+  return {110, kUnitX, 152, 218, 238, right_x, 100,
+          {right_x, 142, width - kMargin - right_x, 190}, 372};
+}
+
+constexpr int kPlotPadding = 12;     // inside the chart area, around the points
+constexpr int kPointRadius = 4;
+constexpr int kEmptyTextInset = 16;  // "no records" message inside the chart
+constexpr int kEmptyTextTop = 56;
+
 void draw_trend(Canvas &canvas, const WeightService &service, const WeightPageState &state) {
-  const bool vertical = portrait(canvas.width(), canvas.height());
-  const int x = vertical ? 24 : 333;
-  const int y = vertical ? 356 : 142;
-  const int width = vertical ? 432 : 443;
-  const int height = vertical ? 228 : 190;
+  const Rect chart = dashboard_layout(canvas.width(), canvas.height()).chart;
+  const int x = chart.x;
+  const int y = chart.y;
+  const int width = chart.width;
+  const int height = chart.height;
   canvas.draw_line(x, y + height, x + width, y + height, GrayLevel::Black);
   WeightTrend trend = {};
   if (!service.trend(state.today, state.trend_days, trend) || trend.count == 0U) {
-    ui_draw_wrapped_text_pixels(canvas, x + 16, y + 56, width - 32,
+    ui_draw_wrapped_text_pixels(canvas, x + kEmptyTextInset, y + kEmptyTextTop, width - 2 * kEmptyTextInset,
         ui_text("NO WEIGHT RECORDS"), ui_tokens::kBody, GrayLevel::Black, 2, 4, FontWeight::Regular);
     return;
   }
@@ -75,9 +118,9 @@ void draw_trend(Canvas &canvas, const WeightService &service, const WeightPageSt
   bool previous_present = false;
   for (size_t i = 0U; i < trend.days; ++i) {
     if (!trend.present[i]) { previous_present = false; continue; }
-    const int px = x + 12 + static_cast<int>(i) * (width - 24) / (trend.days - 1);
-    const int py = y + height - 12 - static_cast<int>(trend.values[i] - minimum) * (height - 24) / (maximum - minimum);
-    canvas.fill_circle(px, py, 4, GrayLevel::Black);
+    const int px = x + kPlotPadding + static_cast<int>(i) * (width - 2 * kPlotPadding) / (trend.days - 1);
+    const int py = y + height - kPlotPadding - static_cast<int>(trend.values[i] - minimum) * (height - 2 * kPlotPadding) / (maximum - minimum);
+    canvas.fill_circle(px, py, kPointRadius, GrayLevel::Black);
     if (previous_present) canvas.draw_line(previous_x, previous_y, px, py, GrayLevel::Black);
     previous_x = px; previous_y = py; previous_present = true;
   }
@@ -172,20 +215,21 @@ void weight_page_render(Canvas &canvas, const WeightService &service,
       const auto shown = weight_display_value(latest->weight_tenths_kg, pounds);
       std::snprintf(text, sizeof(text), "%u.%u", shown / 10U, shown % 10U);
     } else std::snprintf(text, sizeof(text), "--.-");
-    canvas.draw_text(24, vertical ? 150 : 110, text, 8, GrayLevel::Black);
-    canvas.draw_text(230, vertical ? 192 : 152, unit_name(pounds), 3, GrayLevel::Black);
+    const DashboardLayout layout = dashboard_layout(width, height);
+    canvas.draw_text(ui_tokens::kContentMargin, layout.value_y, text, 8, GrayLevel::Black);
+    canvas.draw_text(layout.unit_x, layout.unit_y, unit_name(pounds), 3, GrayLevel::Black);
     WeightSummary summary = {};
     if (service.summary(settings.height_cm, settings.baseline_tenths_kg, summary)) {
       const int change = pounds ? static_cast<int>(summary.change_tenths_kg) * 22046 / 10000 : summary.change_tenths_kg;
       std::snprintf(text, sizeof(text), "%s%d.%d %s", change < 0 ? "-" : "+", std::abs(change) / 10, std::abs(change) % 10, unit_name(pounds));
-      canvas.draw_text(24, vertical ? 246 : 218, ui_text("FROM BASELINE"), 1, GrayLevel::Black);
-      canvas.draw_text(24, vertical ? 264 : 238, text, 3, GrayLevel::Black);
+      canvas.draw_text(ui_tokens::kContentMargin, layout.baseline_label_y, ui_text("FROM BASELINE"), 1, GrayLevel::Black);
+      canvas.draw_text(ui_tokens::kContentMargin, layout.baseline_value_y, text, 3, GrayLevel::Black);
     }
-    canvas.draw_text(vertical ? 24 : 333, vertical ? 304 : 100, ui_text("WEIGHT TREND"), 2, GrayLevel::Black);
+    canvas.draw_text(layout.trend_title_x, layout.trend_title_y, ui_text("WEIGHT TREND"), 2, GrayLevel::Black);
     segmented_toggle(canvas, trend_toggle(width, height), "7 DAYS", "30 DAYS", state.trend_days == 7U);
     draw_trend(canvas, service, state);
     std::snprintf(text, sizeof(text), ui_language_is_chinese() ? "身高 %u CM   记录 %u / 366" : "HEIGHT %u CM   RECORDS %u / 366", settings.height_cm, static_cast<unsigned>(service.count()));
-    canvas.draw_text(24, vertical ? 622 : 372, text, 1, GrayLevel::Black);
+    canvas.draw_text(ui_tokens::kContentMargin, layout.footer_text_y, text, 1, GrayLevel::Black);
     const char *labels[] = {"ADD TODAY", "HISTORY", "BASELINE"};
     for (size_t i = 0U; i < 3U; ++i) prototype_ui::draw_button(canvas, footer(i, 3U, width, height), labels[i], i == 0U);
   } else if (state.page == WeightPage::History) {

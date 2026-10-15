@@ -44,6 +44,32 @@ void test_target_contract() {
   }
 }
 
+// The dashboard's controls follow the screen width, so a larger logical screen
+// keeps them anchored to the right margin and clear of the header action.
+void test_dashboard_scales_with_width() {
+  const int sizes[][2] = {{800, 480}, {960, 540}, {480, 800}, {540, 960}};
+  for (const auto &size : sizes) {
+    WeightTarget targets[kMaxWeightTargets];
+    const size_t count = weight_page_targets(WeightPage::Dashboard, size[0], size[1], targets, kMaxWeightTargets);
+    const bool is_portrait = size[1] > size[0];
+    for (size_t a = 0U; a < count; ++a) {
+      const auto &r = targets[a].rect;
+      assert(r.x >= 0 && r.y >= 0 && r.x + r.width <= size[0] && r.y + r.height <= size[1]);
+      assert(r.height >= 48 && r.width >= 48);
+      if (targets[a].action == WeightAction::ToggleTrend)
+        assert(r.x + r.width == size[0] - 24);
+      if (targets[a].action == WeightAction::ToggleUnit) {
+        if (is_portrait) assert(r.x + r.width == size[0] - 24);
+        else assert(r.x + r.width < size[0] - 24 - 120); // left of the header action
+      }
+      for (size_t b = a + 1U; b < count; ++b) {
+        const auto &o = targets[b].rect;
+        assert(!(r.x < o.x + o.width && o.x < r.x + r.width && r.y < o.y + o.height && o.y < r.y + r.height));
+      }
+    }
+  }
+}
+
 // Back graph: every page reaches the dashboard (which leaves for the launcher).
 void test_back_graph() {
   const WeightPage pages[] = {WeightPage::Dashboard, WeightPage::Editor, WeightPage::History,
@@ -67,6 +93,7 @@ void test_back_graph() {
 }
 
 int main() {
+  test_dashboard_scales_with_width();
   test_back_graph();
   test_target_contract();
   for (uint16_t value = 300U; value <= 2000U; ++value)
