@@ -101,109 +101,6 @@ bool portrait_layout(const Canvas &canvas) {
   return canvas.height() > canvas.width();
 }
 
-void draw_centered_text_in_rect(Canvas &canvas, const Rect &rect,
-                                const char *text, int scale, GrayLevel color) {
-  prototype_ui::draw_centered_label(
-      canvas, {rect.x, rect.y, rect.width, rect.height}, text,
-      font_ui_pixel_size(static_cast<uint8_t>(scale)), color,
-      FontWeight::Medium);
-}
-
-void draw_beveled_outline(Canvas &canvas, const Rect &rect, int cut,
-                          GrayLevel color) {
-  canvas.draw_line(rect.x + cut, rect.y, rect.x + rect.width - cut - 1,
-                   rect.y, color);
-  canvas.draw_line(rect.x + rect.width - cut - 1, rect.y,
-                   rect.x + rect.width - 1, rect.y + cut, color);
-  canvas.draw_line(rect.x + rect.width - 1, rect.y + cut,
-                   rect.x + rect.width - 1, rect.y + rect.height - cut - 1,
-                   color);
-  canvas.draw_line(rect.x + rect.width - 1, rect.y + rect.height - cut - 1,
-                   rect.x + rect.width - cut - 1, rect.y + rect.height - 1,
-                   color);
-  canvas.draw_line(rect.x + rect.width - cut - 1, rect.y + rect.height - 1,
-                   rect.x + cut, rect.y + rect.height - 1, color);
-  canvas.draw_line(rect.x + cut, rect.y + rect.height - 1, rect.x,
-                   rect.y + rect.height - cut - 1, color);
-  canvas.draw_line(rect.x, rect.y + rect.height - cut - 1, rect.x,
-                   rect.y + cut, color);
-  canvas.draw_line(rect.x, rect.y + cut, rect.x + cut, rect.y, color);
-}
-
-// Beveled box with a border of ui_tokens::kBorderStroke px; each extra pass is
-// inset by one pixel and its corner cut shrinks to stay parallel.
-void draw_beveled_rect(Canvas &canvas, const Rect &rect, GrayLevel color) {
-  constexpr int kCut = 8;
-  for (int inset = 0; inset < ui_tokens::kBorderStroke; ++inset)
-    draw_beveled_outline(canvas,
-                         {rect.x + inset, rect.y + inset,
-                          rect.width - 2 * inset, rect.height - 2 * inset},
-                         kCut - inset, color);
-}
-
-void draw_rounded_outline(Canvas &canvas, const Rect &rect, int radius,
-                          GrayLevel color) {
-  const int safe_radius =
-      std::max(1, std::min(radius, std::min(rect.width, rect.height) / 2));
-  const int left_center = rect.x + safe_radius;
-  const int right_center = rect.x + rect.width - safe_radius - 1;
-  const int top_center = rect.y + safe_radius;
-  const int bottom_center = rect.y + rect.height - safe_radius - 1;
-
-  canvas.draw_line(left_center, rect.y, right_center, rect.y, color);
-  canvas.draw_line(left_center, rect.y + rect.height - 1, right_center,
-                   rect.y + rect.height - 1, color);
-  canvas.draw_line(rect.x, top_center, rect.x, bottom_center, color);
-  canvas.draw_line(rect.x + rect.width - 1, top_center, rect.x + rect.width - 1,
-                   bottom_center, color);
-
-  int arc_x = safe_radius;
-  int arc_y = 0;
-  int error = 1 - safe_radius;
-  while (arc_x >= arc_y) {
-    canvas.draw_pixel(left_center - arc_x, top_center - arc_y, color);
-    canvas.draw_pixel(left_center - arc_y, top_center - arc_x, color);
-    canvas.draw_pixel(right_center + arc_x, top_center - arc_y, color);
-    canvas.draw_pixel(right_center + arc_y, top_center - arc_x, color);
-    canvas.draw_pixel(left_center - arc_x, bottom_center + arc_y, color);
-    canvas.draw_pixel(left_center - arc_y, bottom_center + arc_x, color);
-    canvas.draw_pixel(right_center + arc_x, bottom_center + arc_y, color);
-    canvas.draw_pixel(right_center + arc_y, bottom_center + arc_x, color);
-    ++arc_y;
-    if (error < 0) {
-      error += 2 * arc_y + 1;
-    } else {
-      --arc_x;
-      error += 2 * (arc_y - arc_x + 1);
-    }
-  }
-}
-
-// Rounded box whose border is `stroke` px (inner passes use a smaller radius).
-void draw_rounded_rect(Canvas &canvas, const Rect &rect, int radius,
-                       GrayLevel color, int stroke = 1) {
-  for (int inset = 0; inset < stroke; ++inset)
-    draw_rounded_outline(canvas,
-                         {rect.x + inset, rect.y + inset,
-                          rect.width - 2 * inset, rect.height - 2 * inset},
-                         std::max(1, radius - inset), color);
-}
-
-void fill_pill(Canvas &canvas, int x, int y, int width, int height,
-               GrayLevel color) {
-  if (width <= 0 || height <= 0)
-    return;
-  const int radius = height / 2;
-  if (width <= height) {
-    canvas.fill_circle(x + width / 2, y + height / 2, std::max(1, width / 2),
-                       color);
-    return;
-  }
-  canvas.fill_rect(x + radius, y, width - radius * 2, height, color);
-  canvas.fill_circle(x + radius, y + height / 2, radius, color);
-  canvas.fill_circle(x + width - radius - 1, y + height / 2, radius, color);
-}
-
 void draw_baby_icon(Canvas &canvas, int x, int y, GrayLevel color) {
   canvas.draw_circle(x + 12, y + 12, 10, color);
   canvas.draw_circle(x + 12, y + 12, 9, color);
@@ -263,23 +160,11 @@ void draw_centered_text_pixels(Canvas &canvas, const Rect &rect,
                           pixel_size, color, weight);
 }
 
-void draw_button(Canvas &canvas, const Rect &rect, const char *label,
-                 bool filled, int scale) {
-  const GrayLevel foreground = filled ? GrayLevel::White : GrayLevel::Black;
-  if (filled) {
-    canvas.fill_rect(rect.x, rect.y, rect.width, rect.height, GrayLevel::Black);
-  } else {
-    draw_beveled_rect(canvas, rect, GrayLevel::Black);
-  }
-  draw_centered_text_in_rect(canvas, rect, label, scale, foreground);
-}
 
 // 56 px square menu button: the drawn box is exactly the hit rectangle.
 void draw_menu_button(Canvas &canvas, const Rect &rect) {
   canvas.fill_rect(rect.x, rect.y, rect.width, rect.height, GrayLevel::White);
-  for (int inset = 0; inset < 2; ++inset)
-    canvas.draw_rect(rect.x + inset, rect.y + inset, rect.width - 2 * inset,
-                     rect.height - 2 * inset, GrayLevel::Black);
+  prototype_ui::draw_frame(canvas, rect, ui_tokens::kBorderStroke);
   for (int line = 0; line < 3; ++line)
     canvas.fill_rect(rect.x + 16, rect.y + 16 + line * 10, 24, 2,
                      GrayLevel::Black);
@@ -312,7 +197,7 @@ void render_keypad(Canvas &canvas, bool portrait) {
   for (size_t index = 0U; index < 12U; ++index) {
     const bool primary = index == 11U;
     const int scale = index == 9U || index == 11U ? 2 : 4;
-    draw_button(canvas, layout_for(portrait).keys[index],
+    prototype_ui::draw_button(canvas, layout_for(portrait).keys[index],
                 kKeyLabels[index], primary, scale);
   }
 }
@@ -324,7 +209,7 @@ void render_setup(Canvas &canvas, const char *title, const char *caption,
   if (portrait) {
     canvas.draw_text(24, 24, title, 4, GrayLevel::Black);
     canvas.draw_text(24, 66, caption, 1, GrayLevel::Black);
-    draw_beveled_rect(canvas, kPortrait.input, GrayLevel::Black);
+    prototype_ui::draw_frame(canvas, kPortrait.input, ui_tokens::kBorderStroke);
     digit_fields_draw(canvas, kPortrait.input, fields, kPortrait.input_size);
     canvas.draw_text(24, 204,
                      input_error ? "CHECK THE DATE AND TRY AGAIN"
@@ -332,14 +217,14 @@ void render_setup(Canvas &canvas, const char *title, const char *caption,
                      2, GrayLevel::Black);
     canvas.draw_text(24, 242, "SAVED ONLY ON THIS DEVICE", 1, GrayLevel::Black);
     if (can_cancel)
-      draw_button(canvas, kPortrait.back, "CANCEL", false, 3);
+      prototype_ui::draw_button(canvas, kPortrait.back, "CANCEL", false, 3);
     render_keypad(canvas, true);
     return;
   }
   canvas.draw_text(30, 28, title, 4, GrayLevel::Black);
   canvas.draw_text(30, 72, caption, 2, GrayLevel::Black);
 
-  draw_beveled_rect(canvas, kLandscape.input, GrayLevel::Black);
+  prototype_ui::draw_frame(canvas, kLandscape.input, ui_tokens::kBorderStroke);
   digit_fields_draw(canvas, kLandscape.input, fields, kLandscape.input_size);
 
   canvas.draw_text(30, 235,
@@ -349,7 +234,7 @@ void render_setup(Canvas &canvas, const char *title, const char *caption,
   canvas.draw_text(30, 278, "SAVED ONLY ON THIS DEVICE", 2, GrayLevel::Black);
 
   if (can_cancel) {
-    draw_button(canvas, kLandscape.back, "CANCEL", false, 3);
+    prototype_ui::draw_button(canvas, kLandscape.back, "CANCEL", false, 3);
   }
   render_keypad(canvas, false);
 }
@@ -376,29 +261,29 @@ void pregnancy_page_render_source_setup(Canvas &canvas, bool can_cancel) {
     canvas.draw_text(24, 26, ui_text("PREGNANCY SETUP"), 4, GrayLevel::Black);
     canvas.draw_text(24, 72, ui_text("CHOOSE THE DATE YOU KNOW"), 2,
                      GrayLevel::Black);
-    draw_button(canvas, kPortrait.due_source, ui_text("ESTIMATED DUE DATE"),
+    prototype_ui::draw_button(canvas, kPortrait.due_source, ui_text("ESTIMATED DUE DATE"),
                 true, 3);
-    draw_button(canvas, kPortrait.lmp_source,
+    prototype_ui::draw_button(canvas, kPortrait.lmp_source,
                 ui_text("LAST MENSTRUAL PERIOD"), false, 3);
     ui_draw_wrapped_text_pixels(
         canvas, ui_tokens::kContentMargin, 594, 432,
         ui_text("A CLINICIAN-CONFIRMED DUE DATE IS PREFERRED"),
         ui_tokens::kSecondaryBody, GrayLevel::Black, 2, 2, FontWeight::Regular);
     if (can_cancel)
-      draw_button(canvas, kPortrait.back, "CANCEL", false, 3);
+      prototype_ui::draw_button(canvas, kPortrait.back, "CANCEL", false, 3);
     return;
   }
   canvas.draw_text(42, 28, ui_text("PREGNANCY SETUP"), 5, GrayLevel::Black);
   canvas.draw_text(42, 86, ui_text("CHOOSE THE DATE YOU KNOW"), 2,
                    GrayLevel::Black);
-  draw_button(canvas, kLandscape.due_source, ui_text("ESTIMATED DUE DATE"), true, 3);
-  draw_button(canvas, kLandscape.lmp_source, ui_text("LAST MENSTRUAL PERIOD"), false,
+  prototype_ui::draw_button(canvas, kLandscape.due_source, ui_text("ESTIMATED DUE DATE"), true, 3);
+  prototype_ui::draw_button(canvas, kLandscape.lmp_source, ui_text("LAST MENSTRUAL PERIOD"), false,
               3);
   canvas.draw_text(54, 350,
                    ui_text("A CLINICIAN-CONFIRMED DUE DATE IS PREFERRED"), 2,
                    GrayLevel::Black);
   if (can_cancel)
-    draw_button(canvas, kLandscape.back, "CANCEL", false, 3);
+    prototype_ui::draw_button(canvas, kLandscape.back, "CANCEL", false, 3);
 }
 
 void pregnancy_page_render_profile_date_setup(Canvas &canvas,
@@ -441,11 +326,8 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
     constexpr int kProgressHeight = 14;
     const int percent =
         std::max(0, std::min(100, static_cast<int>(progress.percent)));
-    fill_pill(canvas, kProgressX, kProgressY, kProgressWidth * percent / 100,
-              kProgressHeight, GrayLevel::Black);
-    draw_rounded_rect(canvas,
-                      {kProgressX, kProgressY, kProgressWidth, kProgressHeight},
-                      kProgressHeight / 2, GrayLevel::Black);
+    prototype_ui::draw_progress_bar(
+        canvas, {kProgressX, kProgressY, kProgressWidth, kProgressHeight}, percent);
     char completion[16] = {};
     std::snprintf(completion, sizeof(completion), "%u%%",
                   static_cast<unsigned>(progress.percent));
@@ -490,8 +372,7 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
                               GrayLevel::Black, FontWeight::Regular);
 
     constexpr Rect kGrowthCard = {24, 574, 432, 200};
-    draw_rounded_rect(canvas, kGrowthCard, 12, GrayLevel::Black,
-                    ui_tokens::kBorderStroke);
+    prototype_ui::draw_frame(canvas, kGrowthCard, ui_tokens::kBorderStroke);
     draw_baby_icon(canvas, 44, 588, GrayLevel::Black);
     canvas.draw_text_pixels(82, 588, "本周成长", ui_tokens::kCardTitle, GrayLevel::Black);
     canvas.draw_line(44, 624, 436, 624, GrayLevel::Black);
@@ -523,12 +404,8 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
   constexpr int kProgressHeight = 14;
   const int percent =
       std::max(0, std::min(100, static_cast<int>(progress.percent)));
-  const int filled_width = kProgressWidth * percent / 100;
-  fill_pill(canvas, kProgressX, kProgressY, filled_width, kProgressHeight,
-            GrayLevel::Black);
-  draw_rounded_rect(canvas,
-                    {kProgressX, kProgressY, kProgressWidth, kProgressHeight},
-                    kProgressHeight / 2, GrayLevel::Black);
+  prototype_ui::draw_progress_bar(
+      canvas, {kProgressX, kProgressY, kProgressWidth, kProgressHeight}, percent);
   char completion[16] = {};
   std::snprintf(completion, sizeof(completion), "%u%%",
                 static_cast<unsigned>(progress.percent));
@@ -550,8 +427,7 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
       165, GrayLevel::Black);
 
   constexpr Rect kGrowthCard = {32, 216, 352, 240};
-  draw_rounded_rect(canvas, kGrowthCard, 12, GrayLevel::Black,
-                    ui_tokens::kBorderStroke);
+  prototype_ui::draw_frame(canvas, kGrowthCard, ui_tokens::kBorderStroke);
   draw_baby_icon(canvas, 52, 232, GrayLevel::Black);
   canvas.draw_text_pixels(92, 232, "本周成长", ui_tokens::kSectionHeading, GrayLevel::Black);
   canvas.draw_line(52, 276, 364, 276, GrayLevel::Black);
@@ -596,7 +472,7 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
                         : (page == PregnancyPage::Baby ? "BABY" : "MOM"));
   if (portrait_layout(canvas)) {
     canvas.draw_text(24, 22, title, 3, GrayLevel::Black);
-    draw_button(canvas, kPortrait.home, chinese ? "返回" : "HOME", false, 2);
+    prototype_ui::draw_button(canvas, kPortrait.home, chinese ? "返回" : "HOME", false, 2);
     canvas.draw_line(24, 82, 456, 82, GrayLevel::Black);
     canvas.draw_text(24, 108, chinese ? "孕周" : "WEEK", 2, GrayLevel::Black);
     char stat[20] = {};
@@ -648,10 +524,10 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
                                    : content.daily_advice,
                            2, GrayLevel::Black, 4, 8);
     }
-    draw_button(canvas, kPortrait.tabs[0], ui_text("OVERVIEW"), false, 2);
-    draw_button(canvas, kPortrait.tabs[1], ui_text("BABY"),
+    prototype_ui::draw_button(canvas, kPortrait.tabs[0], ui_text("OVERVIEW"), false, 2);
+    prototype_ui::draw_button(canvas, kPortrait.tabs[1], ui_text("BABY"),
                 page == PregnancyPage::Baby, 2);
-    draw_button(canvas, kPortrait.tabs[2], ui_text("MOM"),
+    prototype_ui::draw_button(canvas, kPortrait.tabs[2], ui_text("MOM"),
                 page == PregnancyPage::Mom, 2);
     return;
   }
@@ -663,7 +539,7 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
               : (page == PregnancyPage::Baby ? "THIS WEEK'S DEVELOPMENT"
                                              : "CHANGES AND GENTLE REMINDERS"),
       2, GrayLevel::Black);
-  draw_button(canvas, kLandscape.home, chinese ? "返回首页" : "HOME", false, 2);
+  prototype_ui::draw_button(canvas, kLandscape.home, chinese ? "返回首页" : "HOME", false, 2);
   canvas.draw_line(214, 86, 214, 348, GrayLevel::Black);
   if (page == PregnancyPage::Baby) {
     canvas.draw_text(24, 108, chinese ? "孕周" : "WEEK", 2, GrayLevel::Black);
@@ -736,10 +612,10 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
     canvas.draw_text(614, 287, chinese ? "联系医护" : "CONTACT CARE", 2,
                      GrayLevel::Black);
   }
-  draw_button(canvas, kLandscape.tabs[0], ui_text("OVERVIEW"), false, 2);
-  draw_button(canvas, kLandscape.tabs[1], ui_text("BABY"), page == PregnancyPage::Baby,
+  prototype_ui::draw_button(canvas, kLandscape.tabs[0], ui_text("OVERVIEW"), false, 2);
+  prototype_ui::draw_button(canvas, kLandscape.tabs[1], ui_text("BABY"), page == PregnancyPage::Baby,
               2);
-  draw_button(canvas, kLandscape.tabs[2], ui_text("MOM"), page == PregnancyPage::Mom, 2);
+  prototype_ui::draw_button(canvas, kLandscape.tabs[2], ui_text("MOM"), page == PregnancyPage::Mom, 2);
 }
 
 size_t pregnancy_page_targets(PregnancyPage page, bool can_cancel, int width,

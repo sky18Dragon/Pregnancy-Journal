@@ -66,10 +66,6 @@ void draw_centered(Canvas &canvas, int center_x, int y, const char *text,
                           GrayLevel::Black, weight);
 }
 
-void render_button(Canvas &canvas, const Rect &rect, const char *label,
-                   bool filled) {
-  prototype_ui::draw_button(canvas, rect, label, filled, 2U);
-}
 
 const char *period_label(KickPeriod period) {
   if (period == KickPeriod::Morning)
@@ -310,8 +306,8 @@ void kick_page_render_today(Canvas &canvas, const KickDaySummary &today,
   }
   const Rect start = primary_button_rect(canvas.width(), canvas.height());
   const Rect insights = secondary_button_rect(canvas.width(), canvas.height());
-  render_button(canvas, start, "START COUNTING", true);
-  render_button(canvas, insights, "VIEW 7-DAY TREND", false);
+  prototype_ui::draw_button(canvas, start, "START COUNTING", true);
+  prototype_ui::draw_button(canvas, insights, "VIEW 7-DAY TREND", false);
 }
 
 void kick_page_render_insights(Canvas &canvas, const KickDaySummary &today,
@@ -360,9 +356,9 @@ void kick_page_render_insights(Canvas &canvas, const KickDaySummary &today,
                             GrayLevel::Black, FontWeight::Medium);
     draw_period_rows(canvas, 476, 274, 300, today);
   }
-  render_button(canvas, primary_button_rect(canvas.width(), canvas.height()),
+  prototype_ui::draw_button(canvas, primary_button_rect(canvas.width(), canvas.height()),
                 "START COUNTING", true);
-  render_button(canvas, secondary_button_rect(canvas.width(), canvas.height()),
+  prototype_ui::draw_button(canvas, secondary_button_rect(canvas.width(), canvas.height()),
                 "COMPARE WITH USUAL", false);
 }
 
@@ -413,9 +409,9 @@ void kick_page_render_counter(Canvas &canvas, KickPeriod period,
                   ui_text("A CONTINUOUS SERIES OF MOTIONS CAN BE RECORDED AS ONE MOVEMENT"),
                   ui_tokens::kSecondaryBody, FontWeight::Regular);
   }
-  render_button(canvas, primary_button_rect(canvas.width(), canvas.height()),
+  prototype_ui::draw_button(canvas, primary_button_rect(canvas.width(), canvas.height()),
                 "UNDO ONE", false);
-  render_button(canvas, secondary_button_rect(canvas.width(), canvas.height()),
+  prototype_ui::draw_button(canvas, secondary_button_rect(canvas.width(), canvas.height()),
                 "FINISH AND SAVE", true);
 }
 
@@ -734,9 +730,9 @@ void kick_page_render_result(Canvas &canvas, const KickSession &session,
     canvas.draw_line(24, 132, 24 + width, 132, GrayLevel::Black);
     draw_comparison_block(canvas, 24, 152, width, comparison, is_portrait);
   }
-  render_button(canvas, primary_button_rect(canvas.width(), canvas.height()),
+  prototype_ui::draw_button(canvas, primary_button_rect(canvas.width(), canvas.height()),
                 "DONE", true);
-  render_button(canvas, secondary_button_rect(canvas.width(), canvas.height()),
+  prototype_ui::draw_button(canvas, secondary_button_rect(canvas.width(), canvas.height()),
                 "COMPARE WITH USUAL", false);
 }
 
@@ -809,6 +805,6 @@ void kick_page_render_compare(Canvas &canvas, const KickComparison periods[3],
   draw_row(ui_text("FEEL CHECK-IN"),
            has_awareness ? awareness_text : ui_text("NO CHECK-INS IN 7 DAYS"),
            nullptr);
-  render_button(canvas, full_button_rect(canvas.width(), canvas.height()),
+  prototype_ui::draw_button(canvas, full_button_rect(canvas.width(), canvas.height()),
                 "START COUNTING", true);
 }

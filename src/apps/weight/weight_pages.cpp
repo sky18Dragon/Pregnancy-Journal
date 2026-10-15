@@ -40,9 +40,6 @@ Rect profile_adjust(size_t index, int width, int height) {
   return {ui_tokens::kContentMargin + static_cast<int>(index % 4U) * (item + kGap), y, item,
           ui_tokens::kButtonHeight};
 }
-void page_button(Canvas &canvas, Rect rect, const char *label, bool filled = false) {
-  prototype_ui::draw_button(canvas, rect, label, filled, 2);
-}
 // Two-state toggle: both options are visible and the active one is inverted.
 // The whole rectangle stays one hit target that flips the state.
 void segmented_toggle(Canvas &canvas, Rect rect, const char *first, const char *second, bool first_active) {
@@ -190,7 +187,7 @@ void weight_page_render(Canvas &canvas, const WeightService &service,
     std::snprintf(text, sizeof(text), ui_language_is_chinese() ? "身高 %u CM   记录 %u / 366" : "HEIGHT %u CM   RECORDS %u / 366", settings.height_cm, static_cast<unsigned>(service.count()));
     canvas.draw_text(24, vertical ? 622 : 372, text, 1, GrayLevel::Black);
     const char *labels[] = {"ADD TODAY", "HISTORY", "BASELINE"};
-    for (size_t i = 0U; i < 3U; ++i) page_button(canvas, footer(i, 3U, width, height), labels[i], i == 0U);
+    for (size_t i = 0U; i < 3U; ++i) prototype_ui::draw_button(canvas, footer(i, 3U, width, height), labels[i], i == 0U);
   } else if (state.page == WeightPage::History) {
     prototype_ui::draw_header(canvas, "WEIGHT HISTORY", "SELECT A RECORD TO EDIT", "BACK");
     for (size_t row = 0U; row < kWeightHistoryRows; ++row) {
@@ -200,20 +197,20 @@ void weight_page_render(Canvas &canvas, const WeightService &service,
       date_text(record->date, date, sizeof(date));
       const auto value = weight_display_value(record->weight_tenths_kg, pounds);
       std::snprintf(text, sizeof(text), "%s     %u.%u %s", date, value / 10U, value % 10U, unit_name(pounds));
-      page_button(canvas, history_row(row, width, height), text);
+      prototype_ui::draw_button(canvas, history_row(row, width, height), text);
     }
     if (service.count() == 0U) canvas.draw_text(24, 154, ui_text("NO WEIGHT RECORDS"), 2, GrayLevel::Black);
-    page_button(canvas, footer(0U, 2U, width, height), "PREVIOUS PAGE");
-    page_button(canvas, footer(1U, 2U, width, height), "NEXT PAGE");
+    prototype_ui::draw_button(canvas, footer(0U, 2U, width, height), "PREVIOUS PAGE");
+    prototype_ui::draw_button(canvas, footer(1U, 2U, width, height), "NEXT PAGE");
   } else if (state.page == WeightPage::Editor) {
     date_text(state.edit_date, text, sizeof(text));
     prototype_ui::draw_header(canvas, "WEIGHT", text, "CANCEL");
     std::snprintf(text, sizeof(text), "%u.%u %s", state.edit_display_weight / 10U, state.edit_display_weight % 10U, unit_name(pounds));
     canvas.draw_text((width - ui_text_width(text, 5U)) / 2, vertical ? 200 : 170, text, 5, GrayLevel::Black);
     const char *labels[] = {"- 1.0", "- 0.1", "+ 0.1", "+ 1.0"};
-    for (size_t i = 0U; i < 4U; ++i) page_button(canvas, adjustment(i, width, height), labels[i]);
-    if (state.edit_id != 0U) page_button(canvas, footer(0U, 2U, width, height), "DELETE");
-    page_button(canvas, footer(1U, 2U, width, height), "SAVE", true);
+    for (size_t i = 0U; i < 4U; ++i) prototype_ui::draw_button(canvas, adjustment(i, width, height), labels[i]);
+    if (state.edit_id != 0U) prototype_ui::draw_button(canvas, footer(0U, 2U, width, height), "DELETE");
+    prototype_ui::draw_button(canvas, footer(1U, 2U, width, height), "SAVE", true);
   } else if (state.page == WeightPage::Profile) {
     prototype_ui::draw_header(canvas, "BASELINE", "PERSONAL RECORD", "CANCEL");
     std::snprintf(text, sizeof(text), "%u CM", state.profile.height_cm);
@@ -222,8 +219,8 @@ void weight_page_render(Canvas &canvas, const WeightService &service,
     std::snprintf(text, sizeof(text), "%u.%u %s", baseline / 10U, baseline % 10U, unit_name(pounds));
     canvas.draw_text(24, vertical ? 358 : 234, text, 3, GrayLevel::Black);
     const char *labels[] = {"- 5", "- 1", "+ 1", "+ 5", "- 1.0", "- 0.1", "+ 0.1", "+ 1.0"};
-    for (size_t i = 0U; i < 8U; ++i) page_button(canvas, profile_adjust(i, width, height), labels[i]);
-    page_button(canvas, footer(0U, 1U, width, height), "SAVE", true);
+    for (size_t i = 0U; i < 8U; ++i) prototype_ui::draw_button(canvas, profile_adjust(i, width, height), labels[i]);
+    prototype_ui::draw_button(canvas, footer(0U, 1U, width, height), "SAVE", true);
   } else {
     const bool deleting = state.page == WeightPage::DeleteConfirm;
     prototype_ui::draw_header(canvas, deleting ? "DELETE WEIGHT RECORD" : "REPLACE SAME-DAY RECORD", "CONFIRM CHANGE", "BACK");
@@ -232,7 +229,7 @@ void weight_page_render(Canvas &canvas, const WeightService &service,
     ui_draw_wrapped_text_pixels(canvas, ui_tokens::kContentMargin, vertical ? 244 : 210, width - 2 * ui_tokens::kContentMargin,
         ui_text(deleting ? "THIS RECORD WILL BE DELETED." : "THE EXISTING RECORD FOR THIS DATE WILL BE REPLACED."),
         ui_tokens::kBody, GrayLevel::Black, 3, 5, FontWeight::Regular);
-    page_button(canvas, footer(0U, 2U, width, height), "CANCEL");
-    page_button(canvas, footer(1U, 2U, width, height), "CONFIRM", true);
+    prototype_ui::draw_button(canvas, footer(0U, 2U, width, height), "CANCEL");
+    prototype_ui::draw_button(canvas, footer(1U, 2U, width, height), "CONFIRM", true);
   }
 }

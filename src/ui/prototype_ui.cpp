@@ -87,6 +87,13 @@ void draw_frame(Canvas &canvas, const Rect &rect, int stroke, GrayLevel color) {
                      rect.height - 2 * inset, color);
 }
 
+void draw_progress_bar(Canvas &canvas, const Rect &rect, int percent) {
+  const int clamped = std::max(0, std::min(100, percent));
+  draw_frame(canvas, rect, ui_tokens::kBorderStroke);
+  canvas.fill_rect(rect.x, rect.y, rect.width * clamped / 100, rect.height,
+                   GrayLevel::Black);
+}
+
 void draw_button(Canvas &canvas, const Rect &rect, const char *label,
                  bool filled, uint8_t scale) {
   const GrayLevel foreground = filled ? GrayLevel::White : GrayLevel::Black;
@@ -135,11 +142,6 @@ void draw_header(Canvas &canvas, const char *title, const char *subtitle,
   if (back_label != nullptr)
     draw_button(canvas, header_action_rect(canvas.width(), canvas.height()),
                 back_label, false, 2);
-}
-
-void draw_label(Canvas &canvas, int x, int y, const char *label) {
-  canvas.draw_text(x, y, ui_text(label), 2, GrayLevel::Black,
-                   FontWeight::Medium);
 }
 
 void draw_chevron(Canvas &canvas, int x, int y, GrayLevel color) {

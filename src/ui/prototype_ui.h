@@ -34,11 +34,13 @@ void draw_centered_label(Canvas &canvas, const Rect &rect, const char *text,
 // does not change with the stroke).
 void draw_frame(Canvas &canvas, const Rect &rect, int stroke,
                 GrayLevel color = GrayLevel::Black);
+// Horizontal progress bar: a bordered track whose left `percent` (0-100) is
+// filled black.
+void draw_progress_bar(Canvas &canvas, const Rect &rect, int percent);
 void draw_button(Canvas &canvas, const Rect &rect, const char *label,
                  bool filled = false, uint8_t scale = 2);
 void draw_header(Canvas &canvas, const char *title, const char *subtitle,
                  const char *back_label = nullptr);
-void draw_label(Canvas &canvas, int x, int y, const char *label);
 void draw_chevron(Canvas &canvas, int x, int y,
                   GrayLevel color = GrayLevel::Black);
 void draw_status_square(Canvas &canvas, int x, int y, bool done,
