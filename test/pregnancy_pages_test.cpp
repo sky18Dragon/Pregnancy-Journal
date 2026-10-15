@@ -245,10 +245,10 @@ int main() {
                                   360) == PregnancyAction::None);
   const char *portrait_countdown = "距离预产期还有 140 天";
   const int portrait_countdown_width =
-      font_text_width_pixels(portrait_countdown, 16U, FontWeight::Regular);
+      font_text_width_pixels(portrait_countdown, ui_tokens::kBody, FontWeight::Regular);
   const int portrait_heart_x = (480 - (portrait_countdown_width + 8 + 24)) / 2 +
                                portrait_countdown_width + 8;
-  assert(count_black_rect(canvas, portrait_heart_x, 171, 24, 24) > 20U);
+  assert(count_black_rect(canvas, portrait_heart_x, 143, 24, 24) > 20U);
   write_canvas_preview(canvas, "/tmp/pregnancy_dashboard_portrait_zh.ppm");
 
   pregnancy_page_render_source_setup(canvas, true);

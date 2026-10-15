@@ -314,14 +314,11 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
     draw_centered_text_pixels(canvas, {24, 26, 432, ui_tokens::kButtonHeight}, headline, ui_tokens::kDisplay,
                               GrayLevel::Black, FontWeight::Medium);
 
-    char week_progress[32] = {};
-    std::snprintf(week_progress, sizeof(week_progress), "%u / 40 周",
-                  static_cast<unsigned>(progress.weeks));
-    draw_centered_text_pixels(canvas, {24, 96, 432, 24}, week_progress, ui_tokens::kEmphasis,
-                              GrayLevel::Black, FontWeight::Regular);
-
+    // Hierarchy: week headline, then progress + countdown, then the picture,
+    // then this week's card. (The "21 / 40" line repeated the headline and the
+    // bar, and the decorative caption under the picture is gone.)
     constexpr int kProgressX = 40;
-    constexpr int kProgressY = 140;
+    constexpr int kProgressY = 108;
     constexpr int kProgressWidth = 336;
     constexpr int kProgressHeight = 14;
     const int percent =
@@ -331,7 +328,7 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
     char completion[16] = {};
     std::snprintf(completion, sizeof(completion), "%u%%",
                   static_cast<unsigned>(progress.percent));
-    canvas.draw_text_pixels(392, 136, completion, ui_tokens::kBody, GrayLevel::Black,
+    canvas.draw_text_pixels(392, kProgressY - 4, completion, ui_tokens::kBody, GrayLevel::Black,
                             FontWeight::Regular);
 
     char countdown[64] = {};
@@ -349,10 +346,10 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
     const int countdown_group_width =
         countdown_width + kCountdownHeartGap + kCountdownHeartWidth;
     const int countdown_x = (canvas.width() - countdown_group_width) / 2;
-    canvas.draw_text_pixels(countdown_x, 174, countdown, ui_tokens::kBody, GrayLevel::Black,
+    canvas.draw_text_pixels(countdown_x, 146, countdown, ui_tokens::kBody, GrayLevel::Black,
                             FontWeight::Regular);
     draw_heart_icon(canvas, countdown_x + countdown_width + kCountdownHeartGap,
-                    171, GrayLevel::Black);
+                    143, GrayLevel::Black);
 
     pixel_asset_draw_centered(canvas, 240, 358,
                               pregnancy_week_size_asset(progress.weeks), 2,
@@ -364,12 +361,9 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
     const uint8_t title_pixels =
         font_text_width_pixels(size_title, ui_tokens::kSectionHeading, FontWeight::Medium) <= 432 ? 24
                                                                           : 20;
-    draw_centered_text_pixels(canvas, {24, 516, 432, 28}, size_title,
+    draw_centered_text_pixels(canvas, {24, 526, 432, 28}, size_title,
                               title_pixels, GrayLevel::Black,
                               FontWeight::Medium);
-    draw_centered_text_pixels(canvas, {24, 548, 432, 20},
-                              "—  用熟悉的东西感受宝宝正在长大  —", ui_tokens::kSecondaryBody,
-                              GrayLevel::Black, FontWeight::Regular);
 
     constexpr Rect kGrowthCard = {24, 574, 432, 200};
     prototype_ui::draw_frame(canvas, kGrowthCard, ui_tokens::kBorderStroke);
@@ -392,14 +386,8 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
                 static_cast<unsigned>(progress.weeks));
   canvas.draw_text_pixels(32, 24, headline, ui_tokens::kDisplayLarge, GrayLevel::Black);
 
-  char week_progress[32] = {};
-  std::snprintf(week_progress, sizeof(week_progress), "%u / 40 周",
-                static_cast<unsigned>(progress.weeks));
-  canvas.draw_text_pixels(32, 96, week_progress, ui_tokens::kEmphasis, GrayLevel::Black,
-                          FontWeight::Regular);
-
   constexpr int kProgressX = 32;
-  constexpr int kProgressY = 136;
+  constexpr int kProgressY = 112;
   constexpr int kProgressWidth = 272;
   constexpr int kProgressHeight = 14;
   const int percent =
@@ -409,7 +397,7 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
   char completion[16] = {};
   std::snprintf(completion, sizeof(completion), "%u%%",
                 static_cast<unsigned>(progress.percent));
-  canvas.draw_text_pixels(320, 132, completion, ui_tokens::kEmphasis, GrayLevel::Black,
+  canvas.draw_text_pixels(320, kProgressY - 4, completion, ui_tokens::kEmphasis, GrayLevel::Black,
                           FontWeight::Regular);
 
   char countdown[64] = {};
@@ -420,11 +408,11 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
     std::snprintf(countdown, sizeof(countdown), "距离预产期还有 %d 天",
                   progress.days_until_due_date);
   }
-  canvas.draw_text_pixels(32, 168, countdown, ui_tokens::kBody, GrayLevel::Black,
+  canvas.draw_text_pixels(32, 152, countdown, ui_tokens::kBody, GrayLevel::Black,
                           FontWeight::Regular);
   draw_heart_icon(
       canvas, 40 + font_text_width_pixels(countdown, ui_tokens::kBody, FontWeight::Regular),
-      165, GrayLevel::Black);
+      149, GrayLevel::Black);
 
   constexpr Rect kGrowthCard = {32, 216, 352, 240};
   prototype_ui::draw_frame(canvas, kGrowthCard, ui_tokens::kBorderStroke);
@@ -449,12 +437,9 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
   const uint8_t size_title_pixels =
       font_text_width_pixels(size_title, ui_tokens::kSectionHeading, FontWeight::Medium) <= 368 ? 24
                                                                         : 20;
-  draw_centered_text_pixels(canvas, {408, 360, 368, 24}, size_title,
+  draw_centered_text_pixels(canvas, {408, 376, 368, 24}, size_title,
                             size_title_pixels, GrayLevel::Black,
                             FontWeight::Medium);
-  draw_centered_text_pixels(canvas, {408, 408, 368, 20},
-                            "—  用熟悉的东西感受宝宝正在长大  —", ui_tokens::kSecondaryBody,
-                            GrayLevel::Black, FontWeight::Regular);
 
   draw_menu_button(canvas, kLandscape.menu);
 }
