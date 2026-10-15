@@ -81,13 +81,19 @@ void draw_centered_label(Canvas &canvas, const Rect &rect, const char *text,
   }
 }
 
+void draw_frame(Canvas &canvas, const Rect &rect, int stroke, GrayLevel color) {
+  for (int inset = 0; inset < stroke; ++inset)
+    canvas.draw_rect(rect.x + inset, rect.y + inset, rect.width - 2 * inset,
+                     rect.height - 2 * inset, color);
+}
+
 void draw_button(Canvas &canvas, const Rect &rect, const char *label,
                  bool filled, uint8_t scale) {
   const GrayLevel foreground = filled ? GrayLevel::White : GrayLevel::Black;
   if (filled)
     canvas.fill_rect(rect.x, rect.y, rect.width, rect.height, GrayLevel::Black);
   else
-    canvas.draw_rect(rect.x, rect.y, rect.width, rect.height, GrayLevel::Black);
+    draw_frame(canvas, rect, ui_tokens::kBorderStroke);
   draw_centered_label(canvas, rect, ui_text(label), font_ui_pixel_size(scale),
                       foreground, FontWeight::Medium);
 }

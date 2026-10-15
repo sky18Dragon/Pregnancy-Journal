@@ -165,9 +165,7 @@ void draw_bar_chart(Canvas &canvas, const Rect &rect,
 
 void draw_option(Canvas &canvas, const Rect &rect, const char *title,
                  const char *description, bool compact) {
-  canvas.draw_rect(rect.x, rect.y, rect.width, rect.height, GrayLevel::Black);
-  canvas.draw_rect(rect.x + 1, rect.y + 1, rect.width - 2, rect.height - 2,
-                   GrayLevel::Black);
+  prototype_ui::draw_frame(canvas, rect, ui_tokens::kBorderStroke);
   canvas.draw_text_pixels(rect.x + 20, rect.y + 14, ui_text(title), ui_tokens::kEmphasis,
                           GrayLevel::Black, FontWeight::Medium);
   ui_draw_wrapped_text_pixels(canvas, rect.x + 20, rect.y + 46,
@@ -328,7 +326,7 @@ void kick_page_render_insights(Canvas &canvas, const KickDaySummary &today,
     if (trend.has_data) {
       draw_bar_chart(canvas, {24, 126, 432, 220}, trend);
     } else {
-      canvas.draw_rect(24, 126, 432, 220, GrayLevel::Black);
+      prototype_ui::draw_frame(canvas, {24, 126, 432, 220}, ui_tokens::kBorderStroke);
       draw_centered(canvas, 240, 214, ui_text("NO RECORDS IN 7 DAYS"), ui_tokens::kBody,
                     FontWeight::Regular);
     }
@@ -346,7 +344,7 @@ void kick_page_render_insights(Canvas &canvas, const KickDaySummary &today,
     if (trend.has_data) {
       draw_bar_chart(canvas, {24, 118, 428, 226}, trend);
     } else {
-      canvas.draw_rect(24, 118, 428, 226, GrayLevel::Black);
+      prototype_ui::draw_frame(canvas, {24, 118, 428, 226}, ui_tokens::kBorderStroke);
       draw_centered(canvas, 238, 212, ui_text("NO RECORDS IN 7 DAYS"), ui_tokens::kBody,
                     FontWeight::Regular);
     }

@@ -33,10 +33,7 @@ inline void draw(Canvas &canvas, const Rect &rect) {
     }
     return;
   }
-  for (int inset = 0; inset < kFrameStroke; ++inset) {
-    canvas.draw_rect(rect.x + inset, rect.y + inset, rect.width - 2 * inset,
-                     rect.height - 2 * inset, GrayLevel::Black);
-  }
+  prototype_ui::draw_frame(canvas, rect, kFrameStroke);
 }
 
 // Remembers the tapped target between hit-testing and the next render.

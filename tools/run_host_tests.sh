@@ -266,6 +266,7 @@ compile_and_run app_registry_test -Itest/support -Isrc/app -Isrc/ui \
 compile_and_run refresh_policy_test -Isrc/ui test/refresh_policy_test.cpp
 compile_and_run press_feedback_test -Isrc/ui -Isrc/ui/assets \
     test/press_feedback_test.cpp src/ui/canvas.cpp src/ui/font.cpp \
+    src/ui/prototype_ui.cpp src/ui/text_layout.cpp \
     src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp
 compile_and_run digit_fields_test -Isrc/ui -Isrc/ui/assets \
     test/digit_fields_test.cpp src/ui/digit_fields.cpp src/ui/canvas.cpp \

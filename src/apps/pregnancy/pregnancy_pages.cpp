@@ -109,29 +109,40 @@ void draw_centered_text_in_rect(Canvas &canvas, const Rect &rect,
       FontWeight::Medium);
 }
 
-void draw_beveled_rect(Canvas &canvas, const Rect &rect, GrayLevel color) {
-  constexpr int kCut = 8;
-  canvas.draw_line(rect.x + kCut, rect.y, rect.x + rect.width - kCut - 1,
+void draw_beveled_outline(Canvas &canvas, const Rect &rect, int cut,
+                          GrayLevel color) {
+  canvas.draw_line(rect.x + cut, rect.y, rect.x + rect.width - cut - 1,
                    rect.y, color);
-  canvas.draw_line(rect.x + rect.width - kCut - 1, rect.y,
-                   rect.x + rect.width - 1, rect.y + kCut, color);
-  canvas.draw_line(rect.x + rect.width - 1, rect.y + kCut,
-                   rect.x + rect.width - 1, rect.y + rect.height - kCut - 1,
+  canvas.draw_line(rect.x + rect.width - cut - 1, rect.y,
+                   rect.x + rect.width - 1, rect.y + cut, color);
+  canvas.draw_line(rect.x + rect.width - 1, rect.y + cut,
+                   rect.x + rect.width - 1, rect.y + rect.height - cut - 1,
                    color);
-  canvas.draw_line(rect.x + rect.width - 1, rect.y + rect.height - kCut - 1,
-                   rect.x + rect.width - kCut - 1, rect.y + rect.height - 1,
+  canvas.draw_line(rect.x + rect.width - 1, rect.y + rect.height - cut - 1,
+                   rect.x + rect.width - cut - 1, rect.y + rect.height - 1,
                    color);
-  canvas.draw_line(rect.x + rect.width - kCut - 1, rect.y + rect.height - 1,
-                   rect.x + kCut, rect.y + rect.height - 1, color);
-  canvas.draw_line(rect.x + kCut, rect.y + rect.height - 1, rect.x,
-                   rect.y + rect.height - kCut - 1, color);
-  canvas.draw_line(rect.x, rect.y + rect.height - kCut - 1, rect.x,
-                   rect.y + kCut, color);
-  canvas.draw_line(rect.x, rect.y + kCut, rect.x + kCut, rect.y, color);
+  canvas.draw_line(rect.x + rect.width - cut - 1, rect.y + rect.height - 1,
+                   rect.x + cut, rect.y + rect.height - 1, color);
+  canvas.draw_line(rect.x + cut, rect.y + rect.height - 1, rect.x,
+                   rect.y + rect.height - cut - 1, color);
+  canvas.draw_line(rect.x, rect.y + rect.height - cut - 1, rect.x,
+                   rect.y + cut, color);
+  canvas.draw_line(rect.x, rect.y + cut, rect.x + cut, rect.y, color);
 }
 
-void draw_rounded_rect(Canvas &canvas, const Rect &rect, int radius,
-                       GrayLevel color) {
+// Beveled box with a border of ui_tokens::kBorderStroke px; each extra pass is
+// inset by one pixel and its corner cut shrinks to stay parallel.
+void draw_beveled_rect(Canvas &canvas, const Rect &rect, GrayLevel color) {
+  constexpr int kCut = 8;
+  for (int inset = 0; inset < ui_tokens::kBorderStroke; ++inset)
+    draw_beveled_outline(canvas,
+                         {rect.x + inset, rect.y + inset,
+                          rect.width - 2 * inset, rect.height - 2 * inset},
+                         kCut - inset, color);
+}
+
+void draw_rounded_outline(Canvas &canvas, const Rect &rect, int radius,
+                          GrayLevel color) {
   const int safe_radius =
       std::max(1, std::min(radius, std::min(rect.width, rect.height) / 2));
   const int left_center = rect.x + safe_radius;
@@ -166,6 +177,16 @@ void draw_rounded_rect(Canvas &canvas, const Rect &rect, int radius,
       error += 2 * (arc_y - arc_x + 1);
     }
   }
+}
+
+// Rounded box whose border is `stroke` px (inner passes use a smaller radius).
+void draw_rounded_rect(Canvas &canvas, const Rect &rect, int radius,
+                       GrayLevel color, int stroke = 1) {
+  for (int inset = 0; inset < stroke; ++inset)
+    draw_rounded_outline(canvas,
+                         {rect.x + inset, rect.y + inset,
+                          rect.width - 2 * inset, rect.height - 2 * inset},
+                         std::max(1, radius - inset), color);
 }
 
 void fill_pill(Canvas &canvas, int x, int y, int width, int height,
@@ -469,7 +490,8 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
                               GrayLevel::Black, FontWeight::Regular);
 
     constexpr Rect kGrowthCard = {24, 574, 432, 200};
-    draw_rounded_rect(canvas, kGrowthCard, 12, GrayLevel::Black);
+    draw_rounded_rect(canvas, kGrowthCard, 12, GrayLevel::Black,
+                    ui_tokens::kBorderStroke);
     draw_baby_icon(canvas, 44, 588, GrayLevel::Black);
     canvas.draw_text_pixels(82, 588, "本周成长", ui_tokens::kCardTitle, GrayLevel::Black);
     canvas.draw_line(44, 624, 436, 624, GrayLevel::Black);
@@ -528,7 +550,8 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
       165, GrayLevel::Black);
 
   constexpr Rect kGrowthCard = {32, 216, 352, 240};
-  draw_rounded_rect(canvas, kGrowthCard, 12, GrayLevel::Black);
+  draw_rounded_rect(canvas, kGrowthCard, 12, GrayLevel::Black,
+                    ui_tokens::kBorderStroke);
   draw_baby_icon(canvas, 52, 232, GrayLevel::Black);
   canvas.draw_text_pixels(92, 232, "本周成长", ui_tokens::kSectionHeading, GrayLevel::Black);
   canvas.draw_line(52, 276, 364, 276, GrayLevel::Black);

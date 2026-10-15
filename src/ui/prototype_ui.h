@@ -30,6 +30,10 @@ void begin_page(Canvas &canvas);
 void draw_centered_label(Canvas &canvas, const Rect &rect, const char *text,
                          uint8_t pixel_size, GrayLevel color,
                          FontWeight weight = FontWeight::Medium);
+// Draws a rectangular border of `stroke` px inside `rect` (the outer extent
+// does not change with the stroke).
+void draw_frame(Canvas &canvas, const Rect &rect, int stroke,
+                GrayLevel color = GrayLevel::Black);
 void draw_button(Canvas &canvas, const Rect &rect, const char *label,
                  bool filled = false, uint8_t scale = 2);
 void draw_header(Canvas &canvas, const char *title, const char *subtitle,

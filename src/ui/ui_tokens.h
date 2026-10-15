@@ -25,8 +25,10 @@ constexpr int kPreferredTouchHeight = 56;
 constexpr int kCompactButtonHeight = 48;
 constexpr int kButtonHeight = 56;
 constexpr int kBodyLineGap = 6;
+// Strokes. 1 px is only for secondary dividers; every border is 2 px, and
+// 3 px marks emphasis (pressed large targets).
 constexpr int kRuleStroke = 1;
-constexpr int kBorderStroke = 1;
+constexpr int kBorderStroke = 2;
 constexpr int kIconStroke = 2;
 constexpr int kEmphasisStroke = 3;
 constexpr int kIconSmall = 16;
