@@ -89,9 +89,9 @@ void test_target_contract() {
   for (const auto &size : sizes) {
     for (PregnancyPage page : pages) {
       for (bool can_cancel : {false, true}) {
-        PregnancyTarget targets[16];
+        PregnancyTarget targets[kMaxPregnancyTargets];
         const size_t count = pregnancy_page_targets(
-            page, can_cancel, size[0], size[1], targets, 16U);
+            page, can_cancel, size[0], size[1], targets, kMaxPregnancyTargets);
         assert(count > 0U);
         for (size_t a = 0U; a < count; ++a) {
           const auto &r = targets[a].rect;
@@ -134,7 +134,10 @@ int main() {
   std::vector<uint8_t> buffer(kStride * kHeight, 0xFFU);
   Canvas canvas(kWidth, kHeight, buffer.data(), buffer.size());
 
-  pregnancy_page_render_clock_setup(canvas, "202609111530", false, false);
+  DigitFields clock_fields(DigitFieldKind::DateTime);
+  clock_fields.set_digits("202609111530");
+  clock_fields.select_field(3U);
+  pregnancy_page_render_clock_setup(canvas, clock_fields, false, false);
   assert(count_level(buffer, GrayLevel::Black) > 5000U);
   assert(pregnancy_page_action_at(PregnancyPage::ClockSetup, false, 542, 100) ==
          PregnancyAction::Digit1);
@@ -146,7 +149,9 @@ int main() {
          PregnancyAction::Back);
   write_preview(buffer, "/tmp/pregnancy_clock_setup.ppm");
 
-  pregnancy_page_render_due_date_setup(canvas, "20270318", true, true);
+  DigitFields due_fields(DigitFieldKind::Date);
+  due_fields.set_digits("20270318");
+  pregnancy_page_render_due_date_setup(canvas, due_fields, true, true);
   assert(count_level(buffer, GrayLevel::Black) > 5000U);
   write_preview(buffer, "/tmp/pregnancy_due_date_setup.ppm");
 
@@ -255,7 +260,7 @@ int main() {
                                   240, 700) == PregnancyAction::Back);
   write_canvas_preview(canvas, "/tmp/pregnancy_source_portrait_zh.ppm");
 
-  pregnancy_page_render_clock_setup(canvas, "202609111530", false, true);
+  pregnancy_page_render_clock_setup(canvas, clock_fields, false, true);
   assert(pregnancy_page_action_at(PregnancyPage::ClockSetup, true, 480, 800, 90,
                                   310) == PregnancyAction::Digit1);
   assert(pregnancy_page_action_at(PregnancyPage::ClockSetup, true, 480, 800,

@@ -39,9 +39,9 @@ void test_target_contract() {
       for (int flags = 0; flags < 4; ++flags) {
         const bool primary = (flags & 1) != 0;
         const bool secondary = (flags & 2) != 0;
-        SettingsTarget targets[16];
+        SettingsTarget targets[kMaxSettingsTargets];
         const size_t count = settings_page_targets(page, size[0], size[1], primary,
-                                                   secondary, targets, 16U);
+                                                   secondary, targets, kMaxSettingsTargets);
         assert(count >= 1U);
         for (size_t a = 0U; a < count; ++a) {
           const auto &r = targets[a].rect;
@@ -144,7 +144,10 @@ int main() {
   assert(settings_page_action_at(SettingsPage::StorageConfirm, 800, 480, 600,
                                  430) ==
          SettingsAction::ConfirmStorageInitialization);
-  settings_page_render_time_editor(canvas, "202609111530", false);
+  DigitFields time_fields(DigitFieldKind::DateTime);
+  time_fields.set_digits("202609111530");
+  time_fields.select_field(4U);
+  settings_page_render_time_editor(canvas, time_fields, false);
   assert(settings_page_action_at(SettingsPage::TimeEditor, 800, 480, 520,
                                  120) == SettingsAction::Digit1);
   assert(settings_page_action_at(SettingsPage::TimeEditor, 800, 480, 720,
@@ -199,7 +202,7 @@ int main() {
   write_preview(canvas, "/tmp/settings_storage_confirm_portrait_zh.ppm");
   assert(std::strcmp(ui_text("MICROSD STORAGE"), "MICROSD 数据") == 0);
   ui_language_set(UiLanguage::English);
-  settings_page_render_time_editor(canvas, "202609111530", false);
+  settings_page_render_time_editor(canvas, time_fields, false);
   write_preview(canvas, "/tmp/settings_time_portrait.ppm");
   assert(settings_page_action_at(SettingsPage::TimeEditor, 480, 800, 80, 350) ==
          SettingsAction::Digit1);

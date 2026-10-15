@@ -53,11 +53,8 @@ PregnancyProgress s_progress = {};
 bool s_configured = false;
 bool s_due_date_primary = true;
 bool s_input_error = false;
-bool s_replace_on_digit = false;
-char s_clock_digits[13] = {};
-size_t s_clock_length = 0U;
-char s_date_digits[9] = {};
-size_t s_date_length = 0U;
+DigitFields s_clock_fields{DigitFieldKind::DateTime};
+DigitFields s_date_fields{DigitFieldKind::Date};
 int32_t s_last_day_index = -1;
 int64_t s_next_rtc_poll_us = 0;
 std::atomic<bool> s_setup_requested{false};
@@ -123,39 +120,23 @@ void render_storage_state() {
 }
 
 void fill_clock_digits(const StickyRtcDateTime &value) {
-  const uint16_t year = static_cast<uint16_t>(value.year % 10000U);
-  s_clock_digits[0] = static_cast<char>('0' + year / 1000U);
-  s_clock_digits[1] = static_cast<char>('0' + year / 100U % 10U);
-  s_clock_digits[2] = static_cast<char>('0' + year / 10U % 10U);
-  s_clock_digits[3] = static_cast<char>('0' + year % 10U);
-  const uint8_t fields[] = {
-      value.month,
-      value.day,
-      value.hour,
-      value.minute,
-  };
-  for (size_t index = 0U; index < 4U; ++index) {
-    s_clock_digits[4U + index * 2U] =
-        static_cast<char>('0' + fields[index] / 10U);
-    s_clock_digits[5U + index * 2U] =
-        static_cast<char>('0' + fields[index] % 10U);
-  }
-  s_clock_length = 12U;
-  s_clock_digits[s_clock_length] = '\0';
+  char digits[13] = {};
+  std::snprintf(digits, sizeof(digits), "%04u%02u%02u%02u%02u",
+                static_cast<unsigned>(value.year % 10000U),
+                static_cast<unsigned>(value.month % 100U),
+                static_cast<unsigned>(value.day % 100U),
+                static_cast<unsigned>(value.hour % 100U),
+                static_cast<unsigned>(value.minute % 100U));
+  s_clock_fields.set_digits(digits);
 }
 
 void fill_date_digits(const PregnancyDate &value) {
-  const uint16_t year = static_cast<uint16_t>(value.year % 10000U);
-  s_date_digits[0] = static_cast<char>('0' + year / 1000U);
-  s_date_digits[1] = static_cast<char>('0' + year / 100U % 10U);
-  s_date_digits[2] = static_cast<char>('0' + year / 10U % 10U);
-  s_date_digits[3] = static_cast<char>('0' + year % 10U);
-  s_date_digits[4] = static_cast<char>('0' + value.month / 10U);
-  s_date_digits[5] = static_cast<char>('0' + value.month % 10U);
-  s_date_digits[6] = static_cast<char>('0' + value.day / 10U);
-  s_date_digits[7] = static_cast<char>('0' + value.day % 10U);
-  s_date_length = 8U;
-  s_date_digits[s_date_length] = '\0';
+  char digits[9] = {};
+  std::snprintf(digits, sizeof(digits), "%04u%02u%02u",
+                static_cast<unsigned>(value.year % 10000U),
+                static_cast<unsigned>(value.month % 100U),
+                static_cast<unsigned>(value.day % 100U));
+  s_date_fields.set_digits(digits);
 }
 
 uint16_t digits_u16(const char *digits, size_t offset, size_t count) {
@@ -168,24 +149,24 @@ uint16_t digits_u16(const char *digits, size_t offset, size_t count) {
 }
 
 bool parse_clock(StickyRtcDateTime &value) {
-  if (s_clock_length != 12U)
+  if (!s_clock_fields.complete())
     return false;
-  value.year = digits_u16(s_clock_digits, 0U, 4U);
-  value.month = static_cast<uint8_t>(digits_u16(s_clock_digits, 4U, 2U));
-  value.day = static_cast<uint8_t>(digits_u16(s_clock_digits, 6U, 2U));
-  value.hour = static_cast<uint8_t>(digits_u16(s_clock_digits, 8U, 2U));
-  value.minute = static_cast<uint8_t>(digits_u16(s_clock_digits, 10U, 2U));
+  value.year = digits_u16(s_clock_fields.digits(), 0U, 4U);
+  value.month = static_cast<uint8_t>(digits_u16(s_clock_fields.digits(), 4U, 2U));
+  value.day = static_cast<uint8_t>(digits_u16(s_clock_fields.digits(), 6U, 2U));
+  value.hour = static_cast<uint8_t>(digits_u16(s_clock_fields.digits(), 8U, 2U));
+  value.minute = static_cast<uint8_t>(digits_u16(s_clock_fields.digits(), 10U, 2U));
   value.second = 0U;
   return pregnancy_date_valid({value.year, value.month, value.day}) &&
          value.hour <= 23U && value.minute <= 59U;
 }
 
 bool parse_profile_date(PregnancyDate &value) {
-  if (s_date_length != 8U)
+  if (!s_date_fields.complete())
     return false;
-  value.year = digits_u16(s_date_digits, 0U, 4U);
-  value.month = static_cast<uint8_t>(digits_u16(s_date_digits, 4U, 2U));
-  value.day = static_cast<uint8_t>(digits_u16(s_date_digits, 6U, 2U));
+  value.year = digits_u16(s_date_fields.digits(), 0U, 4U);
+  value.month = static_cast<uint8_t>(digits_u16(s_date_fields.digits(), 4U, 2U));
+  value.day = static_cast<uint8_t>(digits_u16(s_date_fields.digits(), 6U, 2U));
   return pregnancy_date_valid(value);
 }
 
@@ -238,14 +219,14 @@ void render_page(bool partial) {
   }
   switch (s_page) {
   case PregnancyPage::ClockSetup:
-    pregnancy_page_render_clock_setup(*s_canvas, s_clock_digits, s_input_error,
+    pregnancy_page_render_clock_setup(*s_canvas, s_clock_fields, s_input_error,
                                       s_configured);
     break;
   case PregnancyPage::SourceSetup:
     pregnancy_page_render_source_setup(*s_canvas, s_configured);
     break;
   case PregnancyPage::DateSetup:
-    pregnancy_page_render_profile_date_setup(*s_canvas, s_date_digits,
+    pregnancy_page_render_profile_date_setup(*s_canvas, s_date_fields,
                                              s_input_error, s_due_date_primary);
     break;
   case PregnancyPage::Dashboard: {
@@ -267,19 +248,15 @@ void open_clock_setup() {
   StickyRtcDateTime clock = {};
   if (read_rtc(clock))
     fill_clock_digits(clock);
-  else {
-    s_clock_digits[0] = '\0';
-    s_clock_length = 0U;
-  }
+  else
+    s_clock_fields.begin(DigitFieldKind::DateTime);
   s_page = PregnancyPage::ClockSetup;
   s_input_error = false;
-  s_replace_on_digit = s_clock_length > 0U;
 }
 
 void open_source_setup() {
   s_page = PregnancyPage::SourceSetup;
   s_input_error = false;
-  s_replace_on_digit = false;
 }
 
 void open_date_setup(bool due_date_primary) {
@@ -288,34 +265,10 @@ void open_date_setup(bool due_date_primary) {
     fill_date_digits(due_date_primary ? s_profile.estimated_due_date
                                       : s_profile.last_menstrual_period);
   } else {
-    s_date_digits[0] = '\0';
-    s_date_length = 0U;
+    s_date_fields.begin(DigitFieldKind::Date);
   }
   s_page = PregnancyPage::DateSetup;
   s_input_error = false;
-  s_replace_on_digit = s_date_length > 0U;
-}
-
-void append_digit(char *buffer, size_t &length, size_t maximum, char digit) {
-  if (s_replace_on_digit) {
-    length = 0U;
-    buffer[0] = '\0';
-    s_replace_on_digit = false;
-  }
-  if (length < maximum) {
-    buffer[length++] = digit;
-    buffer[length] = '\0';
-  }
-}
-
-void delete_digit(char *buffer, size_t &length) {
-  if (s_replace_on_digit) {
-    length = 0U;
-    buffer[0] = '\0';
-    s_replace_on_digit = false;
-  } else if (length > 0U) {
-    buffer[--length] = '\0';
-  }
 }
 
 bool apply_clock() {
@@ -356,22 +309,24 @@ bool apply_profile_date() {
 }
 
 bool handle_action(PregnancyAction action) {
+  DigitFields &fields =
+      s_page == PregnancyPage::ClockSetup ? s_clock_fields : s_date_fields;
   char digit = '\0';
+  size_t field = 0U;
   if (pregnancy_action_digit(action, digit)) {
+    // An impossible digit (month 13, hour 25...) is refused on the spot.
+    s_input_error = !fields.input_digit(digit);
+    return true;
+  }
+  if (pregnancy_action_field(action, field)) {
     s_input_error = false;
-    if (s_page == PregnancyPage::ClockSetup)
-      append_digit(s_clock_digits, s_clock_length, 12U, digit);
-    else if (s_page == PregnancyPage::DateSetup)
-      append_digit(s_date_digits, s_date_length, 8U, digit);
+    fields.select_field(field);
     return true;
   }
   switch (action) {
   case PregnancyAction::Delete:
     s_input_error = false;
-    if (s_page == PregnancyPage::ClockSetup)
-      delete_digit(s_clock_digits, s_clock_length);
-    else if (s_page == PregnancyPage::DateSetup)
-      delete_digit(s_date_digits, s_date_length);
+    fields.erase();
     return true;
   case PregnancyAction::Continue:
     return s_page == PregnancyPage::ClockSetup ? apply_clock()
@@ -592,10 +547,10 @@ void app_task(void *) {
         // The tapped target comes from the same table the renderer drew.
         int x = 0, y = 0;
         s_canvas->physical_to_logical(press.x, press.y, x, y);
-        PregnancyTarget targets[16];
+        PregnancyTarget targets[kMaxPregnancyTargets];
         const size_t count = pregnancy_page_targets(
             s_page, s_configured, s_canvas->width(), s_canvas->height(),
-            targets, sizeof(targets) / sizeof(targets[0]));
+            targets, kMaxPregnancyTargets);
         for (size_t index = 0U; index < count; ++index) {
           if (targets[index].rect.contains(x, y)) {
             s_press.set(targets[index].rect);

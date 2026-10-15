@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "content_service.h"
+#include "digit_fields.h"
 #include "pregnancy_state.h"
 #include "prototype_ui.h"
 
@@ -41,15 +42,22 @@ enum class PregnancyAction : uint8_t {
   ShowBaby,
   ShowMom,
   OpenLauncher,
+  Field0, // setup pages: select the year / month / day / hour / minute
+  Field1, // field to edit (see pregnancy_action_field)
+  Field2,
+  Field3,
+  Field4,
 };
 
-void pregnancy_page_render_clock_setup(Canvas &canvas, const char *digits,
+void pregnancy_page_render_clock_setup(Canvas &canvas,
+                                       const DigitFields &fields,
                                        bool input_error, bool can_cancel);
-void pregnancy_page_render_due_date_setup(Canvas &canvas, const char *digits,
+void pregnancy_page_render_due_date_setup(Canvas &canvas,
+                                          const DigitFields &fields,
                                           bool input_error, bool can_cancel);
 void pregnancy_page_render_source_setup(Canvas &canvas, bool can_cancel);
 void pregnancy_page_render_profile_date_setup(Canvas &canvas,
-                                              const char *digits,
+                                              const DigitFields &fields,
                                               bool input_error,
                                               bool due_date_primary);
 void pregnancy_page_render_dashboard(
@@ -58,6 +66,9 @@ void pregnancy_page_render_dashboard(
 void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
                                   const PregnancyProgress &progress,
                                   const WeekContent &content);
+
+// Upper bound on the targets of any page (digit pages: 5 fields + 12 keys + back).
+constexpr size_t kMaxPregnancyTargets = 24U;
 
 // One tappable rectangle. The renderers draw these same rectangles.
 struct PregnancyTarget {
@@ -77,6 +88,8 @@ PregnancyAction pregnancy_page_action_at(PregnancyPage page, bool can_cancel,
 PregnancyAction pregnancy_page_action_at(PregnancyPage page, bool can_cancel,
                                          int width, int height, int x, int y);
 bool pregnancy_action_digit(PregnancyAction action, char &digit);
+// Maps Field0..Field4 to the field index 0..4.
+bool pregnancy_action_field(PregnancyAction action, size_t &field);
 
 const char *pregnancy_page_name(PregnancyPage page);
 const char *pregnancy_action_name(PregnancyAction action);

@@ -99,7 +99,7 @@ constexpr Translation kTranslations[] = {
     {"YEAR / MONTH / DAY / HOUR / MINUTE", "年 / 月 / 日 / 时 / 分"},
     {"USE YOUR CONFIRMED ESTIMATED DUE DATE", "请输入确认后的预产期"},
     {"CHECK THE DATE AND TRY AGAIN", "日期有误，请重新输入"},
-    {"TAP A NUMBER TO REPLACE THE VALUE", "点击数字即可替换当前值"},
+    {"TAP A FIELD TO EDIT ONLY THAT PART", "点选一段，仅修改这一段"},
     {"SAVED ONLY ON THIS DEVICE", "数据仅保存在本设备"},
     {"CURRENT DEVELOPMENT STAGE", "当前发育阶段"},
     {"40-WEEK DEVELOPMENT PROGRESS", "40 周孕期进度"},

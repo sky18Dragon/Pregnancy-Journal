@@ -13,7 +13,7 @@ g++ -std=c++17 -Wall -Wextra -O1 -DUI_TEXT_OBSERVER \
   -Isrc/pregnancy/content -Isrc/pregnancy/models -Isrc/pregnancy/services \
   -Isrc/ui -Isrc/ui/assets -Itest/support \
   tools/ui_preview/ui_preview.cpp \
-  src/ui/app_pages.cpp src/ui/canvas.cpp src/ui/font.cpp src/ui/prototype_ui.cpp \
+  src/ui/app_pages.cpp src/ui/digit_fields.cpp src/ui/canvas.cpp src/ui/font.cpp src/ui/prototype_ui.cpp \
   src/ui/text_layout.cpp src/ui/ui_language.cpp \
   src/ui/assets/chinese_font_assets.cpp src/ui/assets/pixel_asset.cpp \
   src/ui/assets/app_launcher_assets.cpp src/ui/assets/pregnancy_week_assets.cpp \

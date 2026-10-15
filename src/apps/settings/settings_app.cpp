@@ -36,8 +36,7 @@ TaskHandle_t s_task = nullptr;
 StickyAppLifecycle s_lifecycle = {};
 SettingsPage s_page = SettingsPage::Main;
 SettingsStoragePageState s_displayed_storage = {};
-char s_digits[13] = {};
-size_t s_length = 0U;
+DigitFields s_time_fields{DigitFieldKind::DateTime};
 bool s_error = false;
 bool s_home_requested = false;
 bool s_pregnancy_requested = false;
@@ -232,24 +231,21 @@ void load_profile() {
 }
 
 void fill_digits(const StickyRtcDateTime &value) {
-  const uint16_t year = value.year;
-  s_digits[0] = static_cast<char>('0' + year / 1000U % 10U);
-  s_digits[1] = static_cast<char>('0' + year / 100U % 10U);
-  s_digits[2] = static_cast<char>('0' + year / 10U % 10U);
-  s_digits[3] = static_cast<char>('0' + year % 10U);
-  const uint8_t fields[] = {value.month, value.day, value.hour, value.minute};
-  for (size_t index = 0U; index < 4U; ++index) {
-    s_digits[4U + index * 2U] = static_cast<char>('0' + fields[index] / 10U);
-    s_digits[5U + index * 2U] = static_cast<char>('0' + fields[index] % 10U);
-  }
-  s_digits[12] = '\0';
-  s_length = 12U;
+  char digits[13] = {};
+  std::snprintf(digits, sizeof(digits), "%04u%02u%02u%02u%02u",
+                static_cast<unsigned>(value.year % 10000U),
+                static_cast<unsigned>(value.month % 100U),
+                static_cast<unsigned>(value.day % 100U),
+                static_cast<unsigned>(value.hour % 100U),
+                static_cast<unsigned>(value.minute % 100U));
+  s_time_fields.set_digits(digits);
 }
 
 unsigned parse(size_t offset, size_t length) {
   unsigned value = 0U;
   for (size_t index = 0U; index < length; ++index) {
-    value = value * 10U + static_cast<unsigned>(s_digits[offset + index] - '0');
+    value = value * 10U +
+            static_cast<unsigned>(s_time_fields.digits()[offset + index] - '0');
   }
   return value;
 }
@@ -292,7 +288,7 @@ void render(bool full = false) {
     settings_page_render_main(*s_canvas, rtc_ready, clock, due,
                               sticky_app_preferences_save_failed());
   } else if (s_page == SettingsPage::TimeEditor) {
-    settings_page_render_time_editor(*s_canvas, s_digits, s_error);
+    settings_page_render_time_editor(*s_canvas, s_time_fields, s_error);
   } else if (s_page == SettingsPage::PregnancySummary) {
     load_profile();
     settings_page_render_pregnancy(*s_canvas, s_profile, s_progress,
@@ -325,16 +321,14 @@ void open_editor() {
   StickyRtcDateTime now = {};
   if (sticky_rtc_read(now) == ESP_OK)
     fill_digits(now);
-  else {
-    s_digits[0] = '\0';
-    s_length = 0U;
-  }
+  else
+    s_time_fields.begin(DigitFieldKind::DateTime);
   s_error = false;
   s_page = SettingsPage::TimeEditor;
 }
 
 void save_time() {
-  if (s_length != 12U) {
+  if (!s_time_fields.complete()) {
     s_error = true;
     return;
   }
@@ -416,12 +410,16 @@ void poll_storage_request() {
 
 void handle(SettingsAction action) {
   char digit = 0;
+  size_t field = 0U;
   if (settings_action_digit(action, digit)) {
-    if (s_length >= 12U)
-      s_length = 0U;
-    s_digits[s_length++] = digit;
-    s_digits[s_length] = '\0';
+    // An impossible digit (month 13, hour 25...) is refused on the spot.
+    s_error = !s_time_fields.input_digit(digit);
+    render();
+    return;
+  }
+  if (settings_action_field(action, field)) {
     s_error = false;
+    s_time_fields.select_field(field);
     render();
     return;
   }
@@ -586,8 +584,7 @@ void handle(SettingsAction action) {
     }
     break;
   case SettingsAction::Delete:
-    if (s_length > 0U)
-      s_digits[--s_length] = '\0';
+    s_time_fields.erase();
     s_error = false;
     render();
     break;
@@ -651,10 +648,10 @@ void task(void *) {
           action = SettingsAction::SafeEjectStorage;
       }
       const int w = s_canvas->width(), h = s_canvas->height();
-      SettingsTarget targets[16];
+      SettingsTarget targets[kMaxSettingsTargets];
       const size_t target_count = settings_page_targets(
           s_page, w, h, primary_action_enabled, secondary_action_enabled,
-          targets, 16U);
+          targets, kMaxSettingsTargets);
       for (size_t i = 0U; i < target_count; ++i) {
         if (targets[i].rect.contains(x, y)) {
           s_press.set(targets[i].rect);

@@ -267,6 +267,10 @@ compile_and_run refresh_policy_test -Isrc/ui test/refresh_policy_test.cpp
 compile_and_run press_feedback_test -Isrc/ui -Isrc/ui/assets \
     test/press_feedback_test.cpp src/ui/canvas.cpp src/ui/font.cpp \
     src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp
+compile_and_run digit_fields_test -Isrc/ui -Isrc/ui/assets \
+    test/digit_fields_test.cpp src/ui/digit_fields.cpp src/ui/canvas.cpp \
+    src/ui/font.cpp src/ui/ui_language.cpp src/ui/prototype_ui.cpp \
+    src/ui/text_layout.cpp src/ui/assets/chinese_font_assets.cpp
 compile_and_run app_launcher_test -Isrc/app -Isrc/ui -Isrc/ui/assets \
     test/app_launcher_test.cpp src/ui/app_pages.cpp src/ui/canvas.cpp \
     src/ui/font.cpp src/ui/prototype_ui.cpp src/ui/text_layout.cpp src/ui/ui_language.cpp \
@@ -290,7 +294,7 @@ compile_and_run scheduler_test -Isrc/system \
     test/scheduler_test.cpp src/system/scheduler.cpp
 compile_and_run settings_pages_test -Isrc/apps/settings -Isrc/apps/pregnancy \
     -Isrc/ui -Isrc/ui/assets \
-    test/settings_pages_test.cpp src/apps/settings/settings_pages.cpp \
+    test/settings_pages_test.cpp src/apps/settings/settings_pages.cpp src/ui/digit_fields.cpp \
     src/ui/canvas.cpp src/ui/font.cpp src/ui/prototype_ui.cpp \
     src/ui/text_layout.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp
@@ -302,7 +306,7 @@ compile_and_run pregnancy_storage_record_test -Isrc/apps/pregnancy \
     src/apps/pregnancy/pregnancy_state.cpp
 compile_and_run pregnancy_pages_test \
     -Isrc/apps/pregnancy -Isrc/pregnancy/content -Isrc/app -Isrc/ui -Isrc/ui/assets \
-    test/pregnancy_pages_test.cpp src/apps/pregnancy/pregnancy_pages.cpp \
+    test/pregnancy_pages_test.cpp src/apps/pregnancy/pregnancy_pages.cpp src/ui/digit_fields.cpp \
     src/apps/pregnancy/pregnancy_state.cpp src/ui/canvas.cpp src/ui/font.cpp \
     src/ui/prototype_ui.cpp src/ui/text_layout.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp src/ui/assets/pixel_asset.cpp \

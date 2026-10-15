@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "digit_fields.h"
 #include "pregnancy_state.h"
 #include "prototype_ui.h"
 
@@ -60,6 +61,11 @@ enum class SettingsAction : uint8_t {
   Digit7,
   Digit8,
   Digit9,
+  Field0, // time editor: select the year / month / day / hour / minute
+  Field1, // field to edit (see settings_action_field)
+  Field2,
+  Field3,
+  Field4,
 };
 
 enum class SettingsStorageCardView : uint8_t {
@@ -122,7 +128,8 @@ struct SettingsMigrationPageState {
 void settings_page_render_main(Canvas &canvas, bool rtc_ready,
                                const char *clock_text, const char *due_text,
                                bool save_failed = false);
-void settings_page_render_time_editor(Canvas &canvas, const char *digits,
+void settings_page_render_time_editor(Canvas &canvas,
+                                      const DigitFields &fields,
                                       bool input_error);
 void settings_page_render_pregnancy(Canvas &canvas,
                                     const PregnancyProfile &profile,
@@ -138,6 +145,9 @@ void settings_page_render_legacy_clear_confirm(Canvas &canvas, bool kicks_only =
 void settings_page_render_card_data_delete_confirm(
     Canvas &canvas, const char *dataset_id_prefix);
 void settings_page_render_device_reset_confirm(Canvas &canvas);
+// Upper bound on the targets of any page (time editor: 5 fields + 12 keys + back).
+constexpr size_t kMaxSettingsTargets = 24U;
+
 // One tappable rectangle. The renderers draw these same rectangles.
 struct SettingsTarget {
   prototype_ui::Rect rect;
@@ -158,6 +168,8 @@ SettingsAction settings_page_action_at(SettingsPage page, int width, int height,
                                        bool primary_action_enabled = true,
                                        bool secondary_action_enabled = false);
 bool settings_action_digit(SettingsAction action, char &digit);
+// Maps Field0..Field4 to the field index 0..4.
+bool settings_action_field(SettingsAction action, size_t &field);
 
 // Compare rendered values explicitly; padding is not UI state.
 bool settings_storage_state_equal(const SettingsStoragePageState &a,

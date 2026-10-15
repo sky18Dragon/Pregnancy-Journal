@@ -425,7 +425,15 @@ void settings_page_render_device_reset_confirm(Canvas &canvas) {
       "RESET THIS DEVICE", true, 2);
 }
 
-void settings_page_render_time_editor(Canvas &canvas, const char *digits,
+// The box holding the editable fields of the time editor.
+Rect time_box(int width, int height) {
+  return portrait(width, height) ? Rect{24, 152, 432, 76} : Rect{24, 148, 424, 76};
+}
+uint8_t time_text_size(int width, int height) {
+  return portrait(width, height) ? 21U : 28U;
+}
+
+void settings_page_render_time_editor(Canvas &canvas, const DigitFields &fields,
                                       bool input_error) {
   prototype_ui::begin_page(canvas);
   prototype_ui::draw_header(canvas, "SET DEVICE TIME",
@@ -433,24 +441,13 @@ void settings_page_render_time_editor(Canvas &canvas, const char *digits,
   const bool is_portrait = portrait(canvas.width(), canvas.height());
   canvas.draw_line(24, is_portrait ? 108 : 100, canvas.width() - 24,
                    is_portrait ? 108 : 100, GrayLevel::Black);
-  canvas.draw_text(24, is_portrait ? 130 : 124, ui_text("CURRENT INPUT"), 2,
+  canvas.draw_text(24, is_portrait ? 124 : 118, ui_text("TAP A FIELD TO EDIT ONLY THAT PART"), 1,
                    GrayLevel::Black);
-  char padded[13] = "____________";
-  if (digits != nullptr) {
-    const size_t count = std::strlen(digits) < 12U ? std::strlen(digits) : 12U;
-    std::memcpy(padded, digits, count);
-  }
-  char formatted[24] = {};
-  std::snprintf(formatted, sizeof(formatted), "%.4s-%.2s-%.2s  %.2s:%.2s",
-                padded, padded + 4, padded + 6, padded + 8, padded + 10);
-  const uint8_t formatted_scale = is_portrait ? 3U : 4U;
-  canvas.draw_text(
-      is_portrait
-          ? (canvas.width() - ui_text_width(formatted, formatted_scale)) / 2
-          : 24,
-      is_portrait ? 176 : 170, formatted, formatted_scale, GrayLevel::Black);
+  const Rect box = time_box(canvas.width(), canvas.height());
+  digit_fields_draw(canvas, box, fields,
+                    time_text_size(canvas.width(), canvas.height()));
   ui_draw_wrapped_text(
-      canvas, 24, is_portrait ? 226 : 238,
+      canvas, 24, is_portrait ? 250 : 238,
       is_portrait ? canvas.width() - 2 * ui_tokens::kContentMargin : 424,
       input_error
           ? ui_text("INVALID DATE OR RTC WRITE FAILED")
@@ -557,6 +554,15 @@ size_t settings_page_targets(SettingsPage page, int width, int height,
   } else if (page == SettingsPage::DeviceResetConfirm) {
     split(SettingsAction::CancelDeviceReset, SettingsAction::ConfirmDeviceReset);
   } else {
+    // The time fields select which part the keys edit.
+    Rect cells[DigitFields::kMaxFields];
+    const size_t fields = digit_field_cells(
+        time_box(width, height), DigitFieldKind::DateTime,
+        time_text_size(width, height), cells, DigitFields::kMaxFields);
+    for (size_t index = 0U; index < fields; ++index)
+      add(cells[index], static_cast<SettingsAction>(
+                            static_cast<int>(SettingsAction::Field0) +
+                            static_cast<int>(index)));
     for (size_t index = 0U; index < 12U; ++index)
       add(key_rect(index, width, height), kKeyActions[index]);
   }
@@ -567,15 +573,23 @@ SettingsAction settings_page_action_at(SettingsPage page, int width, int height,
                                        int x, int y,
                                        bool primary_action_enabled,
                                        bool secondary_action_enabled) {
-  SettingsTarget targets[16];
+  SettingsTarget targets[kMaxSettingsTargets];
   const size_t count = settings_page_targets(
       page, width, height, primary_action_enabled, secondary_action_enabled,
-      targets, 16U);
+      targets, kMaxSettingsTargets);
   for (size_t index = 0U; index < count; ++index) {
     if (targets[index].rect.contains(x, y))
       return targets[index].action;
   }
   return SettingsAction::None;
+}
+
+bool settings_action_field(SettingsAction action, size_t &field) {
+  if (action < SettingsAction::Field0 || action > SettingsAction::Field4)
+    return false;
+  field = static_cast<size_t>(static_cast<int>(action) -
+                              static_cast<int>(SettingsAction::Field0));
+  return true;
 }
 
 bool settings_action_digit(SettingsAction action, char &digit) {

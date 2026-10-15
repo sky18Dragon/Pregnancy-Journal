@@ -101,6 +101,7 @@ idf_component_register(
         "pregnancy/services/kick_counter.cpp"
         "pregnancy/services/kick_storage.cpp"
         "ui/app_pages.cpp"
+        "ui/digit_fields.cpp"
         "ui/assets/chinese_font_assets.cpp"
         "ui/assets/chinese_input_font_assets.cpp"
         "ui/assets/app_launcher_assets.cpp"

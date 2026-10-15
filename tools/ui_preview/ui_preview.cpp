@@ -136,7 +136,7 @@ void register_pregnancy() {
       "None", "Digit0", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5",
       "Digit6", "Digit7", "Digit8", "Digit9", "Delete", "Continue", "Back",
       "Edit", "SelectDueDate", "SelectLmp", "ShowOverview", "ShowBaby",
-      "ShowMom", "OpenLauncher"};
+      "ShowMom", "OpenLauncher", "Field0", "Field1", "Field2", "Field3", "Field4"};
   auto hit = [](PregnancyPage page, bool cancel) {
     return [page, cancel](int w, int h, int x, int y) {
       const int a = static_cast<int>(pregnancy_page_action_at(page, cancel, w, h, x, y));
@@ -144,13 +144,22 @@ void register_pregnancy() {
     };
   };
   add("pregnancy_clock_setup",
-      [](Canvas &c) { pregnancy_page_render_clock_setup(c, "2026101015", false, true); },
+      [](Canvas &c) {
+        DigitFields fields(DigitFieldKind::DateTime);
+        fields.set_digits("202610101530");
+        fields.select_field(3U); // editing the hour
+        pregnancy_page_render_clock_setup(c, fields, false, true);
+      },
       hit(PregnancyPage::ClockSetup, true), names);
   add("pregnancy_source_setup",
       [](Canvas &c) { pregnancy_page_render_source_setup(c, true); },
       hit(PregnancyPage::SourceSetup, true), names);
   add("pregnancy_date_setup",
-      [](Canvas &c) { pregnancy_page_render_profile_date_setup(c, "20270220", false, true); },
+      [](Canvas &c) {
+        DigitFields fields(DigitFieldKind::Date);
+        fields.set_digits("20270220");
+        pregnancy_page_render_profile_date_setup(c, fields, false, true);
+      },
       hit(PregnancyPage::DateSetup, true), names);
   add("pregnancy_dashboard",
       [](Canvas &c) { pregnancy_page_render_dashboard(c, {2027U, 2U, 20U}, sample_progress()); },
@@ -256,7 +265,8 @@ void register_settings() {
       "CancelCardDataDelete", "BeginDeviceReset", "ConfirmDeviceReset",
       "CancelDeviceReset", "EditPregnancy", "Home", "Back", "Delete", "Save",
       "Digit0", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6",
-      "Digit7", "Digit8", "Digit9"};
+      "Digit7", "Digit8", "Digit9", "Field0", "Field1", "Field2", "Field3",
+      "Field4"};
   auto hit = [](SettingsPage page) {
     return [page](int w, int h, int x, int y) {
       const int a = static_cast<int>(settings_page_action_at(page, w, h, x, y, true, true));
@@ -278,7 +288,12 @@ void register_settings() {
       [](Canvas &c) { settings_page_render_main(c, true, "2026.10.10 14:42", "2027.02.20"); },
       hit(SettingsPage::Main), names);
   add("settings_time_editor",
-      [](Canvas &c) { settings_page_render_time_editor(c, "2026101014", false); },
+      [](Canvas &c) {
+        DigitFields fields(DigitFieldKind::DateTime);
+        fields.set_digits("202610101442");
+        fields.select_field(4U); // editing the minute
+        settings_page_render_time_editor(c, fields, false);
+      },
       hit(SettingsPage::TimeEditor), names);
   add("settings_pregnancy",
       [](Canvas &c) {

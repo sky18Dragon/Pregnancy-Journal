@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "canvas.h"
+#include "digit_fields.h"
 #include "font.h"
 #include "pixel_asset.h"
 #include "pregnancy_week_assets.h"
@@ -34,7 +35,8 @@ struct PageLayout {
   Rect tabs[3];       // Baby/Mom pages: overview, baby, mom
   Rect menu;          // dashboard menu box
   Rect rows[3];       // dashboard "this week" rows
-  Rect input;         // setup pages: value box (not a hit target)
+  Rect input;         // setup pages: box holding the digit fields
+  uint8_t input_size; // text size of the digit fields
 };
 
 constexpr PageLayout kLandscape = {
@@ -54,6 +56,7 @@ constexpr PageLayout kLandscape = {
      {32, 340, 352, ui_tokens::kButtonHeight},
      {32, 396, 352, ui_tokens::kButtonHeight}},
     {30, 118, 430, 86},
+    28,
 };
 
 constexpr PageLayout kPortrait = {
@@ -73,6 +76,7 @@ constexpr PageLayout kPortrait = {
      {24, 676, 432, ui_tokens::kMinimumTouchHeight},
      {24, 724, 432, ui_tokens::kMinimumTouchHeight}},
     {24, 102, 432, 76},
+    21,
 };
 
 const PageLayout &layout_for(bool portrait) {
@@ -283,25 +287,6 @@ void draw_home_row(Canvas &canvas, const Rect &row,
                              row.y + (portrait ? 16 : 20));
 }
 
-void format_clock_digits(const char *digits, char *output, size_t size) {
-  char padded[13] = "____________";
-  if (digits != nullptr) {
-    const size_t count = std::strlen(digits) < 12U ? std::strlen(digits) : 12U;
-    std::memcpy(padded, digits, count);
-  }
-  std::snprintf(output, size, "%.4s-%.2s-%.2s  %.2s:%.2s", padded, padded + 4,
-                padded + 6, padded + 8, padded + 10);
-}
-
-void format_date_digits(const char *digits, char *output, size_t size) {
-  char padded[9] = "________";
-  if (digits != nullptr) {
-    const size_t count = std::strlen(digits) < 8U ? std::strlen(digits) : 8U;
-    std::memcpy(padded, digits, count);
-  }
-  std::snprintf(output, size, "%.4s-%.2s-%.2s", padded, padded + 4, padded + 6);
-}
-
 void render_keypad(Canvas &canvas, bool portrait) {
   for (size_t index = 0U; index < 12U; ++index) {
     const bool primary = index == 11U;
@@ -312,18 +297,17 @@ void render_keypad(Canvas &canvas, bool portrait) {
 }
 
 void render_setup(Canvas &canvas, const char *title, const char *caption,
-                  const char *value, bool input_error, bool can_cancel) {
+                  const DigitFields &fields, bool input_error, bool can_cancel) {
   canvas.clear(GrayLevel::White);
   const bool portrait = portrait_layout(canvas);
   if (portrait) {
     canvas.draw_text(24, 24, title, 4, GrayLevel::Black);
     canvas.draw_text(24, 66, caption, 1, GrayLevel::Black);
     draw_beveled_rect(canvas, kPortrait.input, GrayLevel::Black);
-    canvas.draw_text(kPortrait.input.x + 18, kPortrait.input.y + 24,
-                     value, 3, GrayLevel::Black);
+    digit_fields_draw(canvas, kPortrait.input, fields, kPortrait.input_size);
     canvas.draw_text(24, 204,
                      input_error ? "CHECK THE DATE AND TRY AGAIN"
-                                 : "TAP A NUMBER TO REPLACE THE VALUE",
+                                 : "TAP A FIELD TO EDIT ONLY THAT PART",
                      2, GrayLevel::Black);
     canvas.draw_text(24, 242, "SAVED ONLY ON THIS DEVICE", 1, GrayLevel::Black);
     if (can_cancel)
@@ -335,12 +319,11 @@ void render_setup(Canvas &canvas, const char *title, const char *caption,
   canvas.draw_text(30, 72, caption, 2, GrayLevel::Black);
 
   draw_beveled_rect(canvas, kLandscape.input, GrayLevel::Black);
-  canvas.draw_text(kLandscape.input.x + 20, kLandscape.input.y + 27, value, 4,
-                   GrayLevel::Black);
+  digit_fields_draw(canvas, kLandscape.input, fields, kLandscape.input_size);
 
   canvas.draw_text(30, 235,
                    input_error ? "CHECK THE DATE AND TRY AGAIN"
-                               : "TAP A NUMBER TO REPLACE THE VALUE",
+                               : "TAP A FIELD TO EDIT ONLY THAT PART",
                    2, GrayLevel::Black);
   canvas.draw_text(30, 278, "SAVED ONLY ON THIS DEVICE", 2, GrayLevel::Black);
 
@@ -352,20 +335,18 @@ void render_setup(Canvas &canvas, const char *title, const char *caption,
 
 } // namespace
 
-void pregnancy_page_render_clock_setup(Canvas &canvas, const char *digits,
+void pregnancy_page_render_clock_setup(Canvas &canvas,
+                                       const DigitFields &fields,
                                        bool input_error, bool can_cancel) {
-  char value[24] = {};
-  format_clock_digits(digits, value, sizeof(value));
   render_setup(canvas, "SET DEVICE TIME", "YEAR / MONTH / DAY / HOUR / MINUTE",
-               value, input_error, can_cancel);
+               fields, input_error, can_cancel);
 }
 
-void pregnancy_page_render_due_date_setup(Canvas &canvas, const char *digits,
+void pregnancy_page_render_due_date_setup(Canvas &canvas,
+                                          const DigitFields &fields,
                                           bool input_error, bool can_cancel) {
-  char value[16] = {};
-  format_date_digits(digits, value, sizeof(value));
   render_setup(canvas, "SET DUE DATE", "USE YOUR CONFIRMED ESTIMATED DUE DATE",
-               value, input_error, can_cancel);
+               fields, input_error, can_cancel);
 }
 
 void pregnancy_page_render_source_setup(Canvas &canvas, bool can_cancel) {
@@ -400,18 +381,16 @@ void pregnancy_page_render_source_setup(Canvas &canvas, bool can_cancel) {
 }
 
 void pregnancy_page_render_profile_date_setup(Canvas &canvas,
-                                              const char *digits,
+                                              const DigitFields &fields,
                                               bool input_error,
                                               bool due_date_primary) {
-  char value[16] = {};
-  format_date_digits(digits, value, sizeof(value));
   render_setup(canvas,
                due_date_primary ? ui_text("SET DUE DATE")
                                 : ui_text("SET LAST MENSTRUAL PERIOD"),
                due_date_primary
                    ? ui_text("USE YOUR CONFIRMED ESTIMATED DUE DATE")
                    : ui_text("USE THE FIRST DAY OF YOUR LAST PERIOD"),
-               value, input_error, true);
+               fields, input_error, true);
 }
 
 void pregnancy_page_render_dashboard(Canvas &canvas,
@@ -767,6 +746,17 @@ size_t pregnancy_page_targets(PregnancyPage page, bool can_cancel, int width,
   } else {
     if (can_cancel)
       add(layout.back, PregnancyAction::Back);
+    // The value fields (year, month, ...) select which part the keys edit.
+    Rect cells[DigitFields::kMaxFields];
+    const size_t fields = digit_field_cells(
+        layout.input,
+        page == PregnancyPage::ClockSetup ? DigitFieldKind::DateTime
+                                          : DigitFieldKind::Date,
+        layout.input_size, cells, DigitFields::kMaxFields);
+    for (size_t index = 0U; index < fields; ++index)
+      add(cells[index], static_cast<PregnancyAction>(
+                            static_cast<int>(PregnancyAction::Field0) +
+                            static_cast<int>(index)));
     for (size_t index = 0U; index < 12U; ++index)
       add(layout.keys[index], kKeyActions[index]);
   }
@@ -778,9 +768,9 @@ PregnancyAction pregnancy_page_action_at(PregnancyPage page, bool can_cancel,
   if (x < 0 || y < 0 || x >= width || y >= height) {
     return PregnancyAction::None;
   }
-  PregnancyTarget targets[16];
+  PregnancyTarget targets[kMaxPregnancyTargets];
   const size_t count = pregnancy_page_targets(
-      page, can_cancel, width, height, targets, sizeof(targets) / sizeof(targets[0]));
+      page, can_cancel, width, height, targets, kMaxPregnancyTargets);
   for (size_t index = 0U; index < count; ++index) {
     if (targets[index].rect.contains(x, y))
       return targets[index].action;
@@ -792,6 +782,15 @@ PregnancyAction pregnancy_page_action_at(PregnancyPage page, bool can_cancel,
                                          int x, int y) {
   return pregnancy_page_action_at(page, can_cancel, kScreenWidth, kScreenHeight,
                                   x, y);
+}
+
+bool pregnancy_action_field(PregnancyAction action, size_t &field) {
+  if (action < PregnancyAction::Field0 || action > PregnancyAction::Field4) {
+    return false;
+  }
+  field = static_cast<size_t>(static_cast<int>(action) -
+                              static_cast<int>(PregnancyAction::Field0));
+  return true;
 }
 
 bool pregnancy_action_digit(PregnancyAction action, char &digit) {
@@ -865,6 +864,16 @@ const char *pregnancy_action_name(PregnancyAction action) {
     return "show_mom";
   case PregnancyAction::OpenLauncher:
     return "open_launcher";
+  case PregnancyAction::Field0:
+    return "field_0";
+  case PregnancyAction::Field1:
+    return "field_1";
+  case PregnancyAction::Field2:
+    return "field_2";
+  case PregnancyAction::Field3:
+    return "field_3";
+  case PregnancyAction::Field4:
+    return "field_4";
   }
   return "unknown";
 }

@@ -31,7 +31,11 @@ the result.
 
 ## Baby Week
 
-- [ ] First use accepts `YYYYMMDDHHMM` device time.
+- [ ] First use accepts `YYYYMMDDHHMM` device time; tapping a field (year, month,
+  day, hour, minute) edits only that field, a completed field moves on, an
+  impossible digit (month 13, hour 25) is refused, and DEL clears the field
+  before stepping back. The same holds for Settings device time and the due
+  date / last-period entry.
 - [ ] Confirmed due date setup saves and restores.
 - [ ] LMP setup saves and restores.
 - [ ] Dashboard shows week/day, trimester, due-date countdown and 40-week
