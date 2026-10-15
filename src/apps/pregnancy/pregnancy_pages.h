@@ -35,7 +35,6 @@ enum class PregnancyAction : uint8_t {
   Delete,
   Continue,
   Back,
-  Edit,
   SelectDueDate,
   SelectLmp,
   ShowOverview,

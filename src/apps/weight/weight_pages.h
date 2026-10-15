@@ -22,6 +22,11 @@ struct WeightPageState {
   bool editing_history = false;
   WeightProfileSettings profile = {};
 };
+// Where the header action of `page` goes inside the app; false = leaves the
+// app for the launcher (the dashboard). The confirm pages return to the editor,
+// and the editor returns to History when it was opened from there.
+bool weight_page_back_target(WeightPage page, bool editing_history,
+                             WeightPage &target);
 struct WeightHit { WeightAction action = WeightAction::None; size_t row = 0U; };
 // One tappable rectangle of a page; `row` is the history row for SelectRecord.
 struct WeightTarget { prototype_ui::Rect rect; WeightAction action; size_t row = 0U; };

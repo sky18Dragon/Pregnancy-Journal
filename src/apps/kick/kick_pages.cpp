@@ -232,7 +232,7 @@ void kick_page_render_today(Canvas &canvas, const KickDaySummary &today,
                             bool save_failed) {
   prototype_ui::begin_page(canvas);
   prototype_ui::draw_header(canvas, "KICK COUNTER",
-                            "NOTICE YOUR BABY'S USUAL PATTERN", "BACK");
+                            "NOTICE YOUR BABY'S USUAL PATTERN", "APPS");
   const bool is_portrait = portrait(canvas.width(), canvas.height());
   if (is_portrait) {
     canvas.draw_text_pixels(ui_tokens::kContentMargin, 108, ui_text("TODAY'S MOVEMENTS"), ui_tokens::kSecondaryBody,
@@ -421,6 +421,28 @@ void kick_page_render_counter(Canvas &canvas, KickPeriod period,
                 "UNDO ONE", false);
   render_button(canvas, secondary_button_rect(canvas.width(), canvas.height()),
                 "FINISH AND SAVE", true);
+}
+
+bool kick_page_back_target(KickPage page, KickPage compare_origin,
+                           KickPage &target) {
+  switch (page) {
+  case KickPage::Today:
+    return false;
+  case KickPage::Feel:
+    target = KickPage::ModeSelect;
+    return true;
+  case KickPage::Compare:
+    target = compare_origin == KickPage::Result ? KickPage::Result
+                                                : KickPage::Insights;
+    return true;
+  case KickPage::Insights:
+  case KickPage::ModeSelect:
+  case KickPage::Counter:
+  case KickPage::Result:
+    target = KickPage::Today;
+    return true;
+  }
+  return false;
 }
 
 size_t kick_page_targets(KickPage page, int width, int height,

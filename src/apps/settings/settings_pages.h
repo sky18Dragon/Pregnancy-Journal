@@ -145,6 +145,10 @@ void settings_page_render_legacy_clear_confirm(Canvas &canvas, bool kicks_only =
 void settings_page_render_card_data_delete_confirm(
     Canvas &canvas, const char *dataset_id_prefix);
 void settings_page_render_device_reset_confirm(Canvas &canvas);
+// Where the header action of `page` goes inside Settings; false = leaves
+// Settings for the launcher (the main page).
+bool settings_page_back_target(SettingsPage page, SettingsPage &target);
+
 // Upper bound on the targets of any page (time editor: 5 fields + 12 keys + back).
 constexpr size_t kMaxSettingsTargets = 24U;
 

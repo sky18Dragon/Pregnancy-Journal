@@ -44,7 +44,30 @@ void test_target_contract() {
   }
 }
 
+// Back graph: every page reaches the dashboard (which leaves for the launcher).
+void test_back_graph() {
+  const WeightPage pages[] = {WeightPage::Dashboard, WeightPage::Editor, WeightPage::History,
+                              WeightPage::Profile, WeightPage::ReplaceConfirm, WeightPage::DeleteConfirm};
+  for (bool from_history : {false, true}) {
+    for (WeightPage page : pages) {
+      WeightPage current = page, next = WeightPage::Dashboard;
+      int steps = 0;
+      while (weight_page_back_target(current, from_history, next)) {
+        assert(next != current);
+        current = next;
+        assert(++steps <= 4);
+      }
+      assert(current == WeightPage::Dashboard);
+    }
+  }
+  WeightPage target = WeightPage::Dashboard;
+  assert(weight_page_back_target(WeightPage::Editor, true, target) && target == WeightPage::History);
+  assert(weight_page_back_target(WeightPage::Editor, false, target) && target == WeightPage::Dashboard);
+  assert(weight_page_back_target(WeightPage::DeleteConfirm, true, target) && target == WeightPage::Editor);
+}
+
 int main() {
+  test_back_graph();
   test_target_contract();
   for (uint16_t value = 300U; value <= 2000U; ++value)
     assert(weight_stored_value(weight_display_value(value, true), true) == value);

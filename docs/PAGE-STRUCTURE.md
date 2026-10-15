@@ -19,6 +19,19 @@ Boot
        -> Settings
 ```
 
+## Header action semantics
+
+| Label | Meaning |
+| --- | --- |
+| APPS | Root page of Weight / Kicks / Settings: leave the app for the Launcher |
+| BACK | One level up inside the app (see each app's back graph) |
+| CANCEL | Abandon an in-progress entry or counter without saving |
+| HOME | Baby Week home (detail pages, pregnancy summary) |
+
+Back graphs live in `kick_page_back_target()`, `weight_page_back_target()` and
+`settings_page_back_target()`. Kicks: Feel → Record type → Today; Compare returns
+to the page it was opened from (Trend or Result).
+
 ## Global navigation
 
 | Input | Result |

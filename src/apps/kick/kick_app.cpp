@@ -58,6 +58,7 @@ uint8_t s_hour = 0U;
 uint8_t s_minute = 0U;
 KickPeriod s_period = KickPeriod::Morning;
 KickPage s_page = KickPage::Today;
+KickPage s_compare_origin = KickPage::Insights; // where Compare was opened from
 bool s_save_failed = false;
 KickCounter s_counter;
 uint16_t s_rendered_elapsed_minutes = 0U;
@@ -300,15 +301,17 @@ void handle(int x, int y) {
     return;
 
   switch (action) {
-  case KickAction::Back:
-    if (s_page == KickPage::Today) {
+  case KickAction::Back: {
+    KickPage target = KickPage::Today;
+    if (!kick_page_back_target(s_page, s_compare_origin, target)) {
       show_press_feedback();
       sticky_app_request_launcher();
       return;
     }
     if (s_page == KickPage::Counter) s_counter.cancel();
-    s_page = KickPage::Today;
+    s_page = target;
     break;
+  }
   case KickAction::Done:
     s_page = KickPage::Today;
     break;
@@ -347,6 +350,7 @@ void handle(int x, int y) {
     break;
   case KickAction::ShowCompare:
     read_clock();
+    s_compare_origin = s_page;
     s_page = KickPage::Compare;
     break;
   case KickAction::Count:

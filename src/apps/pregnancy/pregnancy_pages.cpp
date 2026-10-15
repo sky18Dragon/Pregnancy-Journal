@@ -850,8 +850,6 @@ const char *pregnancy_action_name(PregnancyAction action) {
     return "continue";
   case PregnancyAction::Back:
     return "back";
-  case PregnancyAction::Edit:
-    return "edit";
   case PregnancyAction::SelectDueDate:
     return "select_due_date";
   case PregnancyAction::SelectLmp:

@@ -97,6 +97,26 @@ uint16_t weight_stored_value(uint16_t value, bool pounds) {
 // The hit targets of a page, built from the same rectangle functions the
 // renderer draws with. weight_page_action_at() is the first target containing
 // the point, so drawing and hit-testing cannot drift apart.
+bool weight_page_back_target(WeightPage page, bool editing_history,
+                             WeightPage &target) {
+  switch (page) {
+  case WeightPage::Dashboard:
+    return false;
+  case WeightPage::ReplaceConfirm:
+  case WeightPage::DeleteConfirm:
+    target = WeightPage::Editor;
+    return true;
+  case WeightPage::Editor:
+    target = editing_history ? WeightPage::History : WeightPage::Dashboard;
+    return true;
+  case WeightPage::History:
+  case WeightPage::Profile:
+    target = WeightPage::Dashboard;
+    return true;
+  }
+  return false;
+}
+
 size_t weight_page_targets(WeightPage page, int width, int height,
                            WeightTarget *out, size_t capacity) {
   size_t count = 0U;
@@ -148,7 +168,7 @@ void weight_page_render(Canvas &canvas, const WeightService &service,
   const bool pounds = settings.use_pounds;
   char text[80] = {};
   if (state.page == WeightPage::Dashboard) {
-    prototype_ui::draw_header(canvas, "WEIGHT TREND", "FOCUS ON THE LONG-TERM TREND", "BACK");
+    prototype_ui::draw_header(canvas, "WEIGHT TREND", "FOCUS ON THE LONG-TERM TREND", "APPS");
     segmented_toggle(canvas, unit(width, height), "KG", "LB", !pounds);
     const auto *latest = service.latest();
     if (latest) {

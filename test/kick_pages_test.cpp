@@ -290,7 +290,33 @@ void test_target_contract() {
   }
 }
 
+// Back graph: every page's header action leads somewhere different and reaches
+// the root (Today, which leaves for the launcher) in a few steps.
+void test_back_graph() {
+  const KickPage pages[] = {KickPage::Today,      KickPage::Insights, KickPage::Counter,
+                            KickPage::ModeSelect, KickPage::Feel,     KickPage::Result,
+                            KickPage::Compare};
+  for (KickPage origin : {KickPage::Insights, KickPage::Result}) {
+    for (KickPage page : pages) {
+      KickPage current = page;
+      int steps = 0;
+      KickPage next = KickPage::Today;
+      while (kick_page_back_target(current, origin, next)) {
+        assert(next != current);
+        current = next;
+        assert(++steps <= 4);
+      }
+      assert(current == KickPage::Today);
+    }
+  }
+  KickPage target = KickPage::Today;
+  assert(kick_page_back_target(KickPage::Feel, KickPage::Insights, target) && target == KickPage::ModeSelect);
+  assert(kick_page_back_target(KickPage::Compare, KickPage::Result, target) && target == KickPage::Result);
+  assert(kick_page_back_target(KickPage::Compare, KickPage::Insights, target) && target == KickPage::Insights);
+}
+
 int main() {
+  test_back_graph();
   test_target_contract();
   test_formatting();
   std::vector<uint8_t> framebuffer(800U * 480U / 4U, 0xFFU);

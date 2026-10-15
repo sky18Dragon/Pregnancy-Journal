@@ -162,12 +162,14 @@ void handle(int x, int y) {
   const bool pounds = s_store.settings().use_pounds;
   switch (hit.action) {
   case WeightAction::None: return;
-  case WeightAction::Back:
-    if (s_state.page == WeightPage::Dashboard) { show_press_feedback(); sticky_app_request_launcher(); return; }
-    if (s_state.page == WeightPage::ReplaceConfirm || s_state.page == WeightPage::DeleteConfirm)
-      s_state.page = WeightPage::Editor;
-    else s_state.page = s_state.editing_history && s_state.page == WeightPage::Editor ? WeightPage::History : WeightPage::Dashboard;
+  case WeightAction::Back: {
+    WeightPage target = WeightPage::Dashboard;
+    if (!weight_page_back_target(s_state.page, s_state.editing_history, target)) {
+      show_press_feedback(); sticky_app_request_launcher(); return;
+    }
+    s_state.page = target;
     break;
+  }
   case WeightAction::ToggleUnit: {
     auto settings = s_store.settings(); settings.use_pounds = !settings.use_pounds;
     s_state.editing_history = false;

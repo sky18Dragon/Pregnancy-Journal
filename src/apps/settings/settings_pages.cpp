@@ -167,7 +167,7 @@ void settings_page_render_main(Canvas &canvas, bool rtc_ready,
                                bool save_failed) {
   prototype_ui::begin_page(canvas);
   prototype_ui::draw_header(canvas, "SETTINGS",
-                            "DEVICE SETTINGS AND PREGNANCY PROFILE", "HOME");
+                            "DEVICE SETTINGS AND PREGNANCY PROFILE", "APPS");
   draw_setting(canvas, 0, "LANGUAGE",
                save_failed ? "SAVE FAILED - RETRYING" : "SAVED ON MICROSD",
                ui_language_is_chinese() ? "简体中文" : "ENGLISH");
@@ -499,6 +499,31 @@ void settings_page_render_pregnancy(Canvas &canvas,
   prototype_ui::draw_button(
       canvas, pregnancy_button(1U, canvas.width(), canvas.height()), "DONE",
       true, 2);
+}
+
+bool settings_page_back_target(SettingsPage page, SettingsPage &target) {
+  switch (page) {
+  case SettingsPage::Main:
+    return false;
+  case SettingsPage::TimeEditor:
+  case SettingsPage::PregnancySummary:
+  case SettingsPage::StorageSummary:
+    target = SettingsPage::Main;
+    return true;
+  case SettingsPage::StorageConfirm:
+  case SettingsPage::LegacySource:
+  case SettingsPage::CardDataDeleteConfirm:
+  case SettingsPage::DeviceResetConfirm:
+    target = SettingsPage::StorageSummary;
+    return true;
+  case SettingsPage::LegacyMigration:
+    target = SettingsPage::LegacySource;
+    return true;
+  case SettingsPage::LegacyClearConfirm:
+    target = SettingsPage::LegacyMigration;
+    return true;
+  }
+  return false;
 }
 
 size_t settings_page_targets(SettingsPage page, int width, int height,

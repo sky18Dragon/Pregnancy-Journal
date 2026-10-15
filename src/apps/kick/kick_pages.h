@@ -73,6 +73,14 @@ void kick_page_render_compare(Canvas &canvas, const KickComparison periods[3],
                               const KickComparison &ten, bool has_awareness,
                               const KickAwarenessSummary &awareness);
 
+// Where the header action (BACK / CANCEL) of `page` goes inside the app.
+// Returns false when it leaves the app for the launcher (the root page).
+// `compare_origin` is the page the Compare page was opened from (Insights or
+// Result). Every page reaches the root in a few steps.
+// 页头返回键在应用内的去向；根页面返回启动器时返回 false。
+bool kick_page_back_target(KickPage page, KickPage compare_origin,
+                           KickPage &target);
+
 // One tappable region. `rect` is the region itself, or the bounding square of
 // the counter circle when `circle` is set (hit-tested as a circle).
 struct KickTarget {

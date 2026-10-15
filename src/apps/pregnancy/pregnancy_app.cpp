@@ -354,9 +354,6 @@ bool handle_action(PregnancyAction action) {
       s_page = PregnancyPage::Dashboard;
     }
     return true;
-  case PregnancyAction::Edit:
-    open_source_setup();
-    return true;
   case PregnancyAction::OpenLauncher:
     show_press_feedback();
     sticky_app_request_launcher();

@@ -90,6 +90,7 @@ constexpr Translation kTranslations[] = {
     {"ENTER 12 DIGITS, THEN SAVE", "输入12位数字后保存"},
     {"INVALID DATE OR RTC WRITE FAILED", "日期无效或时钟写入失败"},
     {"BACK", "返回"},
+    {"APPS", "功能"},
     {"SAVE", "保存"},
     {"DEL", "删除"},
     {"CANCEL", "取消"},

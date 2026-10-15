@@ -555,34 +555,20 @@ void handle(SettingsAction action) {
     show_press_feedback();
     s_home_requested = true;
     break;
-  case SettingsAction::Back:
-    if (s_page == SettingsPage::StorageConfirm) {
-      s_storage_dataset_id[0] = '\0';
-      s_page = SettingsPage::StorageSummary;
-      render();
-    } else if (s_page == SettingsPage::LegacyClearConfirm) {
-      s_page = SettingsPage::LegacyMigration;
-      render();
-    } else if (s_page == SettingsPage::LegacyMigration) {
-      s_page = SettingsPage::LegacySource;
-      render();
-    } else if (s_page == SettingsPage::LegacySource) {
-      s_page = SettingsPage::StorageSummary;
-      render();
-    } else if (s_page == SettingsPage::CardDataDeleteConfirm) {
-      s_page = SettingsPage::StorageSummary;
-      render();
-    } else if (s_page == SettingsPage::DeviceResetConfirm) {
-      s_page = SettingsPage::StorageSummary;
-      render();
-    } else if (s_page != SettingsPage::Main) {
-      s_page = SettingsPage::Main;
-      render();
-    } else {
+  case SettingsAction::Back: {
+    SettingsPage target = SettingsPage::Main;
+    if (!settings_page_back_target(s_page, target)) {
+      // The main page's header action leaves Settings for the launcher.
       show_press_feedback();
-      s_home_requested = true;
+      sticky_app_request_launcher();
+      break;
     }
+    if (s_page == SettingsPage::StorageConfirm)
+      s_storage_dataset_id[0] = '\0';
+    s_page = target;
+    render();
     break;
+  }
   case SettingsAction::Delete:
     s_time_fields.erase();
     s_error = false;

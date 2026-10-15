@@ -135,7 +135,7 @@ void register_pregnancy() {
   static const std::vector<std::string> names = {
       "None", "Digit0", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5",
       "Digit6", "Digit7", "Digit8", "Digit9", "Delete", "Continue", "Back",
-      "Edit", "SelectDueDate", "SelectLmp", "ShowOverview", "ShowBaby",
+      "SelectDueDate", "SelectLmp", "ShowOverview", "ShowBaby",
       "ShowMom", "OpenLauncher", "Field0", "Field1", "Field2", "Field3", "Field4"};
   auto hit = [](PregnancyPage page, bool cancel) {
     return [page, cancel](int w, int h, int x, int y) {

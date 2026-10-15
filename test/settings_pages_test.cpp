@@ -64,7 +64,28 @@ void test_target_contract() {
 
 } // namespace
 
+// Back graph: every page reaches Main (which leaves for the launcher).
+void test_back_graph() {
+  const SettingsPage pages[] = {
+      SettingsPage::Main,           SettingsPage::TimeEditor,
+      SettingsPage::PregnancySummary, SettingsPage::StorageSummary,
+      SettingsPage::StorageConfirm, SettingsPage::LegacySource,
+      SettingsPage::LegacyMigration, SettingsPage::LegacyClearConfirm,
+      SettingsPage::CardDataDeleteConfirm, SettingsPage::DeviceResetConfirm};
+  for (SettingsPage page : pages) {
+    SettingsPage current = page, next = SettingsPage::Main;
+    int steps = 0;
+    while (settings_page_back_target(current, next)) {
+      assert(next != current);
+      current = next;
+      assert(++steps <= 4);
+    }
+    assert(current == SettingsPage::Main);
+  }
+}
+
 int main() {
+  test_back_graph();
   test_target_contract();
   uint8_t framebuffer[800U * 480U / 2U] = {};
   Canvas canvas(800U, 480U, framebuffer, sizeof(framebuffer));

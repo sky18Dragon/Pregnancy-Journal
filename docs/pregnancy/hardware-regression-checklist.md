@@ -23,6 +23,9 @@ the result.
   app and wraps around; a diagonal or short swipe, or one starting mid-screen,
   does nothing; taps near the footer buttons still work; no accidental switches
   while tapping the kick counter or typing digits.
+- [ ] Header action labels: APPS on the Weight dashboard, Kicks Today and Settings
+  main (opens Launcher); BACK goes up one level (Kicks Feel check-in → Record
+  type; Compare → the page it came from); CANCEL abandons an entry.
 - [ ] Double-click returns to Baby Week from every app.
 - [ ] Baby Week, Weight, Kicks and Settings each open correctly; old Reminder/Checkup
   last-app states fall back to Baby Week without renumbering IDs.
