@@ -650,14 +650,16 @@ void task(void *) {
             s_displayed_storage.eject_enabled)
           action = SettingsAction::SafeEjectStorage;
       }
-      press_feedback::Rect target = {};
       const int w = s_canvas->width(), h = s_canvas->height();
-      if (press_feedback::hit_bounds(w, h, x, y, [&](int px, int py) {
-            return static_cast<int>(settings_page_action_at(
-                s_page, w, h, px, py, primary_action_enabled,
-                secondary_action_enabled));
-          }, target)) {
-        s_press.set(target);
+      SettingsTarget targets[16];
+      const size_t target_count = settings_page_targets(
+          s_page, w, h, primary_action_enabled, secondary_action_enabled,
+          targets, 16U);
+      for (size_t i = 0U; i < target_count; ++i) {
+        if (targets[i].rect.contains(x, y)) {
+          s_press.set(targets[i].rect);
+          break;
+        }
       }
       handle(action);
       s_press.clear();

@@ -72,6 +72,11 @@ Rect storage_confirm_button(size_t index, int width, int height) {
   return index == 0U ? Rect{24, 400, 368, ui_tokens::kButtonHeight} : Rect{408, 400, 368, ui_tokens::kButtonHeight};
 }
 
+// "Old device data" source choice: shared by the renderer and the hit test.
+Rect legacy_source_button(size_t index, int width) {
+  return {24, index == 0U ? 148 : 236, width - 2 * ui_tokens::kContentMargin, 64};
+}
+
 const char *storage_card_value(SettingsStorageCardView card) {
   switch (card) {
   case SettingsStorageCardView::Missing:
@@ -272,9 +277,9 @@ void settings_page_render_storage_confirm(Canvas &canvas) {
 void settings_page_render_legacy_source(Canvas &canvas) {
   prototype_ui::begin_page(canvas);
   prototype_ui::draw_header(canvas, "OLD DEVICE DATA", "SELECT IMPORT", "BACK");
-  prototype_ui::draw_button(canvas, {24, 148, canvas.width() - 2 * ui_tokens::kContentMargin, 64},
+  prototype_ui::draw_button(canvas, legacy_source_button(0U, canvas.width()),
                             "PROFILE / WEIGHT / SETTINGS", false, 2);
-  prototype_ui::draw_button(canvas, {24, 236, canvas.width() - 2 * ui_tokens::kContentMargin, 64},
+  prototype_ui::draw_button(canvas, legacy_source_button(1U, canvas.width()),
                             "KICKS", false, 2);
   ui_draw_wrapped_text_pixels(canvas, ui_tokens::kContentMargin, 328, canvas.width() - 2 * ui_tokens::kContentMargin,
       ui_text("REMINDER AND CHECKUP COPIES ARE PRESERVED FOR V2."),
@@ -499,92 +504,76 @@ void settings_page_render_pregnancy(Canvas &canvas,
       true, 2);
 }
 
+size_t settings_page_targets(SettingsPage page, int width, int height,
+                             bool primary_action_enabled,
+                             bool secondary_action_enabled,
+                             SettingsTarget *out, size_t capacity) {
+  size_t count = 0U;
+  const auto add = [&](const Rect &rect, SettingsAction action) {
+    if (out != nullptr && count < capacity) out[count] = {rect, action};
+    ++count;
+  };
+  add(prototype_ui::header_action_rect(width, height), SettingsAction::Back);
+  const auto split = [&](SettingsAction first, SettingsAction second) {
+    add(storage_split_button(0U, width, height), first);
+    add(storage_split_button(1U, width, height), second);
+  };
+  if (page == SettingsPage::Main) {
+    constexpr SettingsAction kRowActions[] = {
+        SettingsAction::ToggleLanguage, SettingsAction::EditTime,
+        SettingsAction::PregnancySettings, SettingsAction::RefreshDisplay,
+        SettingsAction::StorageSettings};
+    for (size_t index = 0U; index < 5U; ++index)
+      add(setting_row(index, width, height), kRowActions[index]);
+  } else if (page == SettingsPage::PregnancySummary) {
+    add(pregnancy_button(0U, width, height), SettingsAction::EditPregnancy);
+    add(pregnancy_button(1U, width, height), SettingsAction::Home);
+  } else if (page == SettingsPage::StorageSummary) {
+    add(form_row(2U, width, height), SettingsAction::BeginCardDataDelete);
+    add(form_row(3U, width, height), SettingsAction::BeginDeviceReset);
+    if (primary_action_enabled)
+      add(storage_split_button(0U, width, height),
+          SettingsAction::BeginStorageInitialization);
+    if (secondary_action_enabled)
+      add(storage_split_button(1U, width, height),
+          SettingsAction::ManageLegacyData);
+  } else if (page == SettingsPage::StorageConfirm) {
+    add(storage_confirm_button(0U, width, height),
+        SettingsAction::CancelStorageInitialization);
+    add(storage_confirm_button(1U, width, height),
+        SettingsAction::ConfirmStorageInitialization);
+  } else if (page == SettingsPage::LegacySource) {
+    add(legacy_source_button(0U, width), SettingsAction::ManageLegacyCommon);
+    add(legacy_source_button(1U, width), SettingsAction::ManageLegacyKicks);
+  } else if (page == SettingsPage::LegacyMigration) {
+    if (primary_action_enabled)
+      add(storage_split_button(0U, width, height), SettingsAction::BeginLegacyImport);
+    if (secondary_action_enabled)
+      add(storage_split_button(1U, width, height), SettingsAction::BeginLegacyClear);
+  } else if (page == SettingsPage::LegacyClearConfirm) {
+    split(SettingsAction::CancelLegacyClear, SettingsAction::ConfirmLegacyClear);
+  } else if (page == SettingsPage::CardDataDeleteConfirm) {
+    split(SettingsAction::CancelCardDataDelete, SettingsAction::ConfirmCardDataDelete);
+  } else if (page == SettingsPage::DeviceResetConfirm) {
+    split(SettingsAction::CancelDeviceReset, SettingsAction::ConfirmDeviceReset);
+  } else {
+    for (size_t index = 0U; index < 12U; ++index)
+      add(key_rect(index, width, height), kKeyActions[index]);
+  }
+  return count < capacity ? count : capacity;
+}
+
 SettingsAction settings_page_action_at(SettingsPage page, int width, int height,
                                        int x, int y,
                                        bool primary_action_enabled,
                                        bool secondary_action_enabled) {
-  if (prototype_ui::header_action_rect(width, height).contains(x, y))
-    return SettingsAction::Back;
-  if (page == SettingsPage::Main) {
-    if (setting_row(0U, width, height).contains(x, y))
-      return SettingsAction::ToggleLanguage;
-    if (setting_row(1U, width, height).contains(x, y))
-      return SettingsAction::EditTime;
-    if (setting_row(2U, width, height).contains(x, y))
-      return SettingsAction::PregnancySettings;
-    if (setting_row(3U, width, height).contains(x, y))
-      return SettingsAction::RefreshDisplay;
-    if (setting_row(4U, width, height).contains(x, y))
-      return SettingsAction::StorageSettings;
-    return SettingsAction::None;
-  }
-  if (page == SettingsPage::PregnancySummary) {
-    if (pregnancy_button(0U, width, height).contains(x, y))
-      return SettingsAction::EditPregnancy;
-    if (pregnancy_button(1U, width, height).contains(x, y))
-      return SettingsAction::Home;
-    return SettingsAction::None;
-  }
-  if (page == SettingsPage::StorageSummary) {
-    if (form_row(2U, width, height).contains(x, y))
-      return SettingsAction::BeginCardDataDelete;
-    if (form_row(3U, width, height).contains(x, y))
-      return SettingsAction::BeginDeviceReset;
-    if (primary_action_enabled &&
-        storage_split_button(0U, width, height).contains(x, y))
-      return SettingsAction::BeginStorageInitialization;
-    if (secondary_action_enabled &&
-        storage_split_button(1U, width, height).contains(x, y))
-      return SettingsAction::ManageLegacyData;
-    return SettingsAction::None;
-  }
-  if (page == SettingsPage::StorageConfirm) {
-    if (storage_confirm_button(0U, width, height).contains(x, y))
-      return SettingsAction::CancelStorageInitialization;
-    if (storage_confirm_button(1U, width, height).contains(x, y))
-      return SettingsAction::ConfirmStorageInitialization;
-    return SettingsAction::None;
-  }
-  if (page == SettingsPage::LegacySource) {
-    if (Rect{24, 148, width - 2 * ui_tokens::kContentMargin, 64}.contains(x, y))
-      return SettingsAction::ManageLegacyCommon;
-    if (Rect{24, 236, width - 2 * ui_tokens::kContentMargin, 64}.contains(x, y))
-      return SettingsAction::ManageLegacyKicks;
-    return SettingsAction::None;
-  }
-  if (page == SettingsPage::LegacyMigration) {
-    if (primary_action_enabled &&
-        storage_split_button(0U, width, height).contains(x, y))
-      return SettingsAction::BeginLegacyImport;
-    if (secondary_action_enabled &&
-        storage_split_button(1U, width, height).contains(x, y))
-      return SettingsAction::BeginLegacyClear;
-    return SettingsAction::None;
-  }
-  if (page == SettingsPage::LegacyClearConfirm) {
-    if (storage_split_button(0U, width, height).contains(x, y))
-      return SettingsAction::CancelLegacyClear;
-    if (storage_split_button(1U, width, height).contains(x, y))
-      return SettingsAction::ConfirmLegacyClear;
-    return SettingsAction::None;
-  }
-  if (page == SettingsPage::CardDataDeleteConfirm) {
-    if (storage_split_button(0U, width, height).contains(x, y))
-      return SettingsAction::CancelCardDataDelete;
-    if (storage_split_button(1U, width, height).contains(x, y))
-      return SettingsAction::ConfirmCardDataDelete;
-    return SettingsAction::None;
-  }
-  if (page == SettingsPage::DeviceResetConfirm) {
-    if (storage_split_button(0U, width, height).contains(x, y))
-      return SettingsAction::CancelDeviceReset;
-    if (storage_split_button(1U, width, height).contains(x, y))
-      return SettingsAction::ConfirmDeviceReset;
-    return SettingsAction::None;
-  }
-  for (size_t index = 0U; index < 12U; ++index) {
-    if (key_rect(index, width, height).contains(x, y))
-      return kKeyActions[index];
+  SettingsTarget targets[16];
+  const size_t count = settings_page_targets(
+      page, width, height, primary_action_enabled, secondary_action_enabled,
+      targets, 16U);
+  for (size_t index = 0U; index < count; ++index) {
+    if (targets[index].rect.contains(x, y))
+      return targets[index].action;
   }
   return SettingsAction::None;
 }

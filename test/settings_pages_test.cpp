@@ -23,9 +23,49 @@ void write_preview(Canvas &canvas, const char *path) {
   }
 }
 
+// Geometry contract: every target (for every enabled-flag combination) is on
+// screen, at least 48 px each way, does not overlap another, and the hit test
+// returns the target under its centre. Disabled buttons are absent.
+void test_target_contract() {
+  const SettingsPage pages[] = {
+      SettingsPage::Main,           SettingsPage::TimeEditor,
+      SettingsPage::PregnancySummary, SettingsPage::StorageSummary,
+      SettingsPage::StorageConfirm, SettingsPage::LegacySource,
+      SettingsPage::LegacyMigration, SettingsPage::LegacyClearConfirm,
+      SettingsPage::CardDataDeleteConfirm, SettingsPage::DeviceResetConfirm};
+  const int sizes[2][2] = {{800, 480}, {480, 800}};
+  for (const auto &size : sizes) {
+    for (SettingsPage page : pages) {
+      for (int flags = 0; flags < 4; ++flags) {
+        const bool primary = (flags & 1) != 0;
+        const bool secondary = (flags & 2) != 0;
+        SettingsTarget targets[16];
+        const size_t count = settings_page_targets(page, size[0], size[1], primary,
+                                                   secondary, targets, 16U);
+        assert(count >= 1U);
+        for (size_t a = 0U; a < count; ++a) {
+          const auto &r = targets[a].rect;
+          assert(r.x >= 0 && r.y >= 0 && r.x + r.width <= size[0] &&
+                 r.y + r.height <= size[1]);
+          assert(r.height >= 48 && r.width >= 48);
+          assert(settings_page_action_at(page, size[0], size[1], r.x + r.width / 2,
+                                         r.y + r.height / 2, primary,
+                                         secondary) == targets[a].action);
+          for (size_t b = a + 1U; b < count; ++b) {
+            const auto &o = targets[b].rect;
+            assert(!(r.x < o.x + o.width && o.x < r.x + r.width &&
+                     r.y < o.y + o.height && o.y < r.y + r.height));
+          }
+        }
+      }
+    }
+  }
+}
+
 } // namespace
 
 int main() {
+  test_target_contract();
   uint8_t framebuffer[800U * 480U / 2U] = {};
   Canvas canvas(800U, 480U, framebuffer, sizeof(framebuffer));
   ui_language_set(UiLanguage::English);

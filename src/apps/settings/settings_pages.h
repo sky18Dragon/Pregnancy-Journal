@@ -1,8 +1,10 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #include "pregnancy_state.h"
+#include "prototype_ui.h"
 
 class Canvas;
 
@@ -136,6 +138,21 @@ void settings_page_render_legacy_clear_confirm(Canvas &canvas, bool kicks_only =
 void settings_page_render_card_data_delete_confirm(
     Canvas &canvas, const char *dataset_id_prefix);
 void settings_page_render_device_reset_confirm(Canvas &canvas);
+// One tappable rectangle. The renderers draw these same rectangles.
+struct SettingsTarget {
+  prototype_ui::Rect rect;
+  SettingsAction action;
+};
+
+// Lists the active hit targets of `page` (at most `capacity` written; returns
+// the count written). Disabled primary/secondary buttons are omitted, exactly
+// as they are not tappable. The hit test is the first target containing the
+// point.
+size_t settings_page_targets(SettingsPage page, int width, int height,
+                             bool primary_action_enabled,
+                             bool secondary_action_enabled,
+                             SettingsTarget *out, size_t capacity);
+
 SettingsAction settings_page_action_at(SettingsPage page, int width, int height,
                                        int x, int y,
                                        bool primary_action_enabled = true,
