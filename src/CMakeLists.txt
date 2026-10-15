@@ -81,6 +81,7 @@ idf_component_register(
         "apps/pregnancy/pregnancy_state.cpp"
         "apps/pregnancy/pregnancy_storage_record.cpp"
         "apps/weight/weight_app.cpp"
+        "apps/weight/weight_flow.cpp"
         "apps/weight/weight_pages.cpp"
         "apps/kick/kick_app.cpp"
         "apps/kick/kick_flow.cpp"
