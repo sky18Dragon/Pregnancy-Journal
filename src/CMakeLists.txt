@@ -83,6 +83,7 @@ idf_component_register(
         "apps/weight/weight_app.cpp"
         "apps/weight/weight_pages.cpp"
         "apps/kick/kick_app.cpp"
+        "apps/kick/kick_flow.cpp"
         "apps/kick/kick_pages.cpp"
         "apps/settings/settings_app.cpp"
         "apps/settings/settings_pages.cpp"

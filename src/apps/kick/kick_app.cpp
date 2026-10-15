@@ -7,6 +7,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "kick_flow.h"
 #include "kick_pages.h"
 #include "kick_service.h"
 #include "kick_comparison.h"
@@ -53,37 +54,29 @@ void show_press_feedback() {
   press_feedback::draw(*s_canvas, rect);
   sticky_display_refresh_partial();
 }
-PregnancyDate s_today = {};
-uint8_t s_hour = 0U;
-uint8_t s_minute = 0U;
-KickPeriod s_period = KickPeriod::Morning;
-KickPage s_page = KickPage::Today;
-KickPage s_compare_origin = KickPage::Insights; // where Compare was opened from
-bool s_save_failed = false;
-KickCounter s_counter;
 uint16_t s_rendered_elapsed_minutes = 0U;
-// The record shown on the Result page after a durable save.
-KickSession s_result_session = {};
 
-bool read_clock() {
-  StickyRtcDateTime value = {};
-  if (sticky_rtc_read(value) != ESP_OK)
-    return false;
-  s_today = {value.year, value.month, value.day};
-  s_hour = value.hour;
-  s_minute = value.minute;
-  return true;
-}
+// The RTC and the record capacity behind the flow's port.
+class KickPort final : public KickFlowPort {
+public:
+  bool read_clock(KickClockTime &time) override {
+    StickyRtcDateTime value = {};
+    if (sticky_rtc_read(value) != ESP_OK)
+      return false;
+    time.date = {value.year, value.month, value.day};
+    time.hour = value.hour;
+    time.minute = value.minute;
+    return true;
+  }
+  bool at_capacity() override {
+    return s_store.service().count() >= KickService::kCapacity;
+  }
+};
 
-KickPeriod inferred_period() {
-  if (s_hour < 12U)
-    return KickPeriod::Morning;
-  if (s_hour < 18U)
-    return KickPeriod::Afternoon;
-  return KickPeriod::Evening;
-}
+KickPort s_port;
+KickFlow s_flow(s_port);
 
-uint16_t elapsed_minutes() { return s_counter.elapsed_minutes(esp_timer_get_time()); }
+uint16_t elapsed_minutes() { return s_flow.elapsed_minutes(esp_timer_get_time()); }
 
 bool status_page_active() {
   return s_store.pending() || (s_storage_status != SdRepositoryAdapterStatus::Idle &&
@@ -94,7 +87,7 @@ void render(bool full = false) {
   sticky_display_set_battery_overlay_enabled(false);
   KickDaySummary today = {};
   const bool status = status_page_active();
-  if (s_refresh.page_changes(status ? kStatusPageId : static_cast<int>(s_page)))
+  if (s_refresh.page_changes(status ? kStatusPageId : static_cast<int>(s_flow.page())))
     show_press_feedback();
   else
     s_press.clear();
@@ -105,42 +98,44 @@ void render(bool full = false) {
     sticky_display_refresh_monochrome();
     return;
   }
-  s_store.service().summarize(s_today, today);
+  const KickPage page = s_flow.page();
+  const PregnancyDate &date = s_flow.today();
+  s_store.service().summarize(date, today);
   const KickService &service = s_store.service();
-  if (s_page == KickPage::Counter) {
+  if (page == KickPage::Counter) {
     s_rendered_elapsed_minutes = elapsed_minutes();
-    kick_page_render_counter(*s_canvas, s_period, s_counter.count(),
-                             s_rendered_elapsed_minutes, s_counter.mode());
-  } else if (s_page == KickPage::ModeSelect) {
+    kick_page_render_counter(*s_canvas, s_flow.period(), s_flow.counter().count(),
+                             s_rendered_elapsed_minutes, s_flow.counter().mode());
+  } else if (page == KickPage::ModeSelect) {
     kick_page_render_mode_select(*s_canvas);
-  } else if (s_page == KickPage::Feel) {
+  } else if (page == KickPage::Feel) {
     kick_page_render_feel(*s_canvas);
-  } else if (s_page == KickPage::Result) {
+  } else if (page == KickPage::Result) {
+    const KickSession &result = s_flow.result_session();
     KickAwarenessSummary awareness = {};
-    kick_summarize_awareness(service, s_result_session.date, awareness);
-    kick_page_render_result(*s_canvas, s_result_session,
-                            kick_compare_session(service, s_result_session),
-                            awareness);
-  } else if (s_page == KickPage::Compare) {
+    kick_summarize_awareness(service, result.date, awareness);
+    kick_page_render_result(*s_canvas, result,
+                            kick_compare_session(service, result), awareness);
+  } else if (page == KickPage::Compare) {
     KickComparison periods[3] = {};
     bool has_period[3] = {};
-    kick_compare_day(service, s_today, periods, has_period);
+    kick_compare_day(service, date, periods, has_period);
     KickComparison ten = {};
-    const bool has_ten = kick_compare_latest_count_to_ten(service, s_today, ten);
+    const bool has_ten = kick_compare_latest_count_to_ten(service, date, ten);
     KickAwarenessSummary awareness = {};
     const bool has_awareness =
-        kick_summarize_awareness(service, s_today, awareness);
+        kick_summarize_awareness(service, date, awareness);
     kick_page_render_compare(*s_canvas, periods, has_period, has_ten, ten,
                              has_awareness, awareness);
-  } else if (s_page == KickPage::Insights) {
+  } else if (page == KickPage::Insights) {
     KickTrendSummary trend = {};
-    s_store.service().summarize_recent(s_today, trend);
+    s_store.service().summarize_recent(date, trend);
     kick_page_render_insights(*s_canvas, today, trend);
   } else {
-    kick_page_render_today(*s_canvas, today, s_save_failed);
+    kick_page_render_today(*s_canvas, today, s_flow.save_failed());
   }
   // Page changes are full; the display layer owns the partial-refresh ceiling.
-  if (s_refresh.needs_full(static_cast<int>(s_page), full))
+  if (s_refresh.needs_full(static_cast<int>(page), full))
     sticky_display_refresh_monochrome();
   else
     sticky_display_refresh_partial();
@@ -156,53 +151,24 @@ void save_session(const KickSession &session) {
   if (s_storage_status == SdRepositoryAdapterStatus::Pending)
     s_storage_status = SdRepositoryAdapterStatus::Idle;
   else
-    s_save_failed = true;
+    s_flow.mark_save_failed();
 }
 
-void finish() {
-  if (s_counter.count() == 0U) {
-    s_counter.cancel();
-    s_page = KickPage::Today;
-    return;
+// Carries out what the flow asked for after an action.
+void apply_flow_result(const KickFlowResult &result) {
+  if (result.open_launcher) {
+    show_press_feedback();
+    sticky_app_request_launcher();
   }
-  save_session(s_counter.snapshot(esp_timer_get_time()));
-}
-
-void save_feel(KickFeel feel) {
-  if (!read_clock()) {
-    s_save_failed = true;
-    s_page = KickPage::Today;
-    return;
-  }
-  KickSession session = {};
-  session.date = s_today;
-  session.hour = s_hour;
-  session.minute = s_minute;
-  session.period = inferred_period();
-  session.mode = KickMode::Awareness;
-  session.feel = feel;
-  save_session(session);
-}
-
-bool begin_counter(KickMode mode, int64_t now) {
-  if (!read_clock()) {
-    s_save_failed = true;
-    s_page = KickPage::Today;
-    return false;
-  }
-  s_period = inferred_period();
-  s_counter.cancel();
-  s_counter.begin(s_today, s_hour, s_minute, s_period, now, mode);
-  s_save_failed = false;
-  s_page = KickPage::Counter;
-  return true;
+  if (result.capacity_reached)
+    s_storage_status = SdRepositoryAdapterStatus::CapacityReached;
+  if (result.save_session)
+    save_session(result.session);
 }
 
 void begin_load() {
-  if (!s_store.ready() && !s_retry_session) {
-    s_counter.cancel();
-    s_page = KickPage::Today;
-  }
+  if (!s_store.ready() && !s_retry_session)
+    s_flow.abandon_session();
   s_storage_saving = false;
   s_storage_status = s_store.begin_load();
   if (s_storage_status == SdRepositoryAdapterStatus::Pending)
@@ -241,10 +207,7 @@ bool poll_store() {
   }
   if (s_storage_status == SdRepositoryAdapterStatus::Ok && s_storage_saving) {
     // Show the saved record next to its own baseline.
-    s_result_session = s_pending_session;
-    s_page = KickPage::Result;
-    s_counter.cancel();
-    s_save_failed = false;
+    s_flow.session_saved(s_pending_session);
     s_storage_saving = false;
     s_pending_session = {};
   }
@@ -265,7 +228,7 @@ void remember_press_target(int x, int y) {
     found = retry.contains(x, y) ? (target = retry, true) : back.contains(x, y) ? (target = back, true) : false;
   } else {
     KickTarget targets[16];
-    const size_t count = kick_page_targets(s_page, w, h, targets, 16U);
+    const size_t count = kick_page_targets(s_flow.page(), w, h, targets, 16U);
     for (size_t i = 0U; i < count && !found; ++i) {
       if (targets[i].contains(x, y)) { target = targets[i].rect; found = true; }
     }
@@ -279,7 +242,7 @@ void handle(int x, int y) {
       s_storage_status != SdRepositoryAdapterStatus::Ok) {
     const auto back = prototype_ui::header_action_rect(s_canvas->width(), s_canvas->height());
     if (back.contains(x, y)) {
-      s_page = KickPage::Today;
+      s_flow.go_today();
       s_press.set(back);
       show_press_feedback();
       sticky_app_request_launcher();
@@ -288,120 +251,58 @@ void handle(int x, int y) {
     if (repository_status_ui::retry_rect(*s_canvas).contains(x, y)) {
       // Reconcile the same stable ID before retrying an uncertain commit.
       s_retry_session = s_storage_saving && s_pending_session.id != 0U;
-      if (!s_retry_session) s_page = KickPage::Today;
+      if (!s_retry_session) s_flow.go_today();
       begin_load();
       render(true);
     }
     return;
   }
-  const int64_t now = esp_timer_get_time();
   const KickAction action = kick_page_action_at(
-      s_page, s_canvas->width(), s_canvas->height(), x, y);
+      s_flow.page(), s_canvas->width(), s_canvas->height(), x, y);
   if (action == KickAction::None)
     return;
-
-  switch (action) {
-  case KickAction::Back: {
-    KickPage target = KickPage::Today;
-    if (!kick_page_back_target(s_page, s_compare_origin, target)) {
-      show_press_feedback();
-      sticky_app_request_launcher();
-      return;
-    }
-    if (s_page == KickPage::Counter) s_counter.cancel();
-    s_page = target;
-    break;
-  }
-  case KickAction::Done:
-    s_page = KickPage::Today;
-    break;
-  case KickAction::Start:
-    if (s_store.service().count() >= KickService::kCapacity) {
-      s_storage_status = SdRepositoryAdapterStatus::CapacityReached;
-      render(true);
-      return;
-    }
-    s_save_failed = false;
-    s_page = KickPage::ModeSelect;
-    break;
-  case KickAction::StartTimed:
-    begin_counter(KickMode::Timed, now);
-    break;
-  case KickAction::StartCountToTen:
-    begin_counter(KickMode::CountToTen, now);
-    break;
-  case KickAction::StartAwareness:
-    s_page = KickPage::Feel;
-    break;
-  case KickAction::FeelUsual:
-    save_feel(KickFeel::Usual);
-    break;
-  case KickAction::FeelWeaker:
-    save_feel(KickFeel::Weaker);
-    break;
-  case KickAction::FeelFewer:
-    save_feel(KickFeel::Fewer);
-    break;
-  case KickAction::FeelChanged:
-    save_feel(KickFeel::Changed);
-    break;
-  case KickAction::ShowInsights:
-    s_page = KickPage::Insights;
-    break;
-  case KickAction::ShowCompare:
-    read_clock();
-    s_compare_origin = s_page;
-    s_page = KickPage::Compare;
-    break;
-  case KickAction::Count:
-    // The tenth press of a count-to-ten session saves it immediately.
-    if (s_counter.add(now) && s_counter.target_reached()) finish();
-    break;
-  case KickAction::Undo:
-    s_counter.undo();
-    break;
-  case KickAction::Finish:
-    finish();
-    break;
-  case KickAction::None:
+  const KickFlowResult result =
+      s_flow.handle_action(action, esp_timer_get_time());
+  apply_flow_result(result);
+  if (result.capacity_reached) {
+    render(true);
     return;
   }
   // Counter taps stay partial; the tracker promotes page changes to full.
-  render();
+  if (result.render)
+    render();
 }
 
 void task(void *) {
   begin_load();
-  read_clock();
+  s_flow.read_clock();
   render(true);
   unsigned clock_polls = 0U;
   while (true) {
     if (poll_store()) render(true);
     if (!s_store.pending() && s_storage_status == SdRepositoryAdapterStatus::Ok && !s_store.ready()) {
-      s_page = KickPage::Today;
+      s_flow.go_today();
       begin_load(); render(true);
     }
     if (sticky_app_lifecycle_checkpoint(s_lifecycle)) {
       if (!s_store.pending() && !s_store.ready()) {
         begin_load();
       }
-      read_clock();
+      s_flow.read_clock();
       render(true);
     }
     if (!s_store.pending() && s_storage_status == SdRepositoryAdapterStatus::Ok &&
-        s_page == KickPage::Counter &&
-        s_counter.expired(esp_timer_get_time())) {
-      finish();
+        s_flow.counter_expired(esp_timer_get_time())) {
+      apply_flow_result(s_flow.finish(esp_timer_get_time()));
       render();
     } else if (!s_store.pending() && s_storage_status == SdRepositoryAdapterStatus::Ok &&
-               s_page == KickPage::Counter &&
+               s_flow.page() == KickPage::Counter &&
                elapsed_minutes() != s_rendered_elapsed_minutes) {
       render();
     }
-    if (++clock_polls >= 25U && s_page != KickPage::Counter && !s_store.pending()) {
+    if (++clock_polls >= 25U && s_flow.page() != KickPage::Counter && !s_store.pending()) {
       clock_polls = 0U;
-      const auto before = s_today;
-      if (read_clock() && (before.year != s_today.year || before.month != s_today.month || before.day != s_today.day)) render(true);
+      if (s_flow.refresh_clock()) render(true);
     }
     StickyTouchPress press = {};
     if (sticky_touch_take_press(press)) {
@@ -443,5 +344,5 @@ esp_err_t kick_app_prepare_power_sleep(uint32_t &current, uint32_t &next) {
   return kick_app_pause();
 }
 uint32_t kick_app_power_sleep_timeout_ms() {
-  return s_store.pending() || s_page == KickPage::Counter ? 0U : 60U * 1000U;
+  return s_store.pending() || s_flow.page() == KickPage::Counter ? 0U : 60U * 1000U;
 }

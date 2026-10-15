@@ -20,6 +20,10 @@
   局刷"。孕周的首页/宝宝/妈妈切换、设置的整页跳转、启动器打开由局刷改为全刷
   （约 2 秒）；胎动页删除自带的第二份 8 次局刷计数，改由显示层统一兜底。
   宿主测试与三个固件环境构建通过，待实机复测残影与耗时。
+- 胎动页逻辑与硬件解耦（UI 重构 C1）：页面与计数流程（页面切换、返回去向、计数器、
+  要保存的记录、结果页、跨日）抽成 `KickFlow`（`src/apps/kick/kick_flow.*`），RTC 与“记录
+  已满”通过 `KickFlowPort` 注入；`kick_app.cpp` 保留触摸、显示、RTC 适配与仓库存储（保存、
+  重试、冲突检测）。行为不变，新增 `kick_flow_test`。待实机复测计数、保存、重试与取消。
 - 孕周页逻辑与硬件解耦（UI 重构 C1 第一步）：页面流程、时间/日期输入与校验、进度计算、
   跨日更新抽成 `PregnancyFlow`（`src/apps/pregnancy/pregnancy_flow.*`），RTC 通过
   `PregnancyClockPort` 注入；`pregnancy_app.cpp` 只保留触摸、显示、RTC 适配与存储。行为不变，

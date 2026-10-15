@@ -373,6 +373,13 @@ compile_and_run kick_pages_test -Isrc/apps/kick -Isrc/apps/pregnancy \
     src/ui/canvas.cpp src/ui/font.cpp src/ui/prototype_ui.cpp \
     src/ui/text_layout.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp
+compile_and_run kick_flow_test -Isrc/apps/kick -Isrc/apps/pregnancy \
+    -Isrc/pregnancy/services -Isrc/pregnancy/models -Isrc/ui -Isrc/ui/assets \
+    test/kick_flow_test.cpp src/apps/kick/kick_flow.cpp src/apps/kick/kick_pages.cpp \
+    src/pregnancy/services/kick_counter.cpp src/apps/pregnancy/pregnancy_state.cpp \
+    src/ui/canvas.cpp src/ui/font.cpp src/ui/prototype_ui.cpp \
+    src/ui/text_layout.cpp src/ui/ui_language.cpp \
+    src/ui/assets/chinese_font_assets.cpp
 compile_and_run sticky_app_gesture_test -Isrc/app \
     test/sticky_app_gesture_test.cpp src/app/sticky_app_gesture.cpp
 compile_and_run sticky_app_display_orientation_test \
