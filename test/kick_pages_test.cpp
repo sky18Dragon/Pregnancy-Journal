@@ -350,8 +350,10 @@ int main() {
   kick_page_render_counter(canvas, KickPeriod::Afternoon, 12U, 8U);
   assert_binary_and_visible(canvas);
   write_preview(canvas, "/tmp/kick_counter_landscape_zh.ppm");
-  assert(kick_page_action_at(KickPage::Counter, 800, 480, 240, 234) ==
+  assert(kick_page_action_at(KickPage::Counter, 800, 480, 400, 234) ==
          KickAction::Count);
+  assert(kick_page_action_at(KickPage::Counter, 800, 480, 240, 234) ==
+         KickAction::None); // the old left-hand position is outside the circle
   assert(kick_page_action_at(KickPage::Counter, 800, 480, 72, 104) ==
          KickAction::None);
   assert(kick_page_action_at(KickPage::Counter, 800, 480, 24, 400) ==

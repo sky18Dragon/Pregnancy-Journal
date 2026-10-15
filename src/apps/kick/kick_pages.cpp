@@ -54,7 +54,7 @@ constexpr KickFeel kFeelOptions[] = {KickFeel::Usual, KickFeel::Weaker,
 Rect counter_circle(int width, int height) {
   const bool is_portrait = portrait(width, height);
   const int radius = is_portrait ? 128 : 112;
-  const int center_x = 240;
+  const int center_x = width / 2; // centred on the screen in both orientations
   const int center_y = is_portrait ? 332 : 234;
   return {center_x - radius, center_y - radius, 2 * radius, 2 * radius};
 }
@@ -410,12 +410,10 @@ void kick_page_render_counter(Canvas &canvas, KickPeriod period,
         ui_text("A CONTINUOUS SERIES OF MOTIONS CAN BE RECORDED AS ONE MOVEMENT"),
         ui_tokens::kSecondaryBody, GrayLevel::Black, 3, 6, FontWeight::Regular);
   } else {
-    canvas.draw_text_pixels(432, 126, ui_text("COUNT DISTINCT MOVEMENTS"), ui_tokens::kBody,
-                            GrayLevel::Black, FontWeight::Medium);
-    ui_draw_wrapped_text_pixels(
-        canvas, 432, 166, 344,
-        ui_text("A CONTINUOUS SERIES OF MOTIONS CAN BE RECORDED AS ONE MOVEMENT"),
-        ui_tokens::kSecondaryBody, GrayLevel::Black, 3, 6, FontWeight::Regular);
+    // The circle is centred, so the hint sits on one line below it.
+    draw_centered(canvas, canvas.width() / 2, circle.y + circle.height + 16,
+                  ui_text("A CONTINUOUS SERIES OF MOTIONS CAN BE RECORDED AS ONE MOVEMENT"),
+                  ui_tokens::kSecondaryBody, FontWeight::Regular);
   }
   render_button(canvas, primary_button_rect(canvas.width(), canvas.height()),
                 "UNDO ONE", false);
