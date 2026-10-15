@@ -309,6 +309,13 @@ compile_and_run settings_pages_test -Isrc/apps/settings -Isrc/apps/pregnancy \
     src/ui/canvas.cpp src/ui/font.cpp src/ui/prototype_ui.cpp \
     src/ui/text_layout.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp
+compile_and_run settings_flow_test -Isrc/apps/settings -Isrc/apps/pregnancy \
+    -Isrc/ui -Isrc/ui/assets \
+    test/settings_flow_test.cpp src/apps/settings/settings_flow.cpp \
+    src/apps/settings/settings_pages.cpp src/apps/pregnancy/pregnancy_state.cpp \
+    src/ui/digit_fields.cpp src/ui/canvas.cpp src/ui/font.cpp src/ui/prototype_ui.cpp \
+    src/ui/text_layout.cpp src/ui/ui_language.cpp \
+    src/ui/assets/chinese_font_assets.cpp
 compile_and_run pregnancy_state_test -Isrc/apps/pregnancy \
     test/pregnancy_state_test.cpp src/apps/pregnancy/pregnancy_state.cpp
 compile_and_run pregnancy_storage_record_test -Isrc/apps/pregnancy \

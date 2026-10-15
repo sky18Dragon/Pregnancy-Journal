@@ -87,6 +87,7 @@ idf_component_register(
         "apps/kick/kick_flow.cpp"
         "apps/kick/kick_pages.cpp"
         "apps/settings/settings_app.cpp"
+        "apps/settings/settings_flow.cpp"
         "apps/settings/settings_pages.cpp"
         "pregnancy/content/content_service.cpp"
         "pregnancy/content/pregnancy_week_visual.cpp"
