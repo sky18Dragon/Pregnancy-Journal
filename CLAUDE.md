@@ -18,7 +18,7 @@
 | **送屏格式** | **1-bit 黑白**：灰度 0、1 → 黑，2、3 → 白。产品页面不走 4 级灰阶刷新 |
 | 输入 | GT911 电容触摸；顶键（单击/双击）；双侧键长按 2 s 睡眠；无旋钮。物理触摸坐标必须经 `Canvas::physical_to_logical()` |
 | UI 框架 | 自研立即模式绘图层（`Canvas` + 页面 `render` + `*_action_at` 命中函数），不使用 LVGL |
-| 全刷耗时 | 实测约 2000 ms；局刷耗时 **【待确认】**（仓库与官方资料均无数据；真机日志 `display=refresh_done mode=monochrome_partial elapsed_ms=` 可直接取得） |
+| 刷新耗时（真机日志，2026-10-16，`docs/evidence/ui-refactor-device-session-2026-10-16.log`） | 全刷平均 1936 ms（71 次，1910–1985 ms）；局刷平均 887 ms（104 次，872–927 ms）。一次“按下反馈 + 全刷”的换页约 2.8 s |
 | 预览 | `tools/ui_preview/render_all.sh`（见下文「工作方式」），输出 1-bit PNG + 命中区叠加图 |
 
 ### 2. 设计规则（草案）

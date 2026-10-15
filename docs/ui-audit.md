@@ -333,3 +333,22 @@ flowchart TD
 | 本仓库 `docs/STICKY_CALCULATOR_COMPARISON.md` | 已有对 Sticky Calculator 的源码对照（固定点阵字号、基线、逐像素绘制、二值图标笔画） | 已被 `docs/EINK_UI_OPTIMIZATION_PLAN.md` 吸收，是字体与线宽规则的先例 |
 
 仍未解决：面板料号、局刷实际耗时。建议直接在真机日志里取 `mode=monochrome_partial elapsed_ms=`。
+
+---
+
+## 7. 真机验证记录（2026-10-16）
+
+固件：`sticky-release`，提交 `e0d010d`，设备 reTerminal Sticky，MicroSD 已插入。测试者按 `docs/pregnancy/hardware-regression-checklist.md` 的 UI 相关项操作约 25 分钟，反馈“没有什么问题”。串口日志存于 `docs/evidence/ui-refactor-device-session-2026-10-16.log`。
+
+| 指标 | 结果 |
+| --- | --- |
+| 启动 | `phase=ready result=ok`，4 个 App，触摸/IMU/按键/蜂鸣器/MicroSD 均就绪 |
+| 全刷耗时 | 平均 1936 ms（n=71，1910–1985 ms） |
+| 局刷耗时 | 平均 887 ms（n=104，872–927 ms；P90 896 ms） |
+| 换页刷新 | 48 次“1 次局刷（按下反馈）→ 全刷”，与 I3 设计一致 |
+| 局刷上限 | 连续 8 次局刷后自动升级全刷 4 次（胎动连点），与显示层上限一致 |
+| 错误/警告 | 仅 1 条既有的 `manifest=degraded slot=A`（该卡原有状态），无其他 E/W |
+| 任务栈余量 | 胎动任务最低剩余 3796 / 8192 字节 |
+| App 切换 | 9 次均经启动器触摸（日志无 `source=swipe`，I1 横滑切换在本次日志中未出现） |
+
+结论：未发现功能或刷新异常。仍待确认：I1 底边横滑的真机手感与误触、各页残影与可读性的主观评价（测试者未报问题）。
