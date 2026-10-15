@@ -98,34 +98,38 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app) {
       ui_tokens::kSecondaryBody, GrayLevel::Black, 2, 2, FontWeight::Regular);
 }
 
-bool app_page_launcher_language_at(int width, int height, int x, int y) {
-  (void)width;
-  (void)height;
-  (void)x;
-  (void)y;
-  return false;
+size_t app_page_launcher_targets(int width, int height, LauncherTarget *out,
+                                 size_t capacity) {
+  size_t count = 0U;
+  const auto add = [&](const Rect &rect, bool close, StickyAppId app) {
+    if (out != nullptr && count < capacity) out[count] = {rect, close, app};
+    ++count;
+  };
+  add(close_rect(width, height), true, StickyAppId::Pregnancy);
+  for (size_t index = 0U; index < sizeof(kEntries) / sizeof(kEntries[0]);
+       ++index)
+    add(entry_rect(index, width, height), false, kEntries[index].app);
+  return count < capacity ? count : capacity;
 }
 
 bool app_page_launcher_close_at(int width, int height, int x, int y) {
-  return close_rect(width, height).contains(x, y);
+  LauncherTarget targets[8];
+  const size_t count = app_page_launcher_targets(width, height, targets, 8U);
+  for (size_t i = 0U; i < count; ++i)
+    if (targets[i].rect.contains(x, y)) return targets[i].close;
+  return false;
 }
 
 bool app_page_launcher_app_at(int width, int height, int x, int y,
                               StickyAppId &selected_app) {
-  for (size_t index = 0U; index < sizeof(kEntries) / sizeof(kEntries[0]);
-       ++index) {
-    if (entry_rect(index, width, height).contains(x, y)) {
-      selected_app = kEntries[index].app;
+  LauncherTarget targets[8];
+  const size_t count = app_page_launcher_targets(width, height, targets, 8U);
+  for (size_t i = 0U; i < count; ++i) {
+    if (targets[i].rect.contains(x, y)) {
+      if (targets[i].close) return false;
+      selected_app = targets[i].app;
       return true;
     }
   }
-  return false;
-}
-
-bool app_page_launcher_tutorial_at(int width, int height, int x, int y) {
-  (void)width;
-  (void)height;
-  (void)x;
-  (void)y;
   return false;
 }

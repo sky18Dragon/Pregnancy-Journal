@@ -396,43 +396,24 @@ void handle_interaction(const StickyTouchInteraction &interaction) {
     close_launcher();
 }
 
-// The launcher hands over to a full refresh (~2 s). Show the tapped card pressed
-// first so the touch is acknowledged on the panel.
-void show_launcher_press(int x, int y) {
-  const int w = static_cast<int>(s_canvas->width());
-  const int h = static_cast<int>(s_canvas->height());
-  press_feedback::Rect target = {};
-  const bool found = press_feedback::hit_bounds(
-      w, h, x, y, [&](int px, int py) {
-        StickyAppId app = StickyAppId::Pregnancy;
-        if (app_page_launcher_close_at(w, h, px, py)) return 1;
-        return app_page_launcher_app_at(w, h, px, py, app)
-                   ? 2 + static_cast<int>(app)
-                   : 0;
-      }, target);
-  if (!found) return;
-  press_feedback::draw(*s_canvas, target);
-  sticky_display_refresh_partial();
-}
-
 void handle_launcher_press(const StickyTouchPress &press) {
   int x = 0, y = 0;
   s_canvas->physical_to_logical(press.x, press.y, x, y);
-  if (app_page_launcher_close_at(s_canvas->width(), s_canvas->height(), x, y)) {
-    show_launcher_press(x, y);
-    close_launcher();
+  LauncherTarget targets[8];
+  const size_t count = app_page_launcher_targets(
+      s_canvas->width(), s_canvas->height(), targets,
+      sizeof(targets) / sizeof(targets[0]));
+  for (size_t index = 0U; index < count; ++index) {
+    if (!targets[index].rect.contains(x, y)) continue;
+    // The launcher hands over to a full refresh (~2 s). Show the tapped
+    // target pressed first so the touch is acknowledged on the panel.
+    press_feedback::draw(*s_canvas, targets[index].rect);
+    sticky_display_refresh_partial();
+    if (targets[index].close)
+      close_launcher();
+    else
+      select_app(targets[index].app, "touch");
     return;
-  }
-  if (app_page_launcher_language_at(s_canvas->width(), s_canvas->height(), x,
-                                    y)) {
-    toggle_language();
-    return;
-  }
-  StickyAppId selected = StickyAppId::Pregnancy;
-  if (app_page_launcher_app_at(s_canvas->width(), s_canvas->height(), x, y,
-                               selected)) {
-    show_launcher_press(x, y);
-    select_app(selected, "touch");
   }
 }
 

@@ -33,7 +33,34 @@ void write_preview(Canvas &canvas, const char *path) {
 }
 } // namespace
 
+// Geometry contract: close first, then the four cards; all on screen, at least
+// 48 px, non-overlapping; hit helpers agree with the target list.
+void test_target_contract() {
+  const int sizes[2][2] = {{800, 480}, {480, 800}};
+  for (const auto &size : sizes) {
+    LauncherTarget targets[8];
+    const size_t count = app_page_launcher_targets(size[0], size[1], targets, 8U);
+    assert(count == 5U && targets[0].close);
+    for (size_t a = 0U; a < count; ++a) {
+      const auto &r = targets[a].rect;
+      assert(r.x >= 0 && r.y >= 0 && r.x + r.width <= size[0] && r.y + r.height <= size[1]);
+      assert(r.height >= ui_tokens::kMinimumTouchHeight && r.width >= ui_tokens::kMinimumTouchHeight);
+      StickyAppId app = StickyAppId::Settings;
+      const int cx = r.x + r.width / 2, cy = r.y + r.height / 2;
+      assert(app_page_launcher_close_at(size[0], size[1], cx, cy) == targets[a].close);
+      assert(app_page_launcher_app_at(size[0], size[1], cx, cy, app) == !targets[a].close);
+      if (!targets[a].close) assert(app == targets[a].app);
+      for (size_t b = a + 1U; b < count; ++b) {
+        const auto &o = targets[b].rect;
+        assert(!(r.x < o.x + o.width && o.x < r.x + r.width && r.y < o.y + o.height &&
+                 o.y < r.y + r.height));
+      }
+    }
+  }
+}
+
 int main() {
+  test_target_contract();
   const prototype_ui::Rect landscape_header_action =
       prototype_ui::header_action_rect(800, 480);
   const prototype_ui::Rect portrait_header_action =
@@ -60,7 +87,6 @@ int main() {
   assert(app_page_launcher_close_at(800, 480, 720, 45));
   assert(app_page_launcher_close_at(800, 480, 720, 67));
   assert(!app_page_launcher_close_at(800, 480, 720, 68));
-  assert(!app_page_launcher_language_at(800, 480, 730, 50));
   ui_language_set(UiLanguage::ChineseSimplified);
   app_page_render_launcher(canvas, StickyAppId::Pregnancy);
   assert(canvas.pixel_at(24, 99) != GrayLevel::White);

@@ -18,26 +18,6 @@ using prototype_ui::Rect;
 constexpr int kMaxInvertHeight = 80;
 constexpr int kFrameStroke = 3;
 
-// Recovers the rectangle of the hit target under (x, y). `action_at(x, y)`
-// returns 0 for "no action" and the same non-zero value anywhere inside one
-// target. Targets are rectangles, so scanning the four axes is enough.
-template <typename ActionAt>
-bool hit_bounds(int width, int height, int x, int y, ActionAt action_at,
-                Rect &bounds) {
-  if (x < 0 || y < 0 || x >= width || y >= height)
-    return false;
-  const int id = action_at(x, y);
-  if (id == 0)
-    return false;
-  int left = x, right = x, top = y, bottom = y;
-  while (left > 0 && action_at(left - 1, y) == id) --left;
-  while (right < width - 1 && action_at(right + 1, y) == id) ++right;
-  while (top > 0 && action_at(x, top - 1) == id) --top;
-  while (bottom < height - 1 && action_at(x, bottom + 1) == id) ++bottom;
-  bounds = {left, top, right - left + 1, bottom - top + 1};
-  return true;
-}
-
 // Draws the pressed state on top of whatever is already in the canvas.
 inline void draw(Canvas &canvas, const Rect &rect) {
   if (rect.height <= kMaxInvertHeight) {

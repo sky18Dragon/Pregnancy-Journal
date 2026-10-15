@@ -5,25 +5,8 @@
 #include "press_feedback.h"
 #include "refresh_policy.h"
 
-namespace {
-// Two buttons: A (id 1) at 40,40 200x56 and B (id 2) at 300,100 300x160.
-int action_at(int x, int y) {
-  if (x >= 40 && x < 240 && y >= 40 && y < 96) return 1;
-  if (x >= 300 && x < 600 && y >= 100 && y < 260) return 2;
-  return 0;
-}
-} // namespace
-
 int main() {
   using press_feedback::Rect;
-  Rect bounds = {};
-  assert(press_feedback::hit_bounds(800, 480, 100, 60, action_at, bounds));
-  assert(bounds.x == 40 && bounds.y == 40 && bounds.width == 200 && bounds.height == 56);
-  assert(press_feedback::hit_bounds(800, 480, 599, 259, action_at, bounds));
-  assert(bounds.x == 300 && bounds.y == 100 && bounds.width == 300 && bounds.height == 160);
-  assert(!press_feedback::hit_bounds(800, 480, 10, 10, action_at, bounds));
-  assert(!press_feedback::hit_bounds(800, 480, -1, 10, action_at, bounds));
-
   std::vector<uint8_t> pixels(800U * 480U / 4U);
   Canvas canvas(800U, 480U, pixels.data(), pixels.size());
   for (int pass = 0; pass < 2; ++pass) {
