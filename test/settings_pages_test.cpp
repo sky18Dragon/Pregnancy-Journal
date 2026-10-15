@@ -30,7 +30,7 @@ void test_target_contract() {
   const SettingsPage pages[] = {
       SettingsPage::Main,           SettingsPage::TimeEditor,
       SettingsPage::PregnancySummary, SettingsPage::StorageSummary,
-      SettingsPage::StorageConfirm, SettingsPage::LegacySource,
+      SettingsPage::StorageConfirm, SettingsPage::StorageMore,
       SettingsPage::LegacyMigration, SettingsPage::LegacyClearConfirm,
       SettingsPage::CardDataDeleteConfirm, SettingsPage::DeviceResetConfirm};
   const int sizes[2][2] = {{800, 480}, {480, 800}};
@@ -69,7 +69,7 @@ void test_back_graph() {
   const SettingsPage pages[] = {
       SettingsPage::Main,           SettingsPage::TimeEditor,
       SettingsPage::PregnancySummary, SettingsPage::StorageSummary,
-      SettingsPage::StorageConfirm, SettingsPage::LegacySource,
+      SettingsPage::StorageConfirm, SettingsPage::StorageMore,
       SettingsPage::LegacyMigration, SettingsPage::LegacyClearConfirm,
       SettingsPage::CardDataDeleteConfirm, SettingsPage::DeviceResetConfirm};
   for (SettingsPage page : pages) {
@@ -126,13 +126,29 @@ int main() {
                                  430, false) == SettingsAction::None);
   assert(settings_page_action_at(SettingsPage::StorageSummary, 800, 480, 600,
                                  430, true, true) ==
-         SettingsAction::ManageLegacyData);
+         SettingsAction::ManageStorage);
+  // Destructive actions are no longer on the status rows.
   assert(settings_page_action_at(SettingsPage::StorageSummary, 800, 480, 200,
-                                 250, true, true) ==
-         SettingsAction::BeginCardDataDelete);
+                                 250, true, true) == SettingsAction::None);
   assert(settings_page_action_at(SettingsPage::StorageSummary, 800, 480, 200,
-                                 320, true, true) ==
-         SettingsAction::BeginDeviceReset);
+                                 320, true, true) == SettingsAction::None);
+  // "More" page: import (needs migration), delete (needs delete), reset (always).
+  settings_page_render_storage_more(canvas, storage_state);
+  write_preview(canvas, "/tmp/settings_storage_more_landscape.ppm");
+  assert(settings_page_action_at(SettingsPage::StorageMore, 800, 480, 100, 129,
+                                 true, true) == SettingsAction::ManageLegacyCommon);
+  assert(settings_page_action_at(SettingsPage::StorageMore, 800, 480, 100, 195,
+                                 true, true) == SettingsAction::ManageLegacyKicks);
+  assert(settings_page_action_at(SettingsPage::StorageMore, 800, 480, 100, 261,
+                                 true, true) == SettingsAction::BeginCardDataDelete);
+  assert(settings_page_action_at(SettingsPage::StorageMore, 800, 480, 100, 327,
+                                 true, true) == SettingsAction::BeginDeviceReset);
+  assert(settings_page_action_at(SettingsPage::StorageMore, 800, 480, 100, 129,
+                                 false, true) == SettingsAction::None);
+  assert(settings_page_action_at(SettingsPage::StorageMore, 800, 480, 100, 261,
+                                 true, false) == SettingsAction::None);
+  assert(settings_page_action_at(SettingsPage::StorageMore, 800, 480, 100, 327,
+                                 false, false) == SettingsAction::BeginDeviceReset);
   settings_page_render_card_data_delete_confirm(canvas, "00b454dc");
   write_preview(canvas, "/tmp/settings_card_delete_landscape.ppm");
   assert(settings_page_action_at(SettingsPage::CardDataDeleteConfirm,
@@ -196,13 +212,15 @@ int main() {
          SettingsAction::BeginStorageInitialization);
   assert(settings_page_action_at(SettingsPage::StorageSummary, 480, 800, 360,
                                  748, true, true) ==
-         SettingsAction::ManageLegacyData);
+         SettingsAction::ManageStorage);
   assert(settings_page_action_at(SettingsPage::StorageSummary, 480, 800, 100,
-                                 500, true, true) ==
-         SettingsAction::BeginDeviceReset);
-  assert(settings_page_action_at(SettingsPage::StorageSummary, 480, 800, 100,
-                                 360, true, true) ==
-         SettingsAction::BeginCardDataDelete);
+                                 500, true, true) == SettingsAction::None);
+  assert(settings_page_action_at(SettingsPage::StorageMore, 480, 800, 100, 526,
+                                 true, true) == SettingsAction::BeginDeviceReset);
+  assert(settings_page_action_at(SettingsPage::StorageMore, 480, 800, 100, 410,
+                                 true, true) == SettingsAction::BeginCardDataDelete);
+  assert(settings_page_action_at(SettingsPage::StorageMore, 480, 800, 100, 178,
+                                 true, true) == SettingsAction::ManageLegacyCommon);
   settings_page_render_legacy_migration(canvas, migration_state);
   write_preview(canvas, "/tmp/settings_migration_portrait.ppm");
   settings_page_render_storage_confirm(canvas);

@@ -86,6 +86,12 @@ the result.
 
 ## MicroSD lifecycle
 
+- [ ] Settings → MicroSD shows only card/access/data status, free space, the
+  initialize/safe-eject button and MORE. MORE opens the old-data import rows
+  (greyed out and not tappable without a usable dataset), delete card data and
+  reset device binding; Back from the confirmations and the import report
+  returns to MORE.
+
 Evidence below is from the 2026-09-27 through 2026-09-29 single-card runs with
 `sticky-debug` and isolated test firmware; repeat it with `sticky-release` and
 the full card matrix before release.

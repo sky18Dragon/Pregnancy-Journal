@@ -72,11 +72,6 @@ Rect storage_confirm_button(size_t index, int width, int height) {
   return index == 0U ? Rect{24, 400, 368, ui_tokens::kButtonHeight} : Rect{408, 400, 368, ui_tokens::kButtonHeight};
 }
 
-// "Old device data" source choice: shared by the renderer and the hit test.
-Rect legacy_source_button(size_t index, int width) {
-  return {24, index == 0U ? 148 : 236, width - 2 * ui_tokens::kContentMargin, 64};
-}
-
 const char *storage_card_value(SettingsStorageCardView card) {
   switch (card) {
   case SettingsStorageCardView::Missing:
@@ -201,9 +196,8 @@ void settings_page_render_storage(Canvas &canvas,
                 storage_card_value(state.card));
   draw_form_row(canvas, 1, "ACCESS", nullptr,
                 storage_access_value(state.card));
-  draw_form_row(canvas, 2, "DATASET", "MANIFEST STATUS · TAP TO DELETE",
+  draw_form_row(canvas, 2, "DATA ON CARD", nullptr,
                 storage_dataset_value(state.dataset));
-  draw_form_row(canvas, 3, "DEVICE RESET", "RESET LOCAL DEVICE", "MANAGE");
 
   char capacity[36] = "CAPACITY UNAVAILABLE";
   if (state.capacity_known) {
@@ -211,24 +205,12 @@ void settings_page_render_storage(Canvas &canvas,
                   static_cast<unsigned>(state.free_mib),
                   static_cast<unsigned>(state.total_mib));
   }
-  char identity[64] = "DATASET ID UNAVAILABLE";
-  if (state.dataset_id_prefix[0] != '\0') {
-    std::snprintf(identity, sizeof(identity), "ID %.8s...  GEN %llu",
-                  state.dataset_id_prefix,
-                  static_cast<unsigned long long>(state.dataset_generation));
-  }
-
   ui_draw_wrapped_text_pixels(
-      canvas, ui_tokens::kContentMargin, is_portrait ? 594 : 360, canvas.width() - 2 * ui_tokens::kContentMargin,
+      canvas, ui_tokens::kContentMargin, is_portrait ? 480 : 300, canvas.width() - 2 * ui_tokens::kContentMargin,
       ui_text(state.operation_message != nullptr
                   ? state.operation_message
                   : capacity),
-      ui_tokens::kSecondaryBody, GrayLevel::Black, 1, 3,
-      FontWeight::Regular);
-  ui_draw_wrapped_text_pixels(
-      canvas, ui_tokens::kContentMargin, is_portrait ? 628 : 378, canvas.width() - 2 * ui_tokens::kContentMargin,
-      ui_text(identity), ui_tokens::kSecondaryBody, GrayLevel::Black, 1, 3,
-      FontWeight::Regular);
+      ui_tokens::kBody, GrayLevel::Black, 2, 4, FontWeight::Regular);
   prototype_ui::draw_button(
       canvas, storage_split_button(0U, canvas.width(), canvas.height()),
       state.initialize_enabled
@@ -237,7 +219,58 @@ void settings_page_render_storage(Canvas &canvas,
       state.initialize_enabled || state.eject_enabled, 2);
   prototype_ui::draw_button(
       canvas, storage_split_button(1U, canvas.width(), canvas.height()),
-      "OLD DEVICE DATA", true, 2);
+      "MORE", false, 2);
+}
+
+// A navigation row of the "more" page: label, one-line explanation, and a
+// chevron, or UNAVAILABLE when the action cannot run now. The rectangle is the
+// same form_row() the hit test uses.
+void draw_nav_row(Canvas &canvas, size_t index, const char *label,
+                  const char *sub, bool enabled) {
+  const Rect row = form_row(index, canvas.width(), canvas.height());
+  canvas.draw_line(row.x, row.y + row.height - 1, row.x + row.width,
+                   row.y + row.height - 1, GrayLevel::Black);
+  canvas.draw_text_pixels(row.x, row.y + 10, ui_text(label), ui_tokens::kBody,
+                          GrayLevel::Black, FontWeight::Medium);
+  canvas.draw_text_pixels(row.x, row.y + 10 + ui_tokens::kBody + 6, ui_text(sub),
+                          ui_tokens::kSecondaryBody, GrayLevel::Black,
+                          FontWeight::Regular);
+  if (enabled) {
+    prototype_ui::draw_chevron(canvas, row.x + row.width - 12,
+                               row.y + row.height / 2 - 8);
+  } else {
+    const char *text = ui_text("UNAVAILABLE");
+    const int width = font_text_width_pixels(text, ui_tokens::kSecondaryBody,
+                                             FontWeight::Regular);
+    canvas.draw_text_pixels(row.x + row.width - width,
+                            row.y + (row.height - ui_tokens::kSecondaryBody) / 2,
+                            text, ui_tokens::kSecondaryBody, GrayLevel::Black,
+                            FontWeight::Regular);
+  }
+}
+
+void settings_page_render_storage_more(Canvas &canvas,
+                                       const SettingsStoragePageState &state) {
+  prototype_ui::begin_page(canvas);
+  const bool is_portrait = portrait(canvas.width(), canvas.height());
+  prototype_ui::draw_header(canvas, "MORE OPTIONS", "USER DATA", "BACK");
+  draw_nav_row(canvas, 0, "PROFILE / WEIGHT / SETTINGS",
+               "COPY OLD DEVICE RECORDS", state.migration_enabled);
+  draw_nav_row(canvas, 1, "KICKS", "COPY OLD DEVICE RECORDS",
+               state.migration_enabled);
+  draw_nav_row(canvas, 2, "DELETE CARD DATA", "THIS APP'S DATA ONLY",
+               state.delete_enabled);
+  draw_nav_row(canvas, 3, "RESET DEVICE BINDING", "RESET LOCAL DEVICE", true);
+  char identity[64] = "DATASET ID UNAVAILABLE";
+  if (state.dataset_id_prefix[0] != '\0') {
+    std::snprintf(identity, sizeof(identity), "ID %.8s...  GEN %llu",
+                  state.dataset_id_prefix,
+                  static_cast<unsigned long long>(state.dataset_generation));
+  }
+  ui_draw_wrapped_text_pixels(
+      canvas, ui_tokens::kContentMargin, is_portrait ? 600 : 368,
+      canvas.width() - 2 * ui_tokens::kContentMargin, ui_text(identity),
+      ui_tokens::kSecondaryBody, GrayLevel::Black, 1, 3, FontWeight::Regular);
 }
 
 void settings_page_render_storage_confirm(Canvas &canvas) {
@@ -274,17 +307,6 @@ void settings_page_render_storage_confirm(Canvas &canvas) {
       "CREATE DATASET", true, 2);
 }
 
-void settings_page_render_legacy_source(Canvas &canvas) {
-  prototype_ui::begin_page(canvas);
-  prototype_ui::draw_header(canvas, "OLD DEVICE DATA", "SELECT IMPORT", "BACK");
-  prototype_ui::draw_button(canvas, legacy_source_button(0U, canvas.width()),
-                            "PROFILE / WEIGHT / SETTINGS", false, 2);
-  prototype_ui::draw_button(canvas, legacy_source_button(1U, canvas.width()),
-                            "KICKS", false, 2);
-  ui_draw_wrapped_text_pixels(canvas, ui_tokens::kContentMargin, 328, canvas.width() - 2 * ui_tokens::kContentMargin,
-      ui_text("REMINDER AND CHECKUP COPIES ARE PRESERVED FOR V2."),
-      ui_tokens::kBody, GrayLevel::Black, 3, ui_tokens::kBodyLineGap, FontWeight::Regular);
-}
 
 void settings_page_render_legacy_migration(
     Canvas &canvas, const SettingsMigrationPageState &state) {
@@ -511,13 +533,13 @@ bool settings_page_back_target(SettingsPage page, SettingsPage &target) {
     target = SettingsPage::Main;
     return true;
   case SettingsPage::StorageConfirm:
-  case SettingsPage::LegacySource:
-  case SettingsPage::CardDataDeleteConfirm:
-  case SettingsPage::DeviceResetConfirm:
+  case SettingsPage::StorageMore:
     target = SettingsPage::StorageSummary;
     return true;
   case SettingsPage::LegacyMigration:
-    target = SettingsPage::LegacySource;
+  case SettingsPage::CardDataDeleteConfirm:
+  case SettingsPage::DeviceResetConfirm:
+    target = SettingsPage::StorageMore;
     return true;
   case SettingsPage::LegacyClearConfirm:
     target = SettingsPage::LegacyMigration;
@@ -551,22 +573,24 @@ size_t settings_page_targets(SettingsPage page, int width, int height,
     add(pregnancy_button(0U, width, height), SettingsAction::EditPregnancy);
     add(pregnancy_button(1U, width, height), SettingsAction::Home);
   } else if (page == SettingsPage::StorageSummary) {
-    add(form_row(2U, width, height), SettingsAction::BeginCardDataDelete);
-    add(form_row(3U, width, height), SettingsAction::BeginDeviceReset);
     if (primary_action_enabled)
       add(storage_split_button(0U, width, height),
           SettingsAction::BeginStorageInitialization);
-    if (secondary_action_enabled)
-      add(storage_split_button(1U, width, height),
-          SettingsAction::ManageLegacyData);
+    add(storage_split_button(1U, width, height), SettingsAction::ManageStorage);
   } else if (page == SettingsPage::StorageConfirm) {
     add(storage_confirm_button(0U, width, height),
         SettingsAction::CancelStorageInitialization);
     add(storage_confirm_button(1U, width, height),
         SettingsAction::ConfirmStorageInitialization);
-  } else if (page == SettingsPage::LegacySource) {
-    add(legacy_source_button(0U, width), SettingsAction::ManageLegacyCommon);
-    add(legacy_source_button(1U, width), SettingsAction::ManageLegacyKicks);
+  } else if (page == SettingsPage::StorageMore) {
+    // primary = old-data import available, secondary = card-data delete available
+    if (primary_action_enabled) {
+      add(form_row(0U, width, height), SettingsAction::ManageLegacyCommon);
+      add(form_row(1U, width, height), SettingsAction::ManageLegacyKicks);
+    }
+    if (secondary_action_enabled)
+      add(form_row(2U, width, height), SettingsAction::BeginCardDataDelete);
+    add(form_row(3U, width, height), SettingsAction::BeginDeviceReset);
   } else if (page == SettingsPage::LegacyMigration) {
     if (primary_action_enabled)
       add(storage_split_button(0U, width, height), SettingsAction::BeginLegacyImport);

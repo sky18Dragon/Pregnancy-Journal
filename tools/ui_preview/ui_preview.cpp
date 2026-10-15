@@ -260,7 +260,7 @@ void register_settings() {
       "None", "ToggleLanguage", "EditTime", "RefreshDisplay", "PregnancySettings",
       "StorageSettings", "BeginStorageInitialization", "SafeEjectStorage",
       "ConfirmStorageInitialization", "CancelStorageInitialization",
-      "ManageLegacyData", "ManageLegacyCommon", "ManageLegacyKicks",
+      "ManageStorage", "ManageLegacyCommon", "ManageLegacyKicks",
       "BeginLegacyImport", "BeginLegacyClear", "ConfirmLegacyClear",
       "CancelLegacyClear", "BeginCardDataDelete", "ConfirmCardDataDelete",
       "CancelCardDataDelete", "BeginDeviceReset", "ConfirmDeviceReset",
@@ -309,9 +309,9 @@ void register_settings() {
   add("settings_storage_confirm",
       [](Canvas &c) { settings_page_render_storage_confirm(c); },
       hit(SettingsPage::StorageConfirm), names);
-  add("settings_legacy_source",
-      [](Canvas &c) { settings_page_render_legacy_source(c); },
-      hit(SettingsPage::LegacySource), names);
+  add("settings_storage_more",
+      [storage](Canvas &c) { settings_page_render_storage_more(c, storage()); },
+      hit(SettingsPage::StorageMore), names);
   add("settings_legacy_migration",
       [](Canvas &c) {
         SettingsMigrationPageState s = {};

@@ -298,8 +298,9 @@ void render(bool full = false) {
     settings_page_render_storage(*s_canvas, s_displayed_storage);
   } else if (s_page == SettingsPage::StorageConfirm) {
     settings_page_render_storage_confirm(*s_canvas);
-  } else if (s_page == SettingsPage::LegacySource) {
-    settings_page_render_legacy_source(*s_canvas);
+  } else if (s_page == SettingsPage::StorageMore) {
+    s_displayed_storage = storage_page_state();
+    settings_page_render_storage_more(*s_canvas, s_displayed_storage);
   } else if (s_page == SettingsPage::LegacyMigration) {
     settings_page_render_legacy_migration(*s_canvas, migration_page_state());
   } else if (s_page == SettingsPage::LegacyClearConfirm) {
@@ -404,7 +405,7 @@ void poll_storage_request() {
     STICKY_LOGW(kTag, "storage=initialize collect=%s",
                 esp_err_to_name(collected));
   }
-  if (s_page == SettingsPage::StorageSummary)
+  if (s_page == SettingsPage::StorageSummary || s_page == SettingsPage::StorageMore)
     render();
 }
 
@@ -462,8 +463,8 @@ void handle(SettingsAction action) {
     s_page = SettingsPage::StorageSummary;
     render();
     break;
-  case SettingsAction::ManageLegacyData:
-    s_page = SettingsPage::LegacySource;
+  case SettingsAction::ManageStorage:
+    s_page = SettingsPage::StorageMore;
     render();
     break;
   case SettingsAction::ManageLegacyCommon:
@@ -510,7 +511,7 @@ void handle(SettingsAction action) {
     }
     break;
   case SettingsAction::CancelCardDataDelete:
-    s_page = SettingsPage::StorageSummary;
+    s_page = SettingsPage::StorageMore;
     render();
     break;
   case SettingsAction::ConfirmCardDataDelete: {
@@ -532,7 +533,7 @@ void handle(SettingsAction action) {
     render();
     break;
   case SettingsAction::CancelDeviceReset:
-    s_page = SettingsPage::StorageSummary;
+    s_page = SettingsPage::StorageMore;
     render();
     break;
   case SettingsAction::ConfirmDeviceReset: {
@@ -589,7 +590,8 @@ void task(void *) {
     if (s_preferences_changed.exchange(false)) render(true);
     if (sticky_app_lifecycle_checkpoint(s_lifecycle))
       render(true);
-    if (s_page == SettingsPage::StorageSummary) {
+    if (s_page == SettingsPage::StorageSummary ||
+        s_page == SettingsPage::StorageMore) {
       auto current = storage_page_state();
       if (current.mount_generation != s_displayed_storage.mount_generation) {
         s_storage_operation_message = nullptr;
@@ -619,6 +621,15 @@ void task(void *) {
         primary_action_enabled =
             state.initialize_enabled || state.eject_enabled;
         secondary_action_enabled = true;
+      } else if (s_page == SettingsPage::StorageMore) {
+        const SettingsStoragePageState state = storage_page_state();
+        if (!settings_storage_state_equal(state, s_displayed_storage)) {
+          render(true);
+          sticky_touch_clear_press();
+          continue;
+        }
+        primary_action_enabled = state.migration_enabled;
+        secondary_action_enabled = state.delete_enabled;
       } else if (s_page == SettingsPage::LegacyMigration) {
         const SettingsMigrationPageState state = migration_page_state();
         primary_action_enabled = state.import_enabled;

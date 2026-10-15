@@ -15,7 +15,7 @@ enum class SettingsPage : uint8_t {
   PregnancySummary,
   StorageSummary,
   StorageConfirm,
-  LegacySource,
+  StorageMore, // import old data, delete card data, reset device binding
   LegacyMigration,
   LegacyClearConfirm,
   CardDataDeleteConfirm,
@@ -33,7 +33,7 @@ enum class SettingsAction : uint8_t {
   SafeEjectStorage,
   ConfirmStorageInitialization,
   CancelStorageInitialization,
-  ManageLegacyData,
+  ManageStorage, // storage summary -> "more" page
   ManageLegacyCommon,
   ManageLegacyKicks,
   BeginLegacyImport,
@@ -138,7 +138,8 @@ void settings_page_render_pregnancy(Canvas &canvas,
 void settings_page_render_storage(Canvas &canvas,
                                   const SettingsStoragePageState &state);
 void settings_page_render_storage_confirm(Canvas &canvas);
-void settings_page_render_legacy_source(Canvas &canvas);
+void settings_page_render_storage_more(Canvas &canvas,
+                                       const SettingsStoragePageState &state);
 void settings_page_render_legacy_migration(
     Canvas &canvas, const SettingsMigrationPageState &state);
 void settings_page_render_legacy_clear_confirm(Canvas &canvas, bool kicks_only = false);
