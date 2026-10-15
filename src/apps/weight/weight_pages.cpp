@@ -30,11 +30,15 @@ Rect history_row(size_t row, int width, int height) {
   return {24, 116 + static_cast<int>(row) * (portrait(width, height) ? 96 : 50),
           width - 2 * ui_tokens::kContentMargin, portrait(width, height) ? 88 : 48};
 }
+// Profile adjusters: two rows of four (height, then baseline), each row
+// big-down, small-down, small-up, big-up, like the weight editor.
 Rect profile_adjust(size_t index, int width, int height) {
   const bool vertical = portrait(width, height);
-  const int y = (vertical ? 230 : 160) + static_cast<int>(index / 2U) * (vertical ? 188 : 120);
-  return {24 + static_cast<int>(index % 2U) * ((width - 2 * ui_tokens::kContentMargin) / 2 + 6), y,
-          (width - 60) / 2, ui_tokens::kButtonHeight};
+  constexpr int kGap = 12;
+  const int item = (width - 2 * ui_tokens::kContentMargin - 3 * kGap) / 4;
+  const int y = (vertical ? 230 : 160) + static_cast<int>(index / 4U) * (vertical ? 188 : 120);
+  return {ui_tokens::kContentMargin + static_cast<int>(index % 4U) * (item + kGap), y, item,
+          ui_tokens::kButtonHeight};
 }
 void page_button(Canvas &canvas, Rect rect, const char *label, bool filled = false) {
   prototype_ui::draw_button(canvas, rect, label, filled, 2);
@@ -117,8 +121,9 @@ size_t weight_page_targets(WeightPage page, int width, int height,
     add(footer(0U, 2U, width, height), WeightAction::Delete);
     add(footer(1U, 2U, width, height), WeightAction::Save);
   } else if (page == WeightPage::Profile) {
-    const WeightAction actions[] = {WeightAction::HeightDown, WeightAction::HeightUp, WeightAction::BaselineDown, WeightAction::BaselineUp};
-    for (size_t i = 0U; i < 4U; ++i) add(profile_adjust(i, width, height), actions[i]);
+    const WeightAction actions[] = {WeightAction::HeightDownBig, WeightAction::HeightDown, WeightAction::HeightUp, WeightAction::HeightUpBig,
+                                    WeightAction::BaselineDownBig, WeightAction::BaselineDown, WeightAction::BaselineUp, WeightAction::BaselineUpBig};
+    for (size_t i = 0U; i < 8U; ++i) add(profile_adjust(i, width, height), actions[i]);
     add(footer(0U, 1U, width, height), WeightAction::Save);
   } else {
     add(footer(0U, 2U, width, height), WeightAction::Cancel);
@@ -196,8 +201,8 @@ void weight_page_render(Canvas &canvas, const WeightService &service,
     const auto baseline = weight_display_value(state.profile.baseline_tenths_kg, pounds);
     std::snprintf(text, sizeof(text), "%u.%u %s", baseline / 10U, baseline % 10U, unit_name(pounds));
     canvas.draw_text(24, vertical ? 358 : 234, text, 3, GrayLevel::Black);
-    const char *labels[] = {"- 1 CM", "+ 1 CM", "- 0.1 KG", "+ 0.1 KG"};
-    for (size_t i = 0U; i < 4U; ++i) page_button(canvas, profile_adjust(i, width, height), labels[i]);
+    const char *labels[] = {"- 5", "- 1", "+ 1", "+ 5", "- 1.0", "- 0.1", "+ 0.1", "+ 1.0"};
+    for (size_t i = 0U; i < 8U; ++i) page_button(canvas, profile_adjust(i, width, height), labels[i]);
     page_button(canvas, footer(0U, 1U, width, height), "SAVE", true);
   } else {
     const bool deleting = state.page == WeightPage::DeleteConfirm;

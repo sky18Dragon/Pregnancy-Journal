@@ -183,7 +183,8 @@ void register_weight() {
       "None", "Back", "ToggleUnit", "ToggleTrend", "AddToday", "History",
       "Profile", "SelectRecord", "Previous", "Next", "MinusOne", "MinusTenth",
       "PlusTenth", "PlusOne", "Save", "Delete", "HeightDown", "HeightUp",
-      "BaselineDown", "BaselineUp", "Confirm", "Cancel"};
+      "BaselineDown", "BaselineUp", "Confirm", "Cancel", "HeightDownBig",
+      "HeightUpBig", "BaselineDownBig", "BaselineUpBig"};
   struct Entry { const char *id; WeightPage page; };
   const Entry entries[] = {
       {"weight_dashboard", WeightPage::Dashboard}, {"weight_history", WeightPage::History},

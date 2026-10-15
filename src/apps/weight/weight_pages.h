@@ -7,7 +7,8 @@ enum class WeightPage : uint8_t { Dashboard, Editor, History, Profile, ReplaceCo
 enum class WeightAction : uint8_t {
   None, Back, ToggleUnit, ToggleTrend, AddToday, History, Profile, SelectRecord,
   Previous, Next, MinusOne, MinusTenth, PlusTenth, PlusOne, Save, Delete,
-  HeightDown, HeightUp, BaselineDown, BaselineUp, Confirm, Cancel
+  HeightDown, HeightUp, BaselineDown, BaselineUp, Confirm, Cancel,
+  HeightDownBig, HeightUpBig, BaselineDownBig, BaselineUpBig  // 5 cm / 1.0 kg steps
 };
 constexpr size_t kWeightHistoryRows = 5U;
 struct WeightPageState {

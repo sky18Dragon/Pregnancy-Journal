@@ -122,7 +122,12 @@ void open_editor(const WeightRecord *record, bool history) {
   s_state.edit_id = record ? record->id : 0U;
   s_state.edit_date = record ? record->date : s_state.today;
   const auto *latest = s_store.service().latest();
-  s_state.edit_display_weight = weight_display_value(record ? record->weight_tenths_kg : latest ? latest->weight_tenths_kg : 600U,
+  // Start from the record, else the latest one, else the pre-pregnancy
+  // baseline from the profile (close to the first reading), else 60.0 kg.
+  const uint16_t baseline = s_store.settings().baseline_tenths_kg;
+  s_state.edit_display_weight = weight_display_value(record ? record->weight_tenths_kg
+                                                    : latest ? latest->weight_tenths_kg
+                                                    : baseline != 0U ? baseline : 600U,
                                                       s_store.settings().use_pounds);
   s_state.page = WeightPage::Editor;
 }
@@ -197,6 +202,10 @@ void handle(int x, int y) {
       s_state.edit_display_weight = static_cast<uint16_t>(value);
     break;
   }
+  case WeightAction::HeightDownBig: s_state.profile.height_cm = s_state.profile.height_cm >= 105U ? s_state.profile.height_cm - 5U : 100U; break;
+  case WeightAction::HeightUpBig: s_state.profile.height_cm = s_state.profile.height_cm <= 215U ? s_state.profile.height_cm + 5U : 220U; break;
+  case WeightAction::BaselineDownBig: s_state.profile.baseline_tenths_kg = s_state.profile.baseline_tenths_kg >= 310U ? s_state.profile.baseline_tenths_kg - 10U : 300U; break;
+  case WeightAction::BaselineUpBig: s_state.profile.baseline_tenths_kg = s_state.profile.baseline_tenths_kg <= 1990U ? s_state.profile.baseline_tenths_kg + 10U : 2000U; break;
   case WeightAction::HeightDown: if (s_state.profile.height_cm > 100U) --s_state.profile.height_cm; break;
   case WeightAction::HeightUp: if (s_state.profile.height_cm < 220U) ++s_state.profile.height_cm; break;
   case WeightAction::BaselineDown: if (s_state.profile.baseline_tenths_kg > 300U) --s_state.profile.baseline_tenths_kg; break;
