@@ -11,7 +11,7 @@
   2026-10-16 的设计指令作为例外，已在 CLAUDE.md「颜色」一节登记，仅限这组图版）；35 张图版由负责人提供的参考图转换，
   分辨率偏低，需用高清图重生成。新增 `tools/generate_pregnancy_plate_assets.py` 与
   `src/ui/assets/pregnancy_plate_assets.*`（35 张图版 + 英文名 + 数字位图，约 0.5 MB flash）；数字用
-  Bebas Neue（SIL OFL，来自 macOS 自带字体，提交前请核对授权）。生成器和宿主测试都要求每张图的墨点离
+  Bebas Neue（SIL OFL 1.1，2018 Dharma Type 官方版，字体与 OFL.txt 收在 `assets/fonts/bebas-neue/`；固件只含渲染好的 0–9 位图）。生成器和宿主测试都要求每张图的墨点离
   图边至少 8 px，防止物件被截断。宿主预览与测试已更新。2026-10-17 烧录实机核对（负责人操作 + 串口日志）：首页显示正常；
   横竖屏下点插画→宝宝页、点周数块→妈妈页、点菜单图标→启动器命中正确，周图/空白处无动作；IMU
   landscape_0（竖屏）与 portrait_180（横屏）的旋转正确。本版尚未验证 portrait_0、landscape_180 与残影。

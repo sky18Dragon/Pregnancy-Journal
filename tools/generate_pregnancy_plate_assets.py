@@ -6,7 +6,7 @@ Inputs
       engravings for weeks 6-40 (black = ink), used by both orientations. Produce or
       replace them with `python3 tools/home_lab/stipple_art.py <dir> --sheet
       <engraving sheet> --size 340`, or drop in your own 340x340 PNGs.
-  a condensed display font for the big week numerals (default: Bebas Neue).
+  a condensed display font for the big week numerals (default: Bebas Neue, OFL, vendored in assets/fonts/bebas-neue).
 
 Output
   src/ui/assets/pregnancy_plate_assets.{h,cpp}: the 35 plates, their English
@@ -32,8 +32,7 @@ FIRST_WEEK, LAST_WEEK = 6, 40
 NUMERAL_HEIGHT = 84
 INK_THRESHOLD = 140
 MIN_MARGIN = 8   # px of clear paper required between the ink and the plate border
-DEFAULT_FONT = ("/System/Library/PrivateFrameworks/FontServices.framework/Versions/A/"
-                "Resources/Fonts/ApplicationSupport/BebasNeue.otf")
+DEFAULT_FONT = str(ROOT / "assets" / "fonts" / "bebas-neue" / "BebasNeue-Regular.otf")   # SIL OFL 1.1
 
 CAPTIONS = {
     6: "LENTIL", 7: "GRAPE", 8: "KIDNEY BEAN", 9: "CHERRY", 10: "STRAWBERRY", 11: "LIME",

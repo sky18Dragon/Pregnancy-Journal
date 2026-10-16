@@ -14,5 +14,6 @@
 - **Rule exception**: dithered fills conflict with the "no dither / no hatch shading"
   rule in `CLAUDE.md`; this page follows the owner's explicit design direction.
 - Captions (English, shown under each plate) live in the generator.
-- Numerals use Bebas Neue (SIL OFL 1.1). The generator reads it from the macOS system
-  font folder by default; pass `--font` to use another condensed OFL font.
+- Numerals use Bebas Neue (SIL OFL 1.1), vendored with its license in
+  `assets/fonts/bebas-neue/`. The generator reads it by default; pass `--font` to use
+  another condensed OFL font.
