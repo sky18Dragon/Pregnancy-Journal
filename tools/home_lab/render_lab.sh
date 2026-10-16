@@ -20,7 +20,7 @@ LABELS=""
 if [ "${ART}" = "engrave" ]; then
   # engraving/stipple art cut from the owner's reference sheet (host prototype only)
   SHEET="${ENGRAVE_SHEET:-assets/concepts/references/week-fruit-engraving-sheet.webp}"
-  python3 -I tools/home_lab/stipple_art.py "${OUT}/engraving" --sheet "${SHEET}" --size 340 >/dev/null
+  python3 -I tools/home_lab/stipple_art.py "${OUT}/engraving" --sheet "${SHEET}" --size "${ENGRAVE_SIZE:-340}" >/dev/null
   ART_DIR="${OUT}/engraving"; LABELS="${OUT}/engraving/labels.tsv"
 fi
 python3 -I tools/home_lab/make_display_assets.py "${OUT}/gen" --art-dir "${ART_DIR}"

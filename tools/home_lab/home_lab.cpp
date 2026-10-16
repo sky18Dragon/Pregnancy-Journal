@@ -659,6 +659,195 @@ void render_exact(Canvas &c, const Input &in, const Facts &f, Targets &t,
   menu_icon(c, t.menu);
 }
 
+// ---- concept K: reference plate + 8 x 5 week grid, bottom left ------------------------
+// Same plate as J, with the 40-week contact-sheet grid added as the progress
+// indicator. Filled = a finished week, ring + dot = the week in progress, outline =
+// still to come. The grid is display-only (no hit target), so the targets stay the
+// menu, the engraving and the numeral block.
+//   a: grid at full size (24 px cells), engraving nudged right to make room
+//   b: compact grid (18 px cells), engraving stays centred as in the reference
+
+void render_exact_grid(Canvas &c, const Input &in, const Facts &f, Targets &t,
+                       bool portrait, bool compact, bool right) {
+  const std::string digits = week_digits(in);
+  const std::string caption = f.english.empty()
+      ? upper(pregnancy_week_visual(static_cast<uint8_t>(f.asset_week)).object_en)
+      : f.english;
+  const int cap_w = tracked_width(caption, tok::kBody, 6, FontWeight::Medium);
+  const NumeralFont &num = portrait ? kNumeralPlateLg : kNumeralPlateMd;
+  const int hero_w =
+#if HOME_LAB_HAVE_ART
+      kArtBig[f.asset_week - 6].width;
+#else
+      296;
+#endif
+  const int top = portrait ? 56 : 44;
+  int cx, cy, caption_y;
+  if (portrait) {
+    cx = right ? 272 : 240; cy = 380; caption_y = 574;
+    week_map(c, 24, 628, 26, 30, in);
+  } else if (compact) {
+    cx = 400; cy = 236; caption_y = 424;
+    week_map(c, 36, 346, 18, 22, in);
+  } else {
+    // c: engraving pushed right; its 340 px box ends at x=710 so it never reaches
+    // the menu's hit area (x >= 720).
+    cx = right ? 540 : 430; cy = 232; caption_y = 424;
+    week_map(c, 36, 316, 24, 28, in);
+  }
+  numeral(c, 48, top, digits, num);
+  text_tracked(c, 50, top + num.height + 12, "WEEKS", tok::kEmphasis, 3);
+  plate_hero(c, cx, cy, f);
+  text_tracked(c, cx - cap_w / 2, caption_y, caption, tok::kBody, 6);
+  t.menu = portrait ? Rect{400, 24, 56, 56} : Rect{720, 24, 56, 56};
+  t.baby = {cx - hero_w / 2, cy - hero_w / 2, hero_w, hero_w};
+  t.mom = {36, top - 12, 200, num.height + 12 + tok::kEmphasis + 24};
+  menu_icon(c, t.menu);
+}
+
+void render_exact_grid_a(Canvas &c, const Input &in, const Facts &f, Targets &t,
+                         bool portrait) { render_exact_grid(c, in, f, t, portrait, false, false); }
+void render_exact_grid_b(Canvas &c, const Input &in, const Facts &f, Targets &t,
+                         bool portrait) { render_exact_grid(c, in, f, t, portrait, true, false); }
+void render_exact_grid_c(Canvas &c, const Input &in, const Facts &f, Targets &t,
+                         bool portrait) { render_exact_grid(c, in, f, t, portrait, false, true); }
+
+// ---- concept L: desk-calendar layout -------------------------------------------------
+// After a tear-off desk calendar: the picture on top, the mini month grid bottom
+// left (here the 8 x 5 week grid = progress), the big month name bottom right (here
+// the week numeral + WEEKS). The object name sits under the picture. Tap the picture
+// for Baby, the numeral block for Mom; the grid is display-only.
+
+int tracked_right(Canvas &c, int right, int y, const std::string &s, int px, int track) {
+  const int w = tracked_width(s, px, track, FontWeight::Medium);
+  text_tracked(c, right - w, y, s, px, track);
+  return right - w;
+}
+
+void render_calendar(Canvas &c, const Input &in, const Facts &f, Targets &t,
+                     bool portrait) {
+  const std::string digits = week_digits(in);
+  const std::string caption = f.english.empty()
+      ? upper(pregnancy_week_visual(static_cast<uint8_t>(f.asset_week)).object_en)
+      : f.english;
+  const NumeralFont &num = portrait ? kNumeralPlateLg : kNumeralPlateMd;
+  const int hero_w =
+#if HOME_LAB_HAVE_ART
+      kArtBig[f.asset_week - 6].width;
+#else
+      296;
+#endif
+  const int right = portrait ? 456 : 764;
+  const int bottom = portrait ? 776 : 456;
+  const int cx = portrait ? 240 : 400;
+  const int cy = portrait ? 300 : 152;
+  const int caption_y = portrait ? 488 : 292;
+  const int weeks_y = bottom - tok::kEmphasis;
+  const int num_y = weeks_y - 12 - num.height;
+  if (portrait) week_map(c, 24, 630, 26, 30, in);
+  else week_map(c, 36, 334, 22, 25, in);
+  plate_hero(c, cx, cy, f);
+  const int cap_w = tracked_width(caption, tok::kBody, 6, FontWeight::Medium);
+  text_tracked(c, cx - cap_w / 2, caption_y, caption, tok::kBody, 6);
+  const int nw = numeral_width(digits, num);
+  numeral(c, right - nw, num_y, digits, num);
+  const int weeks_x = tracked_right(c, right, weeks_y, "WEEKS", tok::kEmphasis, 3);
+  t.menu = portrait ? Rect{400, 24, 56, 56} : Rect{720, 24, 56, 56};
+  t.baby = {cx - hero_w / 2, cy - hero_w / 2, hero_w, hero_w};
+  const int left = std::min(right - nw, weeks_x) - 12;
+  t.mom = {left, num_y - 12, right + 12 - left, bottom - num_y + 12};
+  menu_icon(c, t.menu);
+}
+
+// ---- concept M: landscape with the picture on the right -----------------------------
+// Week numeral + WEEKS top left, the engraving on the right, the 8 x 5 week grid
+// bottom left. Portrait falls back to the calendar layout (L).
+//   a: object name centred under the picture
+//   b: object name in the left column, under WEEKS
+
+void render_right(Canvas &c, const Input &in, const Facts &f, Targets &t,
+                  bool portrait, bool caption_left) {
+  if (portrait) { render_calendar(c, in, f, t, true); return; }
+  const std::string digits = week_digits(in);
+  const std::string caption = f.english.empty()
+      ? upper(pregnancy_week_visual(static_cast<uint8_t>(f.asset_week)).object_en)
+      : f.english;
+  const NumeralFont &num = kNumeralPlateMd;
+  const int hero_w =
+#if HOME_LAB_HAVE_ART
+      kArtBig[f.asset_week - 6].width;
+#else
+      296;
+#endif
+  const int cx = 570, cy = 250;   // box x 400..740, y 80..420: clear of the menu's hit area
+  numeral(c, 48, 44, digits, num);
+  text_tracked(c, 50, 44 + num.height + 12, "WEEKS", tok::kEmphasis, 3);
+  week_map(c, 36, 316, 24, 28, in);
+  plate_hero(c, cx, cy, f);
+  const int cap_w = tracked_width(caption, tok::kBody, 6, FontWeight::Medium);
+  if (caption_left) text_tracked(c, 48, 176, caption, tok::kBody, 6);
+  else text_tracked(c, cx - cap_w / 2, 432, caption, tok::kBody, 6);
+  t.menu = {720, 24, 56, 56};
+  t.baby = {cx - hero_w / 2, cy - hero_w / 2, hero_w, hero_w};
+  t.mom = {36, 32, 176, 124};
+  menu_icon(c, t.menu);
+}
+
+void render_right_a(Canvas &c, const Input &in, const Facts &f, Targets &t,
+                    bool portrait) { render_right(c, in, f, t, portrait, false); }
+void render_right_b(Canvas &c, const Input &in, const Facts &f, Targets &t,
+                    bool portrait) { render_right(c, in, f, t, portrait, true); }
+
+// ---- concept N: landscape, one left column built on alignment lines -------------------
+// The picture sits right (box x 410..750, y 80..420; caption centred under it).
+// The numeral, WEEKS and the week grid form ONE column with a shared left edge and
+// a fixed rhythm instead of two groups stuck in opposite corners.
+//   a: top-aligned stack. Numeral top ~ picture top, grid bottom ~ picture bottom.
+//   b: bottom-anchored unit. WEEKS shares the caption baseline; the grid sits on
+//      top of the numeral like a calendar's mini month over its name; air above.
+
+void render_column(Canvas &c, const Input &in, const Facts &f, Targets &t,
+                   bool portrait, bool bottom_unit) {
+  if (portrait) { render_calendar(c, in, f, t, true); return; }
+  const std::string digits = week_digits(in);
+  const std::string caption = f.english.empty()
+      ? upper(pregnancy_week_visual(static_cast<uint8_t>(f.asset_week)).object_en)
+      : f.english;
+  const NumeralFont &num = kNumeralPlateLg;   // 84 px
+  const int hero_w =
+#if HOME_LAB_HAVE_ART
+      kArtBig[f.asset_week - 6].width;
+#else
+      296;
+#endif
+  const int cx = 580, cy = 250, left = 48, cell = 28, pitch = 32;
+  int num_y, weeks_y, grid_y;
+  if (bottom_unit) {
+    weeks_y = 450 - tok::kEmphasis;            // WEEKS bottom = caption bottom (450)
+    num_y = weeks_y - 12 - num.height;
+    grid_y = num_y - 32 - (4 * pitch + cell);  // 32 px between grid and numeral
+  } else {
+    num_y = 88;
+    weeks_y = num_y + num.height + 12;
+    grid_y = 252;                              // grid bottom 408 = picture's lower edge
+  }
+  week_map(c, left, grid_y, cell, pitch, in);
+  numeral(c, left, num_y, digits, num);
+  text_tracked(c, left + 2, weeks_y, "WEEKS", tok::kEmphasis, 3);
+  plate_hero(c, cx, cy, f);
+  const int cap_w = tracked_width(caption, tok::kBody, 6, FontWeight::Medium);
+  text_tracked(c, cx - cap_w / 2, 430, caption, tok::kBody, 6);
+  t.menu = {720, 24, 56, 56};
+  t.baby = {cx - hero_w / 2, cy - hero_w / 2, hero_w, hero_w};
+  t.mom = {left - 12, num_y - 12, 200, num.height + 12 + tok::kEmphasis + 24};
+  menu_icon(c, t.menu);
+}
+
+void render_column_a(Canvas &c, const Input &in, const Facts &f, Targets &t,
+                     bool portrait) { render_column(c, in, f, t, portrait, false); }
+void render_column_b(Canvas &c, const Input &in, const Facts &f, Targets &t,
+                     bool portrait) { render_column(c, in, f, t, portrait, true); }
+
 // ---- registry ----------------------------------------------------------------
 
 struct Concept {
@@ -673,6 +862,14 @@ const Concept kConcepts[] = {
     {"h_riso", render_riso_poster},
     {"i_plate", render_plate},
     {"j_exact", render_exact},
+    {"k_grid_a", render_exact_grid_a},
+    {"k_grid_b", render_exact_grid_b},
+    {"k_grid_c", render_exact_grid_c},
+    {"l_calendar", render_calendar},
+    {"m_right_a", render_right_a},
+    {"m_right_b", render_right_b},
+    {"n_column_a", render_column_a},
+    {"n_column_b", render_column_b},
 };
 
 // ---- lint hooks + output -------------------------------------------------------
