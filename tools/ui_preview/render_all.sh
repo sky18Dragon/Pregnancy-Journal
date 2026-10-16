@@ -17,6 +17,7 @@ g++ -std=c++17 -Wall -Wextra -O1 -DUI_TEXT_OBSERVER \
   src/ui/text_layout.cpp src/ui/ui_language.cpp \
   src/ui/assets/chinese_font_assets.cpp src/ui/assets/pixel_asset.cpp \
   src/ui/assets/app_launcher_assets.cpp src/ui/assets/pregnancy_week_assets.cpp \
+  src/ui/assets/pregnancy_plate_assets.cpp \
   src/apps/kick/kick_pages.cpp src/apps/pregnancy/pregnancy_pages.cpp \
   src/apps/pregnancy/pregnancy_state.cpp src/apps/settings/settings_pages.cpp \
   src/apps/weight/weight_pages.cpp src/pregnancy/services/weight_service.cpp \

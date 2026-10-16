@@ -114,6 +114,7 @@ idf_component_register(
         "ui/assets/app_launcher_assets.cpp"
         "ui/assets/pinyin_index_data.cpp"
         "ui/assets/pregnancy_week_assets.cpp"
+        "ui/assets/pregnancy_plate_assets.cpp"
         "ui/assets/pixel_asset.cpp"
         "ui/battery_status_overlay.cpp"
         "ui/battery_status_overlay_theme.cpp"
