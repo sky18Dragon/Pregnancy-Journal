@@ -3,8 +3,8 @@
 
 Inputs
   assets/pregnancy/week-plates/week-NN-name.png   340x340 pure black/white stipple
-      engravings for weeks 6-40 (black = ink). Produce or replace them with
-      `python3 tools/home_lab/stipple_art.py assets/pregnancy/week-plates --sheet
+      engravings for weeks 6-40 (black = ink), used by both orientations. Produce or
+      replace them with `python3 tools/home_lab/stipple_art.py <dir> --sheet
       <engraving sheet> --size 340`, or drop in your own 340x340 PNGs.
   a condensed display font for the big week numerals (default: Bebas Neue).
 
@@ -29,7 +29,7 @@ OUTPUT_H = ROOT / "src" / "ui" / "assets" / "pregnancy_plate_assets.h"
 
 PLATE_SIZE = 340
 FIRST_WEEK, LAST_WEEK = 6, 40
-NUMERAL_HEIGHTS = {"Medium": 72, "Large": 84}
+NUMERAL_HEIGHT = 84
 INK_THRESHOLD = 140
 MIN_MARGIN = 8   # px of clear paper required between the ink and the plate border
 DEFAULT_FONT = ("/System/Library/PrivateFrameworks/FontServices.framework/Versions/A/"
@@ -66,25 +66,25 @@ def format_array(name: str, data: bytes) -> str:
     return f"constexpr uint8_t {name}[] = {{\n" + "\n".join(rows) + "\n};\n"
 
 
-def load_plates() -> dict[int, bytes]:
+def load_plates(directory: Path, size: int) -> dict[int, bytes]:
     plates: dict[int, bytes] = {}
-    for path in sorted(SOURCE_DIR.glob("week-*-*.png")):
+    for path in sorted(directory.glob("week-*-*.png")):
         week = int(path.name.split("-")[1])
         if not FIRST_WEEK <= week <= LAST_WEEK:
             continue
         image = Image.open(path).convert("L")
-        if image.size != (PLATE_SIZE, PLATE_SIZE):
-            raise ValueError(f"{path} must be {PLATE_SIZE}x{PLATE_SIZE}, got {image.size}")
+        if image.size != (size, size):
+            raise ValueError(f"{path} must be {size}x{size}, got {image.size}")
         ink = image.point(lambda v: 255 if v < INK_THRESHOLD else 0).getbbox()
         if ink is None:
             raise ValueError(f"{path} is blank")
-        margin = min(ink[0], ink[1], PLATE_SIZE - ink[2], PLATE_SIZE - ink[3])
+        margin = min(ink[0], ink[1], size - ink[2], size - ink[3])
         if margin < MIN_MARGIN:   # ink touching the border means the object was cropped
             raise ValueError(f"{path}: object runs to the plate edge (margin {margin} px < {MIN_MARGIN}); it is cut off")
         plates[week] = pack(image)
     missing = [w for w in range(FIRST_WEEK, LAST_WEEK + 1) if w not in plates]
     if missing:
-        raise FileNotFoundError(f"missing plates for weeks {missing} in {SOURCE_DIR}")
+        raise FileNotFoundError(f"missing plates for weeks {missing} in {directory}")
     return plates
 
 
@@ -125,11 +125,6 @@ const PixelAsset &pregnancy_plate_asset(uint8_t week);
 // Upper-case English caption of the plate's object ("CARROT").
 const char *pregnancy_plate_caption(uint8_t week);
 
-enum class PlateNumeralSize : uint8_t {
-  Medium, // 72 px high (landscape)
-  Large,  // 84 px high (portrait)
-};
-
 // Condensed bold digits 0-9, all the same height, tight-cropped horizontally.
 struct PlateNumeral {
   PixelAsset digit[10];
@@ -137,7 +132,7 @@ struct PlateNumeral {
   uint8_t height;
 };
 
-const PlateNumeral &pregnancy_plate_numeral(PlateNumeralSize size);
+const PlateNumeral &pregnancy_plate_numeral(); // 84 px high
 ''', encoding="utf-8")
 
 
@@ -149,16 +144,16 @@ def write_cpp(plates: dict[int, bytes], font_path: str) -> None:
         parts.append("\n")
     refs = ", ".join(f"{{{PLATE_SIZE}, {PLATE_SIZE}, kPlate{w:02d}Data}}" for w in range(FIRST_WEEK, LAST_WEEK + 1))
     parts.append(f"constexpr PixelAsset kPlates[] = {{{refs}}};\n\n")
+
     caps = ",\n    ".join(f'"{CAPTIONS[w]}"' for w in range(FIRST_WEEK, LAST_WEEK + 1))
     parts.append(f"constexpr const char *kCaptions[] = {{\n    {caps}}};\n\n")
-    for key, height in NUMERAL_HEIGHTS.items():
-        glyphs = numerals(font_path, height)
-        gap = max(3, height // 12)
-        for index, (_, _, data) in enumerate(glyphs):
-            parts.append(format_array(f"kNumeral{key}{index}Data", data))
-        items = ", ".join(f"{{{w}, {h}, kNumeral{key}{i}Data}}" for i, (w, h, _) in enumerate(glyphs))
-        adv = ", ".join(str(w + gap) for w, _, _ in glyphs)
-        parts.append(f"const PlateNumeral k{key}Numeral = {{{{{items}}}, {{{adv}}}, {height}}};\n\n")
+    glyphs = numerals(font_path, NUMERAL_HEIGHT)
+    gap = max(3, NUMERAL_HEIGHT // 12)
+    for index, (_, _, data) in enumerate(glyphs):
+        parts.append(format_array(f"kNumeral{index}Data", data))
+    items = ", ".join(f"{{{w}, {h}, kNumeral{i}Data}}" for i, (w, h, _) in enumerate(glyphs))
+    adv = ", ".join(str(w + gap) for w, _, _ in glyphs)
+    parts.append(f"const PlateNumeral kNumeral = {{{{{items}}}, {{{adv}}}, {NUMERAL_HEIGHT}}};\n\n")
     parts.append("} // namespace\n\n")
     parts.append(f'''const PixelAsset &pregnancy_plate_asset(uint8_t week)
 {{
@@ -172,9 +167,9 @@ const char *pregnancy_plate_caption(uint8_t week)
     return kCaptions[clamped - {FIRST_WEEK}];
 }}
 
-const PlateNumeral &pregnancy_plate_numeral(PlateNumeralSize size)
+const PlateNumeral &pregnancy_plate_numeral()
 {{
-    return size == PlateNumeralSize::Large ? kLargeNumeral : kMediumNumeral;
+    return kNumeral;
 }}
 ''')
     OUTPUT_CPP.write_text("".join(parts), encoding="utf-8")
@@ -186,7 +181,7 @@ def main() -> None:
     args = parser.parse_args()
     if not Path(args.font).exists():
         raise SystemExit(f"numeral font not found: {args.font} (pass --font; use an OFL font)")
-    plates = load_plates()
+    plates = load_plates(SOURCE_DIR, PLATE_SIZE)
     write_header()
     write_cpp(plates, args.font)
     print(f"{len(plates)} plates + numerals -> {OUTPUT_CPP.relative_to(ROOT)}")

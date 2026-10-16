@@ -37,7 +37,13 @@ struct PageLayout {
   Rect numeral;       // dashboard week number block -> Mom page
   Rect input;         // setup pages: box holding the digit fields
   uint8_t input_size; // text size of the digit fields
-  int caption_y;      // dashboard caption baseline row
+  int caption_y;      // dashboard caption row
+  Rect grid;          // dashboard 8 x 5 week grid (display only)
+  int grid_cell;      // grid cell size
+  int grid_pitch;     // grid cell spacing
+  int numeral_x;      // dashboard numeral: left edge, or right edge when aligned right
+  int numeral_y;      // ... top of the digits; WEEKS follows kWeeksGap below
+  bool numeral_right; // true: numeral and WEEKS are right-aligned to numeral_x
 };
 
 constexpr PageLayout kLandscape = {
@@ -53,11 +59,17 @@ constexpr PageLayout kLandscape = {
      {152, 408, 128, ui_tokens::kMinimumTouchHeight},
      {280, 408, 128, ui_tokens::kMinimumTouchHeight}},
     {720, 24, ui_tokens::kButtonHeight, ui_tokens::kButtonHeight},
-    {230, 66, 340, 340},
-    {36, 32, 176, 124},
+    {410, 80, 340, 340},
+    {36, 76, 200, 140},
     {30, 118, 430, 86},
     28,
-    424,
+    430,
+    {48, 252, 252, 156},
+    28,
+    32,
+    48,
+    88,
+    false,
 };
 
 constexpr PageLayout kPortrait = {
@@ -73,11 +85,17 @@ constexpr PageLayout kPortrait = {
      {168, 728, 144, ui_tokens::kMinimumTouchHeight},
      {312, 728, 144, ui_tokens::kMinimumTouchHeight}},
     {400, 24, ui_tokens::kButtonHeight, ui_tokens::kButtonHeight},
-    {70, 260, 340, 340},
-    {36, 44, 200, 140},
+    {70, 130, 340, 340},
+    {330, 646, 138, 130},
     {24, 102, 432, 76},
     21,
-    690,
+    488,
+    {24, 630, 236, 146},
+    26,
+    30,
+    456,
+    660,
+    true,
 };
 
 const PageLayout &layout_for(bool portrait) {
@@ -103,7 +121,6 @@ bool portrait_layout(const Canvas &canvas) {
 // 孕周首页：与参考图的单张图版一致——大号数字、WEEKS、点刻插画、字距拉开的英文名。
 constexpr int kPlateTracking = 6;       // caption letter spacing
 constexpr int kWeeksTracking = 3;
-constexpr int kNumeralInset = 12;       // numeral block padding inside its hit rectangle
 constexpr int kWeeksGap = 12;           // numeral bottom to WEEKS top
 
 int tracked_text_width(const char *text, uint8_t pixel_size, int tracking,
@@ -133,6 +150,37 @@ void draw_plate_numeral(Canvas &canvas, int x, int y, const PlateNumeral &font,
     const int index = *c - '0';
     pixel_asset_draw(canvas, x, y, font.digit[index], 1, GrayLevel::Black);
     x += font.advance[index];
+  }
+}
+
+int plate_numeral_width(const PlateNumeral &font, const char *digits) {
+  int width = 0, gap = 0;
+  for (const char *c = digits; *c >= '0' && *c <= '9'; ++c) {
+    const int index = *c - '0';
+    width += font.advance[index];
+    gap = font.advance[index] - static_cast<int>(font.digit[index].width);
+  }
+  return width - gap;
+}
+
+// 8 x 5 week grid, one cell per week. Solid = a finished week, ring with a dot =
+// the week in progress, outline = still to come. Display only.
+void draw_week_grid(Canvas &canvas, const PageLayout &layout, int finished_weeks) {
+  for (int week = 1; week <= 40; ++week) {
+    const int column = (week - 1) % 8, row = (week - 1) / 8;
+    const Rect cell = {layout.grid.x + column * layout.grid_pitch,
+                       layout.grid.y + row * layout.grid_pitch, layout.grid_cell,
+                       layout.grid_cell};
+    if (week <= finished_weeks) {
+      canvas.fill_rect(cell.x, cell.y, cell.width, cell.height, GrayLevel::Black);
+    } else if (week == finished_weeks + 1) {
+      prototype_ui::draw_frame(canvas, cell, ui_tokens::kEmphasisStroke);
+      const int inset = layout.grid_cell / 3;
+      canvas.fill_rect(cell.x + inset, cell.y + inset, cell.width - 2 * inset,
+                       cell.height - 2 * inset, GrayLevel::Black);
+    } else {
+      prototype_ui::draw_frame(canvas, cell, ui_tokens::kBorderStroke);
+    }
   }
 }
 
@@ -256,31 +304,41 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
   prototype_ui::begin_page(canvas);
   const bool portrait = portrait_layout(canvas);
   const PageLayout &layout = layout_for(portrait);
-  const PlateNumeral &numeral = pregnancy_plate_numeral(
-      portrait ? PlateNumeralSize::Large : PlateNumeralSize::Medium);
+  const PlateNumeral &numeral = pregnancy_plate_numeral();
+  const int weeks = std::max(0, std::min(99, static_cast<int>(progress.weeks)));
+  const uint8_t week = static_cast<uint8_t>(weeks);
 
-  char digits[8] = {};
-  std::snprintf(digits, sizeof(digits), "%d",
-                std::max(0, std::min(99, static_cast<int>(progress.weeks))));
-  const int numeral_x = layout.numeral.x + kNumeralInset;
-  const int numeral_y = layout.numeral.y + kNumeralInset;
-  draw_plate_numeral(canvas, numeral_x, numeral_y, numeral, digits);
-  draw_tracked_text(canvas, numeral_x + 2, numeral_y + numeral.height + kWeeksGap,
-                    "WEEKS", ui_tokens::kEmphasis, kWeeksTracking,
-                    FontWeight::Medium);
+  // Portrait is a desk calendar: picture on top, week grid bottom left, week
+  // number bottom right. Landscape puts the picture on the right and stacks the
+  // number, WEEKS and the grid in one left column. The object's name is centred
+  // under the picture in both.
+  // 竖屏台历式；横屏图案在右、周数/WEEKS/周图同在左栏；英文名都在图案正下方。
+  draw_week_grid(canvas, layout, weeks);
 
-  const uint8_t week = static_cast<uint8_t>(
-      std::max(0, std::min(99, static_cast<int>(progress.weeks))));
-  pixel_asset_draw_centered(canvas, layout.hero.x + layout.hero.width / 2,
-                            layout.hero.y + layout.hero.height / 2,
-                            pregnancy_plate_asset(week), 1, GrayLevel::Black);
+  const int hero_x = layout.hero.x + layout.hero.width / 2;
+  pixel_asset_draw_centered(
+      canvas, hero_x, layout.hero.y + layout.hero.height / 2,
+      pregnancy_plate_asset(week), 1, GrayLevel::Black);
 
   const char *caption = pregnancy_plate_caption(week);
   const int caption_width = tracked_text_width(
       caption, ui_tokens::kBody, kPlateTracking, FontWeight::Medium);
-  draw_tracked_text(canvas, layout.hero.x + (layout.hero.width - caption_width) / 2,
-                    layout.caption_y, caption, ui_tokens::kBody, kPlateTracking,
-                    FontWeight::Medium);
+  draw_tracked_text(canvas, hero_x - caption_width / 2, layout.caption_y, caption,
+                    ui_tokens::kBody, kPlateTracking, FontWeight::Medium);
+
+  char digits[8] = {};
+  std::snprintf(digits, sizeof(digits), "%d", weeks);
+  const int weeks_y = layout.numeral_y + numeral.height + kWeeksGap;
+  const int numeral_width = plate_numeral_width(numeral, digits);
+  const int weeks_width = tracked_text_width("WEEKS", ui_tokens::kEmphasis,
+                                             kWeeksTracking, FontWeight::Medium);
+  const int numeral_left =
+      layout.numeral_right ? layout.numeral_x - numeral_width : layout.numeral_x;
+  const int weeks_left =
+      layout.numeral_right ? layout.numeral_x - weeks_width : layout.numeral_x + 2;
+  draw_plate_numeral(canvas, numeral_left, layout.numeral_y, numeral, digits);
+  draw_tracked_text(canvas, weeks_left, weeks_y, "WEEKS", ui_tokens::kEmphasis,
+                    kWeeksTracking, FontWeight::Medium);
 
   draw_menu_icon(canvas, layout.menu);
 }

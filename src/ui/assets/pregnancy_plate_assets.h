@@ -14,11 +14,6 @@ const PixelAsset &pregnancy_plate_asset(uint8_t week);
 // Upper-case English caption of the plate's object ("CARROT").
 const char *pregnancy_plate_caption(uint8_t week);
 
-enum class PlateNumeralSize : uint8_t {
-  Medium, // 72 px high (landscape)
-  Large,  // 84 px high (portrait)
-};
-
 // Condensed bold digits 0-9, all the same height, tight-cropped horizontally.
 struct PlateNumeral {
   PixelAsset digit[10];
@@ -26,4 +21,4 @@ struct PlateNumeral {
   uint8_t height;
 };
 
-const PlateNumeral &pregnancy_plate_numeral(PlateNumeralSize size);
+const PlateNumeral &pregnancy_plate_numeral(); // 84 px high

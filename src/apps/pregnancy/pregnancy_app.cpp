@@ -382,6 +382,13 @@ void app_task(void *) {
         // The tapped target comes from the same table the renderer drew.
         int x = 0, y = 0;
         s_canvas->physical_to_logical(press.x, press.y, x, y);
+        STICKY_LOGI(kTag,
+                    "tap physical=%d,%d logical=%d,%d canvas=%dx%d page=%s action=%s",
+                    static_cast<int>(press.x), static_cast<int>(press.y), x, y,
+                    static_cast<int>(s_canvas->width()),
+                    static_cast<int>(s_canvas->height()),
+                    pregnancy_page_name(s_flow.page()),
+                    pregnancy_action_name(action));
         PregnancyTarget targets[kMaxPregnancyTargets];
         const size_t count = pregnancy_page_targets(
             s_flow.page(), s_flow.configured(), s_canvas->width(),
@@ -394,6 +401,9 @@ void app_task(void *) {
         }
       }
       if (handle_action(action)) {
+        STICKY_LOGI(kTag, "page=%s after action=%s",
+                    pregnancy_page_name(s_flow.page()),
+                    pregnancy_action_name(action));
         sticky_touch_clear_press();
         render_page(true);
       }

@@ -182,10 +182,10 @@ int main() {
                                 16U, FontWeight::Regular) <= 360);
   // Every week has a 340 px plate and an English caption that fits the page.
   for (uint8_t week = 6U; week <= 40U; ++week) {
-    const PixelAsset &plate = pregnancy_plate_asset(week);
-    assert(plate.width == 340U && plate.height == 340U && plate.data != nullptr);
-    // No plate may run into its own border: that would mean the object is cropped.
     {
+      const PixelAsset &plate = pregnancy_plate_asset(week);
+      assert(plate.width == 340U && plate.height == 340U && plate.data != nullptr);
+      // No plate may run into its own border: that would mean the object is cropped.
       const size_t stride = (static_cast<size_t>(plate.width) + 7U) / 8U;
       int min_x = plate.width, min_y = plate.height, max_x = -1, max_y = -1;
       for (int y = 0; y < plate.height; ++y)
@@ -209,8 +209,8 @@ int main() {
     }
     assert(caption_width - 6 <= 432);
   }
-  for (PlateNumeralSize size : {PlateNumeralSize::Medium, PlateNumeralSize::Large}) {
-    const PlateNumeral &numeral = pregnancy_plate_numeral(size);
+  {
+    const PlateNumeral &numeral = pregnancy_plate_numeral();
     for (int digit = 0; digit < 10; ++digit) {
       assert(numeral.digit[digit].height == numeral.height);
       assert(numeral.advance[digit] >= numeral.digit[digit].width);
@@ -224,15 +224,19 @@ int main() {
   // page). The caption and the empty margins are not tappable.
   assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 750, 45) ==
          PregnancyAction::OpenLauncher);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 400, 236) ==
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 580, 250) ==
          PregnancyAction::ShowBaby);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 60, 60) ==
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 100, 150) ==
          PregnancyAction::ShowMom);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 400, 440) ==
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 580, 440) ==
+         PregnancyAction::None); // the caption is not tappable
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 100, 330) ==
+         PregnancyAction::None); // the week grid is display only
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 340, 250) ==
          PregnancyAction::None);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 700, 300) ==
-         PregnancyAction::None);
-  assert(count_black_rect(canvas, 230, 66, 340, 340) > 6000U);
+  assert(count_black_rect(canvas, 410, 80, 340, 340) > 6000U);
+  // Week 20: twenty finished cells are solid in the grid.
+  assert(count_black_rect(canvas, 48, 252, 252, 156) > 20U * 28U * 28U * 8U / 10U);
   write_preview(buffer, "/tmp/pregnancy_dashboard.ppm");
 
   ui_language_set(UiLanguage::ChineseSimplified);
@@ -255,12 +259,15 @@ int main() {
   assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 428,
                                   52) == PregnancyAction::OpenLauncher);
   assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 240,
-                                  430) == PregnancyAction::ShowBaby);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 60,
-                                  80) == PregnancyAction::ShowMom);
+                                  300) == PregnancyAction::ShowBaby);
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 400,
+                                  720) == PregnancyAction::ShowMom);
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 100,
+                                  700) == PregnancyAction::None); // grid
   assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 240,
-                                  720) == PregnancyAction::None);
-  assert(count_black_rect(canvas, 70, 260, 340, 340) > 6000U);
+                                  560) == PregnancyAction::None);
+  assert(count_black_rect(canvas, 70, 130, 340, 340) > 6000U);
+  assert(count_black_rect(canvas, 24, 630, 236, 146) > 20U * 26U * 26U * 8U / 10U);
   write_canvas_preview(canvas, "/tmp/pregnancy_dashboard_portrait_zh.ppm");
 
   pregnancy_page_render_source_setup(canvas, true);
