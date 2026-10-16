@@ -11,8 +11,13 @@ Two ways in:
 Output: <out_dir>/week-NN-slug.png (280x280, black = ink) + contact_sheet.png +
 labels.tsv (week, english name, chinese name) for the lab layout.
 
-Dither modes: fs (error diffusion), bayer (ordered 8x8), noise (ordered with an
-interleaved-gradient threshold; stippled look without a visible grid).
+Render modes
+  bold      (default) Gaussian denoise, sharpen, Atkinson stipple, plus a solid 3 px outline.
+            Built for e-paper: the outline and heavy tone give the picture the same
+            weight as the text beside it, where a pure stipple looks hazy.
+  atkinson  crisp stipple only, no denoise/outline
+  fs        Floyd-Steinberg (finer but mushy on e-paper)
+  bayer, noise  ordered dithers
 
 LICENSING / RULES: sheet-derived art is the owner's own reference, used for
 host-only layout prototyping and written under build/ (never committed). Dithered
@@ -167,8 +172,30 @@ BAYER8 = [
 ]
 
 
+def atkinson(tile):
+    """Atkinson error diffusion: only 3/4 of the error is spread, so highlights and
+    shadows stay clean and the stipple keeps real structure instead of grey fog."""
+    w, h = tile.size
+    px = [[float(tile.getpixel((x, y))) for x in range(w)] for y in range(h)]
+    out = Image.new("L", (w, h), 255)
+    op = out.load()
+    for y in range(h):
+        for x in range(w):
+            old = px[y][x]
+            new = 255.0 if old >= 128 else 0.0
+            op[x, y] = int(new)
+            err = (old - new) / 8.0
+            for dx, dy in ((1, 0), (2, 0), (-1, 1), (0, 1), (1, 1), (0, 2)):
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < w and 0 <= ny < h:
+                    px[ny][nx] += err
+    return out.convert("1")
+
+
 def dither(tile, mode, gamma=1.0):
     t = tile.point(lambda v: int(255 * ((v / 255) ** gamma)))
+    if mode == "atkinson":
+        return atkinson(t)
     if mode == "fs":
         return t.convert("1", dither=Image.FLOYDSTEINBERG)
     out = Image.new("1", t.size, 1)
@@ -183,7 +210,45 @@ def dither(tile, mode, gamma=1.0):
     return out
 
 
+def s_curve(tile, amount):
+    lut = []
+    for x in range(256):
+        t = x / 255.0
+        smooth = t * t * (3 - 2 * t)
+        lut.append(int(round(255 * ((1 - amount) * t + amount * smooth))))
+    return tile.point(lut)
+
+
+def silhouette(tile, hull):
+    """Closed object mask: the hull for pale objects, otherwise everything off-white."""
+    if hull is not None:
+        return hull
+    m = tile.point(lambda v: 255 if v < 246 else 0)
+    m = m.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(5))
+    return fill_holes(m)   # highlights inside the object must not get their own outline
+
+
+def bold(tile, hull):
+    t = ImageOps.autocontrast(tile, cutoff=1)
+    # The source carries AI grain. A round Gaussian removes it without the square
+    # artefacts a median filter leaves in highlights; the unsharp pass then restores edges.
+    t = t.filter(ImageFilter.GaussianBlur(1.4))
+    t = t.filter(ImageFilter.UnsharpMask(radius=2.2, percent=260, threshold=2))
+    t = s_curve(t, 0.6)
+    t = t.point(lambda v: int(255 * ((v / 255.0) ** 0.85)))
+    if hull is not None:   # near-white highlight inside the silhouette: keep a light stipple
+        t = Image.composite(t.point(lambda v: min(v, 224)), t, hull)
+    mono = atkinson(t).convert("L")
+    mask = silhouette(t, hull)
+    inner = mask.filter(ImageFilter.MinFilter(2 * 3 + 1))
+    outline = ImageOps.invert(ImageChops.subtract(mask, inner))       # 3 px solid outline
+    return ImageChops.darker(mono, outline).point(lambda v: 0 if v < 128 else 255).convert("1")
+
+
 def to_asset(tile, hull, mode, gamma):
+    if mode == "bold":
+        return bold(tile, hull)
+    tile = tile.filter(ImageFilter.UnsharpMask(radius=1.4, percent=140, threshold=1))  # edges first: dithering softens them
     tile = ImageOps.autocontrast(tile, cutoff=1)
     if hull is not None:
         # A near-white highlight inside the silhouette would read as a bite taken out
@@ -198,8 +263,8 @@ def main():
     ap.add_argument("out_dir")
     ap.add_argument("--sheet")
     ap.add_argument("--dir")
-    ap.add_argument("--mode", default="fs", choices=("fs", "bayer", "noise"))
-    ap.add_argument("--gamma", type=float, default=0.85, help="<1 lightens (fewer dots)")
+    ap.add_argument("--mode", default="bold", choices=("bold", "atkinson", "fs", "bayer", "noise"))
+    ap.add_argument("--gamma", type=float, default=1.0, help="<1 lightens (fewer dots)")
     ap.add_argument("--only", default="")
     ap.add_argument("--size", type=int, default=SIZE, help="output square size in px")
     args = ap.parse_args()
@@ -227,7 +292,7 @@ def main():
             continue
         en, zh = REF_NAMES[week - 1]
         tile, mtile = fit_square(*sources[week], size=args.size)
-        asset = to_asset(tile, mtile, args.mode if week >= 9 else "noise", GAMMA_OVERRIDE.get(week, args.gamma))
+        asset = to_asset(tile, mtile, args.mode, GAMMA_OVERRIDE.get(week, args.gamma))
         asset.save(out / f"week-{week:02d}-{slug(en)}.png")
         labels.append(f"{week}\t{en}\t{PREVIEW_ZH.get(week, zh)}")
         tiles.append((week, en, asset))

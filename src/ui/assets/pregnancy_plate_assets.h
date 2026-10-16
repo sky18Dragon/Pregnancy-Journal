@@ -11,8 +11,9 @@
 // nearest one. Black bits are ink.
 const PixelAsset &pregnancy_plate_asset(uint8_t week);
 
-// Upper-case English caption of the plate's object ("CARROT").
+// Upper-case English caption of the plate's object ("CARROT") and its Chinese name.
 const char *pregnancy_plate_caption(uint8_t week);
+const char *pregnancy_plate_caption_zh(uint8_t week);
 
 // Condensed bold digits 0-9, all the same height, tight-cropped horizontally.
 struct PlateNumeral {

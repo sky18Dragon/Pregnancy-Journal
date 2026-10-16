@@ -45,6 +45,16 @@ CAPTIONS = {
     39: "SPAGHETTI SQUASH", 40: "JACKFRUIT",
 }
 
+CAPTIONS_ZH = {
+    6: "扁豆", 7: "葡萄", 8: "芸豆", 9: "樱桃", 10: "草莓", 11: "青柠",
+    12: "李子", 13: "柠檬", 14: "牛油果", 15: "苹果", 16: "橙子", 17: "石榴",
+    18: "芒果", 19: "西柚", 20: "香蕉", 21: "胡萝卜", 22: "玉米", 23: "甜椒",
+    24: "茄子", 25: "芜菁甘蓝", 26: "花菜", 27: "卷心菜", 28: "奶油南瓜",
+    29: "椰子", 30: "蜜瓜", 31: "菠萝", 32: "凉薯", 33: "罗马生菜",
+    34: "哈密瓜", 35: "冬瓜", 36: "大白菜", 37: "西瓜", 38: "南瓜",
+    39: "金丝瓜", 40: "菠萝蜜",
+}
+
 
 def pack(image: Image.Image) -> bytes:
     """MSB-first, row-padded 1-bit data; black pixels are ink (bit set)."""
@@ -122,8 +132,9 @@ def write_header() -> None:
 // nearest one. Black bits are ink.
 const PixelAsset &pregnancy_plate_asset(uint8_t week);
 
-// Upper-case English caption of the plate's object ("CARROT").
+// Upper-case English caption of the plate's object ("CARROT") and its Chinese name.
 const char *pregnancy_plate_caption(uint8_t week);
+const char *pregnancy_plate_caption_zh(uint8_t week);
 
 // Condensed bold digits 0-9, all the same height, tight-cropped horizontally.
 struct PlateNumeral {
@@ -147,6 +158,8 @@ def write_cpp(plates: dict[int, bytes], font_path: str) -> None:
 
     caps = ",\n    ".join(f'"{CAPTIONS[w]}"' for w in range(FIRST_WEEK, LAST_WEEK + 1))
     parts.append(f"constexpr const char *kCaptions[] = {{\n    {caps}}};\n\n")
+    caps_zh = ",\n    ".join(f'"{CAPTIONS_ZH[w]}"' for w in range(FIRST_WEEK, LAST_WEEK + 1))
+    parts.append(f"constexpr const char *kCaptionsZh[] = {{\n    {caps_zh}}};\n\n")
     glyphs = numerals(font_path, NUMERAL_HEIGHT)
     gap = max(3, NUMERAL_HEIGHT // 12)
     for index, (_, _, data) in enumerate(glyphs):
@@ -165,6 +178,12 @@ const char *pregnancy_plate_caption(uint8_t week)
 {{
     const uint8_t clamped = week < {FIRST_WEEK} ? {FIRST_WEEK} : (week > {LAST_WEEK} ? {LAST_WEEK} : week);
     return kCaptions[clamped - {FIRST_WEEK}];
+}}
+
+const char *pregnancy_plate_caption_zh(uint8_t week)
+{{
+    const uint8_t clamped = week < {FIRST_WEEK} ? {FIRST_WEEK} : (week > {LAST_WEEK} ? {LAST_WEEK} : week);
+    return kCaptionsZh[clamped - {FIRST_WEEK}];
 }}
 
 const PlateNumeral &pregnancy_plate_numeral()
