@@ -242,6 +242,26 @@ int main() {
   flow.handle_action(SettingsAction::ConfirmDeviceReset);
   assert(same(flow.operation_message(), "DEVICE RESET FAILED"));
 
+  // The shortcut page: open it from Main, pick a target (saved, same page,
+  // redraw), Back returns to Main. Picking never leaves the page.
+  flow.handle_action(SettingsAction::Back);
+  assert(flow.page() == SettingsPage::Main);
+  r = flow.handle_action(SettingsAction::ShortcutSettings);
+  assert(r.render && !r.select_shortcut && flow.page() == SettingsPage::Shortcut);
+  const struct { SettingsAction action; StickyShortcutTarget target; } picks[] = {
+      {SettingsAction::ShortcutKick, StickyShortcutTarget::KickStart},
+      {SettingsAction::ShortcutOff, StickyShortcutTarget::Off},
+      {SettingsAction::ShortcutBabyWeek, StickyShortcutTarget::BabyWeek},
+      {SettingsAction::ShortcutWeight, StickyShortcutTarget::WeightRecordToday}};
+  for (const auto &pick : picks) {
+    r = flow.handle_action(pick.action);
+    assert(r.render && r.select_shortcut && r.shortcut == pick.target &&
+           !r.render_full && flow.page() == SettingsPage::Shortcut);
+  }
+  r = flow.handle_action(SettingsAction::Back);
+  assert(r.render && !r.open_launcher && !r.select_shortcut &&
+         flow.page() == SettingsPage::Main);
+
   // Entering the storage pages again clears the old message.
   flow.handle_action(SettingsAction::Back);
   assert(flow.page() == SettingsPage::Main);

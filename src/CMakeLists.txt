@@ -9,6 +9,7 @@ idf_component_register(
         "app/sticky_app_id.cpp"
         "app/sticky_app_lifecycle.cpp"
         "app/sticky_key_router.cpp"
+        "app/sticky_shortcut.cpp"
         "app/sticky_sleep_schedule.cpp"
         "board/board_charger.cpp"
         "board/board_power.cpp"

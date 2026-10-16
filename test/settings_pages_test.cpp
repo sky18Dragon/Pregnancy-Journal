@@ -2,6 +2,8 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <vector>
+#include <utility>
 
 #include "canvas.h"
 #include "settings_pages.h"
@@ -32,7 +34,8 @@ void test_target_contract() {
       SettingsPage::PregnancySummary, SettingsPage::StorageSummary,
       SettingsPage::StorageConfirm, SettingsPage::StorageMore,
       SettingsPage::LegacyMigration, SettingsPage::LegacyClearConfirm,
-      SettingsPage::CardDataDeleteConfirm, SettingsPage::DeviceResetConfirm};
+      SettingsPage::CardDataDeleteConfirm, SettingsPage::DeviceResetConfirm,
+      SettingsPage::Shortcut};
   const int sizes[2][2] = {{800, 480}, {480, 800}};
   for (const auto &size : sizes) {
     for (SettingsPage page : pages) {
@@ -71,7 +74,8 @@ void test_back_graph() {
       SettingsPage::PregnancySummary, SettingsPage::StorageSummary,
       SettingsPage::StorageConfirm, SettingsPage::StorageMore,
       SettingsPage::LegacyMigration, SettingsPage::LegacyClearConfirm,
-      SettingsPage::CardDataDeleteConfirm, SettingsPage::DeviceResetConfirm};
+      SettingsPage::CardDataDeleteConfirm, SettingsPage::DeviceResetConfirm,
+      SettingsPage::Shortcut};
   for (SettingsPage page : pages) {
     SettingsPage current = page, next = SettingsPage::Main;
     int steps = 0;
@@ -97,7 +101,65 @@ void test_key_policy() {
     assert(settings_page_key_policy(page) == KeyPolicy::Locked);
 }
 
+// The shortcut page: one row per target in the same order as the actions, the
+// back button returns to Main, and the target <-> action mapping round-trips.
+void test_shortcut_page() {
+  const SettingsAction actions[] = {SettingsAction::ShortcutWeight,
+                                    SettingsAction::ShortcutBabyWeek,
+                                    SettingsAction::ShortcutKick,
+                                    SettingsAction::ShortcutOff};
+  const StickyShortcutTarget targets[] = {
+      StickyShortcutTarget::WeightRecordToday, StickyShortcutTarget::BabyWeek,
+      StickyShortcutTarget::KickStart, StickyShortcutTarget::Off};
+  for (size_t index = 0U; index < 4U; ++index) {
+    assert(settings_shortcut_action(targets[index]) == actions[index]);
+    StickyShortcutTarget picked = StickyShortcutTarget::Off;
+    assert(settings_action_shortcut(actions[index], picked) && picked == targets[index]);
+  }
+  StickyShortcutTarget ignored = StickyShortcutTarget::Off;
+  assert(!settings_action_shortcut(SettingsAction::Back, ignored));
+  assert(!settings_action_shortcut(SettingsAction::ShortcutSettings, ignored));
+
+  SettingsPage back = SettingsPage::Shortcut;
+  assert(settings_page_back_target(SettingsPage::Shortcut, back) &&
+         back == SettingsPage::Main);
+  assert(settings_page_key_policy(SettingsPage::Shortcut) == KeyPolicy::Free);
+
+  for (const auto &size : {std::pair<int, int>{800, 480}, std::pair<int, int>{480, 800}}) {
+    SettingsTarget list[kMaxSettingsTargets];
+    const size_t count = settings_page_targets(SettingsPage::Shortcut, size.first,
+                                               size.second, true, true, list,
+                                               kMaxSettingsTargets);
+    assert(count == 5U);  // back + four targets
+    for (size_t index = 0U; index < 4U; ++index)
+      assert(list[1U + index].action == actions[index]);
+    // Every page is drawn with one row inverted and no gray, in both languages.
+    std::vector<uint8_t> buffer(static_cast<size_t>(size.first) * size.second / 4U, 0xFFU);
+    Canvas canvas(size.first, size.second, buffer.data(), buffer.size());
+    for (UiLanguage language : {UiLanguage::English, UiLanguage::ChineseSimplified}) {
+      ui_language_set(language);
+      for (StickyShortcutTarget target : targets) {
+        settings_page_render_shortcut(canvas, target);
+        const SettingsTarget &selected = list[1U + static_cast<size_t>(target)];
+        // The selected row's body is black; a row that is not selected is white.
+        assert(canvas.pixel_at(selected.rect.x + selected.rect.width - 40,
+                               selected.rect.y + selected.rect.height / 2) ==
+               GrayLevel::Black);
+        const SettingsTarget &other =
+            list[1U + ((static_cast<size_t>(target) + 1U) % 4U)];
+        assert(canvas.pixel_at(other.rect.x + other.rect.width - 40,
+                               other.rect.y + other.rect.height / 2) ==
+               GrayLevel::White);
+      }
+      settings_page_render_main(canvas, true, "2026.09.13 14:42", "2026.12.31",
+                                false, StickyShortcutTarget::KickStart);
+    }
+  }
+  ui_language_set(UiLanguage::English);
+}
+
 int main() {
+  test_shortcut_page();
   test_key_policy();
   test_back_graph();
   test_target_contract();
@@ -112,9 +174,11 @@ int main() {
          SettingsAction::EditTime);
   assert(settings_page_action_at(SettingsPage::Main, 800, 480, 100, 240) ==
          SettingsAction::PregnancySettings);
-  assert(settings_page_action_at(SettingsPage::Main, 800, 480, 500, 300) ==
+  assert(settings_page_action_at(SettingsPage::Main, 800, 480, 500, 280) ==
+         SettingsAction::ShortcutSettings);
+  assert(settings_page_action_at(SettingsPage::Main, 800, 480, 500, 332) ==
          SettingsAction::RefreshDisplay);
-  assert(settings_page_action_at(SettingsPage::Main, 800, 480, 400, 370) ==
+  assert(settings_page_action_at(SettingsPage::Main, 800, 480, 400, 384) ==
          SettingsAction::StorageSettings);
   assert(settings_page_action_at(SettingsPage::Main, 800, 480, 730, 40) ==
          SettingsAction::Back);
@@ -211,11 +275,13 @@ int main() {
          SettingsAction::ToggleLanguage);
   assert(settings_page_action_at(SettingsPage::Main, 480, 800, 100, 250) ==
          SettingsAction::EditTime);
-  assert(settings_page_action_at(SettingsPage::Main, 480, 800, 100, 350) ==
+  assert(settings_page_action_at(SettingsPage::Main, 480, 800, 100, 330) ==
          SettingsAction::PregnancySettings);
-  assert(settings_page_action_at(SettingsPage::Main, 480, 800, 100, 460) ==
+  assert(settings_page_action_at(SettingsPage::Main, 480, 800, 100, 420) ==
+         SettingsAction::ShortcutSettings);
+  assert(settings_page_action_at(SettingsPage::Main, 480, 800, 100, 508) ==
          SettingsAction::RefreshDisplay);
-  assert(settings_page_action_at(SettingsPage::Main, 480, 800, 100, 570) ==
+  assert(settings_page_action_at(SettingsPage::Main, 480, 800, 100, 596) ==
          SettingsAction::StorageSettings);
   assert(settings_page_action_at(SettingsPage::Main, 480, 800, 420, 40) ==
          SettingsAction::Back);

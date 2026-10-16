@@ -369,7 +369,10 @@ void render(bool full = false) {
                     static_cast<unsigned>(s_profile.estimated_due_date.month),
                     static_cast<unsigned>(s_profile.estimated_due_date.day));
     settings_page_render_main(*s_canvas, rtc_ready, clock, due,
-                              sticky_app_preferences_save_failed());
+                              sticky_app_preferences_save_failed(),
+                              sticky_app_shortcut_target());
+  } else if (page == SettingsPage::Shortcut) {
+    settings_page_render_shortcut(*s_canvas, sticky_app_shortcut_target());
   } else if (page == SettingsPage::TimeEditor) {
     settings_page_render_time_editor(*s_canvas, s_flow.time_fields(), s_flow.input_error());
   } else if (page == SettingsPage::PregnancySummary) {
@@ -433,6 +436,8 @@ void handle(SettingsAction action) {
   const SettingsFlowResult result = s_flow.handle_action(action);
   if (result.toggle_language)
     sticky_app_request_language_toggle();
+  if (result.select_shortcut)
+    sticky_app_set_shortcut_target(result.shortcut);
   if (result.open_launcher) {
     show_press_feedback();
     sticky_app_request_launcher();

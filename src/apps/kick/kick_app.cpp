@@ -309,6 +309,32 @@ void handle(int x, int y) {
     render();
 }
 
+// A shortcut request waits for the card data to load, then applies once. It is
+// dropped when it is older than kEntryWindowUs.
+constexpr int64_t kEntryWindowUs = 5000000LL;
+std::atomic<int64_t> s_entry_requested_us{0};
+
+bool take_entry_request() {
+  const int64_t at = s_entry_requested_us.load();
+  if (at == 0) return false;
+  if (esp_timer_get_time() - at > kEntryWindowUs) {
+    s_entry_requested_us.store(0);
+    return false;
+  }
+  if (s_store.pending() || status_page_active() || !s_store.ready())
+    return false;
+  s_entry_requested_us.store(0);
+  return true;
+}
+
+// Starts recording when a shortcut asked for it; true when the page changed.
+bool apply_entry_request() {
+  if (!take_entry_request()) return false;
+  const KickFlowResult result = s_flow.enter_start(esp_timer_get_time());
+  apply_flow_result(result);
+  return result.render;
+}
+
 // Counts the queued top-key presses like taps on the circle, each at the time
 // it was made, so presses that waited out a screen refresh are not merged by
 // the debounce. The page is redrawn once for the whole batch.
@@ -350,8 +376,10 @@ void task(void *) {
         begin_load();
       }
       s_flow.read_clock();
+      apply_entry_request();  // before the first redraw: one refresh, not two
       render(true);
     }
+    if (apply_entry_request()) render();
     if (!s_store.pending() && s_storage_status == SdRepositoryAdapterStatus::Ok &&
         s_flow.counter_expired(esp_timer_get_time())) {
       apply_flow_result(s_flow.finish(esp_timer_get_time()));
@@ -394,6 +422,9 @@ esp_err_t kick_app_start(Canvas &canvas) {
   return xTaskCreate(task, "kicks", kTaskStackBytes, nullptr, 3U, &s_task) == pdPASS
              ? ESP_OK
              : ESP_ERR_NO_MEM;
+}
+void kick_app_request_start() {
+  s_entry_requested_us.store(esp_timer_get_time());
 }
 void kick_app_capture_press(int64_t at_us) {
   if (s_key_queue != nullptr)

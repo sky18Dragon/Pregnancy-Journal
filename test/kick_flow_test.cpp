@@ -221,6 +221,41 @@ int main() {
     assert(q.render && f2.save_failed() && f2.page() == KickPage::Today);
   }
 
+  // The double-click shortcut starts like "start counting"; a running counter
+  // is never replaced and asks for no redraw.
+  {
+    FakePort p3;
+    KickFlow f3(p3);
+    f3.read_clock();
+    KickFlowResult q = f3.enter_start(0);
+    assert(q.render && f3.page() == KickPage::ModeSelect);       // no memory yet
+    p3.has_memory = true;
+    p3.memory = KickMode::CountToTen;
+    f3.go_today();
+    q = f3.enter_start(40 * kSecond);
+    assert(q.render && f3.page() == KickPage::Counter &&
+           f3.counter().mode() == KickMode::CountToTen);
+    f3.handle_action(KickAction::Count, 45 * kSecond);
+    q = f3.enter_start(60 * kSecond);
+    assert(!q.render && !q.save_session && f3.page() == KickPage::Counter &&
+           f3.counter().count() == 1U);                           // untouched
+    f3.abandon_session();
+    p3.full = true;
+    q = f3.enter_start(70 * kSecond);
+    assert(q.capacity_reached && f3.page() == KickPage::Today);
+    p3.full = false;
+    p3.memory = KickMode::Awareness;
+    f3.handle_action(KickAction::Count, 0);
+    q = f3.enter_start(80 * kSecond);
+    assert(q.render && f3.page() == KickPage::Feel);
+    // From other pages the shortcut also starts recording.
+    f3.go_today();
+    f3.handle_action(KickAction::ShowInsights, 0);
+    p3.memory = KickMode::Timed;
+    q = f3.enter_start(90 * kSecond);
+    assert(f3.page() == KickPage::Counter && f3.counter().mode() == KickMode::Timed);
+  }
+
   // Clock refresh reports a date change once.
   flow.go_today();
   assert(!flow.refresh_clock());

@@ -272,7 +272,8 @@ void register_kicks() {
 void register_settings() {
   static const std::vector<std::string> names = {
       "None", "ToggleLanguage", "EditTime", "RefreshDisplay", "PregnancySettings",
-      "StorageSettings", "BeginStorageInitialization", "SafeEjectStorage",
+      "StorageSettings", "ShortcutSettings", "ShortcutWeight",
+      "ShortcutBabyWeek", "ShortcutKick", "ShortcutOff", "BeginStorageInitialization", "SafeEjectStorage",
       "ConfirmStorageInitialization", "CancelStorageInitialization",
       "ManageStorage", "ManageLegacyCommon", "ManageLegacyKicks",
       "BeginLegacyImport", "BeginLegacyClear", "ConfirmLegacyClear",
@@ -302,6 +303,20 @@ void register_settings() {
   add("settings_main",
       [](Canvas &c) { settings_page_render_main(c, true, "2026.10.10 14:42", "2027.02.20"); },
       hit(SettingsPage::Main), names);
+  add("settings_main_shortcut_kick",
+      [](Canvas &c) {
+        settings_page_render_main(c, true, "2026.10.10 14:42", "2027.02.20", false,
+                                  StickyShortcutTarget::KickStart);
+      },
+      hit(SettingsPage::Main), names);
+  add("settings_shortcut",
+      [](Canvas &c) {
+        settings_page_render_shortcut(c, StickyShortcutTarget::WeightRecordToday);
+      },
+      hit(SettingsPage::Shortcut), names);
+  add("settings_shortcut_kick",
+      [](Canvas &c) { settings_page_render_shortcut(c, StickyShortcutTarget::KickStart); },
+      hit(SettingsPage::Shortcut), names);
   add("settings_time_editor",
       [](Canvas &c) {
         DigitFields fields(DigitFieldKind::DateTime);

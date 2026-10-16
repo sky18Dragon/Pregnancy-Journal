@@ -31,4 +31,8 @@ bool sticky_app_preferences_save_failed();
 // owns the saved preferences and applies the change on its own task.
 // 胎动记录方式的上次选择及其记录；可在任意任务调用，由协调器在自己的任务里落盘。
 StickyKickModePref sticky_app_kick_mode_pref();
+// The double-click target and the call that changes it (same rules as above).
+// 双击目标及其修改接口（规则同上）。
+StickyShortcutTarget sticky_app_shortcut_target();
+void sticky_app_set_shortcut_target(StickyShortcutTarget target);
 void sticky_app_set_kick_mode_pref(StickyKickModePref pref);

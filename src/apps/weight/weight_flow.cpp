@@ -62,6 +62,22 @@ WeightFlowResult WeightFlow::save_record() {
   return result;
 }
 
+WeightFlowResult WeightFlow::enter_record_today() {
+  switch (state_.page) {
+  case WeightPage::Editor:
+  case WeightPage::Profile:
+  case WeightPage::ReplaceConfirm:
+  case WeightPage::DeleteConfirm:
+    return WeightFlowResult();
+  case WeightPage::Dashboard:
+  case WeightPage::History:
+    break;
+  }
+  WeightHit hit;
+  hit.action = WeightAction::AddToday;
+  return handle_action(hit);
+}
+
 WeightFlowResult WeightFlow::handle_action(const WeightHit &hit) {
   WeightFlowResult result;
   const WeightService &service = port_.service();

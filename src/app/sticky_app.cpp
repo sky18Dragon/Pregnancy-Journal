@@ -17,18 +17,21 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "kick_app.h"
 #include "pregnancy_app.h"
 #include "press_feedback.h"
 #include "pregnancy_repository_store.h"
 #include "scheduler.h"
 #include "sticky_sleep_schedule.h"
 #include "settings_app.h"
+#include "weight_app.h"
 #include "sd_storage_service.h"
 #include "sticky_app_display_orientation.h"
 #include "sticky_app_gesture.h"
 #include "sticky_button.h"
 #include "sticky_buzzer.h"
 #include "sticky_key_router.h"
+#include "sticky_shortcut.h"
 #include "sticky_display.h"
 #include "sticky_imu.h"
 #include "sticky_rtc.h"
@@ -77,6 +80,8 @@ std::atomic<bool> s_preferences_save_failed{false};
 // applied on the coordinator task (-1 = none).
 std::atomic<uint8_t> s_kick_mode_pref{static_cast<uint8_t>(StickyKickModePref::Unset)};
 std::atomic<int> s_kick_mode_request{-1};
+std::atomic<uint8_t> s_shortcut_target{static_cast<uint8_t>(StickyShortcutTarget::WeightRecordToday)};
+std::atomic<int> s_shortcut_request{-1};
 KeyRouter s_key_router;
 SideStepMerger s_side_merger;
 // Policy of the page each app is showing, indexed by StickyAppId value.
@@ -175,6 +180,9 @@ void poll_device_settings() {
   if (s_kick_mode_request.load() < 0)
     s_kick_mode_pref.store(
         static_cast<uint8_t>(s_device_preferences.desired().kick_mode_pref));
+  if (s_shortcut_request.load() < 0)
+    s_shortcut_target.store(
+        static_cast<uint8_t>(s_device_preferences.desired().shortcut_target));
   const UiLanguage previous = ui_language_get();
   ui_language_set(s_device_preferences.desired().language);
   if (previous != ui_language_get()) {
@@ -487,9 +495,33 @@ void go_home(const char *source) {
   select_app(StickyAppId::Pregnancy, source);
 }
 
-// The double-click target. Until the Settings shortcut page exists this is the
-// original behaviour: back to Baby Week.
-void run_shortcut() { go_home("double_click"); }
+// The double-click target chosen in Settings. The app gets the entry request
+// before it is resumed, so it lands on the target page with a single refresh.
+void run_shortcut() {
+  const ShortcutAction action = shortcut_action(
+      sticky_app_shortcut_target(), s_manager.current_id(),
+      current_key_policy());
+  switch (action) {
+  case ShortcutAction::None:
+    // Already at the target: just close the launcher if it was open. With the
+    // shortcut off the key does nothing at all.
+    if (s_launcher_open &&
+        sticky_app_shortcut_target() != StickyShortcutTarget::Off)
+      close_launcher();
+    break;
+  case ShortcutAction::GoHome:
+    go_home("double_click");
+    break;
+  case ShortcutAction::OpenWeightToday:
+    weight_app_request_record_today();
+    select_app(shortcut_app(action), "double_click");
+    break;
+  case ShortcutAction::OpenKickStart:
+    kick_app_request_start();
+    select_app(shortcut_app(action), "double_click");
+    break;
+  }
+}
 
 void handle_button_record(const StickyButtonRecord &record) {
   mark_activity(monotonic_ms());
@@ -584,6 +616,9 @@ void app_task(void *) {
       s_scheduler.cancel(4U);
       s_device_preferences = {};
       s_kick_mode_request.store(-1);
+      s_shortcut_request.store(-1);
+      s_shortcut_target.store(
+          static_cast<uint8_t>(StickyShortcutTarget::WeightRecordToday));
       s_kick_mode_pref.store(static_cast<uint8_t>(StickyKickModePref::Unset));
       ui_language_set(UiLanguage::English);
       settings_app_notify_preferences_changed();
@@ -596,6 +631,10 @@ void app_task(void *) {
     if (kick_mode_request >= 0)
       s_device_preferences.set_kick_mode_pref(
           static_cast<StickyKickModePref>(kick_mode_request));
+    const int shortcut_request = s_shortcut_request.exchange(-1);
+    if (shortcut_request >= 0)
+      s_device_preferences.set_shortcut_target(
+          static_cast<StickyShortcutTarget>(shortcut_request));
     update_display_orientation();
     StickyButtonRecord record;
     while (sticky_button_take_record(record)) handle_button_record(record);
@@ -735,6 +774,19 @@ void sticky_app_set_key_policy(StickyAppId app, KeyPolicy policy) {
 
 StickyKickModePref sticky_app_kick_mode_pref() {
   return static_cast<StickyKickModePref>(s_kick_mode_pref.load());
+}
+
+StickyShortcutTarget sticky_app_shortcut_target() {
+  const uint8_t value = s_shortcut_target.load();
+  return value < kStickyShortcutTargetCount
+             ? static_cast<StickyShortcutTarget>(value)
+             : StickyShortcutTarget::WeightRecordToday;
+}
+
+void sticky_app_set_shortcut_target(StickyShortcutTarget target) {
+  if (static_cast<uint8_t>(target) >= kStickyShortcutTargetCount) return;
+  s_shortcut_target.store(static_cast<uint8_t>(target));
+  s_shortcut_request.store(static_cast<int>(target));
 }
 
 void sticky_app_set_kick_mode_pref(StickyKickModePref pref) {

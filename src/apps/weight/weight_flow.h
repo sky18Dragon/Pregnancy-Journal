@@ -45,6 +45,12 @@ public:
 
   WeightFlowResult handle_action(const WeightHit &hit);
 
+  // The double-click shortcut: open today's weight entry, as tapping "add
+  // today" does. A page holding unsaved input (editor, profile, confirmations)
+  // is never replaced; the result then asks for no redraw.
+  // 双击快捷键：打开今天的体重输入，等同点“记录今天”；带未保存输入的页面不被替换。
+  WeightFlowResult enter_record_today();
+
   // Clock: `read_today` refreshes today's date; `refresh_today` also reports a
   // date change and only runs on the dashboard.
   bool read_today();

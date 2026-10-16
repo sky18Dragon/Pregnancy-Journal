@@ -48,6 +48,12 @@ public:
 
   KickFlowResult handle_action(KickAction action, int64_t now_us);
 
+  // The double-click shortcut: start recording like tapping "start counting"
+  // (remembered method, record limit and clock checks included). A running
+  // counter is never replaced; the result then asks for no redraw.
+  // 双击快捷键：等同点“开始计数”；进行中的计数不会被替换。
+  KickFlowResult enter_start(int64_t now_us);
+
   // The counter reached its time limit: finish it (save, or drop an empty one).
   bool counter_expired(int64_t now_us) const {
     return page_ == KickPage::Counter && counter_.expired(now_us);

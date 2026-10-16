@@ -1,8 +1,11 @@
 #include "weight_app.h"
 
+#include <atomic>
+
 #include "app_log.h"
 #include "canvas.h"
 #include "domain_repository_stores.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "repository_status_page.h"
@@ -76,6 +79,23 @@ void render(bool full = false) {
   } else weight_page_render(*s_canvas, s_store.service(), s_store.settings(), s_flow.state());
   if (s_refresh.needs_full(page_id, full)) sticky_display_refresh_monochrome();
   else sticky_display_refresh_partial();
+}
+// A shortcut request waits for the card data to load, then applies once. It is
+// dropped when it is older than kEntryWindowUs.
+constexpr int64_t kEntryWindowUs = 5000000LL;
+std::atomic<int64_t> s_entry_requested_us{0};
+
+bool take_entry_request() {
+  const int64_t at = s_entry_requested_us.load();
+  if (at == 0) return false;
+  if (esp_timer_get_time() - at > kEntryWindowUs) {
+    s_entry_requested_us.store(0);
+    return false;
+  }
+  if (s_store.pending() || status_page_active() || !s_store.ready())
+    return false;
+  s_entry_requested_us.store(0);
+  return true;
 }
 void begin_load() {
   s_flow.reset_to_dashboard();
@@ -172,6 +192,13 @@ void handle(int x, int y) {
   // same page stay partial (the display layer still forces periodic cleanup).
   if (result.render) render();
 }
+// Opens today's entry when a shortcut asked for it; true when the page changed.
+bool apply_entry_request() {
+  if (!take_entry_request()) return false;
+  const WeightFlowResult result = s_flow.enter_record_today();
+  apply_flow_result(result);
+  return result.render;
+}
 void task(void *) {
   begin_load(); s_flow.read_today(); render(true);
   unsigned clock_polls = 0U;
@@ -184,8 +211,11 @@ void task(void *) {
       if (!s_store.pending() && !s_store.ready()) {
         begin_load();
       }
-      s_flow.read_today(); render(true);
+      s_flow.read_today();
+      apply_entry_request();  // before the first redraw: one refresh, not two
+      render(true);
     }
+    if (apply_entry_request()) render();
     if (++clock_polls >= 25U && s_flow.page() == WeightPage::Dashboard && !s_store.pending()) {
       clock_polls = 0U;
       if (s_flow.refresh_today()) render(true);
@@ -204,6 +234,9 @@ void task(void *) {
 }
 }  // namespace
 
+void weight_app_request_record_today() {
+  s_entry_requested_us.store(esp_timer_get_time());
+}
 esp_err_t weight_app_start(Canvas &canvas) {
   app_log_register_tag(kTag);
   if (s_task) return ESP_OK;

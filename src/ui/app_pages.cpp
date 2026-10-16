@@ -93,8 +93,8 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app) {
   ui_draw_wrapped_text_pixels(
       canvas, ui_tokens::kContentMargin, portrait ? 750 : 444, canvas.width() - 2 * ui_tokens::kContentMargin,
       ui_language_is_chinese()
-          ? "顶部按键关闭 · 双击返回孕周首页"
-          : "TOP BUTTON CLOSES / DOUBLE-CLICK RETURNS HOME",
+          ? "顶部按键关闭 · 双击为快捷键"
+          : "TOP: CLOSE / DOUBLE-CLICK: SHORTCUT",
       ui_tokens::kSecondaryBody, GrayLevel::Black, 2, 2, FontWeight::Regular);
 }
 

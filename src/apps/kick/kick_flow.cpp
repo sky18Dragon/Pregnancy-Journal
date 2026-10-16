@@ -101,6 +101,12 @@ void KickFlow::session_saved(const KickSession &session) {
   save_failed_ = false;
 }
 
+KickFlowResult KickFlow::enter_start(int64_t now_us) {
+  if (page_ == KickPage::Counter)
+    return KickFlowResult();
+  return handle_action(KickAction::Start, now_us);
+}
+
 KickFlowResult KickFlow::handle_action(KickAction action, int64_t now_us) {
   KickFlowResult result;
   switch (action) {
