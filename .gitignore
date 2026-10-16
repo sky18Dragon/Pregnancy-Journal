@@ -28,3 +28,6 @@ tools/.cache/
 *.tmp
 *.bak
 .trash/
+
+__pycache__/
+*.pyc
