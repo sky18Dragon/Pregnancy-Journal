@@ -5,6 +5,7 @@
 
 #include "digit_fields.h"
 #include "pregnancy_state.h"
+#include "key_policy.h"
 #include "prototype_ui.h"
 
 class Canvas;
@@ -21,6 +22,26 @@ enum class SettingsPage : uint8_t {
   CardDataDeleteConfirm,
   DeviceResetConfirm,
 };
+
+// How the hardware keys act on `page`. Editors and confirmation dialogs are Locked.
+// 各页对硬件按键的反应；编辑页和确认对话框为 Locked。
+inline KeyPolicy settings_page_key_policy(SettingsPage page) {
+  switch (page) {
+  case SettingsPage::Main:
+  case SettingsPage::PregnancySummary:
+  case SettingsPage::StorageSummary:
+  case SettingsPage::StorageMore:
+  case SettingsPage::LegacyMigration:
+    return KeyPolicy::Free;
+  case SettingsPage::TimeEditor:
+  case SettingsPage::StorageConfirm:
+  case SettingsPage::LegacyClearConfirm:
+  case SettingsPage::CardDataDeleteConfirm:
+  case SettingsPage::DeviceResetConfirm:
+    return KeyPolicy::Locked;
+  }
+  return KeyPolicy::Locked;
+}
 
 enum class SettingsAction : uint8_t {
   None,

@@ -28,6 +28,7 @@
 #include "sticky_app_gesture.h"
 #include "sticky_button.h"
 #include "sticky_buzzer.h"
+#include "sticky_key_router.h"
 #include "sticky_display.h"
 #include "sticky_imu.h"
 #include "sticky_rtc.h"
@@ -44,6 +45,10 @@ constexpr uint32_t kTaskStackSize = 4608U;
 constexpr UBaseType_t kTaskPriority = 4U;
 constexpr uint32_t kSleepContextMagic = 0x53434657U;
 constexpr uint32_t kLauncherIdleCloseMs = 30000U;
+// Keys pressed this soon after a key-driven page change are dropped: the panel
+// is still redrawing and the press was most likely impatience, not a command.
+constexpr int64_t kTransitionSettleUs = 1000000LL;
+constexpr size_t kKeyPolicySlots = 16U;
 
 struct StickySleepContext {
   uint32_t magic;
@@ -68,6 +73,10 @@ std::atomic<bool> s_application_data_deleted{false};
 StickyImuOrientation s_last_orientation = StickyImuOrientation::Unknown;
 DevicePreferencesSync s_device_preferences;
 std::atomic<bool> s_preferences_save_failed{false};
+KeyRouter s_key_router;
+SideStepMerger s_side_merger;
+// Policy of the page each app is showing, indexed by StickyAppId value.
+std::atomic<uint8_t> s_key_policies[kKeyPolicySlots] = {};
 
 void render_launcher(bool full_refresh = true);
 
@@ -374,19 +383,31 @@ void enter_sleep(const char *source) {
   board_power_enter_deep_sleep(wake_us);
 }
 
-// Bottom-edge horizontal swipe: go straight to the next/previous app without
-// opening the launcher. A black bar along the bottom edge acknowledges the
-// swipe during the ~2 s full refresh that follows.
-void switch_to_neighbor_app(int direction) {
-  const StickyAppId target =
-      app_page_launcher_neighbor(s_manager.current_id(), direction);
-  if (target == s_manager.current_id()) return;
+// Black bar along the bottom edge: acknowledges a swipe or side key during the
+// ~2 s full refresh that follows.
+void draw_switch_ack() {
   const int bar_height = 8;
   press_feedback::draw(*s_canvas,
                        {0, static_cast<int>(s_canvas->height()) - bar_height,
                         static_cast<int>(s_canvas->width()), bar_height});
   sticky_display_refresh_partial();
-  select_app(target, "swipe");
+}
+
+// Goes straight to the app `steps` places along the launcher order (negative =
+// backwards, wrapping) without opening the launcher.
+void switch_by_steps(int steps, const char *source) {
+  StickyAppId target = s_manager.current_id();
+  const int direction = steps < 0 ? -1 : 1;
+  for (int count = steps < 0 ? -steps : steps; count > 0; --count)
+    target = app_page_launcher_neighbor(target, direction);
+  if (target == s_manager.current_id()) return;
+  draw_switch_ack();
+  select_app(target, source);
+}
+
+// Bottom-edge horizontal swipe: next/previous app.
+void switch_to_neighbor_app(int direction) {
+  switch_by_steps(direction, "swipe");
 }
 
 void handle_interaction(const StickyTouchInteraction &interaction) {
@@ -435,6 +456,100 @@ void handle_launcher_press(const StickyTouchPress &press) {
   }
 }
 
+KeyPolicy current_key_policy() {
+  const unsigned slot = static_cast<unsigned>(s_manager.current_id());
+  if (slot >= kKeyPolicySlots) return KeyPolicy::Locked;
+  return static_cast<KeyPolicy>(s_key_policies[slot].load());
+}
+
+// TODO(hardware): which turned-screen layouts put the physical left key on the
+// viewer's right is unconfirmed; only the upside-down layout is mirrored.
+bool side_keys_flipped() {
+  return s_canvas->rotation() == CanvasRotation::Deg180;
+}
+
+// After a key-driven page change, drop keys pressed while the panel redraws.
+void settle_after_key_transition() {
+  s_key_router.ignore_events_before(esp_timer_get_time() + kTransitionSettleUs);
+}
+
+// Baby Week on its dashboard, whatever page it was left on.
+void go_home(const char *source) {
+  pregnancy_app_request_dashboard();
+  select_app(StickyAppId::Pregnancy, source);
+}
+
+// The double-click target. Until the Settings shortcut page exists this is the
+// original behaviour: back to Baby Week.
+void run_shortcut() { go_home("double_click"); }
+
+void handle_button_record(const StickyButtonRecord &record) {
+  mark_activity(monotonic_ms());
+  sticky_buzzer_stop();
+  if (record.event == StickyButtonEvent::SleepChord) {
+    enter_sleep("side_button_chord");
+    return;
+  }
+  KeyInput input;
+  switch (record.event) {
+  case StickyButtonEvent::PressDown: input = KeyInput::TopPress; break;
+  case StickyButtonEvent::SingleClick: input = KeyInput::TopSingle; break;
+  case StickyButtonEvent::DoubleClick: input = KeyInput::TopDouble; break;
+  case StickyButtonEvent::SideSingle:
+    input = record.side == SideKey::Right ? KeyInput::SideRight
+                                          : KeyInput::SideLeft;
+    break;
+  default:
+    return;
+  }
+
+  KeyContext context;
+  context.launcher_open = s_launcher_open;
+  context.policy = current_key_policy();
+  context.side_keys_flipped = side_keys_flipped();
+  const KeyDecision decision =
+      s_key_router.route({input, record.at_us}, context);
+  if (decision.action != KeyAction::SwitchApp) s_side_merger.clear();
+  switch (decision.action) {
+  case KeyAction::OpenLauncher:
+    open_launcher();
+    settle_after_key_transition();
+    break;
+  case KeyAction::CloseLauncher:
+    close_launcher();
+    settle_after_key_transition();
+    break;
+  case KeyAction::GoHome:
+    go_home("top_click");
+    settle_after_key_transition();
+    break;
+  case KeyAction::RunShortcut:
+    run_shortcut();
+    settle_after_key_transition();
+    break;
+  case KeyAction::SwitchApp:
+    s_side_merger.add(decision.step, record.at_us);
+    break;
+  case KeyAction::None:
+  case KeyAction::PageFlip:
+  case KeyAction::CapturePress:
+    // PageFlip and CapturePress have no consumer yet (Pager / Capture pages).
+    break;
+  }
+}
+
+// Runs the app switch collected from quick side-key presses once they settle.
+void apply_pending_side_steps() {
+  int steps = 0;
+  if (!s_side_merger.take(esp_timer_get_time(), steps) || steps == 0) return;
+  const KeyPolicy policy = current_key_policy();
+  if (s_launcher_open ||
+      (policy != KeyPolicy::Free && policy != KeyPolicy::Home))
+    return;
+  switch_by_steps(steps, "side_key");
+  settle_after_key_transition();
+}
+
 void app_task(void *) {
   while (true) {
     if (s_application_data_deleted.exchange(false)) {
@@ -463,21 +578,9 @@ void app_task(void *) {
     poll_device_settings();
     if (s_language_toggle_requested.exchange(false)) toggle_language();
     update_display_orientation();
-    StickyButtonEvent event = StickyButtonEvent::None;
-    if (sticky_button_take_event(event)) {
-      mark_activity(monotonic_ms());
-      sticky_buzzer_stop();
-      if (event == StickyButtonEvent::SingleClick) {
-        if (s_launcher_open)
-          close_launcher();
-        else
-          open_launcher();
-      } else if (event == StickyButtonEvent::DoubleClick) {
-        select_app(StickyAppId::Pregnancy, "double_click");
-      } else if (event == StickyButtonEvent::SleepChord) {
-        enter_sleep("side_button_chord");
-      }
-    }
+    StickyButtonRecord record;
+    while (sticky_button_take_record(record)) handle_button_record(record);
+    apply_pending_side_steps();
 
     StickyTouchInteraction interaction = {};
     while (sticky_touch_take_interaction(interaction)) {
@@ -604,6 +707,12 @@ void sticky_app_request(StickyAppId app) {
 }
 
 void sticky_app_request_launcher() { s_launcher_requested.store(true); }
+
+void sticky_app_set_key_policy(StickyAppId app, KeyPolicy policy) {
+  const unsigned slot = static_cast<unsigned>(app);
+  if (slot < kKeyPolicySlots)
+    s_key_policies[slot].store(static_cast<uint8_t>(policy));
+}
 
 void sticky_app_request_language_toggle() {
   s_language_toggle_requested.store(true);

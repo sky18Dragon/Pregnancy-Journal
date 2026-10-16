@@ -5,6 +5,7 @@
 
 #include "kick.h"
 #include "kick_comparison.h"
+#include "key_policy.h"
 #include "prototype_ui.h"
 
 class Canvas;
@@ -18,6 +19,13 @@ enum class KickPage : uint8_t {
   Result,
   Compare,
 };
+
+// How the hardware keys act on `page`. The counter stays Locked until the top
+// key records movements (P2); then it becomes KeyPolicy::Capture.
+// 各页对硬件按键的反应；计数页在顶键计数（P2）落地前为 Locked。
+inline KeyPolicy kick_page_key_policy(KickPage page) {
+  return page == KickPage::Counter ? KeyPolicy::Locked : KeyPolicy::Free;
+}
 
 enum class KickAction : uint8_t {
   None,

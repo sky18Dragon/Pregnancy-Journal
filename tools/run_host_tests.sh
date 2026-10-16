@@ -394,6 +394,10 @@ compile_and_run kick_flow_test -Isrc/apps/kick -Isrc/apps/pregnancy \
     src/ui/canvas.cpp src/ui/font.cpp src/ui/prototype_ui.cpp \
     src/ui/text_layout.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp
+compile_and_run side_key_tracker_test -Isrc/input \
+    test/side_key_tracker_test.cpp src/input/side_key_tracker.cpp
+compile_and_run sticky_key_router_test -Isrc/app -Isrc/ui \
+    test/sticky_key_router_test.cpp src/app/sticky_key_router.cpp
 compile_and_run sticky_app_gesture_test -Isrc/app \
     test/sticky_app_gesture_test.cpp src/app/sticky_app_gesture.cpp
 compile_and_run sticky_app_display_orientation_test \

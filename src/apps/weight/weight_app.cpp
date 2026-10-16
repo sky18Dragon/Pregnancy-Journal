@@ -65,6 +65,9 @@ void render(bool full = false) {
   sticky_display_set_battery_overlay_enabled(false);
   const bool status = status_page_active();
   const int page_id = status ? kStatusPageId : static_cast<int>(s_flow.page());
+  sticky_app_set_key_policy(StickyAppId::Weight,
+                            status ? KeyPolicy::Locked
+                                   : weight_page_key_policy(s_flow.page()));
   if (s_refresh.page_changes(page_id)) show_press_feedback();
   else s_press.clear();
   if (status) {

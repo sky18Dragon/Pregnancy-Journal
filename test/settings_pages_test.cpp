@@ -84,7 +84,21 @@ void test_back_graph() {
   }
 }
 
+void test_key_policy() {
+  for (SettingsPage page : {SettingsPage::Main, SettingsPage::PregnancySummary,
+                            SettingsPage::StorageSummary, SettingsPage::StorageMore,
+                            SettingsPage::LegacyMigration})
+    assert(settings_page_key_policy(page) == KeyPolicy::Free);
+  // Editors and confirmation dialogs keep the side keys from leaving them.
+  for (SettingsPage page : {SettingsPage::TimeEditor, SettingsPage::StorageConfirm,
+                            SettingsPage::LegacyClearConfirm,
+                            SettingsPage::CardDataDeleteConfirm,
+                            SettingsPage::DeviceResetConfirm})
+    assert(settings_page_key_policy(page) == KeyPolicy::Locked);
+}
+
 int main() {
+  test_key_policy();
   test_back_graph();
   test_target_contract();
   uint8_t framebuffer[800U * 480U / 2U] = {};

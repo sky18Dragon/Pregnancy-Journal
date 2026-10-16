@@ -87,6 +87,9 @@ void render(bool full = false) {
   sticky_display_set_battery_overlay_enabled(false);
   KickDaySummary today = {};
   const bool status = status_page_active();
+  sticky_app_set_key_policy(StickyAppId::Kicks,
+                            status ? KeyPolicy::Locked
+                                   : kick_page_key_policy(s_flow.page()));
   if (s_refresh.page_changes(status ? kStatusPageId : static_cast<int>(s_flow.page())))
     show_press_feedback();
   else

@@ -114,7 +114,17 @@ void test_target_contract() {
   }
 }
 
+void test_key_policy() {
+  assert(pregnancy_page_key_policy(PregnancyPage::Dashboard) == KeyPolicy::Home);
+  assert(pregnancy_page_key_policy(PregnancyPage::Baby) == KeyPolicy::Free);
+  assert(pregnancy_page_key_policy(PregnancyPage::Mom) == KeyPolicy::Free);
+  for (PregnancyPage page : {PregnancyPage::ClockSetup, PregnancyPage::SourceSetup,
+                             PregnancyPage::DateSetup})
+    assert(pregnancy_page_key_policy(page) == KeyPolicy::Wizard);
+}
+
 int main() {
+  test_key_policy();
   test_target_contract();
   std::vector<uint8_t> regular_glyph_buffer(kStride * kHeight, 0xFFU);
   std::vector<uint8_t> medium_glyph_buffer(kStride * kHeight, 0xFFU);

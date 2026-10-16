@@ -49,6 +49,7 @@ void show_press_feedback() {
 }
 int64_t s_next_rtc_poll_us = 0;
 std::atomic<bool> s_setup_requested{false};
+std::atomic<bool> s_dashboard_requested{false};
 pregnancy_repository::PregnancyRepositoryStore &s_profile_store =
     pregnancy_repository::pregnancy_repository_store();
 bool s_profile_loading = false;
@@ -160,6 +161,11 @@ void render_page(bool partial) {
   sticky_display_set_battery_overlay_enabled(false);
   s_canvas->set_rotation(s_display_rotation);
   const bool status = status_page_active();
+  // A storage status page counts as home so the top key can still open the
+  // launcher when the card is missing.
+  sticky_app_set_key_policy(StickyAppId::Pregnancy,
+                            status ? KeyPolicy::Home
+                                   : pregnancy_page_key_policy(s_flow.page()));
   if (s_refresh.page_changes(status ? kStatusPageId : static_cast<int>(s_flow.page())))
     show_press_feedback();
   else
@@ -311,6 +317,7 @@ void update_for_date_rollover() {
 }
 
 void app_task(void *) {
+  s_dashboard_requested.store(false);
   sticky_touch_clear_press();
   initialize_state();
   render_page(false);
@@ -329,6 +336,8 @@ void app_task(void *) {
     if (sticky_app_lifecycle_checkpoint(s_lifecycle)) {
       sticky_touch_clear_press();
       s_setup_after_load = s_setup_after_load || s_setup_requested.exchange(false);
+      if (s_dashboard_requested.exchange(false) && s_flow.showing_week_pages())
+        s_flow.handle_action(PregnancyAction::ShowOverview);
       if (s_profile_store.pending()) {
         s_reload_after_pending = true;
       } else {
@@ -413,6 +422,7 @@ void pregnancy_app_set_display_rotation(CanvasRotation rotation) {
 }
 
 void pregnancy_app_request_setup() { s_setup_requested.store(true); }
+void pregnancy_app_request_dashboard() { s_dashboard_requested.store(true); }
 
 esp_err_t pregnancy_app_pause() {
   return sticky_app_lifecycle_pause(s_lifecycle, s_app_task);

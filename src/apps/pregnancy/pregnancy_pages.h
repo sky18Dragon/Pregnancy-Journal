@@ -6,6 +6,7 @@
 #include "content_service.h"
 #include "digit_fields.h"
 #include "pregnancy_state.h"
+#include "key_policy.h"
 #include "prototype_ui.h"
 
 class Canvas;
@@ -19,6 +20,24 @@ enum class PregnancyPage : uint8_t {
   Baby,
   Mom,
 };
+
+// How the hardware keys act on `page`. Dashboard is the home page; the setup
+// pages are a required flow with no home to go back to.
+// 各页对硬件按键的反应；Dashboard 是首页；设置向导页没有首页可回，忽略所有按键。
+inline KeyPolicy pregnancy_page_key_policy(PregnancyPage page) {
+  switch (page) {
+  case PregnancyPage::Dashboard:
+    return KeyPolicy::Home;
+  case PregnancyPage::Baby:
+  case PregnancyPage::Mom:
+    return KeyPolicy::Free;
+  case PregnancyPage::ClockSetup:
+  case PregnancyPage::SourceSetup:
+  case PregnancyPage::DateSetup:
+    return KeyPolicy::Wizard;
+  }
+  return KeyPolicy::Wizard;
+}
 
 enum class PregnancyAction : uint8_t {
   None,

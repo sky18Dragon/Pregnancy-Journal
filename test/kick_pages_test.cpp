@@ -315,7 +315,16 @@ void test_back_graph() {
   assert(kick_page_back_target(KickPage::Compare, KickPage::Insights, target) && target == KickPage::Insights);
 }
 
+void test_key_policy() {
+  for (KickPage page : {KickPage::Today, KickPage::Insights, KickPage::ModeSelect,
+                        KickPage::Feel, KickPage::Result, KickPage::Compare})
+    assert(kick_page_key_policy(page) == KeyPolicy::Free);
+  // A running counter must not be left by a stray side key.
+  assert(kick_page_key_policy(KickPage::Counter) == KeyPolicy::Locked);
+}
+
 int main() {
+  test_key_policy();
   test_back_graph();
   test_target_contract();
   test_formatting();

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "key_policy.h"
 #include "prototype_ui.h"
 #include "weight_service.h"
 
@@ -27,6 +28,22 @@ struct WeightPageState {
 // and the editor returns to History when it was opened from there.
 bool weight_page_back_target(WeightPage page, bool editing_history,
                              WeightPage &target);
+// How the hardware keys act on `page`. Pages holding unsaved input are Locked.
+// 各页对硬件按键的反应；带未保存输入的页面为 Locked。
+// TODO(P1b): History is a Pager once the app consumes page-flip requests.
+inline KeyPolicy weight_page_key_policy(WeightPage page) {
+  switch (page) {
+  case WeightPage::Dashboard:
+  case WeightPage::History:
+    return KeyPolicy::Free;
+  case WeightPage::Editor:
+  case WeightPage::Profile:
+  case WeightPage::ReplaceConfirm:
+  case WeightPage::DeleteConfirm:
+    return KeyPolicy::Locked;
+  }
+  return KeyPolicy::Locked;
+}
 struct WeightHit { WeightAction action = WeightAction::None; size_t row = 0U; };
 // Upper bound on the targets of any weight page.
 constexpr size_t kMaxWeightTargets = 16U;
