@@ -290,20 +290,25 @@ void test_device_preferences_and_envelope_rejection()
     StickyDeviceSettings source = {};
     source.language = UiLanguage::ChineseSimplified;
     source.last_app = StickyAppId::Weight;
+    source.shortcut_target = StickyShortcutTarget::KickStart;
+    source.kick_mode_pref = StickyKickModePref::CountToTen;
     EncodedPayload payload = {};
     assert(encode_device_preferences(source, payload) == RecordCodecStatus::Ok);
-    // Explicit wire representation: header + two-byte body + CRC32.
-    assert(payload.size == 14U);
+    // Explicit wire representation: header + four-byte body + CRC32.
+    assert(payload.size == 16U);
     assert(payload.bytes[0] == 'D' && payload.bytes[1] == 'F' &&
            payload.bytes[2] == 'P' && payload.bytes[3] == '1');
     assert(payload.bytes[4] == 1U && payload.bytes[5] == 0U);
-    assert(payload.bytes[6] == 2U && payload.bytes[7] == 0U);
+    assert(payload.bytes[6] == 4U && payload.bytes[7] == 0U);
     assert(payload.bytes[8] == 1U && payload.bytes[9] == 7U);
+    assert(payload.bytes[10] == 2U && payload.bytes[11] == 2U);
 
     StickyDeviceSettings decoded = {};
     assert(decode_device_preferences(payload.bytes.data(), payload.size, decoded) ==
            RecordCodecStatus::Ok);
     assert(decoded.language == source.language && decoded.last_app == source.last_app);
+    assert(decoded.shortcut_target == StickyShortcutTarget::KickStart);
+    assert(decoded.kick_mode_pref == StickyKickModePref::CountToTen);
 
     EncodedPayload newer = payload;
     newer.bytes[4] = 2U;
@@ -317,6 +322,65 @@ void test_device_preferences_and_envelope_rejection()
     source.last_app = static_cast<StickyAppId>(99);
     assert(encode_device_preferences(source, payload) ==
            RecordCodecStatus::InvalidArgument);
+    source.last_app = StickyAppId::Weight;
+    source.shortcut_target = static_cast<StickyShortcutTarget>(4);
+    assert(encode_device_preferences(source, payload) ==
+           RecordCodecStatus::InvalidArgument);
+    source.shortcut_target = StickyShortcutTarget::Off;
+    source.kick_mode_pref = static_cast<StickyKickModePref>(4);
+    assert(encode_device_preferences(source, payload) ==
+           RecordCodecStatus::InvalidArgument);
+}
+
+// Builds a payload with `body_size` body bytes the way the codec frames them.
+pregnancy_repository::EncodedPayload framed_device_preferences(
+    const uint8_t *body, size_t body_size)
+{
+    pregnancy_repository::EncodedPayload payload = {};
+    uint8_t *bytes = payload.bytes.data();
+    const uint8_t header[] = {'D', 'F', 'P', '1', 1U, 0U,
+                              static_cast<uint8_t>(body_size), 0U};
+    std::memcpy(bytes, header, sizeof(header));
+    std::memcpy(bytes + sizeof(header), body, body_size);
+    const size_t used = sizeof(header) + body_size;
+    const uint32_t crc = sticky_storage::crc32(bytes, used);
+    for (unsigned shift = 0U; shift < 4U; ++shift)
+        bytes[used + shift] = static_cast<uint8_t>(crc >> (8U * shift));
+    payload.size = used + 4U;
+    return payload;
+}
+
+void test_device_preferences_written_by_older_firmware_still_decode()
+{
+    using namespace pregnancy_repository;
+    // Older firmware stored only language and last app (a two-byte body).
+    const uint8_t legacy_body[] = {1U, 7U};
+    const EncodedPayload legacy = framed_device_preferences(legacy_body, 2U);
+    assert(legacy.size == 14U);
+    StickyDeviceSettings decoded = {};
+    decoded.shortcut_target = StickyShortcutTarget::Off;       // must be reset
+    decoded.kick_mode_pref = StickyKickModePref::Awareness;
+    assert(decode_device_preferences(legacy.bytes.data(), legacy.size, decoded) ==
+           RecordCodecStatus::Ok);
+    assert(decoded.language == UiLanguage::ChineseSimplified);
+    assert(decoded.last_app == StickyAppId::Weight);
+    assert(decoded.shortcut_target == StickyShortcutTarget::WeightRecordToday);
+    assert(decoded.kick_mode_pref == StickyKickModePref::Unset);
+
+    // A three-byte body is neither format.
+    const uint8_t odd_body[] = {1U, 7U, 0U};
+    const EncodedPayload odd = framed_device_preferences(odd_body, 3U);
+    assert(decode_device_preferences(odd.bytes.data(), odd.size, decoded) ==
+           RecordCodecStatus::Corrupt);
+    // Out-of-range new fields are corrupt, not silently clamped.
+    const uint8_t bad_shortcut[] = {1U, 7U, 4U, 0U};
+    const EncodedPayload bad_a = framed_device_preferences(bad_shortcut, 4U);
+    assert(decode_device_preferences(bad_a.bytes.data(), bad_a.size, decoded) ==
+           RecordCodecStatus::Corrupt);
+    const uint8_t bad_mode[] = {1U, 7U, 0U, 4U};
+    const EncodedPayload bad_b = framed_device_preferences(bad_mode, 4U);
+    assert(decode_device_preferences(bad_b.bytes.data(), bad_b.size, decoded) ==
+           RecordCodecStatus::Corrupt);
 }
 
 void test_network_authorization()
@@ -378,6 +442,7 @@ int main()
     test_checkup();
     test_weight_and_preferences();
     test_device_preferences_and_envelope_rejection();
+    test_device_preferences_written_by_older_firmware_still_decode();
     test_network_authorization();
     return 0;
 }

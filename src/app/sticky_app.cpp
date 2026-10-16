@@ -73,6 +73,10 @@ std::atomic<bool> s_application_data_deleted{false};
 StickyImuOrientation s_last_orientation = StickyImuOrientation::Unknown;
 DevicePreferencesSync s_device_preferences;
 std::atomic<bool> s_preferences_save_failed{false};
+// Mirror of the saved kick method for other tasks, and a pick waiting to be
+// applied on the coordinator task (-1 = none).
+std::atomic<uint8_t> s_kick_mode_pref{static_cast<uint8_t>(StickyKickModePref::Unset)};
+std::atomic<int> s_kick_mode_request{-1};
 KeyRouter s_key_router;
 SideStepMerger s_side_merger;
 // Policy of the page each app is showing, indexed by StickyAppId value.
@@ -167,6 +171,10 @@ void poll_device_settings() {
       sticky_storage::sd_storage_service_status(),
       monotonic_ms());
   s_preferences_save_failed.store(s_device_preferences.saving_failed());
+  // A pick that is waiting to be applied must not be overwritten by the old value.
+  if (s_kick_mode_request.load() < 0)
+    s_kick_mode_pref.store(
+        static_cast<uint8_t>(s_device_preferences.desired().kick_mode_pref));
   const UiLanguage previous = ui_language_get();
   ui_language_set(s_device_preferences.desired().language);
   if (previous != ui_language_get()) {
@@ -575,6 +583,8 @@ void app_task(void *) {
       s_scheduler.cancel(3U);
       s_scheduler.cancel(4U);
       s_device_preferences = {};
+      s_kick_mode_request.store(-1);
+      s_kick_mode_pref.store(static_cast<uint8_t>(StickyKickModePref::Unset));
       ui_language_set(UiLanguage::English);
       settings_app_notify_preferences_changed();
       STICKY_LOGI(kTag,
@@ -582,6 +592,10 @@ void app_task(void *) {
     }
     poll_device_settings();
     if (s_language_toggle_requested.exchange(false)) toggle_language();
+    const int kick_mode_request = s_kick_mode_request.exchange(-1);
+    if (kick_mode_request >= 0)
+      s_device_preferences.set_kick_mode_pref(
+          static_cast<StickyKickModePref>(kick_mode_request));
     update_display_orientation();
     StickyButtonRecord record;
     while (sticky_button_take_record(record)) handle_button_record(record);
@@ -717,6 +731,15 @@ void sticky_app_set_key_policy(StickyAppId app, KeyPolicy policy) {
   const unsigned slot = static_cast<unsigned>(app);
   if (slot < kKeyPolicySlots)
     s_key_policies[slot].store(static_cast<uint8_t>(policy));
+}
+
+StickyKickModePref sticky_app_kick_mode_pref() {
+  return static_cast<StickyKickModePref>(s_kick_mode_pref.load());
+}
+
+void sticky_app_set_kick_mode_pref(StickyKickModePref pref) {
+  s_kick_mode_pref.store(static_cast<uint8_t>(pref));
+  s_kick_mode_request.store(static_cast<int>(pref));
 }
 
 void sticky_app_request_language_toggle() {

@@ -76,10 +76,26 @@ public:
   bool at_capacity() override {
     return s_store.service().count() >= KickService::kCapacity;
   }
+  bool remembered_mode(KickMode &mode) override {
+    switch (sticky_app_kick_mode_pref()) {
+    case StickyKickModePref::Timed: mode = KickMode::Timed; return true;
+    case StickyKickModePref::CountToTen: mode = KickMode::CountToTen; return true;
+    case StickyKickModePref::Awareness: mode = KickMode::Awareness; return true;
+    case StickyKickModePref::Unset: break;
+    }
+    return false;
+  }
 };
 
 KickPort s_port;
 KickFlow s_flow(s_port);
+
+// The remembered method as the pages draw it.
+KickMethod current_method() {
+  KickMethod method;
+  method.set = s_port.remembered_mode(method.mode);
+  return method;
+}
 
 uint16_t elapsed_minutes() { return s_flow.elapsed_minutes(esp_timer_get_time()); }
 
@@ -115,7 +131,7 @@ void render(bool full = false) {
     kick_page_render_counter(*s_canvas, s_flow.period(), s_flow.counter().count(),
                              s_rendered_elapsed_minutes, s_flow.counter().mode());
   } else if (page == KickPage::ModeSelect) {
-    kick_page_render_mode_select(*s_canvas);
+    kick_page_render_mode_select(*s_canvas, current_method());
   } else if (page == KickPage::Feel) {
     kick_page_render_feel(*s_canvas);
   } else if (page == KickPage::Result) {
@@ -140,7 +156,8 @@ void render(bool full = false) {
     s_store.service().summarize_recent(date, trend);
     kick_page_render_insights(*s_canvas, today, trend);
   } else {
-    kick_page_render_today(*s_canvas, today, s_flow.save_failed());
+    kick_page_render_today(*s_canvas, today, s_flow.save_failed(),
+                           current_method());
   }
   // Page changes are full; the display layer owns the partial-refresh ceiling.
   if (s_refresh.needs_full(static_cast<int>(page), full))
@@ -162,8 +179,19 @@ void save_session(const KickSession &session) {
     s_flow.mark_save_failed();
 }
 
+StickyKickModePref pref_for(KickMode mode) {
+  switch (mode) {
+  case KickMode::Timed: return StickyKickModePref::Timed;
+  case KickMode::CountToTen: return StickyKickModePref::CountToTen;
+  case KickMode::Awareness: return StickyKickModePref::Awareness;
+  }
+  return StickyKickModePref::Unset;
+}
+
 // Carries out what the flow asked for after an action.
 void apply_flow_result(const KickFlowResult &result) {
+  if (result.remember_mode)
+    sticky_app_set_kick_mode_pref(pref_for(result.mode));
   if (result.open_launcher) {
     show_press_feedback();
     sticky_app_request_launcher();

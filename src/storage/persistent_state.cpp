@@ -28,9 +28,10 @@ StickyPersistentRecord sticky_persistent_make(
     StickyPersistentRecord record = {};
     record.magic = kStickyPersistentMagic;
     record.version = kStickyPersistentVersion;
-    record.payload_size = sizeof(StickyDeviceSettings);
+    record.payload_size = sizeof(StickyLegacyDeviceSettings);
     record.sequence = sequence;
-    record.settings = settings;
+    record.settings.language = settings.language;
+    record.settings.last_app = settings.last_app;
     record.checksum = sticky_persistent_checksum(record);
     return record;
 }
@@ -39,8 +40,16 @@ bool sticky_persistent_valid(const StickyPersistentRecord &record)
 {
     return record.magic == kStickyPersistentMagic &&
            record.version == kStickyPersistentVersion &&
-           record.payload_size == sizeof(StickyDeviceSettings) &&
+           record.payload_size == sizeof(StickyLegacyDeviceSettings) &&
            record.checksum == sticky_persistent_checksum(record);
+}
+
+StickyDeviceSettings sticky_persistent_settings(const StickyPersistentRecord &record)
+{
+    StickyDeviceSettings settings = {};
+    settings.language = record.settings.language;
+    settings.last_app = record.settings.last_app;
+    return settings;
 }
 
 bool sticky_persistent_select(const StickyPersistentRecord *first,

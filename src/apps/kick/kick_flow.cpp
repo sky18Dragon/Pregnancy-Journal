@@ -61,6 +61,25 @@ KickFlowResult KickFlow::begin_counter(KickMode mode, int64_t now_us) {
   return result;
 }
 
+// Starts recording with `mode` without asking: the remembered method.
+KickFlowResult KickFlow::start_with(KickMode mode, int64_t now_us) {
+  if (mode == KickMode::Awareness) {
+    KickFlowResult result;
+    result.render = true;
+    feel_direct_ = true;
+    page_ = KickPage::Feel;
+    return result;
+  }
+  return begin_counter(mode, now_us);
+}
+
+// Marks the result of an explicit choice on the method page.
+KickFlowResult KickFlow::chosen(KickFlowResult result, KickMode mode) const {
+  result.remember_mode = true;
+  result.mode = mode;
+  return result;
+}
+
 KickFlowResult KickFlow::finish(int64_t now_us) {
   KickFlowResult result;
   result.render = true;
@@ -91,8 +110,11 @@ KickFlowResult KickFlow::handle_action(KickAction action, int64_t now_us) {
       result.open_launcher = true;
       return result;
     }
+    if (page_ == KickPage::Feel && feel_direct_)
+      target = KickPage::Today;
     if (page_ == KickPage::Counter)
       counter_.cancel();
+    feel_direct_ = false;
     page_ = target;
     break;
   }
@@ -100,21 +122,32 @@ KickFlowResult KickFlow::handle_action(KickAction action, int64_t now_us) {
     page_ = KickPage::Today;
     break;
   case KickAction::Start:
+  case KickAction::ChangeMethod: {
     if (port_.at_capacity()) {
       result.capacity_reached = true;
       result.render = true;
       return result;
     }
     save_failed_ = false;
+    KickMode remembered = KickMode::Timed;
+    // Start goes straight to the remembered method; changing it, or having
+    // none yet, asks.
+    if (action == KickAction::Start && port_.remembered_mode(remembered))
+      return start_with(remembered, now_us);
+    feel_direct_ = false;
     page_ = KickPage::ModeSelect;
     break;
+  }
   case KickAction::StartTimed:
-    return begin_counter(KickMode::Timed, now_us);
+    return chosen(begin_counter(KickMode::Timed, now_us), KickMode::Timed);
   case KickAction::StartCountToTen:
-    return begin_counter(KickMode::CountToTen, now_us);
+    return chosen(begin_counter(KickMode::CountToTen, now_us),
+                  KickMode::CountToTen);
   case KickAction::StartAwareness:
+    feel_direct_ = false;
     page_ = KickPage::Feel;
-    break;
+    result.render = true;
+    return chosen(result, KickMode::Awareness);
   case KickAction::FeelUsual:
     return save_feel(KickFeel::Usual);
   case KickAction::FeelWeaker:

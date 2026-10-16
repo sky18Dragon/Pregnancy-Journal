@@ -216,7 +216,8 @@ void register_kicks() {
   static const std::vector<std::string> names = {
       "None", "Back", "Start", "ShowInsights", "Count", "Undo", "Finish",
       "StartTimed", "StartCountToTen", "StartAwareness", "FeelUsual",
-      "FeelWeaker", "FeelFewer", "FeelChanged", "ShowCompare", "Done"};
+      "FeelWeaker", "FeelFewer", "FeelChanged", "ShowCompare", "Done",
+      "ChangeMethod"};
   auto hit = [](KickPage page) {
     return [page](int w, int h, int x, int y) {
       const int a = static_cast<int>(kick_page_action_at(page, w, h, x, y));
@@ -225,10 +226,23 @@ void register_kicks() {
   };
   add("kick_today", [](Canvas &c) { kick_page_render_today(c, kick_today()); },
       hit(KickPage::Today), names);
+  add("kick_today_method",
+      [](Canvas &c) {
+        kick_page_render_today(c, kick_today(), false, {true, KickMode::CountToTen});
+      },
+      hit(KickPage::Today), names);
+  add("kick_today_checkin",
+      [](Canvas &c) {
+        kick_page_render_today(c, kick_today(), true, {true, KickMode::Awareness});
+      },
+      hit(KickPage::Today), names);
   add("kick_insights",
       [](Canvas &c) { kick_page_render_insights(c, kick_today(), kick_trend()); },
       hit(KickPage::Insights), names);
   add("kick_mode_select", [](Canvas &c) { kick_page_render_mode_select(c); },
+      hit(KickPage::ModeSelect), names);
+  add("kick_mode_select_set",
+      [](Canvas &c) { kick_page_render_mode_select(c, {true, KickMode::CountToTen}); },
       hit(KickPage::ModeSelect), names);
   add("kick_counter_timed",
       [](Canvas &c) { kick_page_render_counter(c, KickPeriod::Evening, 7U, 5U, KickMode::Timed); },

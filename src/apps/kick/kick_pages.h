@@ -45,6 +45,14 @@ enum class KickAction : uint8_t {
   FeelChanged,
   ShowCompare,
   Done,
+  ChangeMethod, // Today: pick the record method again
+};
+
+// The record method the user picked last; unset until they choose one.
+// 用户上次选择的记录方式；未选择过时 set 为 false。
+struct KickMethod {
+  bool set = false;
+  KickMode mode = KickMode::Timed;
 };
 
 // Descriptive comparison text; never contains advice or labels.
@@ -66,13 +74,14 @@ const char *kick_feel_label(KickFeel feel);
 const char *kick_mode_label(KickMode mode);
 
 void kick_page_render_today(Canvas &canvas, const KickDaySummary &today,
-                            bool save_failed = false);
+                            bool save_failed = false, KickMethod method = {});
 void kick_page_render_insights(Canvas &canvas, const KickDaySummary &today,
                                const KickTrendSummary &trend);
 void kick_page_render_counter(Canvas &canvas, KickPeriod period,
                               uint16_t count, uint16_t elapsed_minutes,
                               KickMode mode = KickMode::Timed);
-void kick_page_render_mode_select(Canvas &canvas);
+// `method` (when set) is drawn inverted as the current choice.
+void kick_page_render_mode_select(Canvas &canvas, KickMethod method = {});
 void kick_page_render_feel(Canvas &canvas);
 void kick_page_render_result(Canvas &canvas, const KickSession &session,
                              const KickComparison &comparison,

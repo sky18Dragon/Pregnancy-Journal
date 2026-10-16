@@ -15,6 +15,12 @@ public:
     return true;
   }
   bool at_capacity() override { return full; }
+  bool has_memory = false;
+  KickMode memory = KickMode::Timed;
+  bool remembered_mode(KickMode &mode) override {
+    mode = memory;
+    return has_memory;
+  }
 };
 
 constexpr int64_t kSecond = 1000000LL;
@@ -153,6 +159,67 @@ int main() {
   flow.handle_action(KickAction::ShowCompare, 0);
   flow.handle_action(KickAction::Back, 0);
   assert(flow.page() == KickPage::Result);
+
+  // Remembered method: Start skips the method page; picking a method is what
+  // gets remembered, whether or not the session is ever saved.
+  {
+    FakePort p2;
+    KickFlow f2(p2);
+    KickFlowResult q = f2.handle_action(KickAction::Start, 0);
+    assert(f2.page() == KickPage::ModeSelect && !q.remember_mode);  // none yet
+    q = f2.handle_action(KickAction::StartCountToTen, 5 * kSecond);
+    assert(q.remember_mode && q.mode == KickMode::CountToTen &&
+           f2.page() == KickPage::Counter);
+    f2.abandon_session();
+    f2.handle_action(KickAction::Start, 0);
+    q = f2.handle_action(KickAction::StartAwareness, 0);
+    assert(q.remember_mode && q.mode == KickMode::Awareness &&
+           f2.page() == KickPage::Feel);
+    // Reached through the method page, Back returns there.
+    f2.handle_action(KickAction::Back, 0);
+    assert(f2.page() == KickPage::ModeSelect);
+    q = f2.handle_action(KickAction::StartTimed, 9 * kSecond);
+    assert(q.remember_mode && q.mode == KickMode::Timed);
+    f2.abandon_session();
+
+    p2.has_memory = true;
+    p2.memory = KickMode::Timed;
+    q = f2.handle_action(KickAction::Start, 20 * kSecond);
+    assert(q.render && !q.remember_mode && f2.page() == KickPage::Counter &&
+           f2.counter().mode() == KickMode::Timed);
+    f2.abandon_session();
+    p2.memory = KickMode::CountToTen;
+    f2.handle_action(KickAction::Start, 30 * kSecond);
+    assert(f2.page() == KickPage::Counter &&
+           f2.counter().mode() == KickMode::CountToTen);
+    f2.abandon_session();
+
+    // A remembered check-in opens the feel page; Back goes to Today, not to a
+    // method list the user never saw.
+    p2.memory = KickMode::Awareness;
+    q = f2.handle_action(KickAction::Start, 0);
+    assert(q.render && !q.remember_mode && f2.page() == KickPage::Feel);
+    f2.handle_action(KickAction::Back, 0);
+    assert(f2.page() == KickPage::Today);
+
+    // Change method always asks, and Back leaves the memory alone.
+    q = f2.handle_action(KickAction::ChangeMethod, 0);
+    assert(q.render && !q.remember_mode && f2.page() == KickPage::ModeSelect);
+    f2.handle_action(KickAction::Back, 0);
+    assert(f2.page() == KickPage::Today);
+
+    // The record limit and an unreadable clock stop a remembered start too.
+    p2.full = true;
+    q = f2.handle_action(KickAction::Start, 0);
+    assert(q.capacity_reached && f2.page() == KickPage::Today);
+    q = f2.handle_action(KickAction::ChangeMethod, 0);
+    assert(q.capacity_reached && f2.page() == KickPage::Today);
+    p2.full = false;
+    p2.memory = KickMode::Timed;
+    p2.clock_ok = false;
+    q = f2.handle_action(KickAction::Start, 0);
+    assert(q.render && f2.save_failed() && f2.page() == KickPage::Today);
+  }
 
   // Clock refresh reports a date change once.
   flow.go_today();

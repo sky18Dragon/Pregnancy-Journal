@@ -259,7 +259,7 @@ LegacyMigrationReadStatus read_device_preferences(
     }
     if (!pregnancy_repository::device_preferences_key(output.key) ||
         !encode_ok(pregnancy_repository::encode_device_preferences(
-            selected.settings, output.payload))) {
+            sticky_persistent_settings(selected), output.payload))) {
         return LegacyMigrationReadStatus::Corrupt;
     }
     return LegacyMigrationReadStatus::Record;

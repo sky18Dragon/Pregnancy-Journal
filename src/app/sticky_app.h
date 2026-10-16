@@ -2,6 +2,7 @@
 
 #include "esp_err.h"
 #include "key_policy.h"
+#include "persistent_state.h"
 #include "sticky_app_id.h"
 
 class Canvas;
@@ -24,3 +25,10 @@ void sticky_app_set_key_policy(StickyAppId app, KeyPolicy policy);
 void sticky_app_notify_application_data_deleted();
 
 bool sticky_app_preferences_save_failed();
+
+// The kick record method the user picked last (Unset until they pick one), and
+// the call that records a new pick. Safe to call from any task: the coordinator
+// owns the saved preferences and applies the change on its own task.
+// 胎动记录方式的上次选择及其记录；可在任意任务调用，由协调器在自己的任务里落盘。
+StickyKickModePref sticky_app_kick_mode_pref();
+void sticky_app_set_kick_mode_pref(StickyKickModePref pref);

@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <utility>
 #include <vector>
 
 #include "canvas.h"
@@ -323,8 +324,51 @@ void test_key_policy() {
   assert(kick_page_key_policy(KickPage::Counter) == KeyPolicy::Capture);
 }
 
+// Today's method row: a CHANGE target on Today only, drawn with the pages in
+// every method state, and the current method inverted on the method page.
+void test_method_row() {
+  for (const auto &size : {std::pair<int, int>{800, 480}, std::pair<int, int>{480, 800}}) {
+    for (KickPage page : {KickPage::Today, KickPage::Insights, KickPage::Counter,
+                          KickPage::ModeSelect, KickPage::Feel, KickPage::Result,
+                          KickPage::Compare}) {
+      KickTarget targets[16];
+      const size_t count = kick_page_targets(page, size.first, size.second, targets, 16U);
+      bool has_change = false;
+      for (size_t i = 0U; i < count; ++i)
+        has_change = has_change || targets[i].action == KickAction::ChangeMethod;
+      assert(has_change == (page == KickPage::Today));
+    }
+    std::vector<uint8_t> buffer(static_cast<size_t>(size.first) * size.second / 4U, 0xFFU);
+    Canvas canvas(size.first, size.second, buffer.data(), buffer.size());
+    const KickDaySummary today = populated_today();
+    for (const KickMethod &method :
+         {KickMethod{}, KickMethod{true, KickMode::Timed},
+          KickMethod{true, KickMode::CountToTen}, KickMethod{true, KickMode::Awareness}}) {
+      for (UiLanguage language : {UiLanguage::English, UiLanguage::ChineseSimplified}) {
+        ui_language_set(language);
+        kick_page_render_today(canvas, today, false, method);
+        assert_binary_and_visible(canvas);
+        kick_page_render_today(canvas, today, true, method);
+        assert_binary_and_visible(canvas);
+        kick_page_render_mode_select(canvas, method);
+        assert_binary_and_visible(canvas);
+      }
+    }
+    // The current method is drawn inverted: the first option's body is black
+    // when it is selected and white when it is not.
+    const prototype_ui::Rect first = {24, size.first > size.second ? 96 : 112, 400, 40};
+    kick_page_render_mode_select(canvas, {true, KickMode::Timed});
+    assert(canvas.pixel_at(first.x + 300, first.y + 20) == GrayLevel::Black);
+    kick_page_render_mode_select(canvas, {true, KickMode::CountToTen});
+    assert(canvas.pixel_at(first.x + 300, first.y + 20) == GrayLevel::White);
+    kick_page_render_mode_select(canvas, {});
+    assert(canvas.pixel_at(first.x + 300, first.y + 20) == GrayLevel::White);
+  }
+}
+
 int main() {
   test_key_policy();
+  test_method_row();
   test_back_graph();
   test_target_contract();
   test_formatting();

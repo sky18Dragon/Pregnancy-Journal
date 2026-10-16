@@ -210,7 +210,11 @@ bool device_preferences_valid(const StickyDeviceSettings &value)
 {
     return (value.language == UiLanguage::English ||
             value.language == UiLanguage::ChineseSimplified) &&
-           sticky_app_id_valid(value.last_app);
+           sticky_app_id_valid(value.last_app) &&
+           static_cast<uint8_t>(value.shortcut_target) <=
+               static_cast<uint8_t>(StickyShortcutTarget::Off) &&
+           static_cast<uint8_t>(value.kick_mode_pref) <=
+               static_cast<uint8_t>(StickyKickModePref::Awareness);
 }
 
 bool terminated(const char *value, size_t capacity)
@@ -552,7 +556,9 @@ RecordCodecStatus encode_device_preferences(
     if (!device_preferences_valid(value)) return RecordCodecStatus::InvalidArgument;
     return encode(kDevicePreferencesMagic, [&](Writer &writer) {
         return writer.u8(static_cast<uint8_t>(value.language)) &&
-               writer.u8(static_cast<uint8_t>(value.last_app));
+               writer.u8(static_cast<uint8_t>(value.last_app)) &&
+               writer.u8(static_cast<uint8_t>(value.shortcut_target)) &&
+               writer.u8(static_cast<uint8_t>(value.kick_mode_pref));
     }, payload);
 }
 
@@ -565,11 +571,24 @@ RecordCodecStatus decode_device_preferences(
     StickyDeviceSettings decoded = {};
     uint8_t language = 0U;
     uint8_t app = 0U;
-    if (!body.u8(language) || !body.u8(app) || body.remaining() != 0U) {
+    if (!body.u8(language) || !body.u8(app)) {
+        return RecordCodecStatus::Corrupt;
+    }
+    // Records written by older firmware stop after these two bytes; the newer
+    // fields then keep their defaults.
+    uint8_t shortcut = static_cast<uint8_t>(decoded.shortcut_target);
+    uint8_t kick_mode = static_cast<uint8_t>(decoded.kick_mode_pref);
+    if (body.remaining() != 0U &&
+        (!body.u8(shortcut) || !body.u8(kick_mode))) {
+        return RecordCodecStatus::Corrupt;
+    }
+    if (body.remaining() != 0U) {
         return RecordCodecStatus::Corrupt;
     }
     decoded.language = static_cast<UiLanguage>(language);
     decoded.last_app = static_cast<StickyAppId>(app);
+    decoded.shortcut_target = static_cast<StickyShortcutTarget>(shortcut);
+    decoded.kick_mode_pref = static_cast<StickyKickModePref>(kick_mode);
     if (!device_preferences_valid(decoded)) return RecordCodecStatus::Corrupt;
     value = decoded;
     return RecordCodecStatus::Ok;
