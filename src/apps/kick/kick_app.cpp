@@ -6,6 +6,7 @@
 #include "canvas.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
 #include "freertos/task.h"
 #include "kick_flow.h"
 #include "kick_pages.h"
@@ -43,6 +44,10 @@ KickSession s_pending_session = {};
 bool s_retry_session = false;
 uint32_t s_session_generation = 0U;
 PageRefreshTracker s_refresh;
+// Top-key presses made while the counter shows, as esp_timer microseconds. The
+// coordinator posts them; the kicks task counts them at the time they were made.
+constexpr UBaseType_t kKeyQueueLength = 8U;
+QueueHandle_t s_key_queue = nullptr;
 constexpr int kStatusPageId = 1000;
 press_feedback::Pending s_press;
 
@@ -276,6 +281,30 @@ void handle(int x, int y) {
     render();
 }
 
+// Counts the queued top-key presses like taps on the circle, each at the time
+// it was made, so presses that waited out a screen refresh are not merged by
+// the debounce. The page is redrawn once for the whole batch.
+void handle_key_presses() {
+  int64_t at_us = 0;
+  bool changed = false;
+  while (xQueueReceive(s_key_queue, &at_us, 0) == pdTRUE) {
+    if (s_store.pending() || status_page_active() ||
+        s_flow.page() != KickPage::Counter)
+      continue;
+    const uint16_t before = s_flow.counter().count();
+    const KickFlowResult result = s_flow.handle_action(KickAction::Count, at_us);
+    apply_flow_result(result);
+    if (s_flow.counter().count() != before || result.save_session)
+      changed = true;
+    if (result.save_session) {
+      // The session is finished; later presses belong to nothing.
+      xQueueReset(s_key_queue);
+      break;
+    }
+  }
+  if (changed) render();
+}
+
 void task(void *) {
   begin_load();
   s_flow.read_clock();
@@ -288,6 +317,7 @@ void task(void *) {
       begin_load(); render(true);
     }
     if (sticky_app_lifecycle_checkpoint(s_lifecycle)) {
+      xQueueReset(s_key_queue);  // presses from before the pause are stale
       if (!s_store.pending() && !s_store.ready()) {
         begin_load();
       }
@@ -307,6 +337,7 @@ void task(void *) {
       clock_polls = 0U;
       if (s_flow.refresh_clock()) render(true);
     }
+    handle_key_presses();
     StickyTouchPress press = {};
     if (sticky_touch_take_press(press)) {
       int x = 0, y = 0;
@@ -328,9 +359,17 @@ esp_err_t kick_app_start(Canvas &canvas) {
   if (s_task != nullptr)
     return ESP_OK;
   s_canvas = &canvas;
+  if (s_key_queue == nullptr)
+    s_key_queue = xQueueCreate(kKeyQueueLength, sizeof(int64_t));
+  if (s_key_queue == nullptr)
+    return ESP_ERR_NO_MEM;
   return xTaskCreate(task, "kicks", kTaskStackBytes, nullptr, 3U, &s_task) == pdPASS
              ? ESP_OK
              : ESP_ERR_NO_MEM;
+}
+void kick_app_capture_press(int64_t at_us) {
+  if (s_key_queue != nullptr)
+    xQueueSend(s_key_queue, &at_us, 0);
 }
 esp_err_t kick_app_pause() {
   return sticky_app_lifecycle_pause(s_lifecycle, s_task);

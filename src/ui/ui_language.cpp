@@ -187,7 +187,7 @@ constexpr Translation kTranslations[] = {
     {"MOST RECORDED", "记录最多"},
     {"TODAY BY PERIOD", "今日时段"},
     {"TAP ONCE FOR EACH DISTINCT MOVEMENT", "每次明显胎动点一下"},
-    {"TAP TO RECORD", "点击记录"},
+    {"TAP OR TOP KEY", "点屏幕或按顶部键"},
     {"COUNT DISTINCT MOVEMENTS", "记录明显胎动"},
     {"A CONTINUOUS SERIES OF MOTIONS CAN BE RECORDED AS ONE MOVEMENT",
      "连续的一组动作可记为一次胎动"},

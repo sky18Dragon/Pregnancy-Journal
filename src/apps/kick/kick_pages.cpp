@@ -389,7 +389,7 @@ void kick_page_render_counter(Canvas &canvas, KickPeriod period,
                   static_cast<unsigned>(count));
   draw_centered(canvas, center_x, center_y - 56, count_text, ui_tokens::kCounterDisplay,
                 FontWeight::Medium);
-  draw_centered(canvas, center_x, center_y + 34, ui_text("TAP TO RECORD"), ui_tokens::kBody,
+  draw_centered(canvas, center_x, center_y + 34, ui_text("TAP OR TOP KEY"), ui_tokens::kBody,
                 FontWeight::Medium);
   char elapsed[48] = {};
   std::snprintf(elapsed, sizeof(elapsed),

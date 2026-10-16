@@ -20,11 +20,12 @@ enum class KickPage : uint8_t {
   Compare,
 };
 
-// How the hardware keys act on `page`. The counter stays Locked until the top
-// key records movements (P2); then it becomes KeyPolicy::Capture.
-// 各页对硬件按键的反应；计数页在顶键计数（P2）落地前为 Locked。
+// How the hardware keys act on `page`. On the counter the top key records one
+// movement, exactly like tapping the circle; the other keys are ignored so a
+// stray press cannot leave a running session.
+// 各页对硬件按键的反应；计数页的顶键等同点计数圆，其余键忽略，避免误触离开进行中的记录。
 inline KeyPolicy kick_page_key_policy(KickPage page) {
-  return page == KickPage::Counter ? KeyPolicy::Locked : KeyPolicy::Free;
+  return page == KickPage::Counter ? KeyPolicy::Capture : KeyPolicy::Free;
 }
 
 enum class KickAction : uint8_t {

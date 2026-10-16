@@ -21,6 +21,7 @@ DEFINE_APP_STUBS(kick)
 DEFINE_APP_STUBS(settings)
 
 bool settings_app_power_sleep_allowed() { return true; }
+void kick_app_capture_press(int64_t) {}
 
 int main() {
   assert(sticky_app_registry_count() == 4U);
@@ -39,6 +40,9 @@ int main() {
   for (size_t index = 0U; index < sticky_app_registry_count(); ++index) {
     assert(apps[index].id == expected[index]);
     assert(apps[index].rotation == StickyAppRotationPolicy::FollowDevice);
+    // Only the kick counter takes the top key as an action.
+    assert((apps[index].capture_press != nullptr) ==
+           (apps[index].id == StickyAppId::Kicks));
   }
   return 0;
 }

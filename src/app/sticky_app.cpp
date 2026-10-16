@@ -530,10 +530,15 @@ void handle_button_record(const StickyButtonRecord &record) {
   case KeyAction::SwitchApp:
     s_side_merger.add(decision.step, record.at_us);
     break;
+  case KeyAction::CapturePress: {
+    const StickyAppDescriptor *app = s_manager.current();
+    if (app != nullptr && app->capture_press != nullptr)
+      app->capture_press(record.at_us);
+    break;
+  }
   case KeyAction::None:
   case KeyAction::PageFlip:
-  case KeyAction::CapturePress:
-    // PageFlip and CapturePress have no consumer yet (Pager / Capture pages).
+    // PageFlip has no consumer yet (no Pager page).
     break;
   }
 }

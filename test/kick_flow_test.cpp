@@ -104,6 +104,33 @@ int main() {
   r = flow.handle_action(KickAction::Count, 200 * kSecond);
   assert(r.save_session && r.session.mode == KickMode::CountToTen && r.session.count == 10U);
 
+  // Top-key presses are counted at the time they were made. Presses that waited
+  // out a screen refresh arrive together but keep their own times, so the
+  // debounce only merges presses that really were closer than 400 ms.
+  flow.abandon_session();
+  flow.handle_action(KickAction::Start, 0);
+  flow.handle_action(KickAction::StartTimed, 1000 * kSecond);
+  flow.handle_action(KickAction::Count, 1010 * kSecond);
+  flow.handle_action(KickAction::Count, 1010 * kSecond + 900000);
+  flow.handle_action(KickAction::Count, 1011 * kSecond);          // 100 ms later
+  flow.handle_action(KickAction::Count, 1011 * kSecond + 400000); // 500 ms later
+  assert(flow.counter().count() == 3U);
+  // A press made before the session began (it was queued across a page change)
+  // is not a movement of this session.
+  flow.handle_action(KickAction::Count, 999 * kSecond);
+  assert(flow.counter().count() == 3U);
+
+  // The time to ten ends at the tenth press, not when it is processed.
+  flow.abandon_session();
+  flow.handle_action(KickAction::Start, 0);
+  flow.handle_action(KickAction::StartCountToTen, 2000 * kSecond);
+  for (int i = 1; i <= 9; ++i)
+    flow.handle_action(KickAction::Count, (2000 + 5 * i) * kSecond);
+  r = flow.handle_action(KickAction::Count, 2050 * kSecond);
+  assert(r.save_session && r.session.count == 10U &&
+         r.session.elapsed_seconds == 50U);
+  flow.abandon_session();
+
   // The counter expires after an hour; only on the counter page.
   flow.abandon_session();
   assert(flow.page() == KickPage::Today && flow.counter().count() == 0U);

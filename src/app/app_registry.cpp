@@ -22,7 +22,7 @@ const StickyAppDescriptor kApps[] = {
     {StickyAppId::Kicks, "kicks", "Kicks",
      StickyAppRotationPolicy::FollowDevice, kick_app_start, kick_app_pause,
      kick_app_resume, kick_app_prepare_power_sleep,
-     kick_app_power_sleep_timeout_ms, allow_sleep},
+     kick_app_power_sleep_timeout_ms, allow_sleep, kick_app_capture_press},
     {StickyAppId::Settings, "settings", "Settings",
      StickyAppRotationPolicy::FollowDevice, settings_app_start,
      settings_app_pause, settings_app_resume, settings_app_prepare_power_sleep,

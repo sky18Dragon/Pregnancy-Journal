@@ -319,8 +319,8 @@ void test_key_policy() {
   for (KickPage page : {KickPage::Today, KickPage::Insights, KickPage::ModeSelect,
                         KickPage::Feel, KickPage::Result, KickPage::Compare})
     assert(kick_page_key_policy(page) == KeyPolicy::Free);
-  // A running counter must not be left by a stray side key.
-  assert(kick_page_key_policy(KickPage::Counter) == KeyPolicy::Locked);
+  // The top key counts on the counter; no other key may leave a running session.
+  assert(kick_page_key_policy(KickPage::Counter) == KeyPolicy::Capture);
 }
 
 int main() {
