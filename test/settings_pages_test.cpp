@@ -319,7 +319,7 @@ int main() {
   write_preview(canvas, "/tmp/settings_storage_portrait_zh.ppm");
   settings_page_render_storage_confirm(canvas);
   write_preview(canvas, "/tmp/settings_storage_confirm_portrait_zh.ppm");
-  assert(std::strcmp(ui_text("MICROSD STORAGE"), "MICROSD 数据") == 0);
+  assert(std::strcmp(ui_text("MICROSD STORAGE"), "内存卡数据") == 0);
   ui_language_set(UiLanguage::English);
   settings_page_render_time_editor(canvas, time_fields, false);
   write_preview(canvas, "/tmp/settings_time_portrait.ppm");

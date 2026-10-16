@@ -21,6 +21,26 @@ int main() {
   assert(chinese_back_width < english_back_width);
   assert(chinese_font_glyph_count() > 100U);
 
+  // Status pages and operation results that no preview page draws: in Chinese mode none may stay English
+  // or lack a glyph.
+  const char *const unpreviewed[] = {
+      "MICROSD CARD IS REQUIRED", "MICROSD CARD IS READ ONLY", "MICROSD STORAGE IS FULL",
+      "CREATE OR SELECT A DATASET IN SETTINGS", "MICROSD DATA NEEDS REVIEW", "MICROSD CARD CHANGED",
+      "MICROSD DATA CHANGED · RELOAD REQUIRED", "MICROSD STORAGE UNAVAILABLE", "MICROSD DATA",
+      "PREGNANCY PROFILE STORAGE", "NO FLASH FALLBACK WAS USED", "RETRY", "CHECKUP DATA", "REMINDER DATA",
+      "CONFIRM DETAILS WITH YOUR CARE TEAM", "SAFE TO REMOVE CARD", "SAFE EJECT FAILED",
+      "PREGJNL DATA DELETED", "APP DATA DELETE FAILED", "DEVICE BINDING RESET", "DEVICE RESET FAILED",
+      "SAVE FAILED - RETRYING", "CAPACITY UNAVAILABLE", "STORAGE UNAVAILABLE", "DATASET ID UNAVAILABLE",
+      "MICROSD ERROR", "LEGACY KICK DATA IS PRESENT AND WILL BE PRESERVED.",
+  };
+  for (const char *english : unpreviewed) {
+    const char *shown = ui_text(english);
+    assert(std::strcmp(shown, english) != 0);
+    for (const char *c = shown; *c != '\0'; ++c)
+      assert(!((*c >= 'A' && *c <= 'Z') || (*c >= 'a' && *c <= 'z')));
+    assert(ui_text_width(english, 2) > 0);
+  }
+
   std::vector<uint8_t> pixels((120U * 40U + 3U) / 4U, 0xFFU);
   Canvas canvas(120, 40, pixels.data(), pixels.size());
   canvas.draw_text(4, 4, "BACK", 2, GrayLevel::Black);

@@ -12,6 +12,9 @@ struct Translation {
   const char *chinese;
 };
 std::atomic<UiLanguage> s_language{UiLanguage::English};
+#ifdef UI_TEXT_OBSERVER
+UiMissingTranslationObserver s_missing_observer = nullptr;
+#endif
 
 constexpr Translation kTranslations[] = {
     {"RELOAD FROM MICROSD", "重新读取内存卡"},
@@ -59,7 +62,7 @@ constexpr Translation kTranslations[] = {
     {"REMOVES OLD PREGNANCY, WEIGHT AND DEVICE SETTING COPIES. MICROSD RECORDS ARE NOT CHANGED.", "清除孕期、体重与设置原记录，不改动卡上记录。"},
     {"REMOVES ONLY VERIFIED OLD KICK COPIES. MICROSD RECORDS ARE NOT CHANGED.", "仅清除已检查的胎动原记录，不改动卡上记录。"},
     {"KICK COPIES ARE CLEARED ONLY AFTER VERIFIED IMPORT.", "胎动原记录仅在保存检查完成后清除。"},
-    {"REMINDER AND CHECKUP COPIES ARE PRESERVED FOR V2.", "提醒与产检原记录保留到 V2。"},
+    {"REMINDER AND CHECKUP COPIES ARE PRESERVED FOR V2.", "提醒与产检原记录将保留到后续版本。"},
     {"PROFILE / WEIGHT / SETTINGS", "孕期 / 体重 / 设置"},
     {"SELECT IMPORT", "选择原记录"},
     {"CHOOSE AN APP", "选择应用"},
@@ -72,7 +75,7 @@ constexpr Translation kTranslations[] = {
     {"HOME DASHBOARD", "主页"},
     {"Weight", "体重"},
     {"Kicks", "胎动"},
-    {"STICKY CORE", "STICKY 核心"},
+    {"STICKY CORE", "设备核心"},
     {"FRAMEWORK", "通用框架"},
     {"RTC  READY", "时钟  正常"},
     {"RTC  UNAVAILABLE", "时钟  不可用"},
@@ -162,8 +165,8 @@ constexpr Translation kTranslations[] = {
     {"CHECK WEIGHT TREND", "建议确认体重趋势"},
     {"ADD WEIGHT", "记录体重"},
     {"TODAY'S WEIGHT", "今日体重"},
-    {"UNIT KG", "单位 KG"},
-    {"UNIT LB", "单位 LB"},
+    {"UNIT KG", "单位 公斤"},
+    {"UNIT LB", "单位 磅"},
     {"ADD TODAY", "记录今日体重"},
     {"-  HEIGHT  +", "-  身高  +"},
     {"REMOVE LATEST", "删除最近记录"},
@@ -257,7 +260,7 @@ constexpr Translation kTranslations[] = {
     {"CLEARS E-INK GHOSTING", "清理残影，不会删除数据"},
     {"RUN", "执行"},
     {"DEFAULT HOME SCREEN", "回到默认主界面"},
-    {"MICROSD STORAGE", "MICROSD 数据"},
+    {"MICROSD STORAGE", "内存卡数据"},
     {"USER DATA AND AUDIO", "孕期数据与录音"},
     {"VIEW", "查看"},
     {"USER DATA AND AUDIO ON THE MEMORY CARD", "孕期数据与录音保存在内存卡"},
@@ -313,13 +316,13 @@ constexpr Translation kTranslations[] = {
     {"CARD ALREADY INITIALIZED", "内存卡已有数据集"},
     {"CONFIRMATION REQUIRED", "需要确认"},
     {"INITIALIZATION FAILED", "创建失败"},
-    {"INITIALIZE MICROSD", "创建 MICROSD 数据"},
+    {"INITIALIZE MICROSD", "创建内存卡数据"},
     {"CREATE PREGJNL DATASET · CARD IS NOT FORMATTED",
-     "创建 PREGJNL 数据集 · 不重置内存卡"},
-    {"PREGJNL DATASET · NO FORMAT", "PREGJNL 数据集 · 不重置内存卡"},
+     "创建孕期记录数据集 · 不重置内存卡"},
+    {"PREGJNL DATASET · NO FORMAT", "孕期记录数据集 · 不重置内存卡"},
     {"CONFIRM NEW DATASET", "确认创建新数据集"},
     {"THIS CREATES THE PREGJNL DATA FOLDER. IT DOES NOT FORMAT THE CARD OR DELETE OTHER FILES.",
-     "将创建 PREGJNL 数据目录，不重置内存卡，不删除卡中原有数据。"},
+     "将创建孕期记录数据目录，不重置内存卡，不删除卡中原有数据。"},
     {"FUTURE USER RECORDS AND AUDIO WILL BE SAVED ON THIS CARD.",
      "孕期记录和录音将保存在内存卡中。"},
     {"CREATE DATASET", "创建数据集"},
@@ -337,6 +340,75 @@ constexpr Translation kTranslations[] = {
     {"EDIT DUE DATE", "编辑预产期"},
     {"DONE", "完成"},
     {"CLOSE", "关闭"},
+    // Units. In Chinese mode no Latin letters may be drawn.
+    {"KG", "公斤"},
+    {"LB", "磅"},
+    {"CM", "厘米"},
+    {"EXISTING", "已有"},
+    {"CONFIRM", "确认"},
+    // Settings: storage, migration and the two destructive confirmations.
+    {"SAFE EJECT", "安全弹出"},
+    {"STATUS", "状态"},
+    {"IMPORTED", "已保存"},
+    {"NEW + ALREADY ON CARD", "新保存 + 卡上已有"},
+    {"LEGACY KICK DATA IS NEVER DELETED BY THIS TOOL.",
+     "本工具不会删除原胎动记录。"},
+    {"YYYY / MM / DD · HH : MM", "年 / 月 / 日 · 时 : 分"},
+    {"DELETE CARD APP DATA", "删除内存卡应用数据"},
+    {"CURRENT PREGJNL DATASET ONLY", "仅限当前孕期记录数据集"},
+    {"PERMANENTLY REMOVES THE PREGJNL APPLICATION DIRECTORY. IT DOES NOT FORMAT THE CARD OR DELETE OTHER CARD FILES.",
+     "将永久删除孕期记录应用目录，不会重置内存卡，也不会删除卡中其他文件。"},
+    {"DEVICE RESET AND OLD NVS COPY CLEANUP ARE SEPARATE ACTIONS.",
+     "设备重置与清除原记录是两个独立操作。"},
+    {"DELETE PREGJNL DATA", "删除孕期记录数据"},
+    {"LOCAL NETWORK CREDENTIAL KEY ONLY", "仅限本机网络凭据密钥"},
+    {"CONFIRM LOCAL RESET", "确认本机重置"},
+    {"FORGETS THIS DEVICE'S LOCAL NETWORK KEY AND CLEARS THE RAM-ONLY WI-FI CONFIGURATION. NETWORK AUTHORIZATION MUST BE SET UP AGAIN.",
+     "将忘记本机的本地网络密钥，并清除仅存于内存的无线网络配置，之后需要重新设置网络授权。"},
+    {"MICROSD PREGJNL DATA, OTHER CARD FILES AND OLD NVS RECORDS ARE NOT DELETED.",
+     "内存卡中的孕期记录数据、其他文件和原设备记录都不会被删除。"},
+    {"RESET THIS DEVICE", "重置本机"},
+    // Baby page: the broad, non-diagnostic stage words of the week bands.
+    {"EARLY STAGE", "非常早期"},
+    {"VERY SMALL", "极小"},
+    {"EARLY FETAL STAGE", "胎儿早期"},
+    {"ACTIVE GROWTH", "生长活跃"},
+    {"MORE DEFINED", "轮廓渐清"},
+    {"RAPID GROWTH", "快速生长"},
+    {"STEADY GROWTH", "稳步生长"},
+    {"TOO EARLY TO ESTIMATE", "太早，暂无法估计"},
+    {"DEVELOPING", "发育中"},
+    {"GROWING", "增长中"},
+    {"ADDING FAT", "开始积累脂肪"},
+    {"INCREASING", "逐渐增加"},
+    // Storage status pages, operation results and a few record defaults.
+    {"MICROSD CARD IS REQUIRED", "需要插入内存卡"},
+    {"MICROSD CARD IS READ ONLY", "内存卡为只读状态"},
+    {"MICROSD STORAGE IS FULL", "内存卡空间已满"},
+    {"CREATE OR SELECT A DATASET IN SETTINGS", "请先在设置里创建或选择数据集"},
+    {"MICROSD DATA NEEDS REVIEW", "内存卡数据需要检查"},
+    {"MICROSD CARD CHANGED", "内存卡已更换"},
+    {"MICROSD DATA CHANGED · RELOAD REQUIRED", "内存卡数据已变化 · 请重新读取"},
+    {"MICROSD STORAGE UNAVAILABLE", "内存卡暂时不可用"},
+    {"MICROSD DATA", "内存卡数据"},
+    {"PREGNANCY PROFILE STORAGE", "孕期资料存储"},
+    {"NO FLASH FALLBACK WAS USED", "未使用设备内存备份"},
+    {"RETRY", "重试"},
+    {"CHECKUP DATA", "产检数据"},
+    {"REMINDER DATA", "提醒数据"},
+    {"CONFIRM DETAILS WITH YOUR CARE TEAM", "请向医护团队确认详情"},
+    {"SAFE TO REMOVE CARD", "可以安全取出内存卡"},
+    {"SAFE EJECT FAILED", "安全弹出失败"},
+    {"PREGJNL DATA DELETED", "应用数据已删除"},
+    {"APP DATA DELETE FAILED", "应用数据删除失败"},
+    {"DEVICE BINDING RESET", "设备绑定已重置"},
+    {"DEVICE RESET FAILED", "设备重置失败"},
+    {"SAVE FAILED - RETRYING", "保存失败 · 正在重试"},
+    {"CAPACITY UNAVAILABLE", "容量暂不可用"},
+    {"STORAGE UNAVAILABLE", "存储暂不可用"},
+    {"DATASET ID UNAVAILABLE", "数据集编号不可用"},
+    {"MICROSD ERROR", "内存卡错误"},
+    {"LEGACY KICK DATA IS PRESENT AND WILL BE PRESERVED.", "检测到原胎动记录，将予以保留。"},
 };
 
 } // namespace
@@ -360,8 +432,18 @@ const char *ui_text(const char *english) {
     if (std::strcmp(entry.english, english) == 0)
       return entry.chinese;
   }
+#ifdef UI_TEXT_OBSERVER
+  if (s_missing_observer != nullptr)
+    s_missing_observer(english);
+#endif
   return english;
 }
+
+#ifdef UI_TEXT_OBSERVER
+void ui_set_missing_translation_observer(UiMissingTranslationObserver observer) {
+  s_missing_observer = observer;
+}
+#endif
 
 int ui_text_width(const char *english, uint8_t scale) {
   return font_text_width(ui_text(english), scale);

@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstring>
 #include <functional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -365,6 +366,15 @@ void register_settings() {
 struct TextItem { int x, y, width, size; std::string text; };
 std::vector<TextItem> g_texts;
 
+std::set<std::string> g_missing;
+void observe_missing(const char *english) {
+  // Already-Chinese text that only embeds an identifier (a dataset id such as "00b454dc") is data, not a gap.
+  for (const char *c = english; *c != '\0'; ++c)
+    if (static_cast<unsigned char>(*c) >= 0xE3) return;
+  for (const char *c = english; *c != '\0'; ++c)
+    if ((*c >= 'A' && *c <= 'Z') || (*c >= 'a' && *c <= 'z')) { g_missing.insert(english); return; }
+}
+
 std::vector<std::string> g_truncated;
 void observe_truncation(const char *text) { g_truncated.push_back(text); }
 
@@ -489,7 +499,9 @@ int main(int argc, char **argv) {
         g_truncated.clear();
         canvas_set_text_observer(observe_text);
         ui_set_truncation_observer(observe_truncation);
+        ui_set_missing_translation_observer(lang == 1 ? observe_missing : nullptr);
         c.render(canvas);
+        ui_set_missing_translation_observer(nullptr);
         canvas_set_text_observer(nullptr);
         ui_set_truncation_observer(nullptr);
         emit(c, canvas, portrait ? "portrait" : "landscape", lang == 0 ? "en" : "zh", dir);
@@ -497,6 +509,11 @@ int main(int argc, char **argv) {
       }
     }
   }
-  std::printf("rendered %d previews into %s\n", count, dir.c_str());
+  if (FILE *f = std::fopen((dir + "/missing_translations.txt").c_str(), "w")) {
+    for (const std::string &key : g_missing) std::fprintf(f, "%s\n", key.c_str());
+    std::fclose(f);
+  }
+  std::printf("rendered %d previews into %s (%zu untranslated strings)\n", count,
+              dir.c_str(), g_missing.size());
   return 0;
 }

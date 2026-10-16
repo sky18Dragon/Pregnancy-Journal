@@ -278,7 +278,9 @@ void settings_page_render_storage(Canvas &canvas,
 
   char capacity[36] = "CAPACITY UNAVAILABLE";
   if (state.capacity_known) {
-    std::snprintf(capacity, sizeof(capacity), "FREE %u / %u MiB",
+    std::snprintf(capacity, sizeof(capacity),
+                  ui_language_is_chinese() ? "剩余 %u / %u 兆字节"
+                                           : "FREE %u / %u MiB",
                   static_cast<unsigned>(state.free_mib),
                   static_cast<unsigned>(state.total_mib));
   }
@@ -340,7 +342,9 @@ void settings_page_render_storage_more(Canvas &canvas,
   draw_nav_row(canvas, 3, "RESET DEVICE BINDING", "RESET LOCAL DEVICE", true);
   char identity[64] = "DATASET ID UNAVAILABLE";
   if (state.dataset_id_prefix[0] != '\0') {
-    std::snprintf(identity, sizeof(identity), "ID %.8s...  GEN %llu",
+    std::snprintf(identity, sizeof(identity),
+                  ui_language_is_chinese() ? "编号 %.8s...  第 %llu 代"
+                                           : "ID %.8s...  GEN %llu",
                   state.dataset_id_prefix,
                   static_cast<unsigned long long>(state.dataset_generation));
   }
@@ -405,9 +409,10 @@ void settings_page_render_legacy_migration(
   char imported[24] = {};
   char conflicts[24] = {};
   std::snprintf(valid, sizeof(valid), "%u", static_cast<unsigned>(state.valid));
-  std::snprintf(imported, sizeof(imported), "%u + %u EXISTING",
+  std::snprintf(imported, sizeof(imported), "%u + %u %s",
                 static_cast<unsigned>(state.imported),
-                static_cast<unsigned>(state.already_present));
+                static_cast<unsigned>(state.already_present),
+                ui_text("EXISTING"));
   std::snprintf(conflicts, sizeof(conflicts), "%u / %u",
                 static_cast<unsigned>(state.conflicts),
                 static_cast<unsigned>(state.corrupt));
@@ -471,7 +476,8 @@ void settings_page_render_card_data_delete_confirm(
                             "CURRENT PREGJNL DATASET ONLY", "BACK");
   char identity[48] = "DATASET ID UNAVAILABLE";
   if (dataset_id_prefix != nullptr && dataset_id_prefix[0] != '\0')
-    std::snprintf(identity, sizeof(identity), "DATASET %.8s...",
+    std::snprintf(identity, sizeof(identity),
+                  ui_language_is_chinese() ? "数据集 %.8s..." : "DATASET %.8s...",
                   dataset_id_prefix);
   canvas.draw_text_pixels(ui_tokens::kContentMargin, is_portrait ? 144 : 122, ui_text(identity),
                           ui_tokens::kSectionHeading, GrayLevel::Black,

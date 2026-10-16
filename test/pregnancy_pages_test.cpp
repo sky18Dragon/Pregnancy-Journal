@@ -242,6 +242,17 @@ int main() {
   ui_language_set(UiLanguage::ChineseSimplified);
   pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress);
   assert(count_level(buffer, GrayLevel::Black) > 8000U);
+  // The Chinese object name (not the English one) is centred under the picture, and the unit label under
+  // the numeral switches from WEEKS to 孕周: both areas must carry ink and differ from the English frame.
+  assert(count_black_rect(canvas, 410, 420, 340, 50) > 100U);
+  const size_t zh_caption_ink = count_black_rect(canvas, 410, 420, 340, 50);
+  const size_t zh_label_ink = count_black_rect(canvas, 30, 190, 260, 40);
+  ui_language_set(UiLanguage::English);
+  pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress);
+  assert(count_black_rect(canvas, 410, 420, 340, 50) != zh_caption_ink);
+  assert(count_black_rect(canvas, 30, 190, 260, 40) != zh_label_ink);
+  ui_language_set(UiLanguage::ChineseSimplified);
+  pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress);
   write_preview(buffer, "/tmp/pregnancy_dashboard_zh.ppm");
 
   pregnancy_page_render_detail(canvas, PregnancyPage::Baby, progress,

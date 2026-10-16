@@ -121,26 +121,38 @@ bool portrait_layout(const Canvas &canvas) {
 // 孕周首页：与参考图的单张图版一致——大号数字、WEEKS、点刻插画、字距拉开的英文名。
 constexpr int kPlateTracking = 6;       // caption letter spacing
 constexpr int kWeeksTracking = 3;
+constexpr int kChineseTracking = 10;    // Chinese captions and the week label need more air
 constexpr int kWeeksGap = 12;           // numeral bottom to WEEKS top
+
+// Letter-spaced text. Walks UTF-8 so Chinese captions are spaced per character.
+size_t utf8_length(unsigned char lead) {
+  return lead < 0x80U ? 1U : (lead < 0xE0U ? 2U : (lead < 0xF0U ? 3U : 4U));
+}
 
 int tracked_text_width(const char *text, uint8_t pixel_size, int tracking,
                        FontWeight weight) {
   int width = 0;
-  char one[2] = {0, 0};
-  for (const char *c = text; *c != '\0'; ++c) {
-    one[0] = *c;
+  char one[5] = {};
+  for (const char *c = text; *c != '\0';) {
+    const size_t length = utf8_length(static_cast<unsigned char>(*c));
+    std::memcpy(one, c, length);
+    one[length] = '\0';
     width += font_text_width_pixels(one, pixel_size, weight) + tracking;
+    c += length;
   }
   return width > 0 ? width - tracking : 0;
 }
 
 void draw_tracked_text(Canvas &canvas, int x, int y, const char *text,
                        uint8_t pixel_size, int tracking, FontWeight weight) {
-  char one[2] = {0, 0};
-  for (const char *c = text; *c != '\0'; ++c) {
-    one[0] = *c;
+  char one[5] = {};
+  for (const char *c = text; *c != '\0';) {
+    const size_t length = utf8_length(static_cast<unsigned char>(*c));
+    std::memcpy(one, c, length);
+    one[length] = '\0';
     canvas.draw_text_pixels(x, y, one, pixel_size, GrayLevel::Black, weight);
     x += font_text_width_pixels(one, pixel_size, weight) + tracking;
+    c += length;
   }
 }
 
@@ -320,25 +332,32 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
       canvas, hero_x, layout.hero.y + layout.hero.height / 2,
       pregnancy_plate_asset(week), 1, GrayLevel::Black);
 
-  const char *caption = pregnancy_plate_caption(week);
+  // Chinese mode shows the Chinese name and 孕周; English mode keeps the plate's
+  // English caption and WEEKS.
+  const bool chinese = ui_language_is_chinese();
+  const char *caption =
+      chinese ? pregnancy_plate_caption_zh(week) : pregnancy_plate_caption(week);
+  const int caption_tracking = chinese ? kChineseTracking : kPlateTracking;
   const int caption_width = tracked_text_width(
-      caption, ui_tokens::kBody, kPlateTracking, FontWeight::Medium);
+      caption, ui_tokens::kBody, caption_tracking, FontWeight::Medium);
   draw_tracked_text(canvas, hero_x - caption_width / 2, layout.caption_y, caption,
-                    ui_tokens::kBody, kPlateTracking, FontWeight::Medium);
+                    ui_tokens::kBody, caption_tracking, FontWeight::Medium);
 
   char digits[8] = {};
   std::snprintf(digits, sizeof(digits), "%d", weeks);
   const int weeks_y = layout.numeral_y + numeral.height + kWeeksGap;
   const int numeral_width = plate_numeral_width(numeral, digits);
-  const int weeks_width = tracked_text_width("WEEKS", ui_tokens::kEmphasis,
-                                             kWeeksTracking, FontWeight::Medium);
+  const char *weeks_label = chinese ? "孕周" : "WEEKS";
+  const int weeks_tracking = chinese ? kChineseTracking : kWeeksTracking;
+  const int weeks_width = tracked_text_width(weeks_label, ui_tokens::kEmphasis,
+                                             weeks_tracking, FontWeight::Medium);
   const int numeral_left =
       layout.numeral_right ? layout.numeral_x - numeral_width : layout.numeral_x;
   const int weeks_left =
       layout.numeral_right ? layout.numeral_x - weeks_width : layout.numeral_x + 2;
   draw_plate_numeral(canvas, numeral_left, layout.numeral_y, numeral, digits);
-  draw_tracked_text(canvas, weeks_left, weeks_y, "WEEKS", ui_tokens::kEmphasis,
-                    kWeeksTracking, FontWeight::Medium);
+  draw_tracked_text(canvas, weeks_left, weeks_y, weeks_label, ui_tokens::kEmphasis,
+                    weeks_tracking, FontWeight::Medium);
 
   draw_menu_icon(canvas, layout.menu);
 }
@@ -387,10 +406,10 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
       canvas.draw_line(24, 450, 456, 450, GrayLevel::Black);
       canvas.draw_text(24, 474, chinese ? "身长参考" : "SIZE GUIDE", 1,
                        GrayLevel::Black);
-      canvas.draw_text(24, 502, content.baby_size_text, 3, GrayLevel::Black);
+      canvas.draw_text(24, 502, ui_text(content.baby_size_text), 3, GrayLevel::Black);
       canvas.draw_text(250, 474, chinese ? "体重参考" : "WEIGHT GUIDE", 1,
                        GrayLevel::Black);
-      canvas.draw_text(250, 502, content.baby_weight_text, 3, GrayLevel::Black);
+      canvas.draw_text(250, 502, ui_text(content.baby_weight_text), 3, GrayLevel::Black);
     } else {
       canvas.draw_text(24, 246,
                        chinese ? "身体负担正在逐渐增加"
@@ -452,10 +471,10 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
     canvas.draw_line(614, 252, 776, 252, GrayLevel::Black);
     canvas.draw_text(238, 266, chinese ? "身长参考" : "SIZE GUIDE", 1,
                      GrayLevel::Black);
-    canvas.draw_text(238, 287, content.baby_size_text, 2, GrayLevel::Black);
+    canvas.draw_text(238, 287, ui_text(content.baby_size_text), 2, GrayLevel::Black);
     canvas.draw_text(426, 266, chinese ? "体重参考" : "WEIGHT GUIDE", 1,
                      GrayLevel::Black);
-    canvas.draw_text(426, 287, content.baby_weight_text, 2, GrayLevel::Black);
+    canvas.draw_text(426, 287, ui_text(content.baby_weight_text), 2, GrayLevel::Black);
     canvas.draw_text(614, 266, chinese ? "本周关键词" : "KEYWORD", 1,
                      GrayLevel::Black);
     ui_draw_wrapped_text_pixels(canvas, 614, 287, 162,
