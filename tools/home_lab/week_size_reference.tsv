@@ -1,0 +1,30 @@
+# Baby size reference used ONLY by the home-page design lab (tools/home_lab).
+#
+# STATUS: layout placeholder. These are rounded, commonly published averages
+# (head-to-rump up to week 18, head-to-heel from week 20, which is why the
+# curve steps between weeks 18 and 20). They have NOT been reviewed by a
+# clinician and are NOT shipped in firmware. Real values must come from a
+# reviewed source before any number reaches the device; until then the product
+# keeps showing only the familiar-object comparison.
+# 仅用于首页设计实验室的版面样例，未经临床审核，不进入固件。
+#
+# Odd weeks are linearly interpolated by the lab.
+# week	length_cm	weight_g
+6	0.6	0
+8	1.6	1
+10	3.1	4
+12	5.4	14
+14	8.7	43
+16	11.6	100
+18	14.2	190
+20	25.6	300
+22	27.8	430
+24	30.0	600
+26	35.6	760
+28	37.6	1005
+30	39.9	1319
+32	42.4	1702
+34	45.0	2146
+36	47.4	2622
+38	49.8	3083
+40	51.2	3462
