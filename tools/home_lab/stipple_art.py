@@ -150,6 +150,14 @@ def cut_object(cell, week):
     return obj, (outline.crop(box) if outline is not None else None)
 
 
+def crop_to_object(img, pad=3):
+    """Crop a white-background illustration to the ink's bounding box (full-size sources only)."""
+    box = img.point(lambda v: 255 if v < 200 else 0).getbbox()
+    if box is None:
+        raise ValueError("illustration is blank")
+    return img.crop((max(0, box[0] - pad), max(0, box[1] - pad), min(img.width, box[2] + pad), min(img.height, box[3] + pad)))
+
+
 def fit_square(obj, outline, size=SIZE, margin=14):
     scale = min((size - 2 * margin) / obj.width, (size - 2 * margin) / obj.height)
     dims = (max(1, round(obj.width * scale)), max(1, round(obj.height * scale)))
@@ -283,8 +291,7 @@ def main():
     if args.dir:
         for f in sorted(Path(args.dir).glob("week-*.png")):
             w = int(f.name.split("-")[1])
-            im = Image.open(f).convert("L")
-            sources[w] = (im, None)
+            sources[w] = (crop_to_object(Image.open(f).convert("L")), None)
     tiles = []
     labels = []
     for week in sorted(sources):
@@ -292,7 +299,7 @@ def main():
             continue
         en, zh = REF_NAMES[week - 1]
         tile, mtile = fit_square(*sources[week], size=args.size)
-        asset = to_asset(tile, mtile, args.mode, GAMMA_OVERRIDE.get(week, args.gamma))
+        asset = to_asset(tile, mtile, args.mode, args.gamma if args.dir else GAMMA_OVERRIDE.get(week, args.gamma))   # overrides were tuned for the reference sheet
         asset.save(out / f"week-{week:02d}-{slug(en)}.png")
         labels.append(f"{week}\t{en}\t{PREVIEW_ZH.get(week, zh)}")
         tiles.append((week, en, asset))

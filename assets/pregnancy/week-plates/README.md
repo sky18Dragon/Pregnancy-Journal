@@ -4,13 +4,18 @@
 `src/ui/assets/pregnancy_plate_assets.cpp` by
 `python3 tools/generate_pregnancy_plate_assets.py`.
 
-- **Provenance**: converted by `tools/home_lab/stipple_art.py` from the owner's
-  8×5 reference sheet (`assets/concepts/references/week-fruit-engraving-sheet.webp`,
-  supplied 2026-10-16, licence not recorded). The source objects are only ~100 px, so
-  these are upscaled and soft. Replace them with high-resolution art for release.
+- **Provenance**: since 2026-10-17 the set is AI-generated artwork. Each object was drawn
+  by the Codex CLI's image-generation tool (1536–2048 px, one shared style prompt, no
+  reference image passed) and converted to 340×340 1-bit stipple by
+  `tools/home_lab/stipple_art.py --dir`. The prompts are in `prompts/` (`style.txt` is
+  shared, `objects.tsv` has one line per week, `gen_one.sh` is the runner). The full-size
+  originals are not committed. The earlier set came from the owner's reference sheet and
+  was replaced because its licence was not recorded. Before release the owner should
+  confirm that the generator's terms allow commercial use of its output.
 - **Replace one plate**: put a pure black/white 340×340 PNG with the same file name
-  here, then run the generator and the host tests. Re-create the whole set with
-  `tools/home_lab/stipple_art.py <dir> --sheet <sheet> --size 340`.
+  here, then run the generator and the host tests. Re-create the whole set by generating
+  `week-NN-name.png` originals into a folder and running
+  `tools/home_lab/stipple_art.py <out> --dir <folder> --size 340`.
 - **Rule exception**: dithered fills conflict with the "no dither / no hatch shading"
   rule in `CLAUDE.md`; this page follows the owner's explicit design direction.
 - Captions (English, shown under each plate) live in the generator.
