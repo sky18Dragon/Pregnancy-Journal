@@ -46,7 +46,7 @@ struct PageLayout {
   int numeral_y;      // ... top of the digits; WEEKS follows kWeeksGap below
   bool numeral_right; // true: numeral and WEEKS are right-aligned to numeral_x
   int status_x;       // dashboard status row (battery, moon): left edge, hugging the top-left corner
-  int status_y;       // ... top of the 16 px battery
+  int status_y;       // ... top of the 22 px battery
 };
 
 constexpr PageLayout kLandscape = {
@@ -382,7 +382,7 @@ void pregnancy_page_render_sleep_moon(Canvas &canvas) {
   int by = 0;
   pregnancy_page_status_battery_origin(portrait, bx, by);
   const int left = bx + kBatteryStatusCompactWidth + kGapAfterBattery;
-  const int top = by + 8 - 17;   // the moon's 35 px box is centred on the 16 px battery row
+  const int top = by + kBatteryStatusCompactHeight / 2 - 17;   // the moon's 35 px box is centred on the battery
   canvas.fill_circle(left + 16, top + 17, 11, GrayLevel::Black);
   canvas.fill_circle(left + 21, top + 12, 10, GrayLevel::White);
 }

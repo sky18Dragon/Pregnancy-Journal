@@ -135,10 +135,10 @@ void register_launcher() {
 void draw_standin_battery(Canvas &c) {
   int x = 0, y = 0;
   pregnancy_page_status_battery_origin(c.height() > c.width(), x, y);
-  c.draw_text_pixels(x, y, "100%", 16, GrayLevel::Black, FontWeight::Regular);
-  c.draw_rect(x + 56, y, 34, 16, GrayLevel::Black);
-  c.fill_rect(x + 90, y + 5, 4, 6, GrayLevel::Black);
-  c.fill_rect(x + 58, y + 2, 30, 12, GrayLevel::Black);
+  c.draw_rect(x, y, 44, 22, GrayLevel::Black);
+  c.draw_rect(x + 1, y + 1, 42, 20, GrayLevel::Black);
+  c.fill_rect(x + 44, y + 7, 4, 8, GrayLevel::Black);
+  c.fill_rect(x + 4, y + 4, 36 * 70 / 100, 14, GrayLevel::Black);   // sample: 70 % full
 }
 
 void register_pregnancy() {
@@ -175,7 +175,7 @@ void register_pregnancy() {
       [](Canvas &c) { pregnancy_page_render_dashboard(c, {2027U, 2U, 20U}, sample_progress()); },
       hit(PregnancyPage::Dashboard, false), names);
   // Status row. The real indicator needs the battery driver, so a stand-in with the same footprint
-  // (16 px label, 34x16 battery with nub) is drawn at the origin the page reports.
+  // (44x22 battery with nub, no label) is drawn at the origin the page reports.
   add("pregnancy_dashboard_status",
       [](Canvas &c) {
         pregnancy_page_render_dashboard(c, {2027U, 2U, 20U}, sample_progress());

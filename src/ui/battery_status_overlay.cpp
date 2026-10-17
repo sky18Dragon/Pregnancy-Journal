@@ -139,25 +139,20 @@ void battery_status_overlay_draw(Canvas &canvas, bool sleep_layout) {
 
 void battery_status_overlay_draw_compact(Canvas &canvas, int x, int y) {
   update_reading_if_due();
-  char label[6] = "--%";
-  if (s_valid)
-    std::snprintf(label, sizeof(label), "%d%%", s_percent);
-  canvas.draw_text_pixels(x, y, label, 16, GrayLevel::Black,
-                          FontWeight::Regular);
-  constexpr int battery_x_offset = 56; // clear gap after the % sign
-  constexpr int battery_width = 34;
-  constexpr int battery_height = 16;
-  const int battery_x = x + battery_x_offset;
-  canvas.draw_rect(battery_x, y, battery_width, battery_height,
-                   GrayLevel::Black);
-  canvas.fill_rect(battery_x + battery_width, y + 5, 4, 6, GrayLevel::Black);
+  // No number: the fill alone shows what is left, so the icon is big enough to read at a glance
+  // (2 px frame, 2 px gap, fill in proportion to the charge).
+  constexpr int kBodyWidth = 44;
+  constexpr int kBodyHeight = 22;
+  canvas.draw_rect(x, y, kBodyWidth, kBodyHeight, GrayLevel::Black);
+  canvas.draw_rect(x + 1, y + 1, kBodyWidth - 2, kBodyHeight - 2, GrayLevel::Black);
+  canvas.fill_rect(x + kBodyWidth, y + 7, 4, 8, GrayLevel::Black);
   if (s_valid && s_percent > 0) {
-    const int fill = ((battery_width - 4) * s_percent + 99) / 100;
-    canvas.fill_rect(battery_x + 2, y + 2, fill, battery_height - 4,
-                     GrayLevel::Black);
+    constexpr int kInnerWidth = kBodyWidth - 8;
+    const int fill = (kInnerWidth * s_percent + 99) / 100;
+    canvas.fill_rect(x + 4, y + 4, fill, kBodyHeight - 8, GrayLevel::Black);
   }
   if (board_charger_external_power_present())
-    draw_charging_bolt(canvas, battery_x + 13, y,
+    draw_charging_bolt(canvas, x + (kBodyWidth - 8) / 2, y + 3,
                        s_valid && s_percent >= 50 ? GrayLevel::White
                                                   : GrayLevel::Black);
 }

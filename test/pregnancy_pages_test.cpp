@@ -248,9 +248,9 @@ int main() {
     assert(bx + kBatteryStatusCompactWidth + 12 + 35 < 720 - 24); // battery + moon end well before the menu slot
     const size_t menu_ink = count_black_rect(canvas, 720, 24, 56, 56);
     assert(menu_ink > 100U);
-    assert(count_black_rect(canvas, bx + kBatteryStatusCompactWidth + 12, 0, 40, 40) == 0U); // moon slot is empty awake
+    assert(count_black_rect(canvas, bx + kBatteryStatusCompactWidth + 12, 0, 40, 50) == 0U); // moon slot is empty awake
     pregnancy_page_render_sleep_moon(canvas);
-    assert(count_black_rect(canvas, bx + kBatteryStatusCompactWidth + 12, 0, 40, 40) > 150U);
+    assert(count_black_rect(canvas, bx + kBatteryStatusCompactWidth + 12, 0, 40, 50) > 150U);
     assert(count_black_rect(canvas, 720, 24, 56, 56) == menu_ink); // menu untouched
     assert(count_black_rect(canvas, 410, 80, 340, 340) > 6000U);
     pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress);
@@ -303,7 +303,7 @@ int main() {
     const size_t menu_ink = count_black_rect(canvas, 400, 24, 56, 56);
     assert(menu_ink > 100U);
     pregnancy_page_render_sleep_moon(canvas);
-    assert(count_black_rect(canvas, bx + kBatteryStatusCompactWidth + 12, 0, 40, 40) > 150U);
+    assert(count_black_rect(canvas, bx + kBatteryStatusCompactWidth + 12, 0, 40, 50) > 150U);
     assert(count_black_rect(canvas, 400, 24, 56, 56) == menu_ink);
     assert(count_black_rect(canvas, 70, 130, 340, 340) > 6000U);
   }
