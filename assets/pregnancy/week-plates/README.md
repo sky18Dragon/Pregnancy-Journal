@@ -10,8 +10,12 @@
   `tools/home_lab/stipple_art.py --dir`. The prompts are in `prompts/` (`style.txt` is
   shared, `objects.tsv` has one line per week, `gen_one.sh` is the runner). The full-size
   originals are not committed. The earlier set came from the owner's reference sheet and
-  was replaced because its licence was not recorded. Before release the owner should
-  confirm that the generator's terms allow commercial use of its output.
+  was replaced because its licence was not recorded.
+- **Licence**: this is an open-source, non-commercial project (MIT, see `LICENSE`). The plates
+  are AI-generated, so whether any copyright subsists in them is unsettled; they are shared
+  under the repository's MIT licence to whatever extent rights exist, with no warranty that
+  they are exclusive or unique. Use of the generator's output is governed by OpenAI's
+  Terms of Use; anyone redistributing the set should read them.
 - **Replace one plate**: put a pure black/white 340×340 PNG with the same file name
   here, then run the generator and the host tests. Re-create the whole set by generating
   `week-NN-name.png` originals into a folder and running
