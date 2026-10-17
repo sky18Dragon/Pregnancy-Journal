@@ -34,7 +34,7 @@
 #include "font.h"
 #include "pixel_asset.h"
 #include "pregnancy_week_assets.h"
-#include "pregnancy_week_visual.h"
+#include "pregnancy_plate_assets.h"
 #include "content_service.h"
 #include "prototype_ui.h"
 #include "text_layout.h"
@@ -142,7 +142,7 @@ Input make_input(int week) {
 Facts make_facts(const Input &in) {
   Facts f = {};
   f.asset_week = std::max(6, std::min(40, in.week));
-  f.object = pregnancy_week_visual(static_cast<uint8_t>(f.asset_week)).object_zh;
+  f.object = pregnancy_plate_caption_zh(static_cast<uint8_t>(f.asset_week));
   const auto label = g_labels.find(f.asset_week);
   if (label != g_labels.end()) f.object = label->second.zh.c_str();
   size_for_week(f.asset_week, f.length_cm, f.weight_g);
@@ -408,8 +408,7 @@ void render_specimen(Canvas &c, const Input &in, const Facts &f, Targets &t,
                      bool portrait) {
   const std::string digits = week_digits(in);
   const std::string sentence = lead_in(f);
-  const std::string english = upper(pregnancy_week_visual(
-      static_cast<uint8_t>(f.asset_week)).object_en);
+  const std::string english = upper(pregnancy_plate_caption(static_cast<uint8_t>(f.asset_week)));
   if (!portrait) {
     t.menu = {720, 24, 56, 56};
     t.baby = {470, 28, 116, 48};
@@ -502,8 +501,7 @@ void hero_with_disc(Canvas &c, int disc_x, int disc_y, int disc_r, int art_x,
 
 void render_riso_poster(Canvas &c, const Input &in, const Facts &f, Targets &t,
                         bool portrait) {
-  const std::string name = upper(pregnancy_week_visual(
-      static_cast<uint8_t>(f.asset_week)).object_en) + " //";
+  const std::string name = upper(pregnancy_plate_caption(static_cast<uint8_t>(f.asset_week))) + " //";
   const std::string digits = week_digits(in);
   const std::string sentence = lead_in(f);
   if (!portrait) {
@@ -587,7 +585,7 @@ void render_plate(Canvas &c, const Input &in, const Facts &f, Targets &t,
                   bool portrait) {
   const std::string digits = week_digits(in);
   const std::string caption = f.english.empty()
-      ? upper(pregnancy_week_visual(static_cast<uint8_t>(f.asset_week)).object_en)
+      ? upper(pregnancy_plate_caption(static_cast<uint8_t>(f.asset_week)))
       : f.english;
   const int cap_w = tracked_width(caption, tok::kBody, 7, FontWeight::Medium);
   const std::string sentence = lead_in(f);
@@ -637,7 +635,7 @@ void render_exact(Canvas &c, const Input &in, const Facts &f, Targets &t,
                   bool portrait) {
   const std::string digits = week_digits(in);
   const std::string caption = f.english.empty()
-      ? upper(pregnancy_week_visual(static_cast<uint8_t>(f.asset_week)).object_en)
+      ? upper(pregnancy_plate_caption(static_cast<uint8_t>(f.asset_week)))
       : f.english;
   const int cap_w = tracked_width(caption, tok::kBody, 6, FontWeight::Medium);
   const NumeralFont &num = portrait ? kNumeralPlateLg : kNumeralPlateMd;
@@ -671,7 +669,7 @@ void render_exact_grid(Canvas &c, const Input &in, const Facts &f, Targets &t,
                        bool portrait, bool compact, bool right) {
   const std::string digits = week_digits(in);
   const std::string caption = f.english.empty()
-      ? upper(pregnancy_week_visual(static_cast<uint8_t>(f.asset_week)).object_en)
+      ? upper(pregnancy_plate_caption(static_cast<uint8_t>(f.asset_week)))
       : f.english;
   const int cap_w = tracked_width(caption, tok::kBody, 6, FontWeight::Medium);
   const NumeralFont &num = portrait ? kNumeralPlateLg : kNumeralPlateMd;
@@ -728,7 +726,7 @@ void render_calendar(Canvas &c, const Input &in, const Facts &f, Targets &t,
                      bool portrait) {
   const std::string digits = week_digits(in);
   const std::string caption = f.english.empty()
-      ? upper(pregnancy_week_visual(static_cast<uint8_t>(f.asset_week)).object_en)
+      ? upper(pregnancy_plate_caption(static_cast<uint8_t>(f.asset_week)))
       : f.english;
   const NumeralFont &num = portrait ? kNumeralPlateLg : kNumeralPlateMd;
   const int hero_w =
@@ -770,7 +768,7 @@ void render_right(Canvas &c, const Input &in, const Facts &f, Targets &t,
   if (portrait) { render_calendar(c, in, f, t, true); return; }
   const std::string digits = week_digits(in);
   const std::string caption = f.english.empty()
-      ? upper(pregnancy_week_visual(static_cast<uint8_t>(f.asset_week)).object_en)
+      ? upper(pregnancy_plate_caption(static_cast<uint8_t>(f.asset_week)))
       : f.english;
   const NumeralFont &num = kNumeralPlateMd;
   const int hero_w =
@@ -811,7 +809,7 @@ void render_column(Canvas &c, const Input &in, const Facts &f, Targets &t,
   if (portrait) { render_calendar(c, in, f, t, true); return; }
   const std::string digits = week_digits(in);
   const std::string caption = f.english.empty()
-      ? upper(pregnancy_week_visual(static_cast<uint8_t>(f.asset_week)).object_en)
+      ? upper(pregnancy_plate_caption(static_cast<uint8_t>(f.asset_week)))
       : f.english;
   const NumeralFont &num = kNumeralPlateLg;   // 84 px
   const int hero_w =

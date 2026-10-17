@@ -89,8 +89,9 @@ coordinator performs the refresh.
   exposed in English and Simplified Chinese through `src/ui/ui_language.*`.
 - Generated CJK glyphs and 1-bit images are source-controlled for deterministic
   builds. Commit both editable source and generated output.
-- Pregnancy week images are normalized to 148×148 1-bit assets. Preserve the
-  distinct week mapping in `src/pregnancy/content/pregnancy_week_visual.*`.
+- The pregnancy home page shows one 340×340 1-bit stipple plate per week (6–40) with its
+  English and Chinese object name; both live in `src/ui/assets/pregnancy_plate_assets.*`,
+  generated from `assets/pregnancy/week-plates/`. Keep the 35 objects distinct.
 - Never use color alone, tiny legends or medical-looking scoring to describe
   kicks, weight or pregnancy progress.
 

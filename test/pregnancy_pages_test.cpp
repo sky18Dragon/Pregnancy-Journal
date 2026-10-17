@@ -11,7 +11,6 @@
 #include "pregnancy_pages.h"
 #include "pregnancy_plate_assets.h"
 #include "ui_tokens.h"
-#include "pregnancy_week_visual.h"
 #include "ui_language.h"
 
 namespace {

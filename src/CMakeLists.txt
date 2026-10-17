@@ -93,7 +93,6 @@ idf_component_register(
         "apps/settings/settings_flow.cpp"
         "apps/settings/settings_pages.cpp"
         "pregnancy/content/content_service.cpp"
-        "pregnancy/content/pregnancy_week_visual.cpp"
         "pregnancy/services/reminder_service.cpp"
         "pregnancy/services/domain_repository_records.cpp"
         "pregnancy/services/domain_repository_stores.cpp"

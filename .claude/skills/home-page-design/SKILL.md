@@ -103,8 +103,8 @@ hit-testing, `ui_tokens::` names instead of numeric literals, selected = inverte
   3. **Fonts**: some Chinese names in that set need glyphs the firmware font lacks
      (扁豆 葡萄 芸豆 青柠 梅子 橙子 芜菁 凉薯 大白菜 金丝瓜 木菠萝…); previews use
      stand-ins (`PREVIEW_ZH`). Add the real characters with the font generator.
-  4. Object mapping differs from `pregnancy_week_visual` (e.g. week 24 eggplant vs
-     corn); reconcile the content table before porting.
+  4. (Resolved) The old `pregnancy_week_visual` table that disagreed with the plates was deleted;
+     the plate captions in `pregnancy_plate_assets` are now the only object names.
   5. Flash: 35 × 280×280 1-bit ≈ 343 KB raw, but stipple does not compress well.
 
 ## Data and content cautions
@@ -115,8 +115,8 @@ hit-testing, `ui_tokens::` names instead of numeric literals, selected = inverte
   2 sizes × a few hundred bytes–4 KB each (check flash budget).
 
 - Object names, sentences and weekly notes come from
-  `src/pregnancy/content/` (`pregnancy_week_visual`, `content_service`); the
-  lab uses them unchanged. Do not invent new medical statements.
+  `src/pregnancy/content/` (`content_service`) and, for object names, the plate captions in
+  `src/ui/assets/pregnancy_plate_assets.*`; the lab uses them unchanged. Do not invent new medical statements.
 - **Length / weight are placeholders.** `tools/home_lab/week_size_reference.tsv`
   holds rounded public averages, unreviewed by a clinician, and not in the
   firmware. A concept may show them to test layout, but shipping any number

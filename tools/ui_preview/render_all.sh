@@ -22,7 +22,7 @@ g++ -std=c++17 -Wall -Wextra -O1 -DUI_TEXT_OBSERVER \
   src/apps/pregnancy/pregnancy_state.cpp src/apps/settings/settings_pages.cpp \
   src/apps/weight/weight_pages.cpp src/pregnancy/services/weight_service.cpp \
   src/pregnancy/services/kick_comparison.cpp src/pregnancy/services/kick_service.cpp \
-  src/pregnancy/content/content_service.cpp src/pregnancy/content/pregnancy_week_visual.cpp \
+  src/pregnancy/content/content_service.cpp \
   src/app/sticky_app_id.cpp \
   -o "${BIN}"
 "${BIN}" "${OUT}" "${2:-}"

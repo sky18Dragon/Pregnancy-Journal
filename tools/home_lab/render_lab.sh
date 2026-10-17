@@ -32,7 +32,8 @@ g++ -std=c++17 -Wall -Wextra -O1 -DUI_TEXT_OBSERVER \
   src/ui/ui_language.cpp \
   src/ui/assets/chinese_font_assets.cpp src/ui/assets/pixel_asset.cpp \
   src/ui/assets/pregnancy_week_assets.cpp \
-  src/pregnancy/content/content_service.cpp src/pregnancy/content/pregnancy_week_visual.cpp \
+  src/ui/assets/pregnancy_plate_assets.cpp \
+  src/pregnancy/content/content_service.cpp \
   -o "${BIN}"
 "${BIN}" "${OUT}" tools/home_lab/week_size_reference.tsv "${WEEKS}" "${FILTER}" "${ART}" "${LABELS}"
 python3 -I tools/ui_preview/render_png.py "${OUT}"
