@@ -14,7 +14,7 @@ const StickyAppDescriptor kApps[] = {
      StickyAppRotationPolicy::FollowDevice, pregnancy_app_start,
      pregnancy_app_pause, pregnancy_app_resume,
      pregnancy_app_prepare_power_sleep, pregnancy_app_power_sleep_timeout_ms,
-     allow_sleep, nullptr, pregnancy_app_before_sleep_frame},
+     allow_sleep, nullptr, pregnancy_app_draw_sleep_status},
     {StickyAppId::Weight, "weight", "Weight",
      StickyAppRotationPolicy::FollowDevice, weight_app_start, weight_app_pause,
      weight_app_resume, weight_app_prepare_power_sleep,

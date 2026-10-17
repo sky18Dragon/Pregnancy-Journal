@@ -37,9 +37,6 @@ StickyAppLifecycle s_lifecycle = {};
 CanvasRotation s_display_rotation = CanvasRotation::Deg0;
 PageRefreshTracker s_refresh;
 constexpr int kStatusPageId = 1000;
-// The landscape dashboard's own battery indicator.
-constexpr int kBatteryX = 620;
-constexpr int kBatteryY = 29;
 press_feedback::Pending s_press;
 
 // Draws the tapped target pressed and shows it once, before a page change
@@ -195,8 +192,10 @@ void render_page(bool partial) {
     pregnancy_page_render_dashboard(*s_canvas,
                                     s_flow.profile().estimated_due_date,
                                     s_flow.progress());
-    if (s_canvas->width() > s_canvas->height())
-      battery_status_overlay_draw_compact(*s_canvas, kBatteryX, kBatteryY);
+    int x = 0;
+    int y = 0;
+    pregnancy_page_status_battery_origin(s_canvas->height() > s_canvas->width(), x, y);
+    battery_status_overlay_draw_compact(*s_canvas, x, y);
   } break;
   case PregnancyPage::Baby:
   case PregnancyPage::Mom:
@@ -472,8 +471,13 @@ uint32_t pregnancy_app_power_sleep_timeout_ms() {
   return s_flow.showing_week_pages() ? kDashboardSleepTimeoutMs : 0U;
 }
 
-void pregnancy_app_before_sleep_frame(Canvas &canvas) {
-  if (s_flow.page() == PregnancyPage::Dashboard && !status_page_active() &&
-      canvas.width() > canvas.height())
-    battery_status_overlay_clear_compact(canvas, kBatteryX, kBatteryY);
+bool pregnancy_app_draw_sleep_status(Canvas &canvas) {
+  if (s_flow.page() != PregnancyPage::Dashboard || status_page_active())
+    return false;
+  int x = 0;
+  int y = 0;
+  pregnancy_page_status_battery_origin(canvas.height() > canvas.width(), x, y);
+  battery_status_overlay_draw_compact(canvas, x, y);
+  pregnancy_page_render_sleep_moon(canvas);
+  return true;
 }

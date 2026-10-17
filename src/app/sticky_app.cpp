@@ -384,11 +384,13 @@ void enter_sleep(const char *source) {
   s_launcher_open = false;
   s_sleep_context = {kSleepContextMagic, s_manager.current_id(),
                      s_canvas->rotation()};
-  sticky_display_set_battery_overlay_enabled(true);
+  const bool app_drew_status = !launcher_was_open &&
+                               app->draw_sleep_status != nullptr &&
+                               app->draw_sleep_status(*s_canvas);
+  sticky_display_set_battery_overlay_enabled(!app_drew_status);
   sticky_display_set_battery_overlay_sleep_layout(true);
-  if (!launcher_was_open && app->before_sleep_frame != nullptr)
-    app->before_sleep_frame(*s_canvas);
-  draw_sleep_indicator();
+  if (!app_drew_status)
+    draw_sleep_indicator();
   sticky_display_cancel_app_transition_refresh();
   sticky_display_refresh_monochrome();
   sticky_buzzer_stop();

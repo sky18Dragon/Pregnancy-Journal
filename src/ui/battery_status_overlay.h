@@ -13,6 +13,6 @@ void battery_status_overlay_draw(Canvas &canvas, bool sleep_layout);
 // Draws the compact battery treatment used by the pregnancy-home prototype.
 void battery_status_overlay_draw_compact(Canvas &canvas, int x, int y);
 
-// Erases what battery_status_overlay_draw_compact() drew at the same (x, y), so a sleep frame
-// can show the system battery overlay alone instead of two overlapping indicators.
-void battery_status_overlay_clear_compact(Canvas &canvas, int x, int y);
+// Width of the compact indicator drawn at (x, y): the label, then the 34 px battery and its nub.
+// A page that places it right-aligned next to another control needs this.
+constexpr int kBatteryStatusCompactWidth = 94;

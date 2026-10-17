@@ -24,5 +24,6 @@ esp_err_t pregnancy_app_prepare_power_sleep(
     uint32_t &next_event_epoch_seconds);
 
 uint32_t pregnancy_app_power_sleep_timeout_ms();
-// Drops the dashboard's own battery indicator from the sleep frame (the system overlay replaces it).
-void pregnancy_app_before_sleep_frame(Canvas &canvas);
+// Draws the dashboard's sleep status (battery + moon in the menu slot) and returns true; false on
+// other pages, where the system overlay is used.
+bool pregnancy_app_draw_sleep_status(Canvas &canvas);

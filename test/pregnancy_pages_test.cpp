@@ -11,6 +11,7 @@
 #include "pregnancy_pages.h"
 #include "pregnancy_plate_assets.h"
 #include "ui_tokens.h"
+#include "battery_status_overlay.h"
 #include "ui_language.h"
 
 namespace {
@@ -237,7 +238,23 @@ int main() {
   // Week 20: twenty finished cells are solid in the grid.
   assert(count_black_rect(canvas, 48, 252, 252, 156) > 20U * 28U * 28U * 8U / 10U);
   write_preview(buffer, "/tmp/pregnancy_dashboard.ppm");
-
+  // Status row (landscape): the power indicator is top-left on the menu icon's centre line (y 52),
+  // inside the safe area; the menu icon stays top-right. In the sleep frame the moon sits just right
+  // of the indicator, nowhere near the menu, and the menu icon is not touched.
+  {
+    int bx = 0, by = 0;
+    pregnancy_page_status_battery_origin(false, bx, by);
+    assert(bx <= 12 && by <= 12 && bx >= 0 && by >= 0);   // hugs the top-left corner
+    assert(bx + kBatteryStatusCompactWidth + 12 + 35 < 720 - 24); // battery + moon end well before the menu slot
+    const size_t menu_ink = count_black_rect(canvas, 720, 24, 56, 56);
+    assert(menu_ink > 100U);
+    assert(count_black_rect(canvas, bx + kBatteryStatusCompactWidth + 12, 0, 40, 40) == 0U); // moon slot is empty awake
+    pregnancy_page_render_sleep_moon(canvas);
+    assert(count_black_rect(canvas, bx + kBatteryStatusCompactWidth + 12, 0, 40, 40) > 150U);
+    assert(count_black_rect(canvas, 720, 24, 56, 56) == menu_ink); // menu untouched
+    assert(count_black_rect(canvas, 410, 80, 340, 340) > 6000U);
+    pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress);
+  }
   ui_language_set(UiLanguage::ChineseSimplified);
   pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress);
   assert(count_level(buffer, GrayLevel::Black) > 8000U);
@@ -278,6 +295,18 @@ int main() {
                                   560) == PregnancyAction::None);
   assert(count_black_rect(canvas, 70, 130, 340, 340) > 6000U);
   assert(count_black_rect(canvas, 24, 630, 236, 146) > 20U * 26U * 26U * 8U / 10U);
+  {
+    int bx = 0, by = 0;
+    pregnancy_page_status_battery_origin(true, bx, by);
+    assert(bx <= 12 && by <= 12 && bx >= 0 && by >= 0);
+    assert(bx + kBatteryStatusCompactWidth + 12 + 35 < 400 - 24);
+    const size_t menu_ink = count_black_rect(canvas, 400, 24, 56, 56);
+    assert(menu_ink > 100U);
+    pregnancy_page_render_sleep_moon(canvas);
+    assert(count_black_rect(canvas, bx + kBatteryStatusCompactWidth + 12, 0, 40, 40) > 150U);
+    assert(count_black_rect(canvas, 400, 24, 56, 56) == menu_ink);
+    assert(count_black_rect(canvas, 70, 130, 340, 340) > 6000U);
+  }
   write_canvas_preview(canvas, "/tmp/pregnancy_dashboard_portrait_zh.ppm");
 
   pregnancy_page_render_source_setup(canvas, true);

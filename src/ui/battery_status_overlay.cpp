@@ -21,10 +21,6 @@ constexpr int kAreaHeight = 28;
 constexpr int kAreaTop = 4;
 constexpr int kNormalRightMargin = 6;
 constexpr int kSleepRightMargin = 55;
-// Footprint of the compact indicator: the label starts at x, the 34 px battery and its nub end at x + 88.
-constexpr int kCompactWidth = 92;
-constexpr int kCompactHeight = 20;
-constexpr int kCompactPad = 2;
 
 bool s_valid = false;
 int s_percent = 0;
@@ -148,7 +144,7 @@ void battery_status_overlay_draw_compact(Canvas &canvas, int x, int y) {
     std::snprintf(label, sizeof(label), "%d%%", s_percent);
   canvas.draw_text_pixels(x, y, label, 16, GrayLevel::Black,
                           FontWeight::Regular);
-  constexpr int battery_x_offset = 50;
+  constexpr int battery_x_offset = 56; // clear gap after the % sign
   constexpr int battery_width = 34;
   constexpr int battery_height = 16;
   const int battery_x = x + battery_x_offset;
@@ -160,9 +156,8 @@ void battery_status_overlay_draw_compact(Canvas &canvas, int x, int y) {
     canvas.fill_rect(battery_x + 2, y + 2, fill, battery_height - 4,
                      GrayLevel::Black);
   }
-}
-
-void battery_status_overlay_clear_compact(Canvas &canvas, int x, int y) {
-  canvas.fill_rect(x - kCompactPad, y - kCompactPad, kCompactWidth + kCompactPad,
-                   kCompactHeight + kCompactPad, GrayLevel::White);
+  if (board_charger_external_power_present())
+    draw_charging_bolt(canvas, battery_x + 13, y,
+                       s_valid && s_percent >= 50 ? GrayLevel::White
+                                                  : GrayLevel::Black);
 }

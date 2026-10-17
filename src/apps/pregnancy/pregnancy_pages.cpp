@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "battery_status_overlay.h"
 #include "canvas.h"
 #include "digit_fields.h"
 #include "font.h"
@@ -44,6 +45,8 @@ struct PageLayout {
   int numeral_x;      // dashboard numeral: left edge, or right edge when aligned right
   int numeral_y;      // ... top of the digits; WEEKS follows kWeeksGap below
   bool numeral_right; // true: numeral and WEEKS are right-aligned to numeral_x
+  int status_x;       // dashboard status row (battery, moon): left edge, hugging the top-left corner
+  int status_y;       // ... top of the 16 px battery
 };
 
 constexpr PageLayout kLandscape = {
@@ -70,6 +73,8 @@ constexpr PageLayout kLandscape = {
     48,
     88,
     false,
+    12,
+    12,
 };
 
 constexpr PageLayout kPortrait = {
@@ -96,6 +101,8 @@ constexpr PageLayout kPortrait = {
     456,
     660,
     true,
+    12,
+    12,
 };
 
 const PageLayout &layout_for(bool portrait) {
@@ -360,6 +367,24 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
                     weeks_tracking, FontWeight::Medium);
 
   draw_menu_icon(canvas, layout.menu);
+}
+
+void pregnancy_page_status_battery_origin(bool portrait, int &x, int &y) {
+  const PageLayout &layout = layout_for(portrait);
+  x = layout.status_x;
+  y = layout.status_y;
+}
+
+void pregnancy_page_render_sleep_moon(Canvas &canvas) {
+  constexpr int kGapAfterBattery = 12;
+  const bool portrait = portrait_layout(canvas);
+  int bx = 0;
+  int by = 0;
+  pregnancy_page_status_battery_origin(portrait, bx, by);
+  const int left = bx + kBatteryStatusCompactWidth + kGapAfterBattery;
+  const int top = by + 8 - 17;   // the moon's 35 px box is centred on the 16 px battery row
+  canvas.fill_circle(left + 16, top + 17, 11, GrayLevel::Black);
+  canvas.fill_circle(left + 21, top + 12, 10, GrayLevel::White);
 }
 
 void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,

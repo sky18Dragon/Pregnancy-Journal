@@ -81,6 +81,12 @@ void pregnancy_page_render_profile_date_setup(Canvas &canvas,
 void pregnancy_page_render_dashboard(
     Canvas &canvas, const PregnancyDate &due_date,
     const PregnancyProgress &progress);
+// Dashboard status row. The power indicator hugs the top-left corner (a status glyph, so it may sit
+// inside the 24 px safe area like the system overlay does) and the menu icon stays in the top-right;
+// `x`/`y` are the top-left for battery_status_overlay_draw_compact(). Both orientations use it.
+void pregnancy_page_status_battery_origin(bool portrait, int &x, int &y);
+// Sleep frame: the moon follows the power indicator, just to its right. The menu icon is left alone.
+void pregnancy_page_render_sleep_moon(Canvas &canvas);
 void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
                                   const PregnancyProgress &progress,
                                   const WeekContent &content);

@@ -132,6 +132,15 @@ void register_launcher() {
             "App:Checkup", "App:?5", "App:?6", "App:Weight", "App:Kicks"));
 }
 
+void draw_standin_battery(Canvas &c) {
+  int x = 0, y = 0;
+  pregnancy_page_status_battery_origin(c.height() > c.width(), x, y);
+  c.draw_text_pixels(x, y, "100%", 16, GrayLevel::Black, FontWeight::Regular);
+  c.draw_rect(x + 56, y, 34, 16, GrayLevel::Black);
+  c.fill_rect(x + 90, y + 5, 4, 6, GrayLevel::Black);
+  c.fill_rect(x + 58, y + 2, 30, 12, GrayLevel::Black);
+}
+
 void register_pregnancy() {
   static const std::vector<std::string> names = {
       "None", "Digit0", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5",
@@ -164,6 +173,21 @@ void register_pregnancy() {
       hit(PregnancyPage::DateSetup, true), names);
   add("pregnancy_dashboard",
       [](Canvas &c) { pregnancy_page_render_dashboard(c, {2027U, 2U, 20U}, sample_progress()); },
+      hit(PregnancyPage::Dashboard, false), names);
+  // Status row. The real indicator needs the battery driver, so a stand-in with the same footprint
+  // (16 px label, 34x16 battery with nub) is drawn at the origin the page reports.
+  add("pregnancy_dashboard_status",
+      [](Canvas &c) {
+        pregnancy_page_render_dashboard(c, {2027U, 2U, 20U}, sample_progress());
+        draw_standin_battery(c);
+      },
+      hit(PregnancyPage::Dashboard, false), names);
+  add("pregnancy_dashboard_sleep",
+      [](Canvas &c) {
+        pregnancy_page_render_dashboard(c, {2027U, 2U, 20U}, sample_progress());
+        draw_standin_battery(c);
+        pregnancy_page_render_sleep_moon(c);
+      },
       hit(PregnancyPage::Dashboard, false), names);
   add("pregnancy_baby",
       [](Canvas &c) {
