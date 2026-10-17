@@ -15,6 +15,14 @@
   横竖屏下点插画→宝宝页、点周数块→妈妈页、点菜单图标→启动器命中正确，周图/空白处无动作；IMU
   landscape_0（竖屏）与 portrait_180（横屏）的旋转正确。2026-10-17 补测 portrait_0（canvas 800×480，物理→逻辑坐标按 180° 映射）与 landscape_180（`display_rotation=90_clockwise`，canvas 480×800）：负责人确认画面方向正确，串口日志里点插画→宝宝页、点周数块→妈妈页、点菜单图标→启动器、返回、空白处/周图无动作均命中正确，无 panic；四个姿势均已验证，残影尚未验证。
   孕周应用另加了点击/换页串口日志（`tap physical=… page=… action=…`）。
+- 首页图案下说明改为暖心一句（2026-10-17，文案经负责人确认）：原来只写物件名，现在中文是“宝宝现在约有{名}
+  那么大，{结尾}”，每 8 周换一句结尾（1–8 悄悄安了家 / 9–16 每天都在长大 / 17–24 正熟悉你的声音 /
+  25–32 向你轻轻问好 / 33–40 等着和你见面）；英文是 “Your baby is about the size of” 加换行加 “a/an {name},
+  {tail}”（settling in / growing every day / learning your voice / saying hello / waiting to meet you），
+  固定在 of 后断行，长名字不被折断，自动选 a/an。中文一行 18 px；英文竖屏 18 px，横屏 16 px、整体上提到
+  y=417，使下探笔画离屏幕下缘 ≥24 px（实测 24 px）；图案与点击区不变。新增 `pregnancy_page_caption_text()`；
+  补“悄”“家”等字模；宿主测试新增 35 周×中英文的边距/宽度检查与阶段边界、a/an 断言。宿主测试 87/87，
+  未经真机验证。
 - 删除旧周图资源（2026-10-17）：移除 148×148 的旧周图数据 `pregnancy_week_assets.*`、生成器
   `tools/generate_pregnancy_week_assets.py` 和约 26 MB 的源图 `assets/pregnancy/week-size/`（历史仍在 git 里），
   同步清理 CMake、宿主测试、预览/灯箱脚本和文档里的引用；设计灯箱的备用路径改用固件图版。固件体积不变

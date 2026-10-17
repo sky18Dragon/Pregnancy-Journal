@@ -1,6 +1,7 @@
 #include "pregnancy_pages.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
 
@@ -38,7 +39,8 @@ struct PageLayout {
   Rect numeral;       // dashboard week number block -> Mom page
   Rect input;         // setup pages: box holding the digit fields
   uint8_t input_size; // text size of the digit fields
-  int caption_y;      // dashboard caption row
+  int caption_y;      // dashboard caption row (Chinese one-liner; English too in portrait)
+  int caption_y_en;   // landscape English two-line caption: lifted so its descenders stay 24 px above the bottom edge
   Rect grid;          // dashboard 8 x 5 week grid (display only)
   int grid_cell;      // grid cell size
   int grid_pitch;     // grid cell spacing
@@ -66,6 +68,7 @@ constexpr PageLayout kLandscape = {
     {30, 118, 430, 86},
     28,
     430,
+    417,
     {48, 252, 252, 156},
     28,
     32,
@@ -92,6 +95,7 @@ constexpr PageLayout kPortrait = {
     {268, 637, 180, 132},
     {24, 102, 432, 76},
     21,
+    488,
     488,
     {24, 630, 236, 146},
     26,
@@ -123,7 +127,8 @@ bool portrait_layout(const Canvas &canvas) {
 // The week page is one plate of an engraved week-by-week sheet: a big condensed
 // numeral with WEEKS under it, the stipple engraving, a letter-spaced caption.
 // 孕周首页：与参考图的单张图版一致——大号数字、WEEKS、点刻插画、字距拉开的英文名。
-constexpr int kPlateTracking = 6;       // caption letter spacing
+constexpr int kCaptionTracking = 1;     // Chinese caption sentence letter spacing
+constexpr int kCaptionLineGap = 4;
 constexpr int kWeeksTracking = 3;
 constexpr int kChineseTracking = 10;    // Chinese captions and the week label need more air
 constexpr int kWeeksGap = 12;           // numeral bottom to WEEKS top
@@ -199,6 +204,25 @@ void draw_week_grid(Canvas &canvas, const PageLayout &layout, int finished_weeks
     }
   }
 }
+
+// Caption under the picture: a warm sentence that changes every 8 weeks (weeks 1-8, 9-16, ...).
+// 图案下方的暖心一句，每 8 周换一句（1–8、9–16 …）。
+constexpr const char *kCaptionTailZh[5] = {"悄悄安了家", "每天都在长大", "正熟悉你的声音",
+                                            "向你轻轻问好", "等着和你见面"};
+constexpr const char *kCaptionTailEn[5] = {"settling in", "growing every day",
+                                            "learning your voice", "saying hello",
+                                            "waiting to meet you"};
+
+int caption_stage(uint8_t week) {
+  return std::min(4, (std::max<int>(week, 1) - 1) / 8);
+}
+
+// Draws one centred line.
+void draw_centered_line(Canvas &canvas, int cx, int y, const char *text, uint8_t px, int tracking) {
+  const int width = tracked_text_width(text, px, tracking, FontWeight::Medium);
+  draw_tracked_text(canvas, cx - width / 2, y, text, px, tracking, FontWeight::Medium);
+}
+
 
 // Quiet menu: three strokes, no frame. The hit rectangle is the 56 px square.
 void draw_menu_icon(Canvas &canvas, const Rect &rect) {
@@ -313,6 +337,22 @@ void pregnancy_page_render_profile_date_setup(Canvas &canvas,
                fields, input_error, true);
 }
 
+void pregnancy_page_caption_text(uint8_t week, bool chinese, char *out, size_t size) {
+  const int stage = caption_stage(week);
+  if (chinese) {
+    std::snprintf(out, size, "宝宝现在约有%s那么大，%s", pregnancy_plate_caption_zh(week),
+                  kCaptionTailZh[stage]);
+    return;
+  }
+  char name[32] = {};
+  const char *upper = pregnancy_plate_caption(week);
+  for (size_t i = 0; upper[i] != '\0' && i + 1 < sizeof(name); ++i)
+    name[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(upper[i])));
+  const bool vowel = std::strchr("aeiou", name[0]) != nullptr;
+  std::snprintf(out, size, "Your baby is about the size of\n%s %s, %s", vowel ? "an" : "a", name,
+                kCaptionTailEn[stage]);
+}
+
 void pregnancy_page_render_dashboard(Canvas &canvas,
                                      const PregnancyDate &due_date,
                                      const PregnancyProgress &progress) {
@@ -337,16 +377,24 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
       canvas, hero_x, layout.hero.y + layout.hero.height / 2,
       pregnancy_plate_asset(week), 1, GrayLevel::Black);
 
-  // Chinese mode shows the Chinese name and 孕周; English mode keeps the plate's
-  // English caption and WEEKS.
+  // The caption is a sentence naming the object, centred under the picture. Chinese is one line.
+  // English is two lines with a fixed break after "of", so long names are never split:
+  //   Your baby is about the size of
+  //   a butternut squash, saying hello
+  // 说明文字是点名物件的一句话，居中在图案下方：中文一行；英文固定在 “of” 后断成两行，长名字不会被折断。
   const bool chinese = ui_language_is_chinese();
-  const char *caption =
-      chinese ? pregnancy_plate_caption_zh(week) : pregnancy_plate_caption(week);
-  const int caption_tracking = chinese ? kChineseTracking : kPlateTracking;
-  const int caption_width = tracked_text_width(
-      caption, ui_tokens::kBody, caption_tracking, FontWeight::Medium);
-  draw_tracked_text(canvas, hero_x - caption_width / 2, layout.caption_y, caption,
-                    ui_tokens::kBody, caption_tracking, FontWeight::Medium);
+  char caption[kCaptionBufferSize] = {};
+  pregnancy_page_caption_text(week, chinese, caption, sizeof(caption));
+  if (chinese) {
+    draw_centered_line(canvas, hero_x, layout.caption_y, caption, ui_tokens::kBody, kCaptionTracking);
+  } else {
+    const char *second = std::strchr(caption, '\n');
+    char first[kCaptionBufferSize] = {};
+    std::memcpy(first, caption, static_cast<size_t>(second - caption));
+    const uint8_t px = portrait ? ui_tokens::kBody : ui_tokens::kSecondaryBody;
+    draw_centered_line(canvas, hero_x, layout.caption_y_en, first, px, 0);
+    draw_centered_line(canvas, hero_x, layout.caption_y_en + px + kCaptionLineGap, second + 1, px, 0);
+  }
 
   char digits[8] = {};
   std::snprintf(digits, sizeof(digits), "%d", weeks);

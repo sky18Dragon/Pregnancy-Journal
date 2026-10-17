@@ -189,6 +189,17 @@ void register_pregnancy() {
         pregnancy_page_render_sleep_moon(c);
       },
       hit(PregnancyPage::Dashboard, false), names);
+  // Caption sentences: first and last stage, and the longest object names (English two-liners).
+  for (int w : {7, 28, 33, 39}) {
+    add("pregnancy_caption_w" + std::to_string(w),
+        [w](Canvas &c) {
+          PregnancyProgress p = sample_progress();
+          p.weeks = static_cast<uint8_t>(w);
+          pregnancy_page_render_dashboard(c, {2027U, 2U, 20U}, p);
+          draw_standin_battery(c);
+        },
+        hit(PregnancyPage::Dashboard, false), names);
+  }
   add("pregnancy_baby",
       [](Canvas &c) {
         const PregnancyProgress p = sample_progress();

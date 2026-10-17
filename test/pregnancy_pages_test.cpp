@@ -68,6 +68,21 @@ void write_canvas_preview(Canvas &canvas, const char *path) {
   }
 }
 
+// Width of a UTF-8 string drawn glyph by glyph with `tracking` px added after each glyph.
+int tracked_width_for_test(const char *text, uint8_t px, int tracking) {
+  int width = 0;
+  char one[5] = {};
+  for (const char *c = text; *c != '\0';) {
+    const unsigned char lead = static_cast<unsigned char>(*c);
+    const size_t length = lead < 0x80 ? 1 : (lead < 0xE0 ? 2 : (lead < 0xF0 ? 3 : 4));
+    std::memcpy(one, c, length);
+    one[length] = '\0';
+    width += font_text_width_pixels(one, px, FontWeight::Medium) + tracking;
+    c += length;
+  }
+  return width;
+}
+
 // Horizontal ink extent of the black pixels in a rectangle (min x, max x); {-1, -1} when empty.
 std::pair<int, int> ink_columns(Canvas &canvas, int x, int y, int width, int height) {
   int lo = -1, hi = -1;
@@ -230,6 +245,66 @@ int main() {
       assert(numeral.advance[digit] >= numeral.digit[digit].width);
     }
   }
+  // Caption sentences: five stages of eight weeks, an article that matches the name, and a fixed
+  // break after "of" in English so no name is ever split.
+  {
+    char text[kCaptionBufferSize] = {};
+    const char *const tail_en[5] = {"settling in", "growing every day", "learning your voice",
+                                    "saying hello", "waiting to meet you"};
+    const char *const tail_zh[5] = {"悄悄安了家", "每天都在长大", "正熟悉你的声音", "向你轻轻问好",
+                                    "等着和你见面"};
+    for (uint8_t week = 6; week <= 40; ++week) {
+      const int stage = (week - 1) / 8;
+      pregnancy_page_caption_text(week, false, text, sizeof(text));
+      const char *second = std::strchr(text, '\n');
+      assert(second != nullptr);
+      assert(std::strncmp(text, "Your baby is about the size of", 30) == 0 && second - text == 30);
+      assert(std::strstr(second + 1, tail_en[stage]) != nullptr);
+      assert(std::strncmp(second + 1, "a ", 2) == 0 || std::strncmp(second + 1, "an ", 3) == 0);
+      pregnancy_page_caption_text(week, true, text, sizeof(text));
+      assert(std::strncmp(text, "宝宝现在约有", std::strlen("宝宝现在约有")) == 0);
+      assert(std::strstr(text, pregnancy_plate_caption_zh(week)) != nullptr);
+      assert(std::strstr(text, "那么大，") != nullptr);
+      assert(std::strstr(text, tail_zh[stage]) != nullptr);
+      assert(std::strchr(text, '\n') == nullptr);
+      // One line, centred on the picture (x 580): it must end before the 24 px right margin (x 776).
+      assert(tracked_width_for_test(text, ui_tokens::kBody, 1) <= 2 * (776 - 580));
+    }
+    pregnancy_page_caption_text(8, false, text, sizeof(text));    // stage boundaries
+    assert(std::strstr(text, "settling in") != nullptr);
+    pregnancy_page_caption_text(9, false, text, sizeof(text));
+    assert(std::strstr(text, "growing every day") != nullptr);
+    pregnancy_page_caption_text(25, false, text, sizeof(text));
+    assert(std::strstr(text, "saying hello") != nullptr);
+    pregnancy_page_caption_text(33, false, text, sizeof(text));
+    assert(std::strstr(text, "waiting to meet you") != nullptr);
+    pregnancy_page_caption_text(15, false, text, sizeof(text));   // apple -> "an"
+    assert(std::strstr(text, "\nan apple,") != nullptr);
+    pregnancy_page_caption_text(28, false, text, sizeof(text));   // long name stays on one line
+    assert(std::strstr(text, "\na butternut squash, saying hello") != nullptr);
+  }
+  // Rendered captions, every week, landscape: they stay clear of the left column (grid ends x 300)
+  // and of the 24 px right margin, and their descenders stay at least 24 px above the bottom edge.
+  for (const UiLanguage language : {UiLanguage::English, UiLanguage::ChineseSimplified}) {
+    ui_language_set(language);
+    for (uint8_t week = 6; week <= 40; ++week) {
+      PregnancyProgress shown = progress;
+      shown.weeks = week;
+      pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, shown);
+      int lowest = -1, left = 800, right = -1;
+      for (int y = 418; y < 480; ++y)
+        for (int x = 340; x < 800; ++x)
+          if (canvas.pixel_at(x, y) == GrayLevel::Black) {
+            lowest = std::max(lowest, y);
+            left = std::min(left, x);
+            right = std::max(right, x);
+          }
+      assert(lowest >= 0);                 // the caption is there
+      assert(lowest <= 479 - 24);          // 24 px bottom margin
+      assert(left >= 340 && right <= 776); // between the left column and the right margin
+    }
+  }
+  ui_language_set(UiLanguage::English);
   pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress);
   assert(count_level(buffer, GrayLevel::Black) > 8000U);
   assert(count_level(buffer, GrayLevel::DarkGray) == 0U);

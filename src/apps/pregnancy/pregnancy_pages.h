@@ -78,6 +78,11 @@ void pregnancy_page_render_profile_date_setup(Canvas &canvas,
                                               const DigitFields &fields,
                                               bool input_error,
                                               bool due_date_primary);
+// The dashboard caption under the picture, for `week` (6-40; others clamp): a sentence that names
+// the plate's object and changes every 8 weeks. Chinese is one line; English is two lines separated
+// by '\n' (a fixed break after "of"). Needs kCaptionBufferSize bytes.
+constexpr size_t kCaptionBufferSize = 96;
+void pregnancy_page_caption_text(uint8_t week, bool chinese, char *out, size_t size);
 void pregnancy_page_render_dashboard(
     Canvas &canvas, const PregnancyDate &due_date,
     const PregnancyProgress &progress);

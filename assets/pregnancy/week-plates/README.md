@@ -22,7 +22,8 @@
   `tools/home_lab/stipple_art.py <out> --dir <folder> --size 340`.
 - **Rule exception**: dithered fills conflict with the "no dither / no hatch shading"
   rule in `CLAUDE.md`; this page follows the owner's explicit design direction.
-- Captions (English, shown under each plate) live in the generator.
+- Object names (English and Chinese) live in the generator; the dashboard builds the caption
+  sentence from them (`pregnancy_page_caption_text()`, a new sentence every 8 weeks).
 - Numerals use Bebas Neue (SIL OFL 1.1), vendored with its license in
   `assets/fonts/bebas-neue/`. The generator reads it by default; pass `--font` to use
   another condensed OFL font.
