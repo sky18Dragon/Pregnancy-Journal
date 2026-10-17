@@ -323,14 +323,6 @@ void update_display_orientation() {
               esp_err_to_name(resume));
 }
 
-void draw_sleep_indicator() {
-  const int left = static_cast<int>(s_canvas->width()) - 45;
-  constexpr int top = 10;
-  s_canvas->fill_rect(left, top, 35, 35, GrayLevel::White);
-  s_canvas->fill_circle(left + 16, top + 17, 11, GrayLevel::Black);
-  s_canvas->fill_circle(left + 21, top + 12, 10, GrayLevel::White);
-}
-
 void enter_sleep(const char *source) {
   const StickyAppDescriptor *app = s_manager.current();
   if (app == nullptr || !app->sleep_allowed())
@@ -388,9 +380,7 @@ void enter_sleep(const char *source) {
                                app->draw_sleep_status != nullptr &&
                                app->draw_sleep_status(*s_canvas);
   sticky_display_set_battery_overlay_enabled(!app_drew_status);
-  sticky_display_set_battery_overlay_sleep_layout(true);
-  if (!app_drew_status)
-    draw_sleep_indicator();
+  sticky_display_set_battery_overlay_sleep_layout(true); // the overlay draws battery + moon itself
   sticky_display_cancel_app_transition_refresh();
   sticky_display_refresh_monochrome();
   sticky_buzzer_stop();

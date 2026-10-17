@@ -9,7 +9,13 @@
 #include "canvas.h"
 #include "esp_timer.h"
 #include "font.h"
+#include "prototype_ui.h"
+#include "status_glyphs.h"
 #include "sticky_battery.h"
+
+static_assert(kBatteryStatusCompactWidth == kBatteryIconWidth &&
+                  kBatteryStatusCompactHeight == kBatteryIconHeight,
+              "pages lay out around the compact indicator using these constants");
 
 namespace {
 
@@ -20,7 +26,6 @@ constexpr int kAreaWidth = 98;
 constexpr int kAreaHeight = 28;
 constexpr int kAreaTop = 4;
 constexpr int kNormalRightMargin = 6;
-constexpr int kSleepRightMargin = 55;
 
 bool s_valid = false;
 int s_percent = 0;
@@ -60,36 +65,37 @@ void update_reading_if_due() {
   }
 }
 
-void draw_charging_bolt(Canvas &canvas, int x, int y, GrayLevel color) {
-  // Draws a two-pixel-wide bolt that remains legible over the larger fill bar.
-  // 绘制两像素宽的闪电，使其在放大的电量填充条上仍然清晰。
-  canvas.draw_line(x + 5, y, x, y + 7, color);
-  canvas.draw_line(x + 6, y, x + 1, y + 7, color);
-  canvas.draw_line(x, y + 7, x + 6, y + 7, color);
-  canvas.draw_line(x + 1, y + 8, x + 7, y + 8, color);
-  canvas.draw_line(x + 6, y + 7, x + 1, y + 15, color);
-  canvas.draw_line(x + 7, y + 8, x + 2, y + 15, color);
+int overlay_area_x(const Canvas &canvas) {
+  return static_cast<int>(canvas.width()) - kAreaWidth - kNormalRightMargin;
 }
 
-int overlay_area_x(const Canvas &canvas, bool sleep_layout) {
-  const int right_margin =
-      sleep_layout ? kSleepRightMargin : kNormalRightMargin;
-  return static_cast<int>(canvas.width()) - kAreaWidth - right_margin;
+void clear_overlay_area(Canvas &canvas, GrayLevel background) {
+  canvas.fill_rect(overlay_area_x(canvas), kAreaTop, kAreaWidth, kAreaHeight,
+                   background);
 }
 
-void clear_overlay_area(Canvas &canvas, bool sleep_layout,
-                        GrayLevel background) {
-  canvas.fill_rect(overlay_area_x(canvas, sleep_layout), kAreaTop, kAreaWidth,
-                   kAreaHeight, background);
+// In the sleep frame the status takes the page's header action button slot.
+prototype_ui::Rect sleep_slot(const Canvas &canvas) {
+  return prototype_ui::header_action_rect(static_cast<int>(canvas.width()),
+                                          static_cast<int>(canvas.height()));
+}
+
+BatteryStatusOverlayTheme slot_theme(const Canvas &canvas, const prototype_ui::Rect &slot) {
+  return battery_status_overlay_theme(canvas, slot.x, slot.y, slot.width, slot.height);
 }
 
 } // namespace
 
 void battery_status_overlay_clear(Canvas &canvas, bool sleep_layout) {
-  const int area_x = overlay_area_x(canvas, sleep_layout);
+  if (sleep_layout) {
+    const prototype_ui::Rect slot = sleep_slot(canvas);
+    canvas.fill_rect(slot.x, slot.y, slot.width, slot.height, slot_theme(canvas, slot).background);
+    return;
+  }
+  const int area_x = overlay_area_x(canvas);
   const BatteryStatusOverlayTheme theme = battery_status_overlay_theme(
       canvas, area_x, kAreaTop, kAreaWidth, kAreaHeight);
-  clear_overlay_area(canvas, sleep_layout, theme.background);
+  clear_overlay_area(canvas, theme.background);
 }
 
 void battery_status_overlay_draw(Canvas &canvas, bool sleep_layout) {
@@ -99,10 +105,21 @@ void battery_status_overlay_draw(Canvas &canvas, bool sleep_layout) {
   }
   update_reading_if_due();
 
-  const int area_x = overlay_area_x(canvas, sleep_layout);
+  if (sleep_layout) {
+    // Icon only, no number: the fill shows the charge. It replaces the header button, which cannot
+    // be pressed while asleep, so it never overlaps the page's own controls.
+    const prototype_ui::Rect slot = sleep_slot(canvas);
+    const BatteryStatusOverlayTheme slot_colors = slot_theme(canvas, slot);
+    sleep_status_draw(canvas, slot.x, slot.y, slot.width, slot.height, s_valid ? s_percent : -1,
+                      board_charger_external_power_present(), slot_colors.foreground,
+                      slot_colors.background);
+    return;
+  }
+
+  const int area_x = overlay_area_x(canvas);
   const BatteryStatusOverlayTheme theme = battery_status_overlay_theme(
       canvas, area_x, kAreaTop, kAreaWidth, kAreaHeight);
-  clear_overlay_area(canvas, sleep_layout, theme.background);
+  clear_overlay_area(canvas, theme.background);
 
   constexpr int kBatteryWidth = 34;
   constexpr int kBatteryHeight = 16;
@@ -120,7 +137,7 @@ void battery_status_overlay_draw(Canvas &canvas, bool sleep_layout) {
                      kBatteryHeight - 4, theme.foreground);
   }
   if (board_charger_external_power_present()) {
-    draw_charging_bolt(canvas, battery_x + 13, battery_y,
+    battery_bolt_draw(canvas, battery_x + 13, battery_y,
                        s_valid && s_percent >= 50 ? theme.background
                                                   : theme.foreground);
   }
@@ -139,20 +156,7 @@ void battery_status_overlay_draw(Canvas &canvas, bool sleep_layout) {
 
 void battery_status_overlay_draw_compact(Canvas &canvas, int x, int y) {
   update_reading_if_due();
-  // No number: the fill alone shows what is left, so the icon is big enough to read at a glance
-  // (2 px frame, 2 px gap, fill in proportion to the charge).
-  constexpr int kBodyWidth = 44;
-  constexpr int kBodyHeight = 22;
-  canvas.draw_rect(x, y, kBodyWidth, kBodyHeight, GrayLevel::Black);
-  canvas.draw_rect(x + 1, y + 1, kBodyWidth - 2, kBodyHeight - 2, GrayLevel::Black);
-  canvas.fill_rect(x + kBodyWidth, y + 7, 4, 8, GrayLevel::Black);
-  if (s_valid && s_percent > 0) {
-    constexpr int kInnerWidth = kBodyWidth - 8;
-    const int fill = (kInnerWidth * s_percent + 99) / 100;
-    canvas.fill_rect(x + 4, y + 4, fill, kBodyHeight - 8, GrayLevel::Black);
-  }
-  if (board_charger_external_power_present())
-    draw_charging_bolt(canvas, x + (kBodyWidth - 8) / 2, y + 3,
-                       s_valid && s_percent >= 50 ? GrayLevel::White
-                                                  : GrayLevel::Black);
+  // No number: the fill alone shows what is left (see status_glyphs.h).
+  battery_icon_draw(canvas, x, y, s_valid ? s_percent : -1, board_charger_external_power_present(),
+                    GrayLevel::Black, GrayLevel::White);
 }

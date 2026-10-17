@@ -275,7 +275,7 @@ compile_and_run digit_fields_test -Isrc/ui -Isrc/ui/assets \
 compile_and_run pregnancy_flow_test -Isrc/apps/pregnancy -Isrc/pregnancy/content -Isrc/app \
     -Isrc/ui -Isrc/ui/assets \
     test/pregnancy_flow_test.cpp src/apps/pregnancy/pregnancy_flow.cpp \
-    src/apps/pregnancy/pregnancy_pages.cpp src/apps/pregnancy/pregnancy_state.cpp \
+    src/apps/pregnancy/pregnancy_pages.cpp src/ui/status_glyphs.cpp src/apps/pregnancy/pregnancy_state.cpp \
     src/ui/digit_fields.cpp src/ui/canvas.cpp src/ui/font.cpp src/ui/prototype_ui.cpp \
     src/ui/text_layout.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp src/ui/assets/pixel_asset.cpp \
@@ -295,6 +295,11 @@ compile_and_run battery_status_overlay_theme_test -Isrc/ui -Isrc/ui/assets \
     src/ui/battery_status_overlay_theme.cpp src/ui/canvas.cpp \
     src/ui/font.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp
+compile_and_run status_glyphs_test -Isrc/ui -Isrc/ui/assets \
+    test/status_glyphs_test.cpp src/ui/status_glyphs.cpp src/ui/prototype_ui.cpp \
+    src/ui/battery_status_overlay_theme.cpp src/ui/canvas.cpp src/ui/font.cpp \
+    src/ui/text_layout.cpp src/ui/ui_language.cpp \
+    src/ui/assets/chinese_font_assets.cpp src/ui/assets/pixel_asset.cpp
 compile_and_run persistent_state_test -Isrc/app -Isrc/storage -Isrc/ui \
     test/persistent_state_test.cpp src/storage/persistent_state.cpp \
     src/app/sticky_app_id.cpp
@@ -324,7 +329,7 @@ compile_and_run pregnancy_storage_record_test -Isrc/apps/pregnancy \
     src/apps/pregnancy/pregnancy_state.cpp
 compile_and_run pregnancy_pages_test \
     -Isrc/apps/pregnancy -Isrc/pregnancy/content -Isrc/app -Isrc/ui -Isrc/ui/assets \
-    test/pregnancy_pages_test.cpp src/apps/pregnancy/pregnancy_pages.cpp src/ui/digit_fields.cpp \
+    test/pregnancy_pages_test.cpp src/apps/pregnancy/pregnancy_pages.cpp src/ui/status_glyphs.cpp src/ui/digit_fields.cpp \
     src/apps/pregnancy/pregnancy_state.cpp src/ui/canvas.cpp src/ui/font.cpp \
     src/ui/prototype_ui.cpp src/ui/text_layout.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp src/ui/assets/pixel_asset.cpp \

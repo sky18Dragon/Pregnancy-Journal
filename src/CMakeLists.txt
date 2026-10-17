@@ -116,6 +116,7 @@ idf_component_register(
         "ui/assets/pixel_asset.cpp"
         "ui/battery_status_overlay.cpp"
         "ui/battery_status_overlay_theme.cpp"
+        "ui/status_glyphs.cpp"
         "ui/canvas.cpp"
         "ui/chinese_input_page.cpp"
         "ui/chinese_text_editor.cpp"

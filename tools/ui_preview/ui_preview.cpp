@@ -9,6 +9,7 @@
 //                 the hit rectangles recovered from <page>_action_at()
 // tools/ui_preview/render_png.py turns these into PNGs.
 #include <cstdint>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <functional>
@@ -23,6 +24,7 @@
 #include "press_feedback.h"
 #include "prototype_ui.h"
 #include "settings_pages.h"
+#include "status_glyphs.h"
 #include "text_layout.h"
 #include "ui_language.h"
 #include "weight_pages.h"
@@ -536,6 +538,13 @@ int main(int argc, char **argv) {
         ui_set_truncation_observer(observe_truncation);
         ui_set_missing_translation_observer(lang == 1 ? observe_missing : nullptr);
         c.render(canvas);
+        // UI_PREVIEW_SLEEP=1 shows every page as the sleep frame would: the status replaces the
+        // header action button slot (battery at 70 %, not charging).
+        if (const char *sleep_env = std::getenv("UI_PREVIEW_SLEEP"); sleep_env != nullptr && *sleep_env != '\0') {
+          const prototype_ui::Rect slot = prototype_ui::header_action_rect(canvas.width(), canvas.height());
+          sleep_status_draw(canvas, slot.x, slot.y, slot.width, slot.height, 70, false, GrayLevel::Black,
+                            GrayLevel::White);
+        }
         ui_set_missing_translation_observer(nullptr);
         canvas_set_text_observer(nullptr);
         ui_set_truncation_observer(nullptr);

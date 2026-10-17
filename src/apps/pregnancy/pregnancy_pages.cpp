@@ -12,6 +12,7 @@
 #include "pixel_asset.h"
 #include "pregnancy_plate_assets.h"
 #include "prototype_ui.h"
+#include "status_glyphs.h"
 #include "text_layout.h"
 #include "ui_language.h"
 #include "ui_tokens.h"
@@ -421,15 +422,13 @@ void pregnancy_page_status_battery_origin(bool portrait, int &x, int &y) {
 }
 
 void pregnancy_page_render_sleep_moon(Canvas &canvas) {
-  constexpr int kGapAfterBattery = 12;
+  constexpr int kGapAfterBattery = 14;
   const bool portrait = portrait_layout(canvas);
   int bx = 0;
   int by = 0;
   pregnancy_page_status_battery_origin(portrait, bx, by);
-  const int left = bx + kBatteryStatusCompactWidth + kGapAfterBattery;
-  const int top = by + kBatteryStatusCompactHeight / 2 - 17;   // the moon's 35 px box is centred on the battery
-  canvas.fill_circle(left + 16, top + 17, 11, GrayLevel::Black);
-  canvas.fill_circle(left + 21, top + 12, 10, GrayLevel::White);
+  moon_icon_draw(canvas, bx + kBatteryStatusCompactWidth + kGapAfterBattery + kMoonIconSize / 2,
+                 by + kBatteryStatusCompactHeight / 2, GrayLevel::Black, GrayLevel::White);
 }
 
 void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
