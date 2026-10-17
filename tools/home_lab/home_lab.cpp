@@ -2,7 +2,7 @@
 //
 // Renders candidate layouts for the pregnancy home page through the REAL
 // firmware pieces: Canvas, the CJK font strikes, ui_tokens, prototype_ui
-// primitives and the 148x148 week-size illustrations. Each concept is drawn
+// primitives and the firmware's 340x340 plates. Each concept is drawn
 // for every requested week x orientation and written as
 //   <concept>_w<NN>_<landscape|portrait>_zh.mono / .meta
 // in the same format tools/ui_preview/render_png.py already understands, so the
@@ -33,7 +33,6 @@
 #include "chinese_font_assets.h"
 #include "font.h"
 #include "pixel_asset.h"
-#include "pregnancy_week_assets.h"
 #include "pregnancy_plate_assets.h"
 #include "content_service.h"
 #include "prototype_ui.h"
@@ -183,7 +182,7 @@ void text_centered(Canvas &c, const Rect &r, const std::string &s, int px,
 }
 
 // Week illustration. Packed illustration art (HOME_LAB_HAVE_ART) is drawn 1:1 at 280 px for
-// `scale` >= 2 and at 150 px for scale 1; otherwise the firmware pixel art.
+// `scale` >= 2 and at 150 px for scale 1; otherwise the firmware plate.
 bool g_use_art = true;
 
 void fruit(Canvas &c, int cx, int cy, const Facts &f, int scale) {
@@ -196,9 +195,8 @@ void fruit(Canvas &c, int cx, int cy, const Facts &f, int scale) {
     }
   }
 #endif
-  pixel_asset_draw_centered(c, cx, cy, pregnancy_week_size_asset(
-                                           static_cast<uint8_t>(f.asset_week)),
-                            static_cast<uint8_t>(scale), kInk);
+  (void)scale;   // the firmware plate has one size
+  pixel_asset_draw_centered(c, cx, cy, pregnancy_plate_asset(static_cast<uint8_t>(f.asset_week)), 1, kInk);
 }
 
 const char *trimester(const Input &in) {

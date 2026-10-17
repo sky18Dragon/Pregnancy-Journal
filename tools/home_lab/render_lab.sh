@@ -31,7 +31,6 @@ g++ -std=c++17 -Wall -Wextra -O1 -DUI_TEXT_OBSERVER \
   src/ui/canvas.cpp src/ui/font.cpp src/ui/prototype_ui.cpp src/ui/text_layout.cpp \
   src/ui/ui_language.cpp \
   src/ui/assets/chinese_font_assets.cpp src/ui/assets/pixel_asset.cpp \
-  src/ui/assets/pregnancy_week_assets.cpp \
   src/ui/assets/pregnancy_plate_assets.cpp \
   src/pregnancy/content/content_service.cpp \
   -o "${BIN}"

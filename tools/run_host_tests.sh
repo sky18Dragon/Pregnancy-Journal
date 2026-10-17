@@ -279,7 +279,7 @@ compile_and_run pregnancy_flow_test -Isrc/apps/pregnancy -Isrc/pregnancy/content
     src/ui/digit_fields.cpp src/ui/canvas.cpp src/ui/font.cpp src/ui/prototype_ui.cpp \
     src/ui/text_layout.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp src/ui/assets/pixel_asset.cpp \
-    src/ui/assets/app_launcher_assets.cpp src/ui/assets/pregnancy_week_assets.cpp \
+    src/ui/assets/app_launcher_assets.cpp \
     src/ui/assets/pregnancy_plate_assets.cpp \
     src/pregnancy/content/content_service.cpp
 compile_and_run app_launcher_test -Isrc/app -Isrc/ui -Isrc/ui/assets \
@@ -328,7 +328,7 @@ compile_and_run pregnancy_pages_test \
     src/apps/pregnancy/pregnancy_state.cpp src/ui/canvas.cpp src/ui/font.cpp \
     src/ui/prototype_ui.cpp src/ui/text_layout.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp src/ui/assets/pixel_asset.cpp \
-    src/ui/assets/app_launcher_assets.cpp src/ui/assets/pregnancy_week_assets.cpp \
+    src/ui/assets/app_launcher_assets.cpp \
     src/ui/assets/pregnancy_plate_assets.cpp \
     src/pregnancy/content/content_service.cpp
 compile_and_run content_service_test -Isrc/pregnancy/content \

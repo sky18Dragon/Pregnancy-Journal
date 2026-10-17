@@ -52,8 +52,8 @@ The home page follows the settled grip orientation and reflows rather than
 cropping: landscape uses a two-column dashboard, while portrait uses a vertical
 week/progress, illustration and growth-card sequence. Setup and Baby/Mom detail
 pages have matching portrait layouts. Weeks 6–40 each have a distinct
-ImageGen illustration and one-line comparison. Source images are replaceable
-under `assets/pregnancy/week-size/` and are compiled into 148×148 1-bit assets.
+engraving-style plate. The 340×340 sources are replaceable under
+`assets/pregnancy/week-plates/` and are compiled into 1-bit assets.
 The Baby and Mom detail tabs show week/day, trimester, days until the due date,
 offline guidance and three facts. Content is clamped to weeks 1–40.
 

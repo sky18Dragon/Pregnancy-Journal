@@ -29,8 +29,8 @@ the registry directly.
 
 Weeks 6–40 map to 35 distinct object illustrations. The home page uses the 340×340
 stipple plates under `assets/pregnancy/week-plates/` and their English and Chinese object
-names, generated into `ui/assets/pregnancy_plate_assets.cpp`. (The earlier 148×148 set in
-`ui/assets/pregnancy_week_assets.cpp` and its one-line comparison table are no longer used.)
+names, generated into `ui/assets/pregnancy_plate_assets.cpp`. (The earlier 148×148 set and its
+generator were removed.)
 
 ## Hardware adaptations
 
