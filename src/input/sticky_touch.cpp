@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
+#include <cstring>
 
 #include "app_log.h"
 #include "driver/gpio.h"
@@ -30,6 +31,8 @@ constexpr UBaseType_t kInteractionQueueLength = 8;
 constexpr TickType_t kStopTimeout = pdMS_TO_TICKS(1000);
 constexpr uint16_t kTapMoveTolerance = 24U;
 constexpr uint32_t kRecoveryRetryDelayMs = 1000U;
+constexpr uint32_t kPowerOffHoldMs = 300U;   // touch rail off long enough for the controller to drain
+constexpr uint32_t kPowerOnSettleMs = 250U;  // same settle time as the cold-start path in sticky_touch_init()
 
 i2c_master_bus_handle_t s_touch_bus = nullptr;
 GT911 s_controller;
@@ -38,6 +41,10 @@ bool s_touching = false;
 bool s_read_error_reported = false;
 uint32_t s_consecutive_read_failures = 0U;
 uint32_t s_next_recovery_attempt_ms = 0U;
+bool s_geometry_valid = true;       // the controller reported the verified geometry at its last start
+bool s_touch_seen = false;          // a contact has been read since boot
+uint32_t s_geometry_retries = 0U;
+uint32_t s_next_geometry_retry_ms = 0U;
 uint16_t s_last_x = 0;
 uint16_t s_last_y = 0;
 uint16_t s_start_x = 0;
@@ -58,25 +65,70 @@ bool time_reached(uint32_t now_ms, uint32_t target_ms)
     return static_cast<int32_t>(now_ms - target_ms) >= 0;
 }
 
-// Starts GT911 with the same reset and address-selection flow as the Sticky demo.
-// 使用Sticky示例相同的复位和地址选择流程启动GT911。
-bool start_touch_controller(const char *reason)
+// Cuts the touch rail and brings it back, reproducing the cold start that normally yields a healthy
+// controller. A reset-pin pulse alone does not free a controller that powered up without loading its
+// configuration (it keeps reporting 2048x2048 or zeros), a real power cycle does.
+// 断开再接通触摸电源，复现正常的冷启动。仅拉复位脚救不回上电后没有加载配置的控制器，真正掉电重启可以。
+void power_cycle_touch_controller()
 {
-    if (!s_controller.begin(PIN_TOUCH_INT,
-                            PIN_TOUCH_RST,
-                            kDisplayWidth,
-                            kDisplayHeight,
-                            s_touch_bus)) {
-        STICKY_LOGW(kTag,
-                    "touch=controller_start reason=%s result=failed",
-                    reason);
-        return false;
-    }
+    gpio_set_direction(static_cast<gpio_num_t>(PIN_TOUCH_RST), GPIO_MODE_OUTPUT);
+    gpio_set_direction(static_cast<gpio_num_t>(PIN_TOUCH_INT), GPIO_MODE_OUTPUT);
+    gpio_set_level(static_cast<gpio_num_t>(PIN_TOUCH_RST), 0);
+    gpio_set_level(static_cast<gpio_num_t>(PIN_TOUCH_INT), 0);
+    gpio_set_level(static_cast<gpio_num_t>(PIN_TOUCH_EN), 0);
+    vTaskDelay(pdMS_TO_TICKS(kPowerOffHoldMs));
+    gpio_set_level(static_cast<gpio_num_t>(PIN_TOUCH_EN), 1);
+    vTaskDelay(pdMS_TO_TICKS(kPowerOnSettleMs));
+}
 
+// Starts GT911 with the same reset and address-selection flow as the Sticky demo. When the
+// controller reports an unusable geometry, the whole start is repeated after a power cycle of the
+// touch rail (`power_cycle_first` does that before the very first attempt as well, for retries
+// that already know a plain reset did not help).
+// 使用Sticky示例相同的复位和地址选择流程启动GT911；报告的分辨率不可用时，掉电重启触摸电源后整体重来。
+bool start_touch_controller(const char *reason, bool power_cycle_first = false)
+{
+    if (power_cycle_first) {
+        power_cycle_touch_controller();
+    }
+    // A controller that comes up reporting a wrong geometry delivers no touches, so repeat the
+    // reset flow a few times before settling for the fallback mapping.
+    // 控制器启动后若报告错误分辨率就收不到触摸，所以先重复几次复位流程，再退回兜底映射。
     uint16_t reported_width = 0U;
     uint16_t reported_height = 0U;
-    const bool resolution_read =
-        s_controller.readResolution(reported_width, reported_height);
+    bool resolution_read = false;
+    for (uint32_t attempt = 1U; attempt <= kStickyTouchInitAttempts; ++attempt) {
+        if (!s_controller.begin(PIN_TOUCH_INT,
+                                PIN_TOUCH_RST,
+                                kDisplayWidth,
+                                kDisplayHeight,
+                                s_touch_bus)) {
+            STICKY_LOGW(kTag,
+                        "touch=controller_start reason=%s attempt=%u result=failed",
+                        reason,
+                        static_cast<unsigned>(attempt));
+            return false;
+        }
+
+        reported_width = 0U;
+        reported_height = 0U;
+        resolution_read =
+            s_controller.readResolution(reported_width, reported_height);
+        if (sticky_touch_geometry_valid(resolution_read, reported_width, reported_height)) {
+            break;
+        }
+        STICKY_LOGW(kTag,
+                    "touch=geometry reason=%s attempt=%u of=%u read_ok=%u reported_width=%u reported_height=%u result=invalid",
+                    reason,
+                    static_cast<unsigned>(attempt),
+                    static_cast<unsigned>(kStickyTouchInitAttempts),
+                    static_cast<unsigned>(resolution_read),
+                    static_cast<unsigned>(reported_width),
+                    static_cast<unsigned>(reported_height));
+        if (attempt < kStickyTouchInitAttempts) {
+            power_cycle_touch_controller();
+        }
+    }
     const StickyTouchSensorResolution resolution =
         sticky_touch_select_sensor_resolution(
             resolution_read, reported_width, reported_height);
@@ -88,6 +140,10 @@ bool start_touch_controller(const char *reason)
     s_consecutive_read_failures = 0U;
     s_read_error_reported = false;
     s_next_recovery_attempt_ms = 0U;
+    s_geometry_valid = !resolution.used_fallback;
+    if (s_geometry_valid) {
+        s_geometry_retries = 0U;
+    }
 
     STICKY_LOGI(kTag,
                 "touch=controller_ready reason=%s address=0x%02X reported_width=%u reported_height=%u map_width=%u map_height=%u fallback=%u result=ok",
@@ -115,7 +171,8 @@ bool recover_touch_controller(const char *reason, uint32_t now_ms)
                 reason,
                 static_cast<unsigned>(s_consecutive_read_failures));
     s_touching = false;
-    if (start_touch_controller(reason)) {
+    const bool geometry_retry = std::strcmp(reason, "invalid_geometry") == 0;
+    if (start_touch_controller(reason, geometry_retry)) {
         STICKY_LOGI(kTag,
                     "touch=recovery reason=%s state=finished result=ok",
                     reason);
@@ -230,6 +287,7 @@ void touch_task(void *)
         const int8_t count = s_controller.read_points(&point, 1);
         const uint32_t now_ms = monotonic_ms();
         if (count > 0) {
+            s_touch_seen = true;
             s_consecutive_read_failures = 0U;
             s_read_error_reported = false;
             if (s_touching &&
@@ -272,6 +330,21 @@ void touch_task(void *)
             if (sticky_touch_recovery_required(
                     s_consecutive_read_failures)) {
                 (void)recover_touch_controller("read_failures", now_ms);
+            }
+        }
+
+        // A controller that came up with a wrong geometry and has never delivered a touch is dead
+        // for the user: re-run the reset flow now and then, backing off while it stays broken.
+        // 启动时分辨率无效且从未收到过触摸，用户眼里触摸已失效：隔一段时间重新执行复位流程，持续失败则退避。
+        if (sticky_touch_geometry_retry_due(s_geometry_valid, s_touch_seen, s_touching, now_ms,
+                                            s_next_geometry_retry_ms)) {
+            s_next_geometry_retry_ms =
+                now_ms + sticky_touch_geometry_retry_delay_ms(s_geometry_retries);
+            ++s_geometry_retries;
+            (void)recover_touch_controller("invalid_geometry", now_ms);
+            if (s_geometry_valid) {
+                STICKY_LOGI(kTag, "touch=geometry result=recovered retries=%u",
+                            static_cast<unsigned>(s_geometry_retries));
             }
         }
 
@@ -327,6 +400,9 @@ esp_err_t sticky_touch_init()
     if (!start_touch_controller("boot")) {
         return ESP_FAIL;
     }
+    s_touch_seen = false;
+    s_geometry_retries = 0U;
+    s_next_geometry_retry_ms = monotonic_ms() + kStickyTouchGeometryRetryFirstMs;
 
     // Stores up to eight ordered press events in a FreeRTOS queue.
     // 使用FreeRTOS队列按顺序保存最多8个按下事件。
