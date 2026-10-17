@@ -42,9 +42,8 @@ struct PageLayout {
   Rect grid;          // dashboard 8 x 5 week grid (display only)
   int grid_cell;      // grid cell size
   int grid_pitch;     // grid cell spacing
-  int numeral_x;      // dashboard numeral: left edge, or right edge when aligned right
-  int numeral_y;      // ... top of the digits; WEEKS follows kWeeksGap below
-  bool numeral_right; // true: numeral and WEEKS are right-aligned to numeral_x
+  int block_cx;       // dashboard 孕周 block (numeral + label): centre line x, both lines centred on it
+  int block_top;      // ... top of the digits; the label follows kWeeksGap below
   int status_x;       // dashboard status row (battery, moon): left edge, hugging the top-left corner
   int status_y;       // ... top of the 22 px battery
 };
@@ -63,16 +62,15 @@ constexpr PageLayout kLandscape = {
      {280, 408, 128, ui_tokens::kMinimumTouchHeight}},
     {720, 24, ui_tokens::kButtonHeight, ui_tokens::kButtonHeight},
     {410, 80, 340, 340},
-    {36, 76, 200, 140},
+    {74, 84, 200, 132},
     {30, 118, 430, 86},
     28,
     430,
     {48, 252, 252, 156},
     28,
     32,
-    48,
-    88,
-    false,
+    174,
+    92,
     12,
     12,
 };
@@ -91,16 +89,15 @@ constexpr PageLayout kPortrait = {
      {312, 728, 144, ui_tokens::kMinimumTouchHeight}},
     {400, 24, ui_tokens::kButtonHeight, ui_tokens::kButtonHeight},
     {70, 130, 340, 340},
-    {330, 646, 138, 130},
+    {268, 637, 180, 132},
     {24, 102, 432, 76},
     21,
     488,
     {24, 630, 236, 146},
     26,
     30,
-    456,
-    660,
-    true,
+    358,
+    645,
     12,
     12,
 };
@@ -327,11 +324,12 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
   const int weeks = std::max(0, std::min(99, static_cast<int>(progress.weeks)));
   const uint8_t week = static_cast<uint8_t>(weeks);
 
-  // Portrait is a desk calendar: picture on top, week grid bottom left, week
-  // number bottom right. Landscape puts the picture on the right and stacks the
-  // number, WEEKS and the grid in one left column. The object's name is centred
-  // under the picture in both.
-  // 竖屏台历式；横屏图案在右、周数/WEEKS/周图同在左栏；英文名都在图案正下方。
+  // Portrait is a desk calendar: picture on top, week grid bottom left, the 孕周 block in the
+  // space to the right of the grid, centred on the grid's centre line. Landscape puts the picture on
+  // the right and the 孕周 block centred above the grid. The object's name is centred under the
+  // picture in both.
+  // 竖屏台历式：图案在上、周图在左下、孕周块在周图右侧空白处并对齐周图中心线；横屏图案在右、孕周块在周图
+  // 正上方居中；物件名都在图案正下方。
   draw_week_grid(canvas, layout, weeks);
 
   const int hero_x = layout.hero.x + layout.hero.width / 2;
@@ -352,19 +350,18 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
 
   char digits[8] = {};
   std::snprintf(digits, sizeof(digits), "%d", weeks);
-  const int weeks_y = layout.numeral_y + numeral.height + kWeeksGap;
+  const int weeks_y = layout.block_top + numeral.height + kWeeksGap;
   const int numeral_width = plate_numeral_width(numeral, digits);
   const char *weeks_label = chinese ? "孕周" : "WEEKS";
   const int weeks_tracking = chinese ? kChineseTracking : kWeeksTracking;
   const int weeks_width = tracked_text_width(weeks_label, ui_tokens::kEmphasis,
                                              weeks_tracking, FontWeight::Medium);
-  const int numeral_left =
-      layout.numeral_right ? layout.numeral_x - numeral_width : layout.numeral_x;
-  const int weeks_left =
-      layout.numeral_right ? layout.numeral_x - weeks_width : layout.numeral_x + 2;
-  draw_plate_numeral(canvas, numeral_left, layout.numeral_y, numeral, digits);
-  draw_tracked_text(canvas, weeks_left, weeks_y, weeks_label, ui_tokens::kEmphasis,
-                    weeks_tracking, FontWeight::Medium);
+  // Both lines are centred on one vertical line: above the grid's centre line in landscape, in the
+  // free space to the right of the grid in portrait.
+  // 数字与“孕周”共用一条竖直中线：横屏在周图中心线上方，竖屏在周图右侧空白处。
+  draw_plate_numeral(canvas, layout.block_cx - numeral_width / 2, layout.block_top, numeral, digits);
+  draw_tracked_text(canvas, layout.block_cx - weeks_width / 2, weeks_y, weeks_label,
+                    ui_tokens::kEmphasis, weeks_tracking, FontWeight::Medium);
 
   draw_menu_icon(canvas, layout.menu);
 }

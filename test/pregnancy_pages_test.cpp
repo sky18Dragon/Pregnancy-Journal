@@ -1,5 +1,7 @@
 #include <algorithm>
 #include <cassert>
+#include <utility>
+#include <cstdlib>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -64,6 +66,18 @@ void write_canvas_preview(Canvas &canvas, const char *path) {
       output.write(reinterpret_cast<const char *>(&value), 1);
     }
   }
+}
+
+// Horizontal ink extent of the black pixels in a rectangle (min x, max x); {-1, -1} when empty.
+std::pair<int, int> ink_columns(Canvas &canvas, int x, int y, int width, int height) {
+  int lo = -1, hi = -1;
+  for (int row = y; row < y + height; ++row)
+    for (int col = x; col < x + width; ++col)
+      if (canvas.pixel_at(col, row) == GrayLevel::Black) {
+        if (lo < 0 || col < lo) lo = col;
+        if (col > hi) hi = col;
+      }
+  return {lo, hi};
 }
 
 size_t count_black_rect(Canvas &canvas, int x, int y, int width, int height) {
@@ -255,6 +269,15 @@ int main() {
     assert(count_black_rect(canvas, 410, 80, 340, 340) > 6000U);
     pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress);
   }
+  // The 孕周 block (digits and label) is centred on the grid's centre line, above the grid.
+  {
+    const auto digits = ink_columns(canvas, 48, 84, 252, 84);     // the digit rows only
+    assert(digits.first >= 0);
+    assert(std::abs((digits.first + digits.second) / 2 - (48 + 252 / 2)) <= 3);
+    assert(digits.second < 300 && digits.first > 48);              // inside the grid's width
+    assert(count_black_rect(canvas, 74, 84, 200, 132) > 600U);    // digits + label sit in the hit rect
+    assert(count_black_rect(canvas, 48, 224, 252, 28) == 0U);     // clear gap above the grid
+  }
   ui_language_set(UiLanguage::ChineseSimplified);
   pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress);
   assert(count_level(buffer, GrayLevel::Black) > 8000U);
@@ -295,6 +318,18 @@ int main() {
                                   560) == PregnancyAction::None);
   assert(count_black_rect(canvas, 70, 130, 340, 340) > 6000U);
   assert(count_black_rect(canvas, 24, 630, 236, 146) > 20U * 26U * 26U * 8U / 10U);
+  // Portrait: the block is centred in the space right of the grid (x 260..456) and vertically on
+  // the grid's centre line (y 630 + 146 / 2 = 703).
+  {
+    const auto digits = ink_columns(canvas, 260, 637, 196, 84);
+    assert(digits.first >= 0);
+    assert(std::abs((digits.first + digits.second) / 2 - (260 + 456) / 2) <= 3);
+    int top = -1, bottom = -1;
+    for (int y = 637; y < 780; ++y)
+      for (int x = 268; x < 448; ++x)
+        if (canvas.pixel_at(x, y) == GrayLevel::Black) { if (top < 0) top = y; bottom = y; }
+    assert(top >= 0 && std::abs((top + bottom) / 2 - 703) <= 6);   // block centre on the grid's centre line
+  }
   {
     int bx = 0, by = 0;
     pregnancy_page_status_battery_origin(true, bx, by);
