@@ -386,6 +386,8 @@ void enter_sleep(const char *source) {
                      s_canvas->rotation()};
   sticky_display_set_battery_overlay_enabled(true);
   sticky_display_set_battery_overlay_sleep_layout(true);
+  if (!launcher_was_open && app->before_sleep_frame != nullptr)
+    app->before_sleep_frame(*s_canvas);
   draw_sleep_indicator();
   sticky_display_cancel_app_transition_refresh();
   sticky_display_refresh_monochrome();

@@ -22,6 +22,7 @@ DEFINE_APP_STUBS(settings)
 
 bool settings_app_power_sleep_allowed() { return true; }
 void kick_app_capture_press(int64_t) {}
+void pregnancy_app_before_sleep_frame(Canvas &) {}
 
 int main() {
   assert(sticky_app_registry_count() == 4U);
@@ -33,6 +34,11 @@ int main() {
   assert(static_cast<int>(StickyAppId::Checkup) == 4);
   assert(static_cast<int>(StickyAppId::Weight) == 7);
   assert(static_cast<int>(StickyAppId::Kicks) == 8);
+  // Only the pregnancy dashboard draws its own battery indicator, so only it needs the hook.
+  assert(sticky_app_registry_find(StickyAppId::Pregnancy)->before_sleep_frame != nullptr);
+  assert(sticky_app_registry_find(StickyAppId::Weight)->before_sleep_frame == nullptr);
+  assert(sticky_app_registry_find(StickyAppId::Kicks)->before_sleep_frame == nullptr);
+  assert(sticky_app_registry_find(StickyAppId::Settings)->before_sleep_frame == nullptr);
   assert(sticky_app_registry_find(StickyAppId::Reminder) == nullptr);
   assert(sticky_app_registry_find(StickyAppId::Checkup) == nullptr);
   const StickyAppDescriptor *apps = sticky_app_registry_data();

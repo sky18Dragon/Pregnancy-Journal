@@ -30,4 +30,9 @@ struct StickyAppDescriptor {
     // so it must only queue the press.
     // 可选：应用显示 Capture 页时接收顶键按下（带按下时刻）；在协调器任务中调用，只能入队。
     void (*capture_press)(int64_t at_us) = nullptr;
+    // Optional: called just before the sleep frame gets the system battery overlay and moon, only
+    // when the app's own page is on screen. The app removes any indicator of its own there so the
+    // two do not overlap.
+    // 可选：休眠帧叠加系统电量与月亮之前调用（仅当应用自己的页面在屏幕上），应用在此移除自有指示以免重叠。
+    void (*before_sleep_frame)(Canvas &canvas) = nullptr;
 };
