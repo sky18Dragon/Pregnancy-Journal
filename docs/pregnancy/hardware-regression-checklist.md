@@ -60,7 +60,7 @@ the result.
 - [ ] Failed/incomplete Kicks commits retain a draft and reconcile the same ID on
   retry. A switched card cannot accept the old draft or display old statistics.
 - [ ] Today/seven-day summaries show actual recorded data without extrapolation.
-  At 42 sessions new sessions fail explicitly; no automatic overwrite.
+  At 400 sessions new sessions fail explicitly; no automatic overwrite.
 - [ ] Ten partial Kicks updates trigger cleanup (limit 10 since 2026-10-18), with
   acceptable legibility and responsive touch after repeated taps.
 - [ ] Pregnancy home <-> baby page (partial-refresh trial): switch back and forth

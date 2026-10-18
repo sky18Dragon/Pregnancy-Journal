@@ -61,7 +61,8 @@ SDK or unrelated application namespaces. Tombstoned target IDs count as conflict
 
 ## Capacity and memory
 
-Weight capacity is 366 live records; Kicks remains 42 sessions. The recovery
+Weight capacity is 366 live records; Kicks holds 400 sessions (schema 2; the
+legacy NVS import still reads the 42 historical slots). The recovery
 index and schema-1 snapshot accept 1,024 distinct keys including tombstones;
 existing 64-entry snapshots are compatible. A full index rejects new keys even
 after deletion because tombstones are retained. There is no garbage collection

@@ -1,12 +1,144 @@
-# Pregnancy Journal
+# Pregnancy Journal（妊娠手帳）
 
-See [`README.md`](README.md) or
-[current functionality reference](docs/pregnancy/current-functionality.md) for
-the current firmware behavior, build, flash and hardware verification
-instructions.
+Pregnancy Journal は、Seeed Studio reTerminal Sticky（小型のマグネット式電子ペーパー端末）で
+動作するオフラインの妊娠記録ファームウェアです。Sticky Core のハードウェアフレームワーク上に、
+妊娠週ダッシュボード、体重記録、胎動カウント、設定を備えています。情報の整理のためのソフトウェアで
+あり、診断・治療・緊急通報を行う機器ではありません。健康に関する数値はすべて個人の記録と医療者との
+相談のための目安であり、医学的な助言ではありません。
 
-Current firmware: `2.0.0`, target Seeed Studio reTerminal Sticky (ESP32-S3,
-800×480 monochrome e-paper). The registered apps are Baby Week, Reminders,
-Checkups, Weight, Kicks and Settings. English and Simplified Chinese are
-available; all records are stored locally and the product has no network or
-cloud dependency.
+[English](README.md) · [简体中文](README_CN.md)
+
+## 現在の状態
+
+- 対象：ESP32-S3 の reTerminal Sticky（3.97 インチ 800×480 モノクロ電子ペーパー）。
+  ファームウェアのバージョンは `2.0.0`。
+- 登録されているアプリは 4 つ：**Baby Week（妊娠週）**、**体重**、**胎動**、**設定**。
+  リマインダー、健診と通知、習慣、メモ、録音、プロビジョニング、音声認識は次の版に移しました
+  （[V2 拡張仕様](docs/V2-PROJECT-SPEC.md)）。
+- UI 言語は English / 簡体字中国語。ユーザーデータはすべて MicroSD カードに保存され、
+  アカウント、テレメトリ、クラウド送信、OTA、AI サービスはありません。
+- 受け入れ前のファームウェア候補です。自動の基準は、ホストテスト
+  （`tools/run_host_tests.sh`、2026-10-19 時点で 88/88 ステップ）と、`sticky-release`・
+  `sticky-debug`・`sticky-power-test` の 3 構成のビルド成功です。実機での受け入れは
+  [V1 検証記録](docs/V1-VALIDATION.md)と
+  [ハードウェア回帰チェックリスト](docs/pregnancy/hardware-regression-checklist.md)で別に管理しており、
+  このページは実機合格を主張しません。
+
+現在の動作と制限の全体は[現行機能リファレンス](docs/pregnancy/current-functionality.md)を参照してください。
+
+## アプリ
+
+| アプリ | 内容 | 主な制限 |
+| --- | --- | --- |
+| Baby Week | 6〜40 週の各週に版画風のイラストがあるダッシュボード、週のグリッド、現在の週。Baby ページと Mom ページには週/日、妊娠期、出産予定日までの日数、オフラインの解説 | 内容は 1〜40 週に収めます |
+| 体重 | kg/lb、0.1 刻み、基準値と身長、7 日/30 日のグラフ、履歴の編集と削除 | 366 件、1 日 1 件。置き換えと削除は確認が必要 |
+| 胎動 | 1 時間カウント、10 回まで、感覚チェックの 3 種類。選んだ方式は記憶されます。各記録を過去 7 日の自分の中央値と比較（差の向きと大きさのみ） | 400 件、取り消し可、400 ms の誤タップ防止、1 回最長 60 分 |
+| 設定 | 言語、端末時刻、妊娠設定、ダブルクリックのショートカット、電子ペーパーのクリーン更新、MicroSD ページ（状態、データセット作成、安全な取り外し、旧データの取り込み、カード内データの削除、端末リセット） | 時刻編集中はスリープしない。データセット作成は 2 回の明示的な操作が必要 |
+
+ダッシュボードでイラストをタップすると Baby ページ、週の数字をタップすると Mom ページが開きます。
+進捗バーとカウントダウンはダッシュボードではなく、Baby ページと Mom ページにあります。
+
+## 初回セットアップ
+
+初回起動時、Baby Week は端末時刻（`YYYYMMDDHHMM`）を尋ね、続いて医療者が確認した出産予定日
+または最終月経の初日（`YYYYMMDD`）を尋ねます。プロフィールは MicroSD カードにのみ保存され、
+後から 設定 → 妊娠設定 で変更できます。カードがない場合は読み込めない理由が表示され、
+Flash には保存しません。
+
+## 操作
+
+| 入力 | 結果 |
+| --- | --- |
+| 上ボタン 1 回クリック | 任意のページ → Baby Week のホーム → ランチャー → 閉じる（元のページへ）。胎動のカウントページでは 1 回カウント |
+| 上ボタン ダブルクリック | 設定 → ショートカット で選んだ動作：今日の体重を記録（既定）、Baby Week のホーム、胎動の開始、またはオフ |
+| 側面ボタン 1 回押し | ランチャー順で前/次のアプリへ。未保存の入力やカウント中のページでは無効 |
+| 側面ボタン 2 つを 2 秒 | ディープスリープを要求 |
+| 下端から上へスワイプ | ランチャーを開く |
+| 下 30% の領域から下へスワイプ | ランチャーを閉じる |
+| 下端に沿った長い左/右スワイプ（ランチャーが閉じているとき） | ランチャーを開かずに前/次のアプリへ（循環） |
+| ランチャーの項目をタップ | Baby Week、体重、胎動、設定を開く |
+
+ランチャーは無操作が 30 秒続くと閉じます。画面の向きは IMU が報告する持ち方に従います。ランチャーは
+横向きで 2 列、縦向きで 1 列、各アプリに横向きと縦向きの専用ページがあります。ヘッダーのボタンの
+意味は固定です：**APPS**（アプリを出てランチャーへ）、**BACK**（1 つ上へ）、**CANCEL**（保存せず
+中止）、**HOME**（Baby Week へ）。詳しくは[ページとナビゲーション構成](docs/PAGE-STRUCTURE.md)を参照してください。
+
+## スリープと復帰
+
+外部電源がないとき、安定したページは 60 秒の無操作でディープスリープに入ります。設定は 3 分で、
+編集ページと胎動のカウント中はスリープしません。上ボタンで復帰します。スリープ前に、毎日 03:00 の
+メンテナンス復帰と、動作中のアプリが要求したイベントが予約され、タイマーは最大 15 秒早く
+有効になります。この版には、業務通知のタイマー復帰とアラーム音はありません。
+
+## 電子ペーパーの更新
+
+製品のページは白黒のみで、1 ビットのフレームとして送られます（全面更新は約 1.9 秒、部分更新は約 0.9 秒）。
+ページ遷移は全面更新です。例外は次のとおりです。
+
+- ランチャーを開く、アプリに戻る、アプリを切り替えるときは、最初のフレームを高速（部分更新）の
+  波形で描画し、連続 5 回のあとの 6 回目は全面更新で消去します。
+- Baby Week のホームと Baby ページの切り替えは部分更新で、5 秒間操作がなければ全面更新で 1 回描き直します。
+- 表示層は、部分更新が 10 回続いたあとに全面更新を強制します。
+- 体重と胎動は、カードが 1.5 秒以内に応答すれば「読み込み中」ページを出さず、内容ページを直接描画します。
+  Baby Week は、すでにプロフィールを保持していれば、ホームを先に描画し、裏でカードを静かに再確認します。
+
+向きの変更とスリープ画面は常に全面更新です。規則は [DESIGN.md](DESIGN.md) と
+[更新戦略](docs/pregnancy/eink-refresh-strategy.md)にあります。
+
+## ストレージとプライバシー
+
+4 つのアプリはすべて、データセットに結び付いたジャーナル方式の MicroSD リポジトリを使い、Flash には
+退避しません。設定には、検証付きの旧データ取り込み（胎動は独立した経路）、安全な取り外し、端末リセット、
+カード内アプリデータの削除があります。リマインダーと健診の NVS 上の写しは V2 のために残してあります。
+復元インデックスは削除済みキーを含めて 1,024 キーまでで、ジャーナルとオブジェクトのガベージコレクションは
+未実装です。いっぱいになった場合は、記録を捨てずに新しいキーを拒否します。
+[ストレージ](docs/pregnancy/storage.md)、[データモデル](docs/pregnancy/data-model.md)、
+[バックアップと復旧](docs/S1-BACKUP-RECOVERY.md)を参照してください。
+
+## ビルド、テスト、書き込み
+
+PlatformIO と ESP-IDF 5.4.1 が必要です。プロジェクトのパスに空白が含まれると PlatformIO がビルドを
+拒否するため、空白のないチェックアウトまたは同一内容のミラーでビルドしてください
+（[開発手順](docs/DEVELOPMENT.md)を参照）。
+
+```bash
+pio run -e sticky-release
+pio run -e sticky-debug
+pio run -e sticky-power-test
+tools/run_host_tests.sh
+python3 tools/check_markdown_links.py
+```
+
+書き込みとシリアルモニター：
+
+```bash
+pio device list
+pio run -e sticky-release -t upload --upload-port /dev/cu.usbmodemXXXX
+pio device monitor -p /dev/cu.usbmodemXXXX -b 115200 --filter time --rts 0 --dtr 0
+```
+
+ポートは `pio device list` に表示されたものに置き換えてください。自動でブートローダーに入れない場合は、
+**BOOT** を押したまま **RESET** を押して離し、**BOOT** を離してから、もう一度書き込みます。書き込み後は
+[ハードウェア回帰チェックリスト](docs/pregnancy/hardware-regression-checklist.md)を実行してください。
+
+`platformio.ini` の他の環境は独立したハードウェアテスト（グリフ確認、SD 録音、ストレージの電源断と
+障害注入、中国語入力、音声分類器）で、製品ビルドではありません。便利なツール：
+`tools/ui_preview/render_all.sh`（全ページを 1 ビット PNG とヒット領域の重ね図に描画）、
+`tools/check_ui_tokens.py`（文字サイズと余白のトークン検査）、`tools/validate_sd_backup.py`
+（コピーした `PREGJNL` データセットの検証）。
+
+## ドキュメント
+
+- [現行機能リファレンス](docs/pregnancy/current-functionality.md)
+- [初版（4 つのオフラインアプリ）の仕様](docs/PROJECT-SPEC.md)と
+  [V2 拡張仕様](docs/V2-PROJECT-SPEC.md)
+- [アーキテクチャ概要](docs/ARCHITECTURE.md)、[開発手順](docs/DEVELOPMENT.md)、
+  [コントリビューター向けガイド](AGENTS.md)
+- [電子ペーパーのデザイン規則](DESIGN.md)、[ページとナビゲーション構成](docs/PAGE-STRUCTURE.md)、
+  [キーとショートカットの設計](docs/pregnancy/key-shortcuts-design.md)
+- [reTerminal Sticky ハードウェア資料](docs/HARDWARE-REFERENCE.md)
+- [変更履歴](CHANGELOG.md)と[今後のタスク](TODO.md)
+
+ライセンスと上流の帰属は [LICENSE](LICENSE) と `third_party/fonts/NotoSansCJK` の注記を参照してください。
+妊娠週イラストのライセンスは
+[assets/pregnancy/week-plates/README.md](assets/pregnancy/week-plates/README.md) に記録されています。

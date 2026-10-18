@@ -1,93 +1,173 @@
 # 孕期手帐（Pregnancy Journal）
 
-这是运行在 Seeed Studio reTerminal Sticky 上的离线孕期记录固件。当前版本
-在保留 Sticky Core 电子纸、触摸、按键、RTC、电量、IMU、蜂鸣器、共享总线和
-深度睡眠能力的基础上，提供孕周、体重、胎动记录和设置。它用于信息
-整理，不是诊断、治疗或紧急报警设备。
+孕期手帐是运行在 Seeed Studio reTerminal Sticky（一台小型磁吸电子纸设备）上的离线
+孕期记录固件。它在 Sticky Core 硬件框架上提供孕周首页、体重记录、数胎动和设置。
+它只用于信息整理，不是诊断、治疗或紧急报警设备：所有与健康相关的数值都只是个人
+记录和与医护沟通的提示，不构成医疗建议。
 
-## 当前交付计划
+[English](README.md) · [日本語](README_JA.md)
 
-2026-10-10 已确认：首版先完成**体重、胎动、设置、孕周**四个应用。提醒、产检与
-到期提醒、习惯、备忘、录音/分类、配网和语音转文本移到下一版本。用户数据使用
-MicroSD 的决策继续生效，胎动 SD 存储和独立旧记录迁移已接入候选固件。
+## 当前状态
 
-范围和验收见[首版需求](docs/PROJECT-SPEC.md)、[当前任务](TODO.md)；下一版本设计
-见 [V2 扩展需求](docs/V2-PROJECT-SPEC.md)。四应用候选代码已完成，尚未通过实机验收；
-自动验证、固件校验值及人工交接见 [V1 验证记录](docs/V1-VALIDATION.md)。
-
-## 当前版本
-
-- 固件版本：`2.0.0`
-- 硬件：ESP32-S3，800×480 黑白电子纸
-- 四个应用：孕周（Baby Week）、体重、胎动、设置
-- 界面语言：English / 简体中文，语言选择保存在当前 MicroSD 数据集中
-- 数据边界：孕期档案、体重、胎动和偏好使用 MicroSD repository，不回退到 Flash。
-  胎动有独立迁移与清除确认；提醒/产检原副本保留。当前没有云上传或 AI 转写路径
+- 硬件：ESP32-S3 reTerminal Sticky，3.97 英寸 800×480 黑白电子纸；固件版本 `2.0.0`。
+- 四个已注册应用：**孕周（Baby Week）**、**体重**、**胎动**、**设置**。提醒、产检与
+  到期提醒、习惯、备忘、录音、配网和语音转文本移到下一版本
+  （见 [V2 扩展需求](docs/V2-PROJECT-SPEC.md)）。
+- 界面语言：English / 简体中文。所有用户数据都存放在 MicroSD 卡上；没有账号、
+  遥测、云上传、OTA 或 AI 服务。
+- 这是尚未通过验收的固件候选。自动门槛是主机测试套件（`tools/run_host_tests.sh`，
+  2026-10-19 为 88/88 步）加上 `sticky-release`、`sticky-debug`、`sticky-power-test`
+  三个配置编译通过。实机验收另行记录在 [V1 验证记录](docs/V1-VALIDATION.md) 和
+  [硬件回归清单](docs/pregnancy/hardware-regression-checklist.md)，本文不声称已通过实机验收。
 
 完整的当前行为、交互和容量限制见[当前功能参考](docs/pregnancy/current-functionality.md)。
-
-## 使用流程
-
-首次进入“孕周”时，依次输入设备时间 `YYYYMMDDHHMM`，再选择并输入确认后的
-预产期或末次月经第一天 `YYYYMMDD`。孕周首页显示孕周/孕天、孕期阶段、距离
-（或超过）预产期的天数和 40 周进度；“宝宝”和“妈妈”页显示内置的离线周内容。
-
-启动器横屏两列、竖屏单列，仅展示四应用。顶部按键单击切换启动器；底部边缘
-上滑打开、下方 30% 区域下滑关闭；顶部按键双击返回孕周。语言在设置中修改。
-旧 last-app 为提醒/产检时回到孕周，持久 ID 不变，业务定时唤醒与闹铃已停用。
 
 ## 应用功能
 
 | 应用 | 当前实现 | 限制 |
 | --- | --- | --- |
-| 孕周 | 预产期/LMP 设置、孕周/孕天、阶段、预产期倒计时、40 周进度、宝宝/妈妈内容 | 内容范围 1–40 周；仅供参考 |
-| 体重 | kg/lb、基线变化、7/30 日历趋势、历史编辑/删除、身高/基线 | 最多 366 条；每天一条；同日替换和删除均需确认 |
-| 数胎动 | 早/中/晚三时段、今日汇总和最近 7 天记录趋势 | 最多 42 个会话；400 ms 防误触；会话最长 60 分钟 |
-| 设置 | 语言、RTC 时间、孕期设置、电子纸清屏、返回孕周 | 时间编辑时禁止休眠 |
+| 孕周 | 首页是“图版”：第 6–40 周每周一张雕版风格插画、周图网格和当前周数；宝宝页、妈妈页显示孕周/孕天、孕期阶段、距预产期天数和离线内容 | 内容范围 1–40 周；仅供参考 |
+| 体重 | kg/lb，精度 0.1；基线与身高；7/30 日图表；历史编辑与删除 | 最多 366 条，每天一条；替换和删除都需确认 |
+| 胎动 | 三种记录方式：1 小时计数、数到 10、感觉打卡；记住上次选的方式；每条记录与自己过去 7 天的中位数比较（只给出差值方向和大小） | 最多 400 条；可撤销；400 ms 防误触；单次最长 60 分钟 |
+| 设置 | 语言、设备时间、孕期设置、双击快捷键、电子纸清屏、MicroSD 页（状态、创建数据集、安全弹出、旧数据导入、删除卡内数据、设备重置） | 时间编辑时禁止休眠；创建数据集需两次明确操作 |
 
-体重和胎动提示是记录辅助，不替代专业医护判断。
+首页上点插画进入宝宝页，点周数进入妈妈页。首页不再显示进度条和倒计时，这些数字在
+宝宝页和妈妈页里。
 
-## 构建、烧录与验证
+## 首次使用
 
-需要 PlatformIO、ESP-IDF 5.4.1。由于项目路径含空格，PlatformIO 可能拒绝直接
-构建，请使用无空格副本或临时镜像：
+首次进入“孕周”时，依次输入设备时间 `YYYYMMDDHHMM`，再选择并输入医护确认的预产期，
+或末次月经第一天 `YYYYMMDD`。档案只保存在 MicroSD 卡上，之后可在 设置 → 孕期设置 中
+修改。没有卡时应用会说明无法读取的原因，不会回退到 Flash。
+
+## 按键与导航
+
+| 操作 | 结果 |
+| --- | --- |
+| 顶键单击 | 任意页 → 孕周首页 → 功能列表 → 关闭（回到打开前的页面）；在胎动计数页是记一次胎动 |
+| 顶键双击 | 执行“设置 → 快捷键”选定的目标：记录今日体重（默认）、孕周首页、开始数胎动、或关闭 |
+| 侧键单按 | 切到上一个/下一个应用（沿功能列表顺序）；有未保存输入或正在计数的页面忽略侧键 |
+| 两个侧键同按 2 秒 | 请求深度睡眠 |
+| 从底边上滑 | 打开功能列表 |
+| 在下方 30% 区域下滑 | 关闭功能列表 |
+| 沿底边的长平滑左/右滑（功能列表关闭时） | 不打开列表，直接切到上一个/下一个应用，首尾循环 |
+| 点功能列表条目 | 打开孕周、体重、胎动或设置 |
+
+无操作 30 秒后功能列表自动关闭。画面方向跟随 IMU 报告的握持方向：功能列表横屏两列、
+竖屏单列，每个应用都有专门的横屏和竖屏页面。页头按钮含义固定：**APPS**（离开应用回
+功能列表）、**BACK**（返回上一级）、**CANCEL**（放弃，不保存）、**HOME**（回孕周首页），
+详见[页面与导航结构](docs/PAGE-STRUCTURE.md)。
+
+## 睡眠与唤醒
+
+无外接电源时，稳定页面在 60 秒无操作后进入深度睡眠；设置页为 3 分钟；编辑页和正在
+进行的胎动计数不会超时休眠。顶键可唤醒。睡眠前协调器会安排每天 03:00 的维护唤醒和
+当前应用请求的事件，定时器最多提前 15 秒启动。当前版本没有业务提醒定时唤醒和闹铃。
+
+## 电子纸刷新
+
+产品页面只用黑白，以 1-bit 帧送屏（全刷约 1.9 s，局刷约 0.9 s）。换页使用全刷，例外如下：
+
+- 打开功能列表、回到应用、换应用时，第一帧用快速（局刷）波形，每连续 5 次后第 6 次全刷清屏。
+- 孕周首页与宝宝页互相切换用局刷，空闲 5 秒后补一次全刷清残影。
+- 显示层在连续 10 次局刷后强制一次全刷。
+- 进入体重或胎动时，读卡在 1.5 秒内完成就直接画内容页，不出“加载中”页；读卡更慢才补画；
+  孕周已持有档案时，进入后立即画首页并在后台静默校验。
+
+方向变化和睡眠帧始终用全刷。规则见 [DESIGN.md](DESIGN.md) 和
+[电子纸刷新策略](docs/pregnancy/eink-refresh-strategy.md)。
+
+## 存储与隐私
+
+四个应用都使用绑定数据集、带日志的 MicroSD repository，不回退到 Flash。设置提供经校验的
+旧数据导入（胎动有独立路径）、安全弹出、设备重置和卡内应用数据删除。提醒/产检的 NVS 原
+副本保留给 V2。恢复索引最多容纳 1,024 个键（含已删除键）；日志和对象的垃圾回收尚未实现，
+索引满时拒绝新键而不是丢弃记录。见[存储](docs/pregnancy/storage.md)、
+[数据模型](docs/pregnancy/data-model.md)和[备份与恢复](docs/S1-BACKUP-RECOVERY.md)。
+
+## 仓库结构
+
+| 路径 | 内容 |
+| --- | --- |
+| `src/app/` | 应用注册表、协调器（功能列表、应用切换、按键路由、睡眠） |
+| `src/apps/` | 孕周（`pregnancy`）、`weight`、`kick`、`settings`；`reminder`、`checkup` 为 V2 保留，未注册 |
+| `src/pregnancy/` | 领域服务、模型和离线内容 |
+| `src/ui/` | 画布、字体、设计令牌、公共页面、生成的资源 |
+| `src/storage/` | MicroSD 服务、日志、索引和 repository |
+| `src/display/`、`src/board/`、`src/devices/`、`src/input/`、`src/sensors/` | 显示所有者与硬件访问 |
+| `src/voice/`、`src/network/` | V2 预研：语音意图分类器和设备绑定的联网授权约定，均不在产品流程中 |
+| `components/` | GT911 触摸与 SSD1677 电子纸驱动 |
+| `test/`、`tools/` | 主机测试与工具（见下） |
+| `docs/` | 需求、设计、验证记录与证据 |
+
+架构为 `应用 → 领域/内容服务 → Sticky Core 运行时 → 设备 HAL`。`app_registry.cpp` 是组合根，
+`StickyAppManager` 负责应用生命周期以及显示/输入所有权。见[架构总览](docs/ARCHITECTURE.md)和
+[新增应用](docs/refactor/adding-an-app.md)。
+
+## 构建与测试
+
+需要 PlatformIO 和 ESP-IDF 5.4.1。项目路径含空格，PlatformIO 会拒绝直接构建，请使用无空格
+副本或精确镜像（见[开发流程](docs/DEVELOPMENT.md)）：
 
 ```bash
 pio run -e sticky-release
 pio run -e sticky-debug
 pio run -e sticky-power-test
 tools/run_host_tests.sh
+python3 tools/check_markdown_links.py
 ```
 
-烧录前用 `pio device list` 找到串口，再执行：
+目标板为 `sticky_esp32s3`，使用自定义 `partitions.csv`（含 128 KiB `coredump` 分区，可用
+`idf.py coredump-info` 读取崩溃信息）。`sticky-release` 另外套用 `sdkconfig.release.defaults`
+（-O2、静默断言、INFO 日志上限）。`platformio.ini` 里的其他环境是独立的硬件测试（字形覆盖、
+SD 录音、存储断电与故障注入、中文输入、语音分类器），不是产品构建。
+
+常用工具：`tools/ui_preview/render_all.sh` 把每个页面渲染成 1-bit PNG，并输出命中区叠加图和
+检查结果；`tools/check_ui_tokens.py` 检查字号与边距令牌；`tools/validate_sd_backup.py` 校验复制出的
+`PREGJNL` 数据集。
+
+## 烧录
 
 ```bash
+pio device list
 pio run -e sticky-release -t upload --upload-port /dev/cu.usbmodemXXXX
 pio device monitor -p /dev/cu.usbmodemXXXX -b 115200 --filter time --rts 0 --dtr 0
 ```
 
-自动结果见 [V1 验证记录](docs/V1-VALIDATION.md)。release、debug、power-test 构建
-作为发布门槛；四应用候选仍需在实机执行
+把端口换成 `pio device list` 显示的设备。如果自动进入 bootloader 失败，按住 **BOOT**，点按
+**RESET**，松开 **BOOT**，再执行一次烧录命令。烧录后请做
 [硬件回归清单](docs/pregnancy/hardware-regression-checklist.md)。
 
 ## 文档入口
 
-- [首版四应用需求与验收（内存卡存储）](docs/PROJECT-SPEC.md)
-- [V2 提醒、语音转文本及联网扩展需求](docs/V2-PROJECT-SPEC.md)
-- [开发方案与任务计划](TODO.md)
-- [协作与代理指南](AGENTS.md)
-- [电子纸产品设计规范](DESIGN.md)
-- [架构总览](docs/ARCHITECTURE.md)
-- [组件开发规范](docs/COMPONENT-GUIDELINES.md)
-- [页面与导航结构](docs/PAGE-STRUCTURE.md)
-- [开发流程](docs/DEVELOPMENT.md)
-- [reTerminal Sticky 硬件资料](docs/HARDWARE-REFERENCE.md)
+**产品与状态**
 - [当前功能参考](docs/pregnancy/current-functionality.md)
-- [架构](docs/pregnancy/architecture.md)
-- [数据模型](docs/pregnancy/data-model.md)
+- [首版四应用需求与验收](docs/PROJECT-SPEC.md)
+- [V2 扩展需求](docs/V2-PROJECT-SPEC.md)和[未来路线图](docs/pregnancy/future-roadmap.md)
+- [当前任务](TODO.md)和[变更记录](CHANGELOG.md)
+- [V1 验证记录](docs/V1-VALIDATION.md)、[实机结果](docs/V1-HARDWARE-RESULTS.md)、
+  [人工测试清单](docs/V1-MANUAL-TEST-CHECKLIST.md)和
+  [硬件回归清单](docs/pregnancy/hardware-regression-checklist.md)
+
+**架构与开发**
+- [架构总览](docs/ARCHITECTURE.md)和[孕周架构](docs/pregnancy/architecture.md)
+- [开发流程](docs/DEVELOPMENT.md)、[组件开发规范](docs/COMPONENT-GUIDELINES.md)和
+  [贡献指南](CONTRIBUTING.md)
+- [协作与代理指南](AGENTS.md)
+- [reTerminal Sticky 硬件资料](docs/HARDWARE-REFERENCE.md)
+
+**界面与交互**
+- [电子纸产品设计规范](DESIGN.md)
+- [页面与导航结构](docs/PAGE-STRUCTURE.md)
+- [按键与快捷键设计](docs/pregnancy/key-shortcuts-design.md)
+- [UI 原型实现对照](docs/pregnancy/ui-prototype-mapping.md)
+- [电子纸刷新策略](docs/pregnancy/eink-refresh-strategy.md)和[UI 审计](docs/ui-audit.md)
+
+**数据与存储**
+- [存储](docs/pregnancy/storage.md)和[数据模型](docs/pregnancy/data-model.md)
 - [孕周计算](docs/pregnancy/pregnancy-calculation.md)
-- [提醒与调度](docs/pregnancy/reminder-scheduler.md)
-- [存储与隐私](docs/pregnancy/storage.md)
-- [电子纸刷新策略](docs/pregnancy/eink-refresh-strategy.md)
-- [硬件回归清单](docs/pregnancy/hardware-regression-checklist.md)
-- [未来路线图](docs/pregnancy/future-roadmap.md)
+- [日志格式](docs/S1-JOURNAL-FORMAT.md)、[索引快照](docs/S1-INDEX-SNAPSHOT.md)和
+  [备份与恢复](docs/S1-BACKUP-RECOVERY.md)
+
+许可与上游署名见 [LICENSE](LICENSE) 和 `third_party/fonts/NotoSansCJK` 下的说明。孕周插画的许可
+记录在 [assets/pregnancy/week-plates/README.md](assets/pregnancy/week-plates/README.md)。
