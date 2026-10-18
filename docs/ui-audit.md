@@ -38,7 +38,7 @@
 
 **局刷计数 / 强制全刷**：有，且在显示层兜底。
 
-- `kPartialRefreshesBeforeCleanup = 8`（`sticky_display.cpp:35`）。连续局刷 ≥ 8 次后，下一次 `refresh_partial()` 自动提升为全刷（`sticky_display.cpp:241-248`，日志 `reason=partial_limit`）。任意一次全刷/灰阶刷/清屏都会把计数清零。
+- `kPartialRefreshesBeforeCleanup = 10`（`sticky_display.cpp`，2026-10-18 起，原为 8）。连续局刷 ≥ 10 次后，下一次 `refresh_partial()` 自动提升为全刷（`sticky_display.cpp:241-248`，日志 `reason=partial_limit`）。任意一次全刷/灰阶刷/清屏都会把计数清零。
 - 面板组件层另有保护：基线全刷之前请求局刷会被提升为全刷（`epaper_panel.c:208-210`）。
 - 胎动页自己还有一份独立的 8 次计数（`kick_app.cpp:42,118-122`），与显示层重复。
 - 睡眠前必定做一次全刷（`sticky_app.cpp:364`），随后切断屏幕供电；掉电后画面保持。
@@ -51,7 +51,7 @@
 | 启动器 `render_launcher` (`sticky_app.cpp:183-193`) | 方向切换（`render_launcher(true)`） | **打开启动器、语言切换均为局刷**（默认参数 `false`） |
 | 孕周 `render_page` (`pregnancy_app.cpp:203`) | 进入/恢复/存储状态变化（`render_page(false)`） | **所有触摸动作**（`render_page(true)`，`:562`）包括切换 Baby/Mom/Dashboard 整页 |
 | 体重 `render` (`weight_app.cpp:182`) | 页面变化（`page != page_before`）、存储变化 | 同页内改数值 |
-| 胎动 `render` (`kick_app.cpp:324`) | 页面变化、存储变化 | 同页内计数；计数页每 8 次局刷自带全刷 |
+| 胎动 `render` (`kick_app.cpp:324`) | 页面变化、存储变化 | 同页内计数；计数页每 10 次局刷自带全刷（2026-10-18 起，原为 8） |
 | 设置 `render` (`settings_app.cpp:299`) | 少数动作（刷新屏幕、安全弹出、存储事件、偏好变化） | **大多数页面跳转为局刷**（`open_editor(); render();` 等，`:415-430`） |
 | 睡眠 | 一律全刷 | — |
 

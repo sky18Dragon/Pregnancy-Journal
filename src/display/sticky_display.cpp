@@ -27,10 +27,12 @@ constexpr size_t kMonochromeStride = kStickyDisplayWidth / 8U;
 constexpr uint8_t kFastAppTransitionsBeforeCleanup = 5U;
 // Panel vendors require a full refresh after a handful of consecutive partial
 // refreshes; otherwise ghosting accumulates and can become permanent. Pages
-// may clean up earlier, but none can exceed this ceiling. It matches the
-// hardware-validated Kicks cadence so that page keeps its current behavior.
-// 墨水屏厂商要求连续局刷数次后必须全刷；显示层统一兜底，上限与已实机验证的胎动页一致。
-constexpr uint32_t kPartialRefreshesBeforeCleanup = 8U;
+// may clean up earlier, but none can exceed this ceiling. It was 8 (the
+// hardware-validated Kicks cadence) and is 10 since 2026-10-18, still within the
+// usual 5-10 guidance; Kicks and Weight now clean up after 10 instead of 8.
+// 墨水屏厂商要求连续局刷数次后必须全刷；显示层统一兜底。原为 8（胎动页已实机验证），
+// 2026-10-18 经负责人批准改为 10，仍在通用的 5–10 次指引内。
+constexpr uint32_t kPartialRefreshesBeforeCleanup = 10U;
 
 seeed_epaper_panel_handle_t s_panel = nullptr;
 spi_device_handle_t s_spi_device = nullptr;

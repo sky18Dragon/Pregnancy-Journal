@@ -74,7 +74,7 @@ black and white. The display layer performs the physical 180-degree transform,
 frame comparison and controller transaction. Stable entry uses full monochrome
 refresh; small mutations use partial refresh; transition counting and Settings
 provide cleanup refreshes. The display layer also promotes a partial request to
-a full refresh after eight consecutive partial refreshes, so no page can
+a full refresh after ten consecutive partial refreshes, so no page can
 accumulate ghosting beyond that ceiling.
 
 ## Data and scheduling
