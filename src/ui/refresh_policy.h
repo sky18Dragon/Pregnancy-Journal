@@ -21,6 +21,9 @@ public:
   // True when drawing `page_id` next would be a page change (does not record it).
   bool page_changes(int page_id) const { return page_id != last_page_id_; }
 
+  // The page recorded by the last needs_full(); -1 when none is on screen.
+  int last_page() const { return last_page_id_; }
+
   // Forgets the page on screen so the next refresh is a full one.
   void reset() { last_page_id_ = kNoPage; }
 

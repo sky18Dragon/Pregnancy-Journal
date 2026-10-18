@@ -441,6 +441,22 @@ int main() {
                                   752) == PregnancyAction::ShowBaby);
   write_canvas_preview(canvas, "/tmp/pregnancy_baby_portrait_zh.ppm");
 
+  // Only the Dashboard <-> Baby pair is trialled with the partial waveform.
+  assert(pregnancy_page_change_uses_partial(PregnancyPage::Dashboard,
+                                            PregnancyPage::Baby));
+  assert(pregnancy_page_change_uses_partial(PregnancyPage::Baby,
+                                            PregnancyPage::Dashboard));
+  assert(!pregnancy_page_change_uses_partial(PregnancyPage::Dashboard,
+                                             PregnancyPage::Mom));
+  assert(!pregnancy_page_change_uses_partial(PregnancyPage::Mom,
+                                             PregnancyPage::Dashboard));
+  assert(!pregnancy_page_change_uses_partial(PregnancyPage::Baby,
+                                             PregnancyPage::Mom));
+  assert(!pregnancy_page_change_uses_partial(PregnancyPage::Baby,
+                                             PregnancyPage::Baby));
+  assert(!pregnancy_page_change_uses_partial(PregnancyPage::SourceSetup,
+                                             PregnancyPage::Dashboard));
+
   char digit = '\0';
   assert(pregnancy_action_digit(PregnancyAction::Digit0, digit));
   assert(digit == '0');

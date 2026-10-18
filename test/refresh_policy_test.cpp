@@ -16,5 +16,8 @@ int main() {
   assert(tracker.needs_full(0));          // reset forgets the page
   assert(tracker.needs_full(7, true));    // force also records the new page
   assert(!tracker.needs_full(7));
+  assert(tracker.last_page() == 7);       // the page recorded by the last call
+  tracker.reset();
+  assert(tracker.last_page() == -1);      // nothing on screen after reset
   return 0;
 }

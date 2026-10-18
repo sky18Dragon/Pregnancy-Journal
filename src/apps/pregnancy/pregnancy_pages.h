@@ -39,6 +39,16 @@ inline KeyPolicy pregnancy_page_key_policy(PregnancyPage page) {
   return KeyPolicy::Wizard;
 }
 
+// Page changes that are trialled with the partial waveform instead of the full
+// one (no black flash, ghosting is cleaned up later by an idle full refresh).
+// Only the Dashboard <-> Baby pair; every other change keeps the full refresh.
+// 试验：首页与宝宝页互相切换用局刷（不闪黑），残影由空闲时的一次全刷清理；其余换页仍全刷。
+inline bool pregnancy_page_change_uses_partial(PregnancyPage from,
+                                               PregnancyPage to) {
+  return (from == PregnancyPage::Dashboard && to == PregnancyPage::Baby) ||
+         (from == PregnancyPage::Baby && to == PregnancyPage::Dashboard);
+}
+
 enum class PregnancyAction : uint8_t {
   None,
   Digit0,

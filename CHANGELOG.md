@@ -15,6 +15,14 @@
   横竖屏下点插画→宝宝页、点周数块→妈妈页、点菜单图标→启动器命中正确，周图/空白处无动作；IMU
   landscape_0（竖屏）与 portrait_180（横屏）的旋转正确。2026-10-17 补测 portrait_0（canvas 800×480，物理→逻辑坐标按 180° 映射）与 landscape_180（`display_rotation=90_clockwise`，canvas 480×800）：负责人确认画面方向正确，串口日志里点插画→宝宝页、点周数块→妈妈页、点菜单图标→启动器、返回、空白处/周图无动作均命中正确，无 panic；四个姿势均已验证，残影尚未验证。
   孕周应用另加了点击/换页串口日志（`tap physical=… page=… action=…`）。
+- 试验：孕周首页 ↔ 宝宝页互相切换改用局刷（2026-10-18，负责人批准只改这一对页面，允许改
+  `pregnancy_app.cpp` 的刷新选择逻辑）：这一对换页不再整屏闪黑（局刷约 0.9 s，原全刷约 1.94 s），也不再先
+  画按下反馈，换页之后空闲 5 秒（`kGhostCleanupDelayUs`，任何触摸或刷新都会重新计时）补一次全刷清残影；
+  其余换页（含妈妈页、设置、启动器往返）仍是全刷。显示层“连续局刷 8 次自动全刷”的上限不变，应用侧没有
+  第二份计数；若恰好由显示层先升级为全刷，空闲时会多补一次不必要的全刷（无害）。规则是纯函数
+  `pregnancy_page_change_uses_partial()`（宿主测试覆盖），`PageRefreshTracker` 新增 `last_page()`。
+  新增串口日志 `page_refresh from=… to=… mode=full|partial`、`ghost_cleanup page=…`。
+  **仅宿主测试与编译验证，残影效果未经真机验证，通过与否由连续换页的真机观察决定；不满意可回退此条。**
 - 孕周首页进入/恢复时不再先画“LOADING FROM MICROSD”再换首页（2026-10-18，负责人批准修改 `pregnancy_app.cpp` 与
   `pregnancy_repository_store.*`）：档案 store 本来是静态对象，却在每次进入时被清空，导致先画一页加载页（全刷）、
   读完再画首页（又一次全刷）。现在新增 `begin_revalidate()`：store 仍绑定当前卡和数据集（`ready()`）时保留档案，

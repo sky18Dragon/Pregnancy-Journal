@@ -30,6 +30,8 @@ constexpr uint32_t kTaskStackSize = 5120U;
 constexpr UBaseType_t kTaskPriority = 3U;
 constexpr uint32_t kDashboardSleepTimeoutMs = 60U * 1000U;
 constexpr int64_t kRtcPollIntervalUs = 60LL * 1000000LL;
+// Idle time after a partial page change before one full refresh clears ghosting.
+constexpr int64_t kGhostCleanupDelayUs = 5LL * 1000000LL;
 
 Canvas *s_canvas = nullptr;
 TaskHandle_t s_app_task = nullptr;
@@ -48,6 +50,13 @@ void show_press_feedback() {
   sticky_display_refresh_partial();
 }
 int64_t s_next_rtc_poll_us = 0;
+// A partial page change left ghosting that the idle full refresh has not yet cleared.
+bool s_ghost_cleanup_pending = false;
+int64_t s_ghost_cleanup_due_us = 0;
+
+void defer_ghost_cleanup() {
+  s_ghost_cleanup_due_us = esp_timer_get_time() + kGhostCleanupDelayUs;
+}
 
 // Entry timing: a few log marks per entry (boot or resume) show whether the
 // time goes to the card read or to the screen refreshes.
@@ -159,8 +168,31 @@ PregnancyFlow s_flow(s_clock_port);
 
 // Page changes always use the full waveform; `partial` only applies when the
 // page on screen stays the same (see PageRefreshTracker).
+// True when going to `page_id` is a page change that is trialled with the
+// partial waveform; must be asked before the tracker records the new page.
+bool soft_page_change_to(int page_id) {
+  constexpr int kLastPage = static_cast<int>(PregnancyPage::Mom);
+  const int from = s_refresh.last_page();
+  if (from < 0 || from > kLastPage || page_id < 0 || page_id > kLastPage)
+    return false;
+  return pregnancy_page_change_uses_partial(static_cast<PregnancyPage>(from),
+                                            static_cast<PregnancyPage>(page_id));
+}
+
 void refresh_display(bool partial, int page_id) {
-  const bool full = s_refresh.needs_full(page_id, !partial);
+  const int previous_page = s_refresh.last_page();
+  const bool soft = partial && soft_page_change_to(page_id);
+  const bool full = s_refresh.needs_full(page_id, !partial) && !soft;
+  if (previous_page != page_id) {
+    STICKY_LOGI(kTag, "page_refresh from=%d to=%d mode=%s", previous_page,
+                page_id, full ? "full" : "partial");
+  }
+  if (full) {
+    s_ghost_cleanup_pending = false;
+  } else if (soft) {
+    s_ghost_cleanup_pending = true;
+  }
+  defer_ghost_cleanup();
   const esp_err_t result = full ? sticky_display_refresh_monochrome()
                                 : sticky_display_refresh_partial();
   if (result != ESP_OK) {
@@ -190,7 +222,11 @@ void render_page(bool partial) {
   sticky_app_set_key_policy(StickyAppId::Pregnancy,
                             status ? KeyPolicy::Home
                                    : pregnancy_page_key_policy(s_flow.page()));
-  if (s_refresh.page_changes(status ? kStatusPageId : static_cast<int>(s_flow.page())))
+  const int target_page = status ? kStatusPageId : static_cast<int>(s_flow.page());
+  // A partial page change already answers in under a second, so it needs no
+  // separate pressed-state refresh before it.
+  if (s_refresh.page_changes(target_page) &&
+      !(partial && soft_page_change_to(target_page)))
     show_press_feedback();
   else
     s_press.clear();
@@ -361,6 +397,20 @@ void retry_profile_storage() {
     s_storage_error = sticky_storage::SdRepositoryAdapterStatus::Idle;
 }
 
+// After a partial page change, repaints the current page with one full refresh
+// once the user has been idle for kGhostCleanupDelayUs.
+void run_ghost_cleanup() {
+  if (!s_ghost_cleanup_pending ||
+      esp_timer_get_time() < s_ghost_cleanup_due_us)
+    return;
+  if (status_page_active() || s_profile_store.pending()) {
+    defer_ghost_cleanup();
+    return;
+  }
+  STICKY_LOGI(kTag, "ghost_cleanup page=%s", pregnancy_page_name(s_flow.page()));
+  render_page(false);
+}
+
 void update_for_date_rollover() {
   if (!s_flow.showing_week_pages() || esp_timer_get_time() < s_next_rtc_poll_us)
     return;
@@ -405,6 +455,7 @@ void app_task(void *) {
     }
     StickyTouchPress press = {};
     if (sticky_touch_take_press(press)) {
+      defer_ghost_cleanup();
       if (s_profile_loading || s_profile_saving || s_profile_revalidating) {
         sticky_touch_clear_press();
         vTaskDelay(kPollInterval);
@@ -462,6 +513,7 @@ void app_task(void *) {
       s_press.clear();
     }
     update_for_date_rollover();
+    run_ghost_cleanup();
     vTaskDelay(kPollInterval);
   }
 }
