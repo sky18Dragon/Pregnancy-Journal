@@ -14,11 +14,8 @@ SdRepositoryAdapterStatus PregnancyRepositoryStore::begin_load()
         return status_;
     }
     adapter_.reset();
-    found_ = false;
-    ready_ = false;
+    forget_held();
     changed_ = false;
-    profile_ = {};
-    revision_ = 0U;
     status_ = adapter_.begin_read(key);
     operation_ = status_ == SdRepositoryAdapterStatus::Pending
                      ? PregnancyStoreOperation::Load
@@ -45,11 +42,8 @@ SdRepositoryAdapterStatus PregnancyRepositoryStore::begin_revalidate()
         // The card could not be asked, so the held copy can no longer be
         // vouched for.
         operation_ = PregnancyStoreOperation::None;
-        found_ = false;
-        ready_ = false;
+        forget_held();
         changed_ = true;
-        profile_ = {};
-        revision_ = 0U;
     }
     return status_;
 }
@@ -124,10 +118,8 @@ void PregnancyRepositoryStore::poll_revalidate()
 {
     if (status_ == SdRepositoryAdapterStatus::NotFound) {
         changed_ = found_;
-        found_ = false;
-        revision_ = 0U;
-        profile_ = {};
-        ready_ = true;
+        forget_held();
+        ready_ = true;  // the card answered: there is simply no profile
         status_ = SdRepositoryAdapterStatus::Ok;
         return;
     }
@@ -147,9 +139,14 @@ void PregnancyRepositoryStore::poll_revalidate()
         }
         status_ = SdRepositoryAdapterStatus::Corrupt;
     }
+    forget_held();
+    changed_ = true;
+}
+
+void PregnancyRepositoryStore::forget_held()
+{
     found_ = false;
     ready_ = false;
-    changed_ = true;
     profile_ = {};
     revision_ = 0U;
 }

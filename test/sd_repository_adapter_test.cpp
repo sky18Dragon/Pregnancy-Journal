@@ -13,6 +13,8 @@ SdStorageServiceStatus g_status = {};
 SdStorageRequestHandle g_handle = {41U, 2U};
 SdStorageRepositoryResult g_result = {};
 bool g_pending_once = false;
+// When not ESP_OK, the next repository read submission is refused with it.
+esp_err_t g_read_submit_result = ESP_OK;
 uint64_t g_transaction_id = UINT64_MAX;
 RepositoryMutation g_mutation = {};
 SdRepositoryRequestOperation g_operation = SdRepositoryRequestOperation::Read;
@@ -25,6 +27,7 @@ SdStorageServiceStatus sd_storage_service_status() { return g_status; }
 esp_err_t sd_storage_service_submit_repository_read(
     uint32_t, const char *, const RepositoryKey &key, SdStorageRequestHandle &handle)
 {
+    if (g_read_submit_result != ESP_OK) return g_read_submit_result;
     g_operation = SdRepositoryRequestOperation::Read;
     g_read_key = key;
     handle = g_handle;
@@ -264,6 +267,82 @@ int main()
     assert(reloaded.poll() == SdRepositoryAdapterStatus::Ok && reloaded.found());
     g_status.mount_generation = 3U;
     assert(!reloaded.ready());
+
+    // More revalidate edges, each on a store that holds revision 6.
+    auto make_ok_record = [&](uint32_t revision,
+                              const pregnancy_repository::EncodedPayload &p) {
+        g_result = {};
+        g_result.outcome.status = SdRepositoryRequestStatus::Ok;
+        g_result.outcome.record.revision = revision;
+        g_result.outcome.record.payload_size = p.size;
+        std::memcpy(g_result.outcome.record.payload.data(), p.bytes.data(),
+                    p.size);
+    };
+    pregnancy_repository::PregnancyRepositoryStore held;
+    make_ok_record(6U, encoded);
+    assert(held.begin_load() == SdRepositoryAdapterStatus::Pending);
+    assert(held.poll() == SdRepositoryAdapterStatus::Ok && held.found());
+
+    // The card cannot even be asked: the held profile is dropped, not kept.
+    g_read_submit_result = ESP_ERR_NO_MEM;
+    assert(held.begin_revalidate() == SdRepositoryAdapterStatus::Busy);
+    g_read_submit_result = ESP_OK;
+    assert(!held.ready() && !held.found() && held.changed());
+    assert(held.operation() == pregnancy_repository::PregnancyStoreOperation::None);
+    assert(held.begin_revalidate() == SdRepositoryAdapterStatus::Pending);
+    assert(held.operation() == pregnancy_repository::PregnancyStoreOperation::Load);
+    assert(held.poll() == SdRepositoryAdapterStatus::Ok && held.found());
+
+    // A second request while one is pending is refused and the held profile
+    // stays readable and unchanged.
+    assert(held.begin_revalidate() == SdRepositoryAdapterStatus::Pending);
+    assert(held.begin_revalidate() == SdRepositoryAdapterStatus::Busy);
+    assert(held.found() && held.revision() == 6U &&
+           held.profile().estimated_due_date.year == 2027U);
+    assert(held.poll() == SdRepositoryAdapterStatus::Ok && !held.changed());
+
+    // The card changes while the re-read is in flight: stale, so dropped.
+    assert(held.begin_revalidate() == SdRepositoryAdapterStatus::Pending);
+    g_status.mount_generation = 9U;
+    assert(held.poll() == SdRepositoryAdapterStatus::StaleGeneration);
+    assert(!held.ready() && !held.found() && held.changed());
+    g_status.mount_generation = 3U;
+
+    // A different revision with an undecodable payload is corrupt and dropped.
+    make_ok_record(6U, encoded);
+    assert(held.begin_load() == SdRepositoryAdapterStatus::Pending);
+    assert(held.poll() == SdRepositoryAdapterStatus::Ok && held.found());
+    g_result = {};
+    g_result.outcome.status = SdRepositoryRequestStatus::Ok;
+    g_result.outcome.record.revision = 7U;
+    g_result.outcome.record.payload_size = 5U;
+    std::memset(g_result.outcome.record.payload.data(), 0xFF, 5U);
+    assert(held.begin_revalidate() == SdRepositoryAdapterStatus::Pending);
+    assert(held.poll() == SdRepositoryAdapterStatus::Corrupt);
+    assert(!held.ready() && !held.found() && held.changed());
+
+    // The same revision is trusted without decoding again, so the held copy
+    // stays even if the returned bytes were garbage.
+    make_ok_record(6U, encoded);
+    assert(held.begin_load() == SdRepositoryAdapterStatus::Pending);
+    assert(held.poll() == SdRepositoryAdapterStatus::Ok && held.found());
+    g_result.outcome.record.payload_size = 5U;
+    std::memset(g_result.outcome.record.payload.data(), 0xFF, 5U);
+    assert(held.begin_revalidate() == SdRepositoryAdapterStatus::Pending);
+    assert(held.poll() == SdRepositoryAdapterStatus::Ok && !held.changed());
+    assert(held.found() && held.profile().estimated_due_date.year == 2027U);
+
+    // After a changed re-read a save expects the new revision, not the old one.
+    make_ok_record(8U, later_encoded);
+    assert(held.begin_revalidate() == SdRepositoryAdapterStatus::Pending);
+    assert(held.poll() == SdRepositoryAdapterStatus::Ok && held.changed());
+    assert(held.revision() == 8U);
+    g_result = {};
+    g_result.outcome.status = SdRepositoryRequestStatus::Ok;
+    g_result.outcome.batch.revisions[0] = 9U;
+    assert(held.begin_save(profile) == SdRepositoryAdapterStatus::Pending);
+    assert(g_mutation.expected_revision == 8U);
+    assert(held.poll() == SdRepositoryAdapterStatus::Ok && held.revision() == 9U);
 
     pregnancy_repository::ReminderRepositoryStore reminders;
     RepositoryKey reminder_key = {};

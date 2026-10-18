@@ -50,7 +50,9 @@ void show_press_feedback() {
   sticky_display_refresh_partial();
 }
 int64_t s_next_rtc_poll_us = 0;
-// A partial page change left ghosting that the idle full refresh has not yet cleared.
+
+// A partial page change left ghosting that the idle full refresh has not yet
+// cleared; the repaint is due once the user has been idle until the deadline.
 bool s_ghost_cleanup_pending = false;
 int64_t s_ghost_cleanup_due_us = 0;
 
@@ -58,11 +60,14 @@ void defer_ghost_cleanup() {
   s_ghost_cleanup_due_us = esp_timer_get_time() + kGhostCleanupDelayUs;
 }
 
-// Entry timing: a few log marks per entry (boot or resume) show whether the
-// time goes to the card read or to the screen refreshes.
+// Entry timing: log marks around one entry (boot, resume or retry) show whether
+// the time goes to the card read or to the screen refreshes. The window opens
+// at the entry and closes once its last expected mark has been logged, so
+// later refreshes are not counted as part of it.
 constexpr unsigned kEntryRefreshLogLimit = 2U;
 int64_t s_entry_us = 0;
 unsigned s_entry_refreshes = 0U;
+bool s_entry_close_after_render = false;
 
 long entry_elapsed_ms() {
   return static_cast<long>((esp_timer_get_time() - s_entry_us) / 1000);
@@ -71,8 +76,10 @@ long entry_elapsed_ms() {
 void mark_entry(const char *kind) {
   s_entry_us = esp_timer_get_time();
   s_entry_refreshes = 0U;
+  s_entry_close_after_render = false;
   STICKY_LOGI(kTag, "entry_timing point=enter kind=%s t_ms=0", kind);
 }
+
 std::atomic<bool> s_setup_requested{false};
 std::atomic<bool> s_dashboard_requested{false};
 pregnancy_repository::PregnancyRepositoryStore &s_profile_store =
@@ -166,19 +173,15 @@ public:
 RtcClockPort s_clock_port;
 PregnancyFlow s_flow(s_clock_port);
 
-// Page changes always use the full waveform; `partial` only applies when the
-// page on screen stays the same (see PageRefreshTracker).
 // True when going to `page_id` is a page change that is trialled with the
 // partial waveform; must be asked before the tracker records the new page.
 bool soft_page_change_to(int page_id) {
-  constexpr int kLastPage = static_cast<int>(PregnancyPage::Mom);
-  const int from = s_refresh.last_page();
-  if (from < 0 || from > kLastPage || page_id < 0 || page_id > kLastPage)
-    return false;
-  return pregnancy_page_change_uses_partial(static_cast<PregnancyPage>(from),
-                                            static_cast<PregnancyPage>(page_id));
+  return pregnancy_page_id_change_uses_partial(s_refresh.last_page(), page_id);
 }
 
+// Page changes use the full waveform and `partial` only applies when the page on
+// screen stays the same (see PageRefreshTracker), except the Dashboard <-> Baby
+// pair, which is trialled with the partial waveform when the caller allows it.
 void refresh_display(bool partial, int page_id) {
   const int previous_page = s_refresh.last_page();
   const bool soft = partial && soft_page_change_to(page_id);
@@ -192,18 +195,23 @@ void refresh_display(bool partial, int page_id) {
   } else if (soft) {
     s_ghost_cleanup_pending = true;
   }
-  defer_ghost_cleanup();
   const esp_err_t result = full ? sticky_display_refresh_monochrome()
                                 : sticky_display_refresh_partial();
+  // The idle wait starts once the panel has settled, not when the refresh began.
+  defer_ghost_cleanup();
   if (result != ESP_OK) {
     STICKY_LOGE(kTag, "display=refresh mode=%s result=%s",
                 full ? "full" : "partial", esp_err_to_name(result));
   }
-  if (s_entry_us != 0 && s_entry_refreshes < kEntryRefreshLogLimit) {
-    ++s_entry_refreshes;
-    STICKY_LOGI(kTag, "entry_timing point=render n=%u mode=%s page=%d t_ms=%ld",
-                s_entry_refreshes, full ? "full" : "partial", page_id,
-                entry_elapsed_ms());
+  if (s_entry_us != 0) {
+    if (s_entry_refreshes < kEntryRefreshLogLimit) {
+      ++s_entry_refreshes;
+      STICKY_LOGI(kTag,
+                  "entry_timing point=render n=%u mode=%s page=%d t_ms=%ld",
+                  s_entry_refreshes, full ? "full" : "partial", page_id,
+                  entry_elapsed_ms());
+    }
+    if (s_entry_close_after_render) s_entry_us = 0;
   }
 }
 
@@ -322,7 +330,13 @@ void start_profile_read() {
                              : s_profile_store.begin_load();
   const bool pending =
       s_storage_error == sticky_storage::SdRepositoryAdapterStatus::Pending;
-  if (pending) s_storage_error = sticky_storage::SdRepositoryAdapterStatus::Idle;
+  if (pending) {
+    s_storage_error = sticky_storage::SdRepositoryAdapterStatus::Idle;
+  } else {
+    // A read that could not start never reports load_done, so the status page
+    // that follows is the last mark of this entry.
+    s_entry_close_after_render = true;
+  }
   s_profile_revalidating = pending && retained;
   s_profile_loading = pending && !retained;
   if (s_profile_revalidating)
@@ -354,12 +368,26 @@ bool poll_profile_storage() {
                 was_revalidating ? "revalidate" : "cold",
                 static_cast<unsigned>(changed), static_cast<int>(status),
                 entry_elapsed_ms());
+    // A quiet re-check that found nothing new draws nothing more; any other
+    // read is followed by one more render.
+    if (was_revalidating && !changed &&
+        status == sticky_storage::SdRepositoryAdapterStatus::Ok) {
+      s_entry_us = 0;
+    } else {
+      s_entry_close_after_render = true;
+    }
   }
+  // A re-check that differs is only applied on the week pages. In a setup
+  // page the user is mid-flow, and changing the flow's profile there would
+  // desynchronise what is drawn from what the hit test assumes; the flow then
+  // keeps the older profile until the next entry re-reads the store.
+  const bool apply_revalidated =
+      was_revalidating && changed && s_flow.showing_week_pages();
   if (status != sticky_storage::SdRepositoryAdapterStatus::Ok) {
     s_storage_error = status;
   } else {
     s_storage_error = sticky_storage::SdRepositoryAdapterStatus::Idle;
-    if (was_loading || (was_revalidating && changed)) {
+    if (was_loading || apply_revalidated) {
       s_flow.profile_loaded(s_profile_store.found(), s_profile_store.profile());
     } else if (!was_revalidating) {
       s_flow.profile_saved();
@@ -379,13 +407,18 @@ bool poll_profile_storage() {
     s_retry_save = false;
     return true;
   }
-  // The card agreed with the profile already on screen: nothing to redraw.
-  if (was_revalidating && !changed) return false;
+  // The card agreed with the profile already on screen, or the user is in a
+  // setup page: nothing to redraw, so no further render will close the window.
+  if (was_revalidating && !apply_revalidated) {
+    s_entry_us = 0;
+    return false;
+  }
   settle_flow_after_profile();
   return true;
 }
 
 void retry_profile_storage() {
+  if (!s_retry_save) mark_entry("retry");  // a retried read, not a save
   s_storage_error = s_retry_save
                         ? s_profile_store.begin_save(s_flow.pending_profile())
                         : s_profile_store.begin_load();
@@ -395,6 +428,8 @@ void retry_profile_storage() {
       s_storage_error == sticky_storage::SdRepositoryAdapterStatus::Pending;
   if (s_profile_loading || s_profile_saving)
     s_storage_error = sticky_storage::SdRepositoryAdapterStatus::Idle;
+  // A read that could not even start has no load_done to close its window.
+  if (!s_retry_save && !s_profile_loading) s_entry_us = 0;
 }
 
 // After a partial page change, repaints the current page with one full refresh

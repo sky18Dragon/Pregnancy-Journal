@@ -83,7 +83,7 @@ keeps the device awake and is forced to finish after 60 minutes. Capacity is 400
 records. New sessions use the shared asynchronous MicroSD repository; the
 saved totals change only after durable completion. A failed save retains the
 draft for a stable-ID reload/retry, rejecting different-card or conflicting
-records. Cancellation discards the active draft. Eight partial updates trigger
+records. Cancellation discards the active draft. Ten partial updates trigger
 a full monochrome cleanup. The captured start date/time remains fixed across
 midnight, and summary pages update for the new date.
 
@@ -155,7 +155,11 @@ back to Baby Week when selected from an older saved state.
 
 Stable page entry uses a full refresh; mutations use partial refresh. After five
 fast app transitions the display receives a cleanup full refresh. Settings also
-offers an explicit cleanup action.
+offers an explicit cleanup action. Trial (2026-10-18): switching between the
+pregnancy home and the baby page uses the partial waveform and, once the user
+has been idle for 5 s, one full refresh repaints the page; every other page
+change keeps the full refresh. Entering the pregnancy home with a profile the
+app already holds draws the home page at once and re-checks the card quietly.
 
 ## Verification status
 

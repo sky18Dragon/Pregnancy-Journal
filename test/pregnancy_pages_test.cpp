@@ -457,6 +457,20 @@ int main() {
   assert(!pregnancy_page_change_uses_partial(PregnancyPage::SourceSetup,
                                              PregnancyPage::Dashboard));
 
+  // The id version rejects "no page yet" (-1), the status page id and any
+  // out-of-range number before it looks at the pair.
+  const int dashboard = static_cast<int>(PregnancyPage::Dashboard);
+  const int baby = static_cast<int>(PregnancyPage::Baby);
+  const int mom = static_cast<int>(PregnancyPage::Mom);
+  assert(pregnancy_page_id_change_uses_partial(dashboard, baby));
+  assert(pregnancy_page_id_change_uses_partial(baby, dashboard));
+  assert(!pregnancy_page_id_change_uses_partial(dashboard, mom));
+  assert(!pregnancy_page_id_change_uses_partial(-1, dashboard));
+  assert(!pregnancy_page_id_change_uses_partial(dashboard, -1));
+  assert(!pregnancy_page_id_change_uses_partial(1000, baby));
+  assert(!pregnancy_page_id_change_uses_partial(baby, 1000));
+  assert(!pregnancy_page_id_change_uses_partial(mom + 1, baby));
+
   char digit = '\0';
   assert(pregnancy_action_digit(PregnancyAction::Digit0, digit));
   assert(digit == '0');

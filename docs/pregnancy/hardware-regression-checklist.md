@@ -61,8 +61,15 @@ the result.
   retry. A switched card cannot accept the old draft or display old statistics.
 - [ ] Today/seven-day summaries show actual recorded data without extrapolation.
   At 42 sessions new sessions fail explicitly; no automatic overwrite.
-- [ ] Eight partial Kicks updates trigger cleanup, with acceptable legibility and
-  responsive touch after repeated taps.
+- [ ] Ten partial Kicks updates trigger cleanup (limit 10 since 2026-10-18), with
+  acceptable legibility and responsive touch after repeated taps.
+- [ ] Pregnancy home <-> baby page (partial-refresh trial): switch back and forth
+  more than ten times; the eleventh change is promoted to a full refresh, ghosting
+  stays acceptable, and about 5 s after the last touch one full cleanup refresh
+  runs. Home <-> Mom and the launcher round trip still use the full refresh.
+- [ ] Entering the pregnancy home from the launcher shows the home page after one
+  full refresh with no "LOADING FROM MICROSD" page; after removing or swapping the
+  card the page falls back to the storage message or the cold read.
 - [ ] Kicks import scans 42 slots read-only, survives interruption and re-import,
   detects damage/conflicts and blocks cleanup until readback on the same card.
 - [ ] Common cleanup preserves reminder/checkup/Kicks source namespaces;

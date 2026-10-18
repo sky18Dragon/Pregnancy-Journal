@@ -47,6 +47,8 @@ class PregnancyRepositoryStore {
 
   private:
     void poll_revalidate();
+    // Drops the held profile so nothing unverified can be read from it.
+    void forget_held();
 
     sticky_storage::SdRepositoryAdapter adapter_ = {};
     EncodedPayload payload_ = {};

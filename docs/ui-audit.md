@@ -38,9 +38,9 @@
 
 **局刷计数 / 强制全刷**：有，且在显示层兜底。
 
-- `kPartialRefreshesBeforeCleanup = 10`（`sticky_display.cpp`，2026-10-18 起，原为 8）。连续局刷 ≥ 10 次后，下一次 `refresh_partial()` 自动提升为全刷（`sticky_display.cpp:241-248`，日志 `reason=partial_limit`）。任意一次全刷/灰阶刷/清屏都会把计数清零。
+- `kPartialRefreshesBeforeCleanup = 10`（`sticky_display.cpp`，2026-10-18 起，原为 8）。连续局刷 ≥ 10 次后，下一次 `refresh_partial()` 自动提升为全刷（`sticky_display_refresh_partial()` 开头，日志 `reason=partial_limit`）。任意一次全刷/灰阶刷/清屏都会把计数清零。下文问题表（E2、E3、I7、C4）和 2026-10-16 实机记录里的“8 次”均为当时的数值。
 - 面板组件层另有保护：基线全刷之前请求局刷会被提升为全刷（`epaper_panel.c:208-210`）。
-- 胎动页自己还有一份独立的 8 次计数（`kick_app.cpp:42,118-122`），与显示层重复。
+- （已过时，见 E7 已修复）胎动页曾有一份独立的 8 次计数（`kick_app.cpp`），与显示层重复。
 - 睡眠前必定做一次全刷（`sticky_app.cpp:364`），随后切断屏幕供电；掉电后画面保持。
 - 电池状态叠加层在每次刷新前由显示层绘制（`draw_battery_overlay_if_enabled`），各 App 渲染时先把它关掉，仅睡眠帧和孕周页横屏紧凑电量图标使用。
 
@@ -327,7 +327,7 @@ flowchart TD
 
 | 来源 | 获得的信息 | 对本项目的意义 |
 | --- | --- | --- |
-| [Seeed Sticky：Refresh and Low Power](https://www.seeedstudio.com/sticky/docs/en/device-guide/esp-refresh/) | 官方 demo 的刷新分工：4 级灰阶全刷仅用于首页；其余页面用黑白全刷；黑白局刷仅用于状态栏时间、每分钟一次。“整页切换、大面积变化、灰阶图像用全刷；反复局刷会有轻微残影，适当时做全刷”。**未给出局刷次数上限和刷新耗时**；只点名控制器 SSD1677，未给面板料号 | 印证“页面变化→全刷、页内小变化→局刷”的统一规则；说明 8 次上限是本项目自定的保守值，不是官方数据 |
+| [Seeed Sticky：Refresh and Low Power](https://www.seeedstudio.com/sticky/docs/en/device-guide/esp-refresh/) | 官方 demo 的刷新分工：4 级灰阶全刷仅用于首页；其余页面用黑白全刷；黑白局刷仅用于状态栏时间、每分钟一次。“整页切换、大面积变化、灰阶图像用全刷；反复局刷会有轻微残影，适当时做全刷”。**未给出局刷次数上限和刷新耗时**；只点名控制器 SSD1677，未给面板料号 | 印证“页面变化→全刷、页内小变化→局刷”的统一规则；说明局刷上限（原 8 次，现 10 次）是本项目自定的值，不是官方数据 |
 | [Seeed Sticky Playground 固件列表](https://www.seeedstudio.com/sticky/playground/firmware/) | 官方收录的第三方固件：CrossPoint Reader、CrossInk、CrossMux、TRMNL、ESPHome、OpenDisplay、Tesserae、Sticky Calculator、Sticky Bunny（limengdu，本项目所属生态）、InkSalah、Sticky MicroNotes、Toybox、Voice Companion 等；页面本身几乎不含 UI/刷新实现细节 | 可作为后续对照源码的候选；本次未逐个读源码 |
 | [Seeed_GFX2](https://github.com/Seeed-Studio/Seeed_GFX2) | 仅在 reTerminal 系列表中列出 Sticky，未给面板型号/局刷上限/耗时；通用能力含全刷、局刷、快刷、温度补偿 | 没有补充到面板料号，该项仍为【待确认】 |
 | 本仓库 `docs/STICKY_CALCULATOR_COMPARISON.md` | 已有对 Sticky Calculator 的源码对照（固定点阵字号、基线、逐像素绘制、二值图标笔画） | 已被 `docs/EINK_UI_OPTIMIZATION_PLAN.md` 吸收，是字体与线宽规则的先例 |

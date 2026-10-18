@@ -49,6 +49,18 @@ inline bool pregnancy_page_change_uses_partial(PregnancyPage from,
          (from == PregnancyPage::Baby && to == PregnancyPage::Dashboard);
 }
 
+// Same rule for the refresh tracker's page ids: anything that is not a
+// PregnancyPage value (no page yet is -1, the storage status page is 1000)
+// never qualifies.
+// 刷新跟踪器用的页面编号版本：不是孕周页面值的编号（尚无页面、存储状态页）一律不适用。
+inline bool pregnancy_page_id_change_uses_partial(int from_id, int to_id) {
+  constexpr int kLastPage = static_cast<int>(PregnancyPage::Mom);
+  if (from_id < 0 || from_id > kLastPage || to_id < 0 || to_id > kLastPage)
+    return false;
+  return pregnancy_page_change_uses_partial(
+      static_cast<PregnancyPage>(from_id), static_cast<PregnancyPage>(to_id));
+}
+
 enum class PregnancyAction : uint8_t {
   None,
   Digit0,
