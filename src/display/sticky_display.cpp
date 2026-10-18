@@ -42,7 +42,17 @@ std::atomic<bool> s_fast_app_refresh_armed{false};
 std::atomic<bool> s_battery_overlay_enabled{true};
 std::atomic<bool> s_battery_overlay_sleep_layout{false};
 std::atomic<uint32_t> s_partial_refresh_count_since_full{0U};
-uint8_t s_fast_app_transition_count = 0U;
+std::atomic<uint8_t> s_fast_app_transition_count{0U};
+
+// Any full refresh (or clear) cleans the panel, so the partial-refresh limit and
+// the fast-transition cleanup both start counting again. Without this the two
+// did not know about each other and a cleanup full refresh often followed a
+// limit-promoted one about 2 s later.
+// 任何一次全刷（或清屏）都会清屏，所以局刷上限和快速过渡的清屏计数都从头开始，避免连着两次全刷。
+void note_panel_cleaned() {
+  s_partial_refresh_count_since_full.store(0U, std::memory_order_release);
+  s_fast_app_transition_count.store(0U, std::memory_order_release);
+}
 
 void draw_battery_overlay_if_enabled() {
   if (s_battery_overlay_enabled.load(std::memory_order_acquire)) {
@@ -222,9 +232,7 @@ esp_err_t sticky_display_refresh() {
       "sticky_display", "write gray4 framebuffer");
   const esp_err_t result = seeed_epaper_panel_commit(
       s_panel, &full_screen, SEEED_EPAPER_REFRESH_GRAY4);
-  if (result == ESP_OK) {
-    s_partial_refresh_count_since_full.store(0U, std::memory_order_release);
-  }
+  if (result == ESP_OK) note_panel_cleaned();
   STICKY_LOGI(kTag, "display=refresh_done mode=gray4 elapsed_ms=%lld result=%s",
               static_cast<long long>(
                   (esp_timer_get_time() - refresh_started_us) / 1000),
@@ -321,9 +329,7 @@ static esp_err_t refresh_full_frame() {
   const esp_err_t result = seeed_epaper_panel_refresh_area(
       s_panel, &full_screen, s_rotated_framebuffer, kMonochromeStride,
       SEEED_EPAPER_PIXEL_FORMAT_MONO1_MSB, SEEED_EPAPER_REFRESH_FULL);
-  if (result == ESP_OK) {
-    s_partial_refresh_count_since_full.store(0U, std::memory_order_release);
-  }
+  if (result == ESP_OK) note_panel_cleaned();
   STICKY_LOGI(
       kTag,
       "display=refresh_done mode=monochrome_full elapsed_ms=%lld result=%s",
@@ -333,19 +339,26 @@ static esp_err_t refresh_full_frame() {
   return result;
 }
 
+uint32_t sticky_display_partial_refreshes_since_full() {
+  return s_partial_refresh_count_since_full.load(std::memory_order_acquire);
+}
+
 bool sticky_display_prepare_app_transition_refresh() {
-  if (s_fast_app_transition_count >= kFastAppTransitionsBeforeCleanup) {
-    s_fast_app_transition_count = 0U;
+  const uint8_t transitions =
+      s_fast_app_transition_count.load(std::memory_order_acquire);
+  if (transitions >= kFastAppTransitionsBeforeCleanup) {
+    s_fast_app_transition_count.store(0U, std::memory_order_release);
     s_fast_app_refresh_armed.store(false, std::memory_order_release);
     STICKY_LOGI(kTag,
                 "display=transition_refresh mode=full reason=periodic_cleanup");
     return false;
   }
 
-  ++s_fast_app_transition_count;
+  s_fast_app_transition_count.store(static_cast<uint8_t>(transitions + 1U),
+                                    std::memory_order_release);
   s_fast_app_refresh_armed.store(true, std::memory_order_release);
   STICKY_LOGI(kTag, "display=transition_refresh mode=fast sequence=%u/%u",
-              static_cast<unsigned>(s_fast_app_transition_count),
+              static_cast<unsigned>(transitions + 1U),
               static_cast<unsigned>(kFastAppTransitionsBeforeCleanup));
   return true;
 }
@@ -376,9 +389,7 @@ esp_err_t sticky_display_clear() {
   s_canvas->clear();
   const esp_err_t result =
       seeed_epaper_panel_clear(s_panel, true, SEEED_EPAPER_REFRESH_FULL);
-  if (result == ESP_OK) {
-    s_partial_refresh_count_since_full.store(0U, std::memory_order_release);
-  }
+  if (result == ESP_OK) note_panel_cleaned();
   STICKY_LOGI(
       kTag,
       "display=clear_done color=white mode=full elapsed_ms=%lld result=%s",

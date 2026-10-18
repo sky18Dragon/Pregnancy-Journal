@@ -197,6 +197,10 @@ void refresh_display(bool partial, int page_id) {
   }
   const esp_err_t result = full ? sticky_display_refresh_monochrome()
                                 : sticky_display_refresh_partial();
+  // A partial request the display layer promoted to a full refresh has already
+  // cleaned the panel: no idle repaint is due.
+  if (sticky_display_partial_refreshes_since_full() == 0U)
+    s_ghost_cleanup_pending = false;
   // The idle wait starts once the panel has settled, not when the refresh began.
   defer_ghost_cleanup();
   if (result != ESP_OK) {

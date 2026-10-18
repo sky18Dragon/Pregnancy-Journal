@@ -31,6 +31,12 @@ esp_err_t sticky_display_refresh_partial();
 // 使用黑白波形刷新整个屏幕，适合只包含黑色和白色的页面。
 esp_err_t sticky_display_refresh_monochrome();
 
+// Number of partial refreshes since the last full refresh or clear: 0 right
+// after any full refresh, so a caller that asked for a partial one can tell the
+// display layer promoted it to a full one. Read-only.
+// 自上次全刷或清屏以来的局刷次数；刚做完全刷时为 0，调用方据此判断局刷是否被显示层升级为全刷。只读。
+uint32_t sticky_display_partial_refreshes_since_full();
+
 // Arms a fast first frame, with a periodic full refresh for panel cleanup.
 // 为APP首帧安排快刷，并定期保留一次全刷清理屏幕。
 bool sticky_display_prepare_app_transition_refresh();
