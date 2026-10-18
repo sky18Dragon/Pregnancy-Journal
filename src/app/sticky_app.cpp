@@ -88,9 +88,34 @@ SideStepMerger s_side_merger;
 std::atomic<uint8_t> s_key_policies[kKeyPolicySlots] = {};
 
 void render_launcher(bool full_refresh = true);
+void draw_switch_ack();
 
 uint32_t monotonic_ms() {
   return static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
+}
+
+// Opening the launcher, returning to the app and switching apps draw their first
+// frame with the fast (partial) waveform; the display layer makes every sixth
+// such transition a full refresh to clean the panel. The arm is taken by the
+// next monochrome refresh, normally the app's or the launcher's first frame. If
+// no one takes it, it is dropped after kTransitionArmTimeoutMs so it cannot
+// soften a later, unrelated full refresh.
+// 打开启动器、回到应用、换应用时第一帧用快速（局刷）波形；显示层每 6 次过渡补一次全刷清屏。
+constexpr uint32_t kTransitionArmTimeoutMs = 4000U;
+uint32_t s_transition_drop_at_ms = 0U;
+
+void arm_fast_transition() {
+  if (!sticky_display_prepare_app_transition_refresh()) return;
+  s_transition_drop_at_ms = monotonic_ms() + kTransitionArmTimeoutMs;
+  if (s_transition_drop_at_ms == 0U) s_transition_drop_at_ms = 1U;
+}
+
+void drop_stale_transition(uint32_t now_ms) {
+  if (s_transition_drop_at_ms == 0U ||
+      static_cast<int32_t>(now_ms - s_transition_drop_at_ms) < 0)
+    return;
+  sticky_display_cancel_app_transition_refresh();  // harmless once taken
+  s_transition_drop_at_ms = 0U;
 }
 
 // User input restarts the idle timer and clears any sleep retry back-off.
@@ -204,7 +229,8 @@ void toggle_language() {
   s_device_preferences.toggle_language();
 }
 
-// The launcher replaces the whole page, so every render defaults to a full refresh.
+// The launcher replaces the whole page, so every render defaults to a full
+// refresh; opening it arms the fast transition first (see arm_fast_transition).
 void render_launcher(bool full_refresh) {
   sticky_display_set_battery_overlay_enabled(false);
   CanvasRotation rotation = s_canvas->rotation();
@@ -227,6 +253,7 @@ bool open_launcher() {
   sticky_touch_clear_press();
   sticky_touch_clear_interaction();
   s_launcher_open = true;
+  arm_fast_transition();
   render_launcher();
   STICKY_LOGI(kTag, "launcher=open current=%s result=ok",
               sticky_app_id_name(s_manager.current_id()));
@@ -244,22 +271,30 @@ void close_launcher() {
                        s_canvas->rotation());
   s_canvas->set_rotation(rotation);
   configure_app_rotation(s_manager.current_id(), rotation);
+  arm_fast_transition();
   const esp_err_t result = s_manager.resume_current();
   STICKY_LOGI(kTag, "launcher=close current=%s result=%s",
               sticky_app_id_name(s_manager.current_id()),
               esp_err_to_name(result));
 }
 
-void select_app(StickyAppId app, const char *source) {
+// `acknowledge` draws the switch bar for a swipe or side key. It is drawn only
+// once the current app is paused: the app task may still be inside a refresh
+// of its own, and two tasks must never drive the panel at the same time (a
+// quick second swipe did, and the first refresh timed out after 10 s).
+void select_app(StickyAppId app, const char *source, bool acknowledge = false) {
   const StickyAppId previous = s_manager.current_id();
   const CanvasRotation previous_rotation = s_canvas->rotation();
   const CanvasRotation destination_rotation =
       rotation_for_app(app, s_last_orientation, previous_rotation);
   if (!s_launcher_open && s_manager.pause_current() != ESP_OK) return;
+  if (acknowledge) draw_switch_ack();
   s_canvas->set_rotation(destination_rotation);
   configure_app_rotation(app, destination_rotation);
+  arm_fast_transition();
   const esp_err_t result = s_manager.switch_from_paused_to(app);
   if (result != ESP_OK) {
+    sticky_display_cancel_app_transition_refresh();
     s_launcher_open = false;
     if (s_manager.pause_current() == ESP_OK) {
       s_canvas->set_rotation(previous_rotation);
@@ -411,8 +446,7 @@ void switch_by_steps(int steps, const char *source) {
   for (int count = steps < 0 ? -steps : steps; count > 0; --count)
     target = app_page_launcher_neighbor(target, direction);
   if (target == s_manager.current_id()) return;
-  draw_switch_ack();
-  select_app(target, source);
+  select_app(target, source, true);
 }
 
 // Bottom-edge horizontal swipe: next/previous app.
@@ -663,6 +697,7 @@ void app_task(void *) {
     }
 
     const uint32_t now_ms = monotonic_ms();
+    drop_stale_transition(now_ms);
     if (s_launcher_open &&
         now_ms - s_last_activity_ms >= kLauncherIdleCloseMs) {
       close_launcher();

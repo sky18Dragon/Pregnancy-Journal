@@ -67,6 +67,11 @@ the result.
   more than ten times; the eleventh change is promoted to a full refresh, ghosting
   stays acceptable, and about 5 s after the last touch one full cleanup refresh
   runs. Home <-> Mom and the launcher round trip still use the full refresh.
+- [ ] Launcher transitions (open, back to the same app, switch to another app) draw
+  their first frame with the fast waveform (about 0.9 s, no black flash); every
+  sixth such transition is a full refresh. Look for ghosting of the previous page
+  on the launcher and on the app page, and check that a rotation change and the
+  sleep frame still use the full refresh.
 - [ ] Entering the pregnancy home from the launcher shows the home page after one
   full refresh with no "LOADING FROM MICROSD" page; after removing or swapping the
   card the page falls back to the storage message or the cold read.
