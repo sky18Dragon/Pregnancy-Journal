@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 // Page-level e-paper refresh rule shared by every app.
 //
 // A page change replaces most of the panel, so it needs a full monochrome
@@ -31,3 +33,16 @@ private:
   static constexpr int kNoPage = -1;
   int last_page_id_ = kNoPage;
 };
+
+// A card read that is still pending is only worth a "loading" page (a screen
+// refresh of its own, and a black flash when it is a full one) once it has been
+// waiting this long; most reads finish before it and go straight to the content
+// page. Entering an app queues the "current app" preference write in the same
+// storage queue, which alone adds about 0.7 s, so a first entry takes about 1 s.
+// 读卡还在进行时，等待超过这个时间才值得画一页“加载中”（它自己就是一次整屏刷新）；多数读取更快，直接画内容页。
+// 进入应用时会在同一个存储队列里写“当前应用”偏好（约 0.7 s），所以首次进入约需 1 s。
+constexpr int64_t kLoadingPageDelayUs = 1500000;
+
+inline bool loading_page_due(bool read_pending, int64_t waited_us) {
+  return read_pending && waited_us >= kLoadingPageDelayUs;
+}

@@ -72,6 +72,9 @@ the result.
   sixth such transition is a full refresh. Look for ghosting of the previous page
   on the launcher and on the app page, and check that a rotation change and the
   sleep frame still use the full refresh.
+- [ ] The first entry to Kicks after boot (and after a card swap) shows the Kicks
+  page after one refresh with no "loading" page in between when the card answers
+  quickly; a slow card still shows the loading page after about 1.5 s.
 - [ ] Entering the pregnancy home from the launcher shows the home page after one
   full refresh with no "LOADING FROM MICROSD" page; after removing or swapping the
   card the page falls back to the storage message or the cold read.
