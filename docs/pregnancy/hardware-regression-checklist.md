@@ -75,6 +75,8 @@ the result.
 - [ ] The first entry to Kicks after boot (and after a card swap) shows the Kicks
   page after one refresh with no "loading" page in between when the card answers
   quickly; a slow card still shows the loading page after about 1.5 s.
+- [ ] The first entry to Weight after boot (and after a card swap) behaves the same
+  way: one refresh and no "loading" page when the card answers quickly.
 - [ ] Entering the pregnancy home from the launcher shows the home page after one
   full refresh with no "LOADING FROM MICROSD" page; after removing or swapping the
   card the page falls back to the storage message or the cold read.

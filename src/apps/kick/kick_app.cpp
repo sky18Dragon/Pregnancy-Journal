@@ -99,6 +99,12 @@ KickMethod current_method() {
 
 uint16_t elapsed_minutes() { return s_flow.elapsed_minutes(esp_timer_get_time()); }
 
+// A cold read that is in flight and has not drawn its loading page, and when it
+// began. A read that finishes quickly goes straight to the content page (see
+// loading_page_due()); later saves and other pending work are not watched.
+int64_t s_load_started_us = 0;
+bool s_load_watch = false;
+
 bool status_page_active() {
   return s_store.pending() || (s_storage_status != SdRepositoryAdapterStatus::Idle &&
                                s_storage_status != SdRepositoryAdapterStatus::Ok);
@@ -120,6 +126,7 @@ void render(bool full = false) {
                                   s_storage_saving, s_storage_status);
     s_refresh.needs_full(kStatusPageId, true);
     sticky_display_refresh_monochrome();
+    if (s_store.pending()) s_load_watch = false;  // the loading page is drawn
     return;
   }
   const KickPage page = s_flow.page();
@@ -201,12 +208,6 @@ void apply_flow_result(const KickFlowResult &result) {
   if (result.save_session)
     save_session(result.session);
 }
-
-// A cold read that is in flight and has not drawn its loading page, and when it
-// began. A read that finishes quickly goes straight to the content page (see
-// loading_page_due()); later saves and other pending work are not watched.
-int64_t s_load_started_us = 0;
-bool s_load_watch = false;
 
 void begin_load() {
   if (!s_store.ready() && !s_retry_session)
@@ -379,8 +380,7 @@ void show_loading_page_if_slow() {
     return;
   }
   if (!loading_page_due(true, esp_timer_get_time() - s_load_started_us)) return;
-  s_load_watch = false;
-  render(true);
+  render(true);  // sets s_load_watch to false
 }
 
 void task(void *) {
