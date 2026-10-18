@@ -199,6 +199,72 @@ int main()
     assert(reloaded.found() && reloaded.revision() == 4U);
     assert(reloaded.profile().estimated_due_date.year == 2027U);
 
+    // Revalidate: the held profile stays readable while the card is asked,
+    // and a change is only reported when the card disagrees with it.
+    assert(reloaded.ready());
+    assert(reloaded.begin_revalidate() == SdRepositoryAdapterStatus::Pending);
+    assert(reloaded.operation() ==
+           pregnancy_repository::PregnancyStoreOperation::Revalidate);
+    assert(reloaded.found() && reloaded.profile().estimated_due_date.year == 2027U);
+    assert(reloaded.poll() == SdRepositoryAdapterStatus::Ok);
+    assert(!reloaded.changed() && reloaded.found() && reloaded.revision() == 4U);
+
+    PregnancyProfile later = {};
+    assert(pregnancy_profile_from_due_date({2027U, 5U, 2U}, later));
+    pregnancy_repository::EncodedPayload later_encoded = {};
+    assert(pregnancy_repository::encode_pregnancy_profile(later, later_encoded) ==
+           pregnancy_repository::RecordCodecStatus::Ok);
+    g_result.outcome.record.revision = 5U;
+    g_result.outcome.record.payload_size = later_encoded.size;
+    std::memcpy(g_result.outcome.record.payload.data(),
+                later_encoded.bytes.data(), later_encoded.size);
+    assert(reloaded.begin_revalidate() == SdRepositoryAdapterStatus::Pending);
+    assert(reloaded.poll() == SdRepositoryAdapterStatus::Ok);
+    assert(reloaded.changed() && reloaded.found() && reloaded.revision() == 5U);
+    assert(reloaded.profile().estimated_due_date.month == 5U);
+
+    g_result = {};
+    g_result.outcome.status = SdRepositoryRequestStatus::NotFound;
+    assert(reloaded.begin_revalidate() == SdRepositoryAdapterStatus::Pending);
+    assert(reloaded.poll() == SdRepositoryAdapterStatus::Ok);
+    assert(reloaded.changed() && !reloaded.found() && reloaded.ready() &&
+           reloaded.revision() == 0U);
+    assert(reloaded.begin_revalidate() == SdRepositoryAdapterStatus::Pending);
+    assert(reloaded.poll() == SdRepositoryAdapterStatus::Ok);
+    assert(!reloaded.changed() && !reloaded.found());
+
+    // A failed re-read forgets the held profile instead of vouching for it,
+    // and the next attempt is a cold load.
+    g_result = {};
+    g_result.outcome.status = SdRepositoryRequestStatus::Ok;
+    g_result.outcome.record.revision = 6U;
+    g_result.outcome.record.payload_size = encoded.size;
+    std::memcpy(g_result.outcome.record.payload.data(), encoded.bytes.data(),
+                encoded.size);
+    assert(reloaded.begin_load() == SdRepositoryAdapterStatus::Pending);
+    assert(reloaded.poll() == SdRepositoryAdapterStatus::Ok && reloaded.found());
+    g_result.outcome.status = SdRepositoryRequestStatus::RecoveryError;
+    assert(reloaded.begin_revalidate() == SdRepositoryAdapterStatus::Pending);
+    assert(reloaded.poll() == SdRepositoryAdapterStatus::Corrupt);
+    assert(!reloaded.found() && !reloaded.ready() && reloaded.changed());
+    g_result.outcome.status = SdRepositoryRequestStatus::Ok;
+    assert(reloaded.begin_revalidate() == SdRepositoryAdapterStatus::Pending);
+    assert(reloaded.operation() ==
+           pregnancy_repository::PregnancyStoreOperation::Load);
+    assert(!reloaded.found());
+    assert(reloaded.poll() == SdRepositoryAdapterStatus::Ok && reloaded.found());
+
+    // A card or dataset change makes the held profile unusable at once, and
+    // revalidate then reads cold rather than trusting it.
+    g_status.mount_generation = 4U;
+    assert(!reloaded.ready() && !reloaded.found());
+    assert(reloaded.begin_revalidate() == SdRepositoryAdapterStatus::Pending);
+    assert(reloaded.operation() ==
+           pregnancy_repository::PregnancyStoreOperation::Load);
+    assert(reloaded.poll() == SdRepositoryAdapterStatus::Ok && reloaded.found());
+    g_status.mount_generation = 3U;
+    assert(!reloaded.ready());
+
     pregnancy_repository::ReminderRepositoryStore reminders;
     RepositoryKey reminder_key = {};
     assert(pregnancy_repository::reminder_key(2U, reminder_key));

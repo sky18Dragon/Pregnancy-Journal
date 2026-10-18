@@ -48,11 +48,29 @@ void show_press_feedback() {
   sticky_display_refresh_partial();
 }
 int64_t s_next_rtc_poll_us = 0;
+
+// Entry timing: a few log marks per entry (boot or resume) show whether the
+// time goes to the card read or to the screen refreshes.
+constexpr unsigned kEntryRefreshLogLimit = 2U;
+int64_t s_entry_us = 0;
+unsigned s_entry_refreshes = 0U;
+
+long entry_elapsed_ms() {
+  return static_cast<long>((esp_timer_get_time() - s_entry_us) / 1000);
+}
+
+void mark_entry(const char *kind) {
+  s_entry_us = esp_timer_get_time();
+  s_entry_refreshes = 0U;
+  STICKY_LOGI(kTag, "entry_timing point=enter kind=%s t_ms=0", kind);
+}
 std::atomic<bool> s_setup_requested{false};
 std::atomic<bool> s_dashboard_requested{false};
 pregnancy_repository::PregnancyRepositoryStore &s_profile_store =
     pregnancy_repository::pregnancy_repository_store();
 bool s_profile_loading = false;
+// A profile the store already held is on screen while the card re-checks it.
+bool s_profile_revalidating = false;
 bool s_profile_saving = false;
 bool s_retry_save = false;
 bool s_reload_after_pending = false;
@@ -149,6 +167,12 @@ void refresh_display(bool partial, int page_id) {
     STICKY_LOGE(kTag, "display=refresh mode=%s result=%s",
                 full ? "full" : "partial", esp_err_to_name(result));
   }
+  if (s_entry_us != 0 && s_entry_refreshes < kEntryRefreshLogLimit) {
+    ++s_entry_refreshes;
+    STICKY_LOGI(kTag, "entry_timing point=render n=%u mode=%s page=%d t_ms=%ld",
+                s_entry_refreshes, full ? "full" : "partial", page_id,
+                entry_elapsed_ms());
+  }
 }
 
 bool status_page_active() {
@@ -238,33 +262,70 @@ PregnancyAction action_for_press(const StickyTouchPress &press) {
                                   s_canvas->height(), x, y);
 }
 
+// Shared tail once the flow holds the current profile.
+void settle_flow_after_profile() {
+  const bool setup_requested = s_setup_after_load;
+  if (s_flow.page() != PregnancyPage::ClockSetup)
+    s_setup_after_load = false;
+  if (s_flow.settle_after_storage(setup_requested))
+    s_next_rtc_poll_us = esp_timer_get_time() + kRtcPollIntervalUs;
+}
+
+// Applies a profile the flow can rely on and moves to the page it implies.
+void settle_flow_with_profile(bool found, const PregnancyProfile &profile) {
+  s_flow.profile_loaded(found, profile);
+  settle_flow_after_profile();
+}
+
+// Begins reading the profile for boot, resume and reload. A profile the store
+// still holds for this card is shown at once and re-checked quietly, so the
+// loading page (and its extra full refresh) is only used for a cold read.
+void start_profile_read() {
+  const bool retained = s_profile_store.ready();
+  s_storage_error = retained ? s_profile_store.begin_revalidate()
+                             : s_profile_store.begin_load();
+  const bool pending =
+      s_storage_error == sticky_storage::SdRepositoryAdapterStatus::Pending;
+  if (pending) s_storage_error = sticky_storage::SdRepositoryAdapterStatus::Idle;
+  s_profile_revalidating = pending && retained;
+  s_profile_loading = pending && !retained;
+  if (s_profile_revalidating)
+    settle_flow_with_profile(s_profile_store.found(), s_profile_store.profile());
+}
+
 void initialize_state() {
   s_flow.begin();
   s_retry_save = false;
-  s_storage_error = s_profile_store.begin_load();
-  s_profile_loading =
-      s_storage_error == sticky_storage::SdRepositoryAdapterStatus::Pending;
-  if (s_profile_loading) {
-    s_storage_error = sticky_storage::SdRepositoryAdapterStatus::Idle;
-  }
+  start_profile_read();
 }
 
 bool poll_profile_storage() {
-  if (!s_profile_loading && !s_profile_saving) return false;
+  if (!s_profile_loading && !s_profile_saving && !s_profile_revalidating)
+    return false;
   const sticky_storage::SdRepositoryAdapterStatus status =
       s_profile_store.poll();
   if (status == sticky_storage::SdRepositoryAdapterStatus::Pending)
     return false;
   const bool was_loading = s_profile_loading;
+  const bool was_revalidating = s_profile_revalidating;
+  const bool changed = s_profile_store.changed();
   s_profile_loading = false;
   s_profile_saving = false;
+  s_profile_revalidating = false;
+  if ((was_loading || was_revalidating) && s_entry_us != 0) {
+    STICKY_LOGI(kTag,
+                "entry_timing point=load_done mode=%s changed=%u status=%d t_ms=%ld",
+                was_revalidating ? "revalidate" : "cold",
+                static_cast<unsigned>(changed), static_cast<int>(status),
+                entry_elapsed_ms());
+  }
   if (status != sticky_storage::SdRepositoryAdapterStatus::Ok) {
     s_storage_error = status;
   } else {
     s_storage_error = sticky_storage::SdRepositoryAdapterStatus::Idle;
-    if (was_loading) {
+    if (was_loading || (was_revalidating && changed)) {
       s_flow.profile_loaded(s_profile_store.found(), s_profile_store.profile());
-    } else {
+    } else if (!was_revalidating) {
       s_flow.profile_saved();
       s_retry_save = false;
       STICKY_LOGI(kTag, "profile=save backend=microsd result=ok");
@@ -273,11 +334,7 @@ bool poll_profile_storage() {
   if (s_reload_after_pending) {
     s_reload_after_pending = false;
     s_retry_save = false;
-    s_storage_error = s_profile_store.begin_load();
-    s_profile_loading =
-        s_storage_error == sticky_storage::SdRepositoryAdapterStatus::Pending;
-    if (s_profile_loading)
-      s_storage_error = sticky_storage::SdRepositoryAdapterStatus::Idle;
+    start_profile_read();
     return true;
   }
   if (status != sticky_storage::SdRepositoryAdapterStatus::Ok) {
@@ -286,11 +343,9 @@ bool poll_profile_storage() {
     s_retry_save = false;
     return true;
   }
-  const bool setup_requested = s_setup_after_load;
-  if (s_flow.page() != PregnancyPage::ClockSetup)
-    s_setup_after_load = false;
-  if (s_flow.settle_after_storage(setup_requested))
-    s_next_rtc_poll_us = esp_timer_get_time() + kRtcPollIntervalUs;
+  // The card agreed with the profile already on screen: nothing to redraw.
+  if (was_revalidating && !changed) return false;
+  settle_flow_after_profile();
   return true;
 }
 
@@ -321,6 +376,7 @@ void update_for_date_rollover() {
 void app_task(void *) {
   s_dashboard_requested.store(false);
   sticky_touch_clear_press();
+  mark_entry("boot");
   initialize_state();
   render_page(false);
   while (true) {
@@ -330,12 +386,11 @@ void app_task(void *) {
         !s_profile_store.ready()) {
       s_flow.unconfigure();
       s_retry_save = false;
-      s_storage_error = s_profile_store.begin_load();
-      s_profile_loading = s_storage_error == sticky_storage::SdRepositoryAdapterStatus::Pending;
-      if (s_profile_loading) s_storage_error = sticky_storage::SdRepositoryAdapterStatus::Idle;
+      start_profile_read();  // not ready(), so this is a cold read
       render_page(true);
     }
     if (sticky_app_lifecycle_checkpoint(s_lifecycle)) {
+      mark_entry("resume");
       sticky_touch_clear_press();
       s_setup_after_load = s_setup_after_load || s_setup_requested.exchange(false);
       if (s_dashboard_requested.exchange(false) && s_flow.showing_week_pages())
@@ -344,18 +399,13 @@ void app_task(void *) {
         s_reload_after_pending = true;
       } else {
         s_retry_save = false;
-        s_storage_error = s_profile_store.begin_load();
-        s_profile_loading =
-            s_storage_error ==
-            sticky_storage::SdRepositoryAdapterStatus::Pending;
-        if (s_profile_loading)
-          s_storage_error = sticky_storage::SdRepositoryAdapterStatus::Idle;
+        start_profile_read();
       }
       render_page(false);
     }
     StickyTouchPress press = {};
     if (sticky_touch_take_press(press)) {
-      if (s_profile_loading || s_profile_saving) {
+      if (s_profile_loading || s_profile_saving || s_profile_revalidating) {
         sticky_touch_clear_press();
         vTaskDelay(kPollInterval);
         continue;
