@@ -1,8 +1,7 @@
 #include <cassert>
 #include <cstdlib>
-#include <cstdio>
-#include <cstring>
 #include <fstream>
+#include <string>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -12,14 +11,14 @@ namespace {
 
 int fail_directory(const char *) { return -1; }
 
-bool exists(const char *path)
+bool exists(const std::string &path)
 {
     struct stat info = {};
-    return lstat(path, &info) == 0;
+    return lstat(path.c_str(), &info) == 0;
 }
 
-void make_dir(const char *path) { assert(mkdir(path, 0700) == 0); }
-void make_file(const char *path, const char *text)
+void make_dir(const std::string &path) { assert(mkdir(path.c_str(), 0700) == 0); }
+void make_file(const std::string &path, const char *text)
 {
     std::ofstream output(path, std::ios::binary);
     output << text;
@@ -33,16 +32,11 @@ int main()
     char mount_template[] = "/tmp/sticky-delete-XXXXXX";
     char *mount = mkdtemp(mount_template);
     assert(mount != nullptr);
-    char app[256] = {};
-    char records[256] = {};
-    char object[256] = {};
-    char other[256] = {};
-    char keep[256] = {};
-    std::snprintf(app, sizeof(app), "%s/PREGJNL", mount);
-    std::snprintf(records, sizeof(records), "%s/RECORDS", app);
-    std::snprintf(object, sizeof(object), "%s/ONE.BIN", records);
-    std::snprintf(other, sizeof(other), "%s/PHOTOS", mount);
-    std::snprintf(keep, sizeof(keep), "%s/KEEP.JPG", other);
+    const std::string app = std::string(mount) + "/PREGJNL";
+    const std::string records = app + "/RECORDS";
+    const std::string object = records + "/ONE.BIN";
+    const std::string other = std::string(mount) + "/PHOTOS";
+    const std::string keep = other + "/KEEP.JPG";
     make_dir(app);
     make_dir(records);
     make_file(object, "app data");
@@ -67,8 +61,8 @@ int main()
     assert(sd_application_data_delete(mount, "PHOTOS").status ==
            SdApplicationDataDeleteStatus::InvalidArgument);
 
-    assert(unlink(keep) == 0);
-    assert(rmdir(other) == 0);
+    assert(unlink(keep.c_str()) == 0);
+    assert(rmdir(other.c_str()) == 0);
     assert(rmdir(mount) == 0);
     return 0;
 }
