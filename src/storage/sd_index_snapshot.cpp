@@ -234,7 +234,7 @@ SdIndexSnapshotStatus decode_snapshot(const uint8_t *bytes, size_t size,
                                       SdIndexSnapshot *snapshot)
 {
     if (snapshot != nullptr) {
-        std::memset(snapshot, 0, sizeof(*snapshot));
+        snapshot->reset();
     }
     if (bytes == nullptr) {
         return SdIndexSnapshotStatus::InvalidArgument;
@@ -391,6 +391,14 @@ SdIndexSnapshotStatus sd_index_snapshot_validate(const uint8_t *bytes,
                                                  size_t size)
 {
     return decode_snapshot(bytes, size, nullptr);
+}
+
+void SdIndexSnapshot::reset()
+{
+    std::memset(dataset_id, 0, sizeof(dataset_id));
+    last_transaction_id = 0U;
+    entries.fill(SdIndexSnapshotEntry{});
+    entry_count = 0U;
 }
 
 SdIndexSnapshotStatus sd_index_snapshot_decode(const uint8_t *bytes,

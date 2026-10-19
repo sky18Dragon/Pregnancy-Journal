@@ -52,7 +52,7 @@ uint32_t frame_fingerprint(SdJournalRecordType type, uint64_t transaction_id,
 
 void SdRepositoryRecoveryIndex::reset()
 {
-    std::memset(slots_.data(), 0, sizeof(slots_));
+    slots_.fill(Slot{});
     stored_count_ = 0U;
     live_count_ = 0U;
     last_transaction_id_ = 0U;

@@ -31,6 +31,10 @@ struct SdIndexSnapshot {
     uint64_t last_transaction_id = 0U;
     std::array<SdIndexSnapshotEntry, kSdIndexSnapshotEntryCapacity> entries = {};
     size_t entry_count = 0U;
+
+    // Reset in place without a maximum-size temporary on the task stack.
+    // 原地重置，避免在任务栈上创建完整快照大小的临时对象。
+    void reset();
 };
 
 enum class SdIndexSnapshotStatus : uint8_t {

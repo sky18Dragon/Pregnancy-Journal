@@ -226,5 +226,16 @@ int main()
         request.cursor = page.next_cursor;
     } while (page.has_more);
     assert(listed == kSdRecoveryRecordCapacity);
+
+    // Reset releases a full index and its transaction history for a fresh
+    // replay, including records that were previously tombstoned.
+    full.reset();
+    assert(full.stored_count() == 0U && full.live_count() == 0U);
+    assert(full.last_transaction_id() == 0U);
+    assert(!full.record_at(kSdRecoveryRecordCapacity - 1U, record));
+    assert(full.read(note, record) == SdRepositoryRecoveryStatus::NotFound);
+    assert(full.apply(SdJournalRecordType::Commit, 1U, first_bytes.data(),
+                      first_size, result) == SdRepositoryRecoveryStatus::Ok);
+    assert(result.changed && full.live_count() == 2U);
     return 0;
 }
