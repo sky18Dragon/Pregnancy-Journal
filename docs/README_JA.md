@@ -6,7 +6,7 @@ Pregnancy Journal は、Seeed Studio reTerminal Sticky（小型のマグネッ�
 あり、診断・治療・緊急通報を行う機器ではありません。健康に関する数値はすべて個人の記録と医療者との
 相談のための目安であり、医学的な助言ではありません。
 
-[English](../README.md) · [简体中文](README_CN.md)
+[English](../README.md) | [简体中文](README_CN.md) | **日本語**
 
 ## 現在の状態
 

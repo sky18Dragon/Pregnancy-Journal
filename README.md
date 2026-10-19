@@ -1,5 +1,7 @@
 # Pregnancy Journal（孕期手帐）
 
+**English** | [简体中文](docs/README_CN.md) | [日本語](docs/README_JA.md)
+
 Pregnancy Journal is an offline pregnancy organizer for the Seeed Studio
 reTerminal Sticky, a small magnetic e-paper device. The firmware combines a
 Baby Week dashboard, weight records, kick-count sessions and Settings on the
@@ -7,10 +9,6 @@ Sticky Core hardware framework. It is informational record-keeping software,
 not a diagnostic, treatment or emergency-alert device: every health-related
 value is a prompt for personal records and care-team discussion, never a medical
 recommendation.
-
-**Other languages:** [简体中文](docs/README_CN.md) · [日本語](docs/README_JA.md)
-(translations of this README; they live under `docs/` with the rest of the
-documentation, and only `README.md` and `LICENSE` stay in the repository root)
 
 ## Status
 
