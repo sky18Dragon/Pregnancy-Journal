@@ -19,6 +19,7 @@ tools/.cache/
 *.pfx
 
 # IDE and operating-system files
+.claude/settings.local.json
 .vscode/
 .idea/
 .DS_Store

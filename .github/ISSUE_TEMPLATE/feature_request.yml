@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose a focused improvement to the pet, apps, launcher or platform layer.
+description: Propose a focused improvement to the apps, launcher or platform layer.
 title: "[Feature]: "
 labels:
   - enhancement
@@ -16,10 +16,10 @@ body:
     attributes:
       label: Area
       options:
-        - Desktop Pet
-        - Pomodoro Timer
-        - Status Board
-        - Book of Answers
+        - Baby Week
+        - Weight
+        - Kicks
+        - Settings
         - App Launcher
         - Power and RTC
         - Hardware driver
