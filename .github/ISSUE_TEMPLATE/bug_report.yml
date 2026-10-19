@@ -6,12 +6,12 @@ labels:
 body:
   - type: markdown
     attributes:
-      value: Thanks for helping improve Sticky Bunny. A precise hardware sequence makes issues much easier to reproduce.
+      value: Thanks for helping improve Pregnancy Journal. A precise hardware sequence makes issues much easier to reproduce.
   - type: input
     id: version
     attributes:
       label: Firmware version or commit
-      placeholder: 0.1.0 or a commit hash
+      placeholder: 2.0.0 or a commit hash
     validations:
       required: true
   - type: dropdown
