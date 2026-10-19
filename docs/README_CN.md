@@ -5,22 +5,22 @@
 它只用于信息整理，不是诊断、治疗或紧急报警设备：所有与健康相关的数值都只是个人
 记录和与医护沟通的提示，不构成医疗建议。
 
-[English](README.md) · [日本語](README_JA.md)
+[English](../README.md) · [日本語](README_JA.md)
 
 ## 当前状态
 
 - 硬件：ESP32-S3 reTerminal Sticky，3.97 英寸 800×480 黑白电子纸；固件版本 `2.0.0`。
 - 四个已注册应用：**孕周（Baby Week）**、**体重**、**胎动**、**设置**。提醒、产检与
   到期提醒、习惯、备忘、录音、配网和语音转文本移到下一版本
-  （见 [V2 扩展需求](docs/V2-PROJECT-SPEC.md)）。
+  （见 [V2 扩展需求](V2-PROJECT-SPEC.md)）。
 - 界面语言：English / 简体中文。所有用户数据都存放在 MicroSD 卡上；没有账号、
   遥测、云上传、OTA 或 AI 服务。
 - 这是尚未通过验收的固件候选。自动门槛是主机测试套件（`tools/run_host_tests.sh`，
   2026-10-19 为 88/88 步）加上 `sticky-release`、`sticky-debug`、`sticky-power-test`
-  三个配置编译通过。实机验收另行记录在 [V1 验证记录](docs/V1-VALIDATION.md) 和
-  [硬件回归清单](docs/pregnancy/hardware-regression-checklist.md)，本文不声称已通过实机验收。
+  三个配置编译通过。实机验收另行记录在 [V1 验证记录](V1-VALIDATION.md) 和
+  [硬件回归清单](pregnancy/hardware-regression-checklist.md)，本文不声称已通过实机验收。
 
-完整的当前行为、交互和容量限制见[当前功能参考](docs/pregnancy/current-functionality.md)。
+完整的当前行为、交互和容量限制见[当前功能参考](pregnancy/current-functionality.md)。
 
 ## 应用功能
 
@@ -56,7 +56,7 @@
 无操作 30 秒后功能列表自动关闭。画面方向跟随 IMU 报告的握持方向：功能列表横屏两列、
 竖屏单列，每个应用都有专门的横屏和竖屏页面。页头按钮含义固定：**APPS**（离开应用回
 功能列表）、**BACK**（返回上一级）、**CANCEL**（放弃，不保存）、**HOME**（回孕周首页），
-详见[页面与导航结构](docs/PAGE-STRUCTURE.md)。
+详见[页面与导航结构](PAGE-STRUCTURE.md)。
 
 ## 睡眠与唤醒
 
@@ -75,15 +75,15 @@
   孕周已持有档案时，进入后立即画首页并在后台静默校验。
 
 方向变化和睡眠帧始终用全刷。规则见 [DESIGN.md](DESIGN.md) 和
-[电子纸刷新策略](docs/pregnancy/eink-refresh-strategy.md)。
+[电子纸刷新策略](pregnancy/eink-refresh-strategy.md)。
 
 ## 存储与隐私
 
 四个应用都使用绑定数据集、带日志的 MicroSD repository，不回退到 Flash。设置提供经校验的
 旧数据导入（胎动有独立路径）、安全弹出、设备重置和卡内应用数据删除。提醒/产检的 NVS 原
 副本保留给 V2。恢复索引最多容纳 1,024 个键（含已删除键）；日志和对象的垃圾回收尚未实现，
-索引满时拒绝新键而不是丢弃记录。见[存储](docs/pregnancy/storage.md)、
-[数据模型](docs/pregnancy/data-model.md)和[备份与恢复](docs/S1-BACKUP-RECOVERY.md)。
+索引满时拒绝新键而不是丢弃记录。见[存储](pregnancy/storage.md)、
+[数据模型](pregnancy/data-model.md)和[备份与恢复](S1-BACKUP-RECOVERY.md)。
 
 ## 仓库结构
 
@@ -101,13 +101,13 @@
 | `docs/` | 需求、设计、验证记录与证据 |
 
 架构为 `应用 → 领域/内容服务 → Sticky Core 运行时 → 设备 HAL`。`app_registry.cpp` 是组合根，
-`StickyAppManager` 负责应用生命周期以及显示/输入所有权。见[架构总览](docs/ARCHITECTURE.md)和
-[新增应用](docs/refactor/adding-an-app.md)。
+`StickyAppManager` 负责应用生命周期以及显示/输入所有权。见[架构总览](ARCHITECTURE.md)和
+[新增应用](refactor/adding-an-app.md)。
 
 ## 构建与测试
 
 需要 PlatformIO 和 ESP-IDF 5.4.1。项目路径含空格，PlatformIO 会拒绝直接构建，请使用无空格
-副本或精确镜像（见[开发流程](docs/DEVELOPMENT.md)）：
+副本或精确镜像（见[开发流程](DEVELOPMENT.md)）：
 
 ```bash
 pio run -e sticky-release
@@ -136,38 +136,38 @@ pio device monitor -p /dev/cu.usbmodemXXXX -b 115200 --filter time --rts 0 --dtr
 
 把端口换成 `pio device list` 显示的设备。如果自动进入 bootloader 失败，按住 **BOOT**，点按
 **RESET**，松开 **BOOT**，再执行一次烧录命令。烧录后请做
-[硬件回归清单](docs/pregnancy/hardware-regression-checklist.md)。
+[硬件回归清单](pregnancy/hardware-regression-checklist.md)。
 
 ## 文档入口
 
 **产品与状态**
-- [当前功能参考](docs/pregnancy/current-functionality.md)
-- [首版四应用需求与验收](docs/PROJECT-SPEC.md)
-- [V2 扩展需求](docs/V2-PROJECT-SPEC.md)和[未来路线图](docs/pregnancy/future-roadmap.md)
+- [当前功能参考](pregnancy/current-functionality.md)
+- [首版四应用需求与验收](PROJECT-SPEC.md)
+- [V2 扩展需求](V2-PROJECT-SPEC.md)和[未来路线图](pregnancy/future-roadmap.md)
 - [当前任务](TODO.md)和[变更记录](CHANGELOG.md)
-- [V1 验证记录](docs/V1-VALIDATION.md)、[实机结果](docs/V1-HARDWARE-RESULTS.md)、
-  [人工测试清单](docs/V1-MANUAL-TEST-CHECKLIST.md)和
-  [硬件回归清单](docs/pregnancy/hardware-regression-checklist.md)
+- [V1 验证记录](V1-VALIDATION.md)、[实机结果](V1-HARDWARE-RESULTS.md)、
+  [人工测试清单](V1-MANUAL-TEST-CHECKLIST.md)和
+  [硬件回归清单](pregnancy/hardware-regression-checklist.md)
 
 **架构与开发**
-- [架构总览](docs/ARCHITECTURE.md)和[孕周架构](docs/pregnancy/architecture.md)
-- [开发流程](docs/DEVELOPMENT.md)、[组件开发规范](docs/COMPONENT-GUIDELINES.md)和
+- [架构总览](ARCHITECTURE.md)和[孕周架构](pregnancy/architecture.md)
+- [开发流程](DEVELOPMENT.md)、[组件开发规范](COMPONENT-GUIDELINES.md)和
   [贡献指南](CONTRIBUTING.md)
 - [协作与代理指南](AGENTS.md)
-- [reTerminal Sticky 硬件资料](docs/HARDWARE-REFERENCE.md)
+- [reTerminal Sticky 硬件资料](HARDWARE-REFERENCE.md)
 
 **界面与交互**
 - [电子纸产品设计规范](DESIGN.md)
-- [页面与导航结构](docs/PAGE-STRUCTURE.md)
-- [按键与快捷键设计](docs/pregnancy/key-shortcuts-design.md)
-- [UI 原型实现对照](docs/pregnancy/ui-prototype-mapping.md)
-- [电子纸刷新策略](docs/pregnancy/eink-refresh-strategy.md)和[UI 审计](docs/ui-audit.md)
+- [页面与导航结构](PAGE-STRUCTURE.md)
+- [按键与快捷键设计](pregnancy/key-shortcuts-design.md)
+- [UI 原型实现对照](pregnancy/ui-prototype-mapping.md)
+- [电子纸刷新策略](pregnancy/eink-refresh-strategy.md)和[UI 审计](ui-audit.md)
 
 **数据与存储**
-- [存储](docs/pregnancy/storage.md)和[数据模型](docs/pregnancy/data-model.md)
-- [孕周计算](docs/pregnancy/pregnancy-calculation.md)
-- [日志格式](docs/S1-JOURNAL-FORMAT.md)、[索引快照](docs/S1-INDEX-SNAPSHOT.md)和
-  [备份与恢复](docs/S1-BACKUP-RECOVERY.md)
+- [存储](pregnancy/storage.md)和[数据模型](pregnancy/data-model.md)
+- [孕周计算](pregnancy/pregnancy-calculation.md)
+- [日志格式](S1-JOURNAL-FORMAT.md)、[索引快照](S1-INDEX-SNAPSHOT.md)和
+  [备份与恢复](S1-BACKUP-RECOVERY.md)
 
-许可与上游署名见 [LICENSE](LICENSE) 和 `third_party/fonts/NotoSansCJK` 下的说明。孕周插画的许可
-记录在 [assets/pregnancy/week-plates/README.md](assets/pregnancy/week-plates/README.md)。
+许可与上游署名见 [../LICENSE](../LICENSE) 和 `third_party/fonts/NotoSansCJK` 下的说明。孕周插画的许可
+记录在 [../assets/pregnancy/week-plates/README.md](../assets/pregnancy/week-plates/README.md)。

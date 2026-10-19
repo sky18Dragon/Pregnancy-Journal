@@ -8,7 +8,9 @@ not a diagnostic, treatment or emergency-alert device: every health-related
 value is a prompt for personal records and care-team discussion, never a medical
 recommendation.
 
-[简体中文](README_CN.md) · [日本語](README_JA.md)
+**Other languages:** [简体中文](docs/README_CN.md) · [日本語](docs/README_JA.md)
+(translations of this README; they live under `docs/` with the rest of the
+documentation, and only `README.md` and `LICENSE` stay in the repository root)
 
 ## Status
 
@@ -97,7 +99,7 @@ changes use a full refresh, with these exceptions:
   the card quietly.
 
 Rotation changes and the sleep frame always use a full refresh. The rules are in
-[DESIGN.md](DESIGN.md) and the
+[docs/DESIGN.md](docs/DESIGN.md) and the
 [refresh strategy](docs/pregnancy/eink-refresh-strategy.md).
 
 ## Storage and privacy
@@ -178,7 +180,8 @@ the upload command again. After flashing, run the
 - [Current functionality reference](docs/pregnancy/current-functionality.md)
 - [First-delivery specification (four offline apps)](docs/PROJECT-SPEC.md)
 - [V2 extension specification](docs/V2-PROJECT-SPEC.md) and [future roadmap](docs/pregnancy/future-roadmap.md)
-- [Active tasks](TODO.md) and [changelog](CHANGELOG.md)
+- [Active tasks](docs/TODO.md) and [changelog](docs/CHANGELOG.md)
+- Other languages: [简体中文](docs/README_CN.md), [日本語](docs/README_JA.md)
 - [V1 validation](docs/V1-VALIDATION.md), [hardware results](docs/V1-HARDWARE-RESULTS.md),
   [manual test checklist](docs/V1-MANUAL-TEST-CHECKLIST.md) and
   [hardware regression checklist](docs/pregnancy/hardware-regression-checklist.md)
@@ -186,12 +189,14 @@ the upload command again. After flashing, run the
 **Architecture and development**
 - [Architecture entry point](docs/ARCHITECTURE.md) and [pregnancy architecture](docs/pregnancy/architecture.md)
 - [Development workflow](docs/DEVELOPMENT.md), [component guidelines](docs/COMPONENT-GUIDELINES.md)
-  and [contributing](CONTRIBUTING.md)
-- [Contributor and agent guide](AGENTS.md)
+  and [contributing](docs/CONTRIBUTING.md)
+- [Contributor and agent guide](docs/AGENTS.md); the e-paper UI rules that every
+  UI change must follow are in [docs/CLAUDE.md](docs/CLAUDE.md)
+- [Security policy](docs/SECURITY.md) and [code of conduct](docs/CODE_OF_CONDUCT.md)
 - [reTerminal Sticky hardware reference](docs/HARDWARE-REFERENCE.md)
 
 **UI and interaction**
-- [E-paper product design system](DESIGN.md)
+- [E-paper product design system](docs/DESIGN.md)
 - [Page and navigation structure](docs/PAGE-STRUCTURE.md)
 - [Key and shortcut design](docs/pregnancy/key-shortcuts-design.md)
 - [UI prototype implementation mapping](docs/pregnancy/ui-prototype-mapping.md)

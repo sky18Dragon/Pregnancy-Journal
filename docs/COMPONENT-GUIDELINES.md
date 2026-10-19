@@ -35,7 +35,7 @@ for rules that can be tested on the host.
 
 - Pregnancy, reminder, checkup, weight, device preference and network
   authorization data use domain-specific repositories backed by the shared
-  MicroSD storage service. Follow [TODO.md](../TODO.md) for
+  MicroSD storage service. Follow [TODO.md](TODO.md) for
   migration, card identity, recovery and the limited device-only NVS exceptions.
 - Define magic, schema version, payload size and checksum where records need
   recovery guarantees.

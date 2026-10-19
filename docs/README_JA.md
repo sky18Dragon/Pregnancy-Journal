@@ -6,7 +6,7 @@ Pregnancy Journal は、Seeed Studio reTerminal Sticky（小型のマグネッ�
 あり、診断・治療・緊急通報を行う機器ではありません。健康に関する数値はすべて個人の記録と医療者との
 相談のための目安であり、医学的な助言ではありません。
 
-[English](README.md) · [简体中文](README_CN.md)
+[English](../README.md) · [简体中文](README_CN.md)
 
 ## 現在の状態
 
@@ -14,17 +14,17 @@ Pregnancy Journal は、Seeed Studio reTerminal Sticky（小型のマグネッ�
   ファームウェアのバージョンは `2.0.0`。
 - 登録されているアプリは 4 つ：**Baby Week（妊娠週）**、**体重**、**胎動**、**設定**。
   リマインダー、健診と通知、習慣、メモ、録音、プロビジョニング、音声認識は次の版に移しました
-  （[V2 拡張仕様](docs/V2-PROJECT-SPEC.md)）。
+  （[V2 拡張仕様](V2-PROJECT-SPEC.md)）。
 - UI 言語は English / 簡体字中国語。ユーザーデータはすべて MicroSD カードに保存され、
   アカウント、テレメトリ、クラウド送信、OTA、AI サービスはありません。
 - 受け入れ前のファームウェア候補です。自動の基準は、ホストテスト
   （`tools/run_host_tests.sh`、2026-10-19 時点で 88/88 ステップ）と、`sticky-release`・
   `sticky-debug`・`sticky-power-test` の 3 構成のビルド成功です。実機での受け入れは
-  [V1 検証記録](docs/V1-VALIDATION.md)と
-  [ハードウェア回帰チェックリスト](docs/pregnancy/hardware-regression-checklist.md)で別に管理しており、
+  [V1 検証記録](V1-VALIDATION.md)と
+  [ハードウェア回帰チェックリスト](pregnancy/hardware-regression-checklist.md)で別に管理しており、
   このページは実機合格を主張しません。
 
-現在の動作と制限の全体は[現行機能リファレンス](docs/pregnancy/current-functionality.md)を参照してください。
+現在の動作と制限の全体は[現行機能リファレンス](pregnancy/current-functionality.md)を参照してください。
 
 ## アプリ
 
@@ -61,7 +61,7 @@ Flash には保存しません。
 ランチャーは無操作が 30 秒続くと閉じます。画面の向きは IMU が報告する持ち方に従います。ランチャーは
 横向きで 2 列、縦向きで 1 列、各アプリに横向きと縦向きの専用ページがあります。ヘッダーのボタンの
 意味は固定です：**APPS**（アプリを出てランチャーへ）、**BACK**（1 つ上へ）、**CANCEL**（保存せず
-中止）、**HOME**（Baby Week へ）。詳しくは[ページとナビゲーション構成](docs/PAGE-STRUCTURE.md)を参照してください。
+中止）、**HOME**（Baby Week へ）。詳しくは[ページとナビゲーション構成](PAGE-STRUCTURE.md)を参照してください。
 
 ## スリープと復帰
 
@@ -83,7 +83,7 @@ Flash には保存しません。
   Baby Week は、すでにプロフィールを保持していれば、ホームを先に描画し、裏でカードを静かに再確認します。
 
 向きの変更とスリープ画面は常に全面更新です。規則は [DESIGN.md](DESIGN.md) と
-[更新戦略](docs/pregnancy/eink-refresh-strategy.md)にあります。
+[更新戦略](pregnancy/eink-refresh-strategy.md)にあります。
 
 ## ストレージとプライバシー
 
@@ -92,14 +92,14 @@ Flash には保存しません。
 カード内アプリデータの削除があります。リマインダーと健診の NVS 上の写しは V2 のために残してあります。
 復元インデックスは削除済みキーを含めて 1,024 キーまでで、ジャーナルとオブジェクトのガベージコレクションは
 未実装です。いっぱいになった場合は、記録を捨てずに新しいキーを拒否します。
-[ストレージ](docs/pregnancy/storage.md)、[データモデル](docs/pregnancy/data-model.md)、
-[バックアップと復旧](docs/S1-BACKUP-RECOVERY.md)を参照してください。
+[ストレージ](pregnancy/storage.md)、[データモデル](pregnancy/data-model.md)、
+[バックアップと復旧](S1-BACKUP-RECOVERY.md)を参照してください。
 
 ## ビルド、テスト、書き込み
 
 PlatformIO と ESP-IDF 5.4.1 が必要です。プロジェクトのパスに空白が含まれると PlatformIO がビルドを
 拒否するため、空白のないチェックアウトまたは同一内容のミラーでビルドしてください
-（[開発手順](docs/DEVELOPMENT.md)を参照）。
+（[開発手順](DEVELOPMENT.md)を参照）。
 
 ```bash
 pio run -e sticky-release
@@ -119,7 +119,7 @@ pio device monitor -p /dev/cu.usbmodemXXXX -b 115200 --filter time --rts 0 --dtr
 
 ポートは `pio device list` に表示されたものに置き換えてください。自動でブートローダーに入れない場合は、
 **BOOT** を押したまま **RESET** を押して離し、**BOOT** を離してから、もう一度書き込みます。書き込み後は
-[ハードウェア回帰チェックリスト](docs/pregnancy/hardware-regression-checklist.md)を実行してください。
+[ハードウェア回帰チェックリスト](pregnancy/hardware-regression-checklist.md)を実行してください。
 
 `platformio.ini` の他の環境は独立したハードウェアテスト（グリフ確認、SD 録音、ストレージの電源断と
 障害注入、中国語入力、音声分類器）で、製品ビルドではありません。便利なツール：
@@ -129,16 +129,16 @@ pio device monitor -p /dev/cu.usbmodemXXXX -b 115200 --filter time --rts 0 --dtr
 
 ## ドキュメント
 
-- [現行機能リファレンス](docs/pregnancy/current-functionality.md)
-- [初版（4 つのオフラインアプリ）の仕様](docs/PROJECT-SPEC.md)と
-  [V2 拡張仕様](docs/V2-PROJECT-SPEC.md)
-- [アーキテクチャ概要](docs/ARCHITECTURE.md)、[開発手順](docs/DEVELOPMENT.md)、
+- [現行機能リファレンス](pregnancy/current-functionality.md)
+- [初版（4 つのオフラインアプリ）の仕様](PROJECT-SPEC.md)と
+  [V2 拡張仕様](V2-PROJECT-SPEC.md)
+- [アーキテクチャ概要](ARCHITECTURE.md)、[開発手順](DEVELOPMENT.md)、
   [コントリビューター向けガイド](AGENTS.md)
-- [電子ペーパーのデザイン規則](DESIGN.md)、[ページとナビゲーション構成](docs/PAGE-STRUCTURE.md)、
-  [キーとショートカットの設計](docs/pregnancy/key-shortcuts-design.md)
-- [reTerminal Sticky ハードウェア資料](docs/HARDWARE-REFERENCE.md)
+- [電子ペーパーのデザイン規則](DESIGN.md)、[ページとナビゲーション構成](PAGE-STRUCTURE.md)、
+  [キーとショートカットの設計](pregnancy/key-shortcuts-design.md)
+- [reTerminal Sticky ハードウェア資料](HARDWARE-REFERENCE.md)
 - [変更履歴](CHANGELOG.md)と[今後のタスク](TODO.md)
 
-ライセンスと上流の帰属は [LICENSE](LICENSE) と `third_party/fonts/NotoSansCJK` の注記を参照してください。
+ライセンスと上流の帰属は [../LICENSE](../LICENSE) と `third_party/fonts/NotoSansCJK` の注記を参照してください。
 妊娠週イラストのライセンスは
-[assets/pregnancy/week-plates/README.md](assets/pregnancy/week-plates/README.md) に記録されています。
+[../assets/pregnancy/week-plates/README.md](../assets/pregnancy/week-plates/README.md) に記録されています。

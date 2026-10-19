@@ -39,6 +39,6 @@ configuration beyond V2 provisioning, reports and a partner app remain separate
 proposals, not newly required V1/V2 deliverables.
 
 See [the current specification](../PROJECT-SPEC.md),
-[active tasks and historical evidence](../../TODO.md) and
+[active tasks and historical evidence](../TODO.md) and
 [the V2 specification](../V2-PROJECT-SPEC.md). Future implementation preserves the
 apps -> domain services -> Sticky Core -> device HAL dependency direction.
