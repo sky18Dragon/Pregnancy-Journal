@@ -204,3 +204,13 @@ the upload command again. After flashing, run the
 See [LICENSE](LICENSE) and the notices under `third_party/fonts/NotoSansCJK` for
 upstream attribution. The licence of the week illustrations is recorded in
 [assets/pregnancy/week-plates/README.md](assets/pregnancy/week-plates/README.md).
+
+## Acknowledgements
+
+This project started from [limengdu/reTerminal_Sticky_Bunny](https://github.com/limengdu/reTerminal_Sticky_Bunny)
+(MIT) and still uses its hardware foundation: the SSD1677/UC8179 e-paper and GT911
+touch components, board power and shared-SPI setup, the display owner, the
+IMU, RTC, battery and buzzer drivers, button/touch input and the Canvas drawing
+layer, and the startup sequence. The app framework, the four apps, the MicroSD
+journaled storage and the tests were written for this project on top of that
+base.

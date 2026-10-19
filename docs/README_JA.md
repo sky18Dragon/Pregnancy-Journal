@@ -140,3 +140,11 @@ pio device monitor -p /dev/cu.usbmodemXXXX -b 115200 --filter time --rts 0 --dtr
 ライセンスと上流の帰属は [../LICENSE](../LICENSE) と `third_party/fonts/NotoSansCJK` の注記を参照してください。
 妊娠週イラストのライセンスは
 [../assets/pregnancy/week-plates/README.md](../assets/pregnancy/week-plates/README.md) に記録されています。
+
+## 謝辞
+
+このプロジェクトは [limengdu/reTerminal_Sticky_Bunny](https://github.com/limengdu/reTerminal_Sticky_Bunny)
+（MIT）を出発点とし、そのハードウェア基盤を引き続き使っています：SSD1677/UC8179 電子ペーパーと GT911
+タッチのコンポーネント、基板の電源と共有 SPI、ディスプレイ所有者、IMU・RTC・バッテリー・ブザーの
+ドライバー、ボタンとタッチの入力、Canvas 描画層、起動手順。アプリのフレームワーク、4 つのアプリ、
+MicroSD のジャーナル式ストレージ、テストは、この基盤の上で本プロジェクト向けに書かれたものです。
