@@ -14,17 +14,17 @@ constexpr size_t kRepositoryPayloadBytes = 1024U;
 constexpr size_t kRepositoryBatchMutations = 4U;
 constexpr size_t kRepositoryPageEntries = 8U;
 
+// The numeric values are persisted in journals, snapshots and indexes and are
+// never renumbered. Values 2, 3 and 5 to 8 belonged to retired repositories
+// (reminders, checkups, habits, habit events, notes and voice tasks). No code
+// names them any more, but repository_kind_valid() still accepts them, so a
+// card that holds such records keeps mounting and recovering; the records are
+// simply never listed or read by any application.
 enum class RepositoryKind : uint8_t {
     Pregnancy = 1,
-    Reminder = 2,
-    Checkup = 3,
     Weight = 4,
-    Habit = 5,
-    HabitEvent = 6,
-    Note = 7,
-    VoiceTask = 8,
     Preference = 9,
-    Kicks = 10,  // Appended; existing persisted kind values stay unchanged.
+    Kicks = 10,
 };
 
 struct RepositoryKey {

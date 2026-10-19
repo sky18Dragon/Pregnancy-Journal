@@ -80,6 +80,5 @@ class StickySdCard {
     bool present_ = false;
 };
 
-// Production singleton backed by board_sd_card.*. S0 diagnostics may continue
-// to use the low-level board driver directly before the product path is wired.
+// Production singleton backed by board_sd_card.*.
 StickySdCard &sticky_sdcard_device();

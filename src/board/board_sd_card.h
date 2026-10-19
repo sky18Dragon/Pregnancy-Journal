@@ -4,7 +4,7 @@
 #include "esp_err.h"
 
 // Low-level board operations. Product runtime code must use sticky_sdcard;
-// isolated S0 diagnostics may call these directly. No formatting or bus free.
+// isolated hardware tests may call these directly. No formatting or bus free.
 bool board_sd_card_present();
 esp_err_t board_sd_card_mount();
 esp_err_t board_sd_card_unmount();

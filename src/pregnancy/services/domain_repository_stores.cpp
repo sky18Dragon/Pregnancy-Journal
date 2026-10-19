@@ -203,100 +203,6 @@ SdRepositoryAdapterStatus DevicePreferencesRepositoryStore::poll()
     return status_;
 }
 
-SdRepositoryAdapterStatus NetworkAuthorizationRepositoryStore::begin_load()
-{
-    if (pending()) return SdRepositoryAdapterStatus::Busy;
-    RepositoryKey key = {};
-    if (!network_authorization_key(key)) {
-        status_ = SdRepositoryAdapterStatus::InvalidArgument;
-        return status_;
-    }
-    adapter_.reset();
-    settings_ = {};
-    revision_ = 0U;
-    ready_ = false;
-    found_ = false;
-    status_ = adapter_.begin_read(key);
-    operation_ = status_ == SdRepositoryAdapterStatus::Pending
-                     ? Operation::Load
-                     : Operation::None;
-    return status_;
-}
-
-SdRepositoryAdapterStatus NetworkAuthorizationRepositoryStore::begin_save(
-    const NetworkAuthorizationSettings &settings)
-{
-    if (pending()) return SdRepositoryAdapterStatus::Busy;
-    RepositoryKey key = {};
-    if (!network_authorization_key(key) ||
-        encode_network_authorization(settings, payload_) !=
-            RecordCodecStatus::Ok) {
-        status_ = SdRepositoryAdapterStatus::InvalidArgument;
-        return status_;
-    }
-    pending_settings_ = settings;
-    status_ = adapter_.begin_upsert(key, revision_, payload_.bytes.data(),
-                                    payload_.size);
-    operation_ = status_ == SdRepositoryAdapterStatus::Pending
-                     ? Operation::Save
-                     : Operation::None;
-    return status_;
-}
-
-SdRepositoryAdapterStatus NetworkAuthorizationRepositoryStore::poll()
-{
-    if (!pending()) return status_;
-    status_ = adapter_.poll();
-    if (status_ == SdRepositoryAdapterStatus::Pending) return status_;
-    if (operation_ == Operation::Load) {
-        if (status_ == SdRepositoryAdapterStatus::NotFound) {
-            settings_ = {};
-            revision_ = 0U;
-            found_ = false;
-            ready_ = true;
-            status_ = SdRepositoryAdapterStatus::Ok;
-        } else if (status_ == SdRepositoryAdapterStatus::Ok) {
-            const sticky_storage::RepositoryRecord &record =
-                adapter_.result().outcome.record;
-            if (decode_network_authorization(record.payload.data(),
-                                             record.payload_size,
-                                             settings_) !=
-                RecordCodecStatus::Ok) {
-                status_ = SdRepositoryAdapterStatus::Corrupt;
-            } else {
-                revision_ = record.revision;
-                found_ = true;
-                ready_ = true;
-            }
-        }
-    } else if (operation_ == Operation::Save &&
-               status_ == SdRepositoryAdapterStatus::Ok) {
-        const uint32_t revision = adapter_.result().outcome.batch.revisions[0];
-        if (revision == 0U) {
-            status_ = SdRepositoryAdapterStatus::Corrupt;
-        } else {
-            revision_ = revision;
-            settings_ = pending_settings_;
-            found_ = true;
-            ready_ = true;
-        }
-    }
-    operation_ = Operation::None;
-    return status_;
-}
-
-ReminderRepositoryStore &reminder_repository_store()
-{
-    static ReminderRepositoryStore store;
-    return store;
-}
-
-CheckupRepositoryStore &checkup_repository_store()
-{
-    static CheckupRepositoryStore store;
-    return store;
-}
-
 KickRepositoryStore &kick_repository_store()
 {
     static KickRepositoryStore store;
@@ -312,12 +218,6 @@ WeightRepositoryStore &weight_repository_store()
 DevicePreferencesRepositoryStore &device_preferences_repository_store()
 {
     static DevicePreferencesRepositoryStore store;
-    return store;
-}
-
-NetworkAuthorizationRepositoryStore &network_authorization_repository_store()
-{
-    static NetworkAuthorizationRepositoryStore store;
     return store;
 }
 

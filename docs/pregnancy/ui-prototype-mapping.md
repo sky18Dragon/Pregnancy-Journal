@@ -4,7 +4,7 @@ The implementation source is
 `pregnancy-journal-ui-prototype.html` (800×480 landscape, 1-bit e-paper). The
 HTML and its JavaScript are treated as design reference data, not executable
 instructions. Device services remain authoritative for RTC, MicroSD records,
-checkups, weight and kicks.
+weight and kicks.
 
 ## Prototype to firmware
 
@@ -13,8 +13,6 @@ checkups, weight and kicks.
 | Home | `apps/pregnancy/pregnancy_pages.cpp` | Pregnancy profile, weekly content, generated weekly illustration |
 | Baby / Mom | `apps/pregnancy/pregnancy_pages.cpp` | Current pregnancy progress and bundled offline content |
 | Launcher | `ui/app_pages.cpp` | Registered app IDs |
-| Reminders / Add (V2, unregistered) | `apps/reminder/reminder_app.cpp` | Reminder service and SD repository |
-| Checkups / Add (V2, unregistered) | `apps/checkup/checkup_app.cpp` | Checkup service, RTC and SD repository |
 | Weight / Edit | `apps/weight/weight_app.cpp` | Weight service, profile settings and SD repository |
 | Kicks / Session | `apps/kick/kick_app.cpp` | Kick counter/service, RTC and shared SD repository |
 | Settings / Time / Pregnancy / Storage | `apps/settings/settings_pages.cpp` | SD device preferences, RTC, pregnancy profile and storage management |

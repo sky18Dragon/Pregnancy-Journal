@@ -7,9 +7,9 @@
 int main()
 {
     StickyScheduler scheduler;
-    // Even an already-populated old-version queue loses its business alerts.
-    assert(scheduler.schedule(2U, 1001U, StickyScheduledEventType::Reminder));
-    assert(scheduler.schedule(3U, 1002U, StickyScheduledEventType::Checkup));
+    // Even an already-populated old-version queue is rebuilt from scratch.
+    assert(scheduler.schedule(2U, 1001U, StickyScheduledEventType::System));
+    assert(scheduler.schedule(3U, 1002U, StickyScheduledEventType::System));
     sticky_sleep_schedule_configure(scheduler, 1000U, 0U);
     StickyScheduledEvent event;
     assert(scheduler.count() == 1U);

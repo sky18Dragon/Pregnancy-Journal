@@ -102,12 +102,11 @@ classification.
 | Time editor | Edit and validate `YYYYMMDDHHMM` | Save or Back |
 | Pregnancy summary | Source, due date, week and progress | Edit or Back |
 | MicroSD summary | Read-only card, access and data status plus free space | Initialize/eject, More or Back |
-| More options | Old-data import (profile/weight/settings, Kicks), delete card data, reset device binding; unavailable rows are marked and not tappable; dataset identity as a footer | Open the import report or a confirmation, or Back |
+| More options | Old-data import (profile/weight/settings, Kicks), delete card data; unavailable rows are marked and not tappable; dataset identity as a footer | Open the import report or a confirmation, or Back |
 | MicroSD confirmation | Explain the exact `PREGJNL` creation boundary | Create dataset, Cancel or Back |
 | Old device data | Import report for the selected NVS source | Scan/import, clear verified copies or Back (to More options) |
 | Old-copy cleanup confirmation | Name the exact legacy cleanup boundary | Clear verified copies, Cancel or Back |
 | Card-data delete confirmation | Delete only the current card's `PREGJNL` directory | Delete app data, Cancel or Back (to More options) |
-| Device-binding reset confirmation | Forget only the local network key and RAM Wi-Fi | Reset this device, Cancel or Back (to More options) |
 
 Settings can request a return to Baby Week but does not switch the registry
 itself. The time editor disables timeout sleep to protect in-progress input.

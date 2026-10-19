@@ -79,31 +79,15 @@ SdStoragePolicyStatus sd_storage_validate_owned_path(const char *path)
     return SdStoragePolicyStatus::Ok;
 }
 
-SdStoragePolicyStatus sd_storage_check_write(
-    SdStorageWriteClass write_class, uint64_t requested_bytes,
-    const SdStorageUsage &usage)
+SdStoragePolicyStatus sd_storage_check_write(uint64_t requested_bytes,
+                                             const SdStorageUsage &usage)
 {
     if (requested_bytes == 0U) {
         return SdStoragePolicyStatus::InvalidArgument;
     }
-    if (write_class == SdStorageWriteClass::Business) {
-        return usage.free_bytes >= requested_bytes
-                   ? SdStoragePolicyStatus::Ok
-                   : SdStoragePolicyStatus::NoSpace;
-    }
-    if (write_class != SdStorageWriteClass::Audio) {
-        return SdStoragePolicyStatus::InvalidArgument;
-    }
-    if (usage.audio_items >= kAudioItemLimit ||
-        usage.audio_bytes > kAudioByteLimit ||
-        requested_bytes > kAudioByteLimit - usage.audio_bytes) {
-        return SdStoragePolicyStatus::AudioQuotaReached;
-    }
-    if (requested_bytes > UINT64_MAX - kBusinessReserveBytes ||
-        usage.free_bytes < kBusinessReserveBytes + requested_bytes) {
-        return SdStoragePolicyStatus::NoSpace;
-    }
-    return SdStoragePolicyStatus::Ok;
+    return usage.free_bytes >= requested_bytes
+               ? SdStoragePolicyStatus::Ok
+               : SdStoragePolicyStatus::NoSpace;
 }
 
 }  // namespace sticky_storage

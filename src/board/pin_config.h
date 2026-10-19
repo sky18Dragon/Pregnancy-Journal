@@ -41,7 +41,8 @@
 #define PIN_SD_MISO PIN_EPD_MISO
 #define PIN_SD_CLK PIN_EPD_CLK
 
-// Onboard PDM microphone; verified against Seeed Sticky dashboard demo.
+// Onboard PDM microphone, verified against the Seeed Sticky dashboard demo.
+// This firmware does not use it; the pins stay here as board facts.
 #define PIN_MIC_CLK 19
 #define PIN_MIC_DATA 20
 #define PIN_MIC_EN 38

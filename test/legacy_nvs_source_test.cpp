@@ -78,7 +78,7 @@ int main() {
     put(key, legacy_record(slot + 1U));
   }
   const auto before = namespaces;
-  assert(kicks.slot_count() == 42U && common.slot_count() == 55U);
+  assert(kicks.slot_count() == 42U && common.slot_count() == 35U);
   for (unsigned slot = 0U; slot < 42U; ++slot) {
     assert(kicks.read(slot, migrated) == LegacyMigrationReadStatus::Record);
     assert(migrated.key.repository == RepositoryKind::Kicks);
@@ -99,6 +99,8 @@ int main() {
   namespaces["kicks"]["k00"].resize(100U);
   assert(kicks.read(0U, migrated) == LegacyMigrationReadStatus::Corrupt);
 
+  // "reminders", "checkups" and "wifi" are namespaces of retired features that an
+  // old device may still hold; cleanup must leave them alone.
   for (const char *name : {"pregnancy", "weight", "sticky_core", "reminders", "checkups", "wifi"})
     namespaces[name]["sentinel"] = {1U};
   assert(common.clear_migrated_namespaces());

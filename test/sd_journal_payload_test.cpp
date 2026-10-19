@@ -15,7 +15,7 @@ int main()
     using namespace sticky_storage;
     SdJournalTransactionPayload transaction = {};
     transaction.mutation_count = 2U;
-    assert(repository_key_make(RepositoryKind::Note, kId1,
+    assert(repository_key_make(RepositoryKind::Preference, kId1,
                                transaction.mutations[0].key));
     transaction.mutations[0].type = RepositoryMutationType::Upsert;
     transaction.mutations[0].expected_revision = 0U;
@@ -112,7 +112,7 @@ int main()
 
     SdJournalTransactionPayload deletion = {};
     deletion.mutation_count = 1U;
-    assert(repository_key_make(RepositoryKind::Note, kId1,
+    assert(repository_key_make(RepositoryKind::Preference, kId1,
                                deletion.mutations[0].key));
     deletion.mutations[0].type = RepositoryMutationType::Delete;
     deletion.mutations[0].expected_revision = 1U;

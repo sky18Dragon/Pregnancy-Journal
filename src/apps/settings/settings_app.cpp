@@ -5,7 +5,6 @@
 #include <atomic>
 
 #include "app_log.h"
-#include "bound_credentials.h"
 #include "canvas.h"
 #include "esp_random.h"
 #include "freertos/FreeRTOS.h"
@@ -24,7 +23,6 @@
 #include "sticky_rtc.h"
 #include "sticky_touch.h"
 #include "ui_language.h"
-#include "wifi_ram_configuration.h"
 
 namespace {
 
@@ -66,7 +64,6 @@ public:
   void clear_old_copies() override;
   void prepare_delete() override;
   const char *delete_card_data(bool enabled, bool &deleted) override;
-  const char *reset_device_binding() override;
 };
 
 SettingsPort s_port;
@@ -321,15 +318,6 @@ const char *SettingsPort::delete_card_data(bool enabled, bool &deleted) {
   return deleted ? "PREGJNL DATA DELETED" : "APP DATA DELETE FAILED";
 }
 
-const char *SettingsPort::reset_device_binding() {
-  const esp_err_t key_result = bound_credentials_reset_device_key();
-  const esp_err_t wifi_result = wifi_forget_ram_configuration();
-  if (wifi_result != ESP_OK)
-    STICKY_LOGI(kTag, "network=ram-forget result=%s",
-                esp_err_to_name(wifi_result));
-  return key_result == ESP_OK ? "DEVICE BINDING RESET" : "DEVICE RESET FAILED";
-}
-
 PageRefreshTracker s_refresh;
 press_feedback::Pending s_press;
 
@@ -391,11 +379,9 @@ void render(bool full = false) {
     settings_page_render_legacy_migration(*s_canvas, migration_page_state());
   } else if (page == SettingsPage::LegacyClearConfirm) {
     settings_page_render_legacy_clear_confirm(*s_canvas, s_flow.migrating_kicks());
-  } else if (page == SettingsPage::CardDataDeleteConfirm) {
+  } else {
     settings_page_render_card_data_delete_confirm(
         *s_canvas, storage_page_state().dataset_id_prefix);
-  } else {
-    settings_page_render_device_reset_confirm(*s_canvas);
   }
   // A page change is a full-screen replacement: always full, never partial.
   if (s_refresh.needs_full(static_cast<int>(s_flow.page()), full))

@@ -58,7 +58,7 @@ int main()
     SdRepositoryRecoveryIndex index;
     SdRepositoryRecoveryResult result = {};
     SdRecoveredRecord record = {};
-    const RepositoryKey note = key(RepositoryKind::Note, 1U);
+    const RepositoryKey note = key(RepositoryKind::Preference, 1U);
     const RepositoryKey weight = key(RepositoryKind::Weight, 2U);
 
     SdJournalTransactionPayload first = {};
@@ -181,7 +181,7 @@ int main()
         std::snprintf(file, sizeof(file), "O%07u.BIN",
                       static_cast<unsigned>(item));
         addition.mutations[0] = upsert(
-            key(RepositoryKind::Note, static_cast<unsigned>(item + 1U)),
+            key(RepositoryKind::Preference, static_cast<unsigned>(item + 1U)),
             0U, file);
         std::array<uint8_t, kSdJournalMaxPayloadBytes> bytes = {};
         const size_t size = encode(addition, bytes);
@@ -191,7 +191,7 @@ int main()
     }
     SdJournalTransactionPayload overflow = {};
     overflow.mutation_count = 1U;
-    overflow.mutations[0] = upsert(key(RepositoryKind::Note, kSdRecoveryRecordCapacity + 1U), 0U,
+    overflow.mutations[0] = upsert(key(RepositoryKind::Preference, kSdRecoveryRecordCapacity + 1U), 0U,
                                    "OVERFLOW.BIN");
     std::array<uint8_t, kSdJournalMaxPayloadBytes> overflow_bytes = {};
     const size_t overflow_size = encode(overflow, overflow_bytes);
@@ -204,7 +204,7 @@ int main()
     SdJournalTransactionPayload removal = {};
     removal.mutation_count = 1U;
     removal.mutations[0].type = RepositoryMutationType::Delete;
-    removal.mutations[0].key = key(RepositoryKind::Note, 1U);
+    removal.mutations[0].key = key(RepositoryKind::Preference, 1U);
     removal.mutations[0].expected_revision = 1U;
     removal.mutations[0].committed_revision = 2U;
     std::array<uint8_t, kSdJournalMaxPayloadBytes> removal_bytes = {};
@@ -216,7 +216,7 @@ int main()
     assert(full.apply(SdJournalRecordType::Commit, transaction_id,
                        overflow_bytes.data(), overflow_size, result) == SdRepositoryRecoveryStatus::CapacityReached);
     request = {};
-    request.repository = RepositoryKind::Note;
+    request.repository = RepositoryKind::Preference;
     request.include_tombstones = true;
     size_t listed = 0U;
     do {

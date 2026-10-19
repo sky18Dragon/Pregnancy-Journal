@@ -11,17 +11,13 @@ constexpr uint16_t kEnvelopeVersion = 1U;
 constexpr size_t kHeaderBytes = 8U;
 constexpr size_t kChecksumBytes = 4U;
 constexpr uint32_t kPregnancyMagic = 0x31524750U;       // PGR1
-constexpr uint32_t kReminderMagic = 0x31444D52U;        // RMD1
-constexpr uint32_t kCheckupMagic = 0x314B4843U;         // CHK1
 constexpr uint32_t kKickMagic = 0x314B434BU;  // KCK1
 constexpr uint32_t kWeightMagic = 0x31544757U;          // WGT1
 constexpr uint32_t kWeightPreferencesMagic = 0x31504657U;  // WFP1
 constexpr uint32_t kDevicePreferencesMagic = 0x31504644U;  // DFP1
-constexpr uint32_t kNetworkAuthorizationMagic = 0x3141554EU;  // NUA1
 constexpr uint32_t kPregnancySingletonId = 1U;
 constexpr uint32_t kDevicePreferencesId = 1U;
 constexpr uint32_t kWeightPreferencesId = 2U;
-constexpr uint32_t kNetworkAuthorizationId = 3U;
 
 class Writer {
   public:
@@ -233,16 +229,6 @@ bool pregnancy_profile_key(sticky_storage::RepositoryKey &key)
                        kPregnancySingletonId, key);
 }
 
-bool reminder_key(uint32_t id, sticky_storage::RepositoryKey &key)
-{
-    return key_from_id(sticky_storage::RepositoryKind::Reminder, id, key);
-}
-
-bool checkup_key(uint32_t id, sticky_storage::RepositoryKey &key)
-{
-    return key_from_id(sticky_storage::RepositoryKind::Checkup, id, key);
-}
-
 bool kick_key(uint32_t id, sticky_storage::RepositoryKey &key)
 {
     return key_from_id(sticky_storage::RepositoryKind::Kicks, id, key);
@@ -263,12 +249,6 @@ bool device_preferences_key(sticky_storage::RepositoryKey &key)
 {
     return key_from_id(sticky_storage::RepositoryKind::Preference,
                        kDevicePreferencesId, key);
-}
-
-bool network_authorization_key(sticky_storage::RepositoryKey &key)
-{
-    return key_from_id(sticky_storage::RepositoryKind::Preference,
-                       kNetworkAuthorizationId, key);
 }
 
 bool numeric_record_id(const char *record_id, uint32_t &id)
@@ -324,105 +304,6 @@ RecordCodecStatus decode_pregnancy_profile(const uint8_t *bytes, size_t size,
         return RecordCodecStatus::UnsupportedVersion;
     }
     if (!pregnancy_profile_valid(decoded)) return RecordCodecStatus::Corrupt;
-    value = decoded;
-    return RecordCodecStatus::Ok;
-}
-
-RecordCodecStatus encode_reminder(const Reminder &value,
-                                  EncodedPayload &payload)
-{
-    if (!reminder_valid(value) || !terminated(value.title, sizeof(value.title)) ||
-        !terminated(value.note, sizeof(value.note))) {
-        return RecordCodecStatus::InvalidArgument;
-    }
-    return encode(kReminderMagic, [&](Writer &writer) {
-        const uint8_t flags = (value.enabled ? 1U : 0U) |
-                              (value.completed ? 2U : 0U);
-        return writer.u8(value.schema_version) && writer.u32(value.id) &&
-               writer.u8(static_cast<uint8_t>(value.type)) &&
-               write_date(writer, value.date) && writer.u8(value.hour) &&
-               writer.u8(value.minute) &&
-               writer.u8(static_cast<uint8_t>(value.repeat_rule)) &&
-               writer.u8(flags) && writer.string(value.title, sizeof(value.title)) &&
-               writer.string(value.note, sizeof(value.note));
-    }, payload);
-}
-
-RecordCodecStatus decode_reminder(const uint8_t *bytes, size_t size,
-                                  Reminder &value)
-{
-    Reader body(nullptr, 0U);
-    const RecordCodecStatus status = open(bytes, size, kReminderMagic, body);
-    if (status != RecordCodecStatus::Ok) return status;
-    Reminder decoded = {};
-    uint8_t type = 0U;
-    uint8_t repeat = 0U;
-    uint8_t flags = 0U;
-    if (!body.u8(decoded.schema_version) || !body.u32(decoded.id) ||
-        !body.u8(type) || !read_date(body, decoded.date) ||
-        !body.u8(decoded.hour) || !body.u8(decoded.minute) ||
-        !body.u8(repeat) || !body.u8(flags) || flags > 3U ||
-        !body.string(decoded.title, sizeof(decoded.title)) ||
-        !body.string(decoded.note, sizeof(decoded.note)) ||
-        body.remaining() != 0U) {
-        return RecordCodecStatus::Corrupt;
-    }
-    decoded.type = static_cast<ReminderType>(type);
-    decoded.repeat_rule = static_cast<RepeatRule>(repeat);
-    decoded.enabled = (flags & 1U) != 0U;
-    decoded.completed = (flags & 2U) != 0U;
-    if (decoded.schema_version != kReminderSchemaVersion) {
-        return RecordCodecStatus::UnsupportedVersion;
-    }
-    if (!reminder_valid(decoded)) return RecordCodecStatus::Corrupt;
-    value = decoded;
-    return RecordCodecStatus::Ok;
-}
-
-RecordCodecStatus encode_checkup(const Checkup &value,
-                                 EncodedPayload &payload)
-{
-    if (!checkup_valid(value) || !terminated(value.title, sizeof(value.title)) ||
-        !terminated(value.location, sizeof(value.location)) ||
-        !terminated(value.note, sizeof(value.note))) {
-        return RecordCodecStatus::InvalidArgument;
-    }
-    return encode(kCheckupMagic, [&](Writer &writer) {
-        const uint8_t flags = (value.completed ? 1U : 0U) |
-                              (value.reference_template ? 2U : 0U);
-        return writer.u8(value.schema_version) && writer.u32(value.id) &&
-               write_date(writer, value.date) && writer.u8(value.hour) &&
-               writer.u8(value.minute) && writer.u8(value.recommended_week) &&
-               writer.u8(flags) && writer.string(value.title, sizeof(value.title)) &&
-               writer.string(value.location, sizeof(value.location)) &&
-               writer.string(value.note, sizeof(value.note));
-    }, payload);
-}
-
-RecordCodecStatus decode_checkup(const uint8_t *bytes, size_t size,
-                                 Checkup &value)
-{
-    Reader body(nullptr, 0U);
-    const RecordCodecStatus status = open(bytes, size, kCheckupMagic, body);
-    if (status != RecordCodecStatus::Ok) return status;
-    Checkup decoded = {};
-    uint8_t flags = 0U;
-    if (!body.u8(decoded.schema_version) || !body.u32(decoded.id) ||
-        !read_date(body, decoded.date) || !body.u8(decoded.hour) ||
-        !body.u8(decoded.minute) || !body.u8(decoded.recommended_week) ||
-        !body.u8(flags) || flags > 3U ||
-        !body.string(decoded.title, sizeof(decoded.title)) ||
-        !body.string(decoded.location, sizeof(decoded.location)) ||
-        !body.string(decoded.note, sizeof(decoded.note)) ||
-        body.remaining() != 0U) {
-        return RecordCodecStatus::Corrupt;
-    }
-    decoded.completed = (flags & 1U) != 0U;
-    decoded.reference_template = (flags & 2U) != 0U;
-    if (decoded.schema_version != kCheckupSchemaVersion) {
-        return RecordCodecStatus::UnsupportedVersion;
-    }
-    if (!checkup_valid(decoded)) return RecordCodecStatus::Corrupt;
     value = decoded;
     return RecordCodecStatus::Ok;
 }
@@ -590,79 +471,6 @@ RecordCodecStatus decode_device_preferences(
     decoded.shortcut_target = static_cast<StickyShortcutTarget>(shortcut);
     decoded.kick_mode_pref = static_cast<StickyKickModePref>(kick_mode);
     if (!device_preferences_valid(decoded)) return RecordCodecStatus::Corrupt;
-    value = decoded;
-    return RecordCodecStatus::Ok;
-}
-
-RecordCodecStatus encode_network_authorization(
-    const NetworkAuthorizationSettings &value, EncodedPayload &payload)
-{
-    if (!network_authorization_settings_valid(value))
-        return RecordCodecStatus::InvalidArgument;
-    return encode(kNetworkAuthorizationMagic, [&](Writer &writer) {
-        if (!writer.u8(value.schema_version) ||
-            !writer.u8(value.cloud_authorized ? 1U : 0U) ||
-            !writer.u32(value.authorization_version) ||
-            !writer.u32(value.provider_config_version) ||
-            !writer.string(value.provider_id, sizeof(value.provider_id)) ||
-            !writer.string(value.service_region,
-                           sizeof(value.service_region)) ||
-            !writer.u8(value.credentials.schema_version) ||
-            !writer.u16(value.credentials.key_version)) {
-            return false;
-        }
-        for (uint8_t byte : value.credentials.device_id)
-            if (!writer.u8(byte)) return false;
-        for (uint8_t byte : value.credentials.nonce)
-            if (!writer.u8(byte)) return false;
-        if (!writer.u16(value.credentials.ciphertext_size)) return false;
-        for (size_t index = 0U;
-             index < value.credentials.ciphertext_size; ++index)
-            if (!writer.u8(value.credentials.ciphertext[index])) return false;
-        for (uint8_t byte : value.credentials.tag)
-            if (!writer.u8(byte)) return false;
-        return true;
-    }, payload);
-}
-
-RecordCodecStatus decode_network_authorization(
-    const uint8_t *bytes, size_t size, NetworkAuthorizationSettings &value)
-{
-    Reader body(nullptr, 0U);
-    const RecordCodecStatus status =
-        open(bytes, size, kNetworkAuthorizationMagic, body);
-    if (status != RecordCodecStatus::Ok) return status;
-    NetworkAuthorizationSettings decoded = {};
-    uint8_t authorized = 0U;
-    if (!body.u8(decoded.schema_version) || !body.u8(authorized) ||
-        authorized > 1U || !body.u32(decoded.authorization_version) ||
-        !body.u32(decoded.provider_config_version) ||
-        !body.string(decoded.provider_id, sizeof(decoded.provider_id)) ||
-        !body.string(decoded.service_region, sizeof(decoded.service_region)) ||
-        !body.u8(decoded.credentials.schema_version) ||
-        !body.u16(decoded.credentials.key_version)) {
-        return RecordCodecStatus::Corrupt;
-    }
-    decoded.cloud_authorized = authorized != 0U;
-    for (uint8_t &byte : decoded.credentials.device_id)
-        if (!body.u8(byte)) return RecordCodecStatus::Corrupt;
-    for (uint8_t &byte : decoded.credentials.nonce)
-        if (!body.u8(byte)) return RecordCodecStatus::Corrupt;
-    if (!body.u16(decoded.credentials.ciphertext_size) ||
-        decoded.credentials.ciphertext_size > kCredentialCiphertextBytes)
-        return RecordCodecStatus::Corrupt;
-    for (size_t index = 0U;
-         index < decoded.credentials.ciphertext_size; ++index)
-        if (!body.u8(decoded.credentials.ciphertext[index]))
-            return RecordCodecStatus::Corrupt;
-    for (uint8_t &byte : decoded.credentials.tag)
-        if (!body.u8(byte)) return RecordCodecStatus::Corrupt;
-    if (body.remaining() != 0U)
-        return RecordCodecStatus::Corrupt;
-    if (decoded.schema_version != kNetworkAuthorizationSchemaVersion)
-        return RecordCodecStatus::UnsupportedVersion;
-    if (!network_authorization_settings_valid(decoded))
-        return RecordCodecStatus::Corrupt;
     value = decoded;
     return RecordCodecStatus::Ok;
 }

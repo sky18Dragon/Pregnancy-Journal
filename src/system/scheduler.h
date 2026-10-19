@@ -4,8 +4,6 @@
 #include <cstdint>
 
 enum class StickyScheduledEventType : uint8_t {
-    Reminder,
-    Checkup,
     DailyRefresh,
     System,
 };

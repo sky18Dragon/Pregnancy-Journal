@@ -12,7 +12,7 @@ Four apps
   Baby Week · Weight · Kicks · Settings
              |
 Domain and content services
-  Pregnancy · Content · Reminder · Checkup · Weight · Kick
+  Pregnancy · Content · Weight · Kick
              |
 Sticky Core
   AppManager · Scheduler · lifecycle · Canvas · SD worker
@@ -47,8 +47,8 @@ concrete business page, so apps remain independently testable.
 - **Settings** owns language, RTC editing, pregnancy-setup requests and e-paper
   cleanup. It may request a return to Baby Week but never switches apps itself.
 
-All app data services use bounded arrays. The current capacities are 12
-preserved reminders, 8 preserved checkups, 366 weight records and 42 kick sessions. The framework
+All app data services use bounded arrays. The current capacities are
+366 weight records and 400 kick sessions. The framework
 app manager supports at most eight registered apps, leaving room for future
 additions without changing persisted IDs.
 
@@ -82,9 +82,9 @@ timer wake up to 15 seconds early. Business-alert wake/buzzer paths are disabled
 ## Persistence and failure boundaries
 
 Device settings, pregnancy profile, weights and Kicks use the dataset-bound
-MicroSD repository. Reminder/checkup storage remains for legacy preservation.
+MicroSD repository.
 Kicks has independent read-only import and verified cleanup; common cleanup
-never erases reminder/checkup or Kicks namespaces. The shared recovery index
+never erases the Kicks namespace. The shared recovery index
 holds 1,024 keys including tombstones and has no garbage collector.
 
 RTC or battery failures degrade to unavailable status rather than blocking

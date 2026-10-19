@@ -1,7 +1,6 @@
 # Adding an app
 
-The current registry contains Baby Week, Reminders, Checkups, Weight, Kicks and
-Settings. Follow this checklist when adding another app without breaking
+The current registry contains Baby Week, Weight, Kicks and Settings. Follow this checklist when adding another app without breaking
 persisted IDs or framework ownership.
 
 1. Create `src/apps/<name>/<name>_app.{h,cpp}` and keep page rendering in a

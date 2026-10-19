@@ -635,9 +635,6 @@ void app_task(void *) {
       reload_repository_store(
           pregnancy_repository::device_preferences_repository_store(),
           "preferences-after-delete");
-      reload_repository_store(
-          pregnancy_repository::network_authorization_repository_store(),
-          "network-authorization-after-delete");
       s_scheduler.cancel(1U);
       s_scheduler.cancel(2U);
       s_scheduler.cancel(3U);
@@ -741,7 +738,7 @@ esp_err_t sticky_app_start(Canvas &canvas) {
                        .settings()
                        .last_app
                  : StickyAppId::Pregnancy);
-  // A stored V2-only app must resolve before applying its rotation policy.
+  // A saved id that names a retired app must resolve before its rotation policy applies.
   if (sticky_app_registry_find(initial) == nullptr)
     initial = StickyAppId::Pregnancy;
   if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER) {

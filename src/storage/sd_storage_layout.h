@@ -13,8 +13,6 @@ inline constexpr char kManifestSlotBFile[] = "MNF000B.JSN";
 inline constexpr char kJournalDirectory[] = "JOURNAL";
 inline constexpr char kJournalFirstSegmentFile[] = "TXN00001.LOG";
 inline constexpr char kRecordsDirectory[] = "RECORDS";
-inline constexpr char kAudioDirectory[] = "AUDIO";
-inline constexpr char kTasksDirectory[] = "TASKS";
 inline constexpr char kIndexDirectory[] = "INDEX";
 inline constexpr char kTemporaryDirectory[] = "TMP";
 
@@ -29,8 +27,6 @@ inline constexpr char kJournalDirectoryPath[] = "/sdcard/PREGJNL/JOURNAL";
 inline constexpr char kJournalFirstSegmentPath[] =
     "/sdcard/PREGJNL/JOURNAL/TXN00001.LOG";
 inline constexpr char kRecordsDirectoryPath[] = "/sdcard/PREGJNL/RECORDS";
-inline constexpr char kAudioDirectoryPath[] = "/sdcard/PREGJNL/AUDIO";
-inline constexpr char kTasksDirectoryPath[] = "/sdcard/PREGJNL/TASKS";
 inline constexpr char kIndexDirectoryPath[] = "/sdcard/PREGJNL/INDEX";
 inline constexpr char kTemporaryDirectoryPath[] = "/sdcard/PREGJNL/TMP";
 
@@ -77,8 +73,6 @@ static_assert(fat83_name_valid(kManifestSlotBFile));
 static_assert(fat83_name_valid(kJournalDirectory));
 static_assert(fat83_name_valid(kJournalFirstSegmentFile));
 static_assert(fat83_name_valid(kRecordsDirectory));
-static_assert(fat83_name_valid(kAudioDirectory));
-static_assert(fat83_name_valid(kTasksDirectory));
 static_assert(fat83_name_valid(kIndexDirectory));
 static_assert(fat83_name_valid(kTemporaryDirectory));
 

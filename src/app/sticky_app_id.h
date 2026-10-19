@@ -1,12 +1,12 @@
 #pragma once
 
 enum class StickyAppId {
-  // Keep the persisted numeric values stable. IDs 0, 5 and 6 belonged to
-  // the retired Home, Journal and Advice applications.
+  // The numeric values are persisted in saved state, so they are never
+  // renumbered. IDs 0 and 3 to 6 belonged to retired applications (Home,
+  // Reminder, Checkup, Journal and Advice) and must not be reused; a saved state
+  // that still names one of them falls back to the default application.
   Settings = 1,
   Pregnancy = 2,
-  Reminder = 3,
-  Checkup = 4,
   Weight = 7,
   Kicks = 8,
 };

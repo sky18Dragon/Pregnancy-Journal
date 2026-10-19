@@ -15,13 +15,12 @@ recommendation.
 - Target: ESP32-S3 reTerminal Sticky with a 3.97-inch 800×480 monochrome
   e-paper panel. Firmware version `2.0.0`.
 - Four registered apps: **Baby Week**, **Weight**, **Kicks** and **Settings**.
-  Reminders, checkups and business alerts, habits, notes, recording,
-  provisioning and speech-to-text are deferred to the next delivery
-  ([V2 specification](docs/V2-PROJECT-SPEC.md)).
+  There are no reminders, checkups, business alerts, habits, notes, recording,
+  provisioning or speech-to-text.
 - English and Simplified Chinese UI. All user data lives on the MicroSD card;
   there is no account, telemetry, cloud upload, OTA or AI service.
 - This is an unaccepted firmware candidate. The automatic gate is the host
-  suite (`tools/run_host_tests.sh`, 88/88 steps on 2026-10-19) plus successful
+  suite (`tools/run_host_tests.sh`, 77/77 steps on 2026-10-19) plus successful
   `sticky-release`, `sticky-debug` and `sticky-power-test` builds. Physical
   acceptance is tracked separately in [V1 validation](docs/V1-VALIDATION.md) and
   the [hardware regression checklist](docs/pregnancy/hardware-regression-checklist.md);
@@ -37,7 +36,7 @@ For the complete behavior and limits of the current image, see the
 | Baby Week | Dashboard with an engraving-style plate for each of weeks 6–40, a week grid and the current week; Baby and Mom pages with week/day, trimester, days until the due date and offline guidance | Content is clamped to weeks 1–40 |
 | Weight | kg/lb records at 0.1 precision, baseline and height, 7- or 30-day chart, history editing and deletion | 366 records, one per date; replacing or deleting needs confirmation |
 | Kicks | Three record types: 1-hour count, Count to 10 and Feel check-in; the chosen type is remembered; each record is compared with the median of the user's own previous seven days (direction and size of the difference only) | 400 records; undo; 400 ms double-tap guard; a session ends at 60 minutes |
-| Settings | Language, device time, pregnancy settings, double-click shortcut, e-paper clean refresh and the MicroSD page (status, dataset creation, safe eject, legacy import, card data deletion, device reset) | The time editor keeps the device awake; creating a dataset needs two explicit actions |
+| Settings | Language, device time, pregnancy settings, double-click shortcut, e-paper clean refresh and the MicroSD page (status, dataset creation, safe eject, legacy import, card data deletion) | The time editor keeps the device awake; creating a dataset needs two explicit actions |
 
 On the dashboard, tapping the illustration opens the Baby page and tapping the
 week number opens the Mom page. The dashboard no longer shows a progress bar or a
@@ -104,8 +103,7 @@ Rotation changes and the sleep frame always use a full refresh. The rules are in
 
 All four apps use a dataset-bound, journaled MicroSD repository with no Flash
 fallback. Settings offers verified legacy import (Kicks has an independent
-path), safe eject, device reset and card-application-data deletion. Reminder and
-checkup NVS copies are left intact for V2. The recovery index holds 1,024 keys
+path), safe eject and card-application-data deletion. The recovery index holds 1,024 keys
 including deleted keys; journal and object garbage collection is not implemented,
 and a full index rejects new keys instead of dropping records. See
 [storage](docs/pregnancy/storage.md), [data model](docs/pregnancy/data-model.md)
@@ -116,12 +114,11 @@ and [backup and recovery](docs/S1-BACKUP-RECOVERY.md).
 | Path | Contents |
 | --- | --- |
 | `src/app/` | App registry, coordinator (Launcher, app switching, key routing, sleep) |
-| `src/apps/` | Baby Week (`pregnancy`), `weight`, `kick`, `settings`; `reminder` and `checkup` are kept for V2 and are not registered |
+| `src/apps/` | Baby Week (`pregnancy`), `weight`, `kick`, `settings` |
 | `src/pregnancy/` | Domain services, models and offline content |
 | `src/ui/` | Canvas, fonts, tokens, shared pages, generated assets |
 | `src/storage/` | MicroSD service, journal, index and repository code |
 | `src/display/`, `src/board/`, `src/devices/`, `src/input/`, `src/sensors/` | Display owner and hardware access |
-| `src/voice/`, `src/network/` | V2 groundwork: a voice-intent classifier and the device-bound network-authorization contract; neither is part of the product flow |
 | `components/` | GT911 touch and SSD1677 e-paper drivers |
 | `test/`, `tools/` | Host tests and tooling (below) |
 | `docs/` | Specifications, design notes, validation records and evidence |
@@ -151,8 +148,7 @@ includes a 128 KiB `coredump` partition (read a crash back with
 `idf.py coredump-info`). `sticky-release` additionally applies
 `sdkconfig.release.defaults` (-O2, silent assertions, INFO log ceiling). Other
 environments in `platformio.ini` are isolated hardware tests (glyph coverage,
-SD audio, storage power-loss and fault injection, Chinese input, voice
-classifier); they are not product builds.
+storage power-loss and fault injection); they are not product builds.
 
 Useful tools: `tools/ui_preview/render_all.sh` renders every page as a 1-bit PNG
 with hit-area overlays and lint output; `tools/check_ui_tokens.py` enforces the
@@ -177,7 +173,6 @@ the upload command again. After flashing, run the
 **Product and status**
 - [Current functionality reference](docs/pregnancy/current-functionality.md)
 - [First-delivery specification (four offline apps)](docs/PROJECT-SPEC.md)
-- [V2 extension specification](docs/V2-PROJECT-SPEC.md) and [future roadmap](docs/pregnancy/future-roadmap.md)
 - [Active tasks](docs/TODO.md) and [changelog](docs/CHANGELOG.md)
 - Other languages: [简体中文](docs/README_CN.md), [日本語](docs/README_JA.md)
 - [V1 validation](docs/V1-VALIDATION.md), [hardware results](docs/V1-HARDWARE-RESULTS.md),

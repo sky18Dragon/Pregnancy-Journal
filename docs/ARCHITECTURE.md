@@ -24,7 +24,7 @@ app_main
 | Applications | `src/apps/*` | Page state, user actions and domain orchestration |
 | Domain/content | `src/pregnancy/*` | Pregnancy calculations, content and bounded record rules |
 | Shared UI | `src/ui/*` | Canvas, typography, layout helpers, localization and assets |
-| Persistence/system | `src/storage/*`, `src/network/*`, `src/system/*` | Dataset-bound records, device credential wrapping and next-event scheduling |
+| Persistence/system | `src/storage/*`, `src/system/*` | Dataset-bound records and next-event scheduling |
 | Hardware abstraction | `src/board/*`, `src/devices/*`, `src/display/*`, `src/input/*`, `src/sensors/*` | Buses, power and peripheral drivers |
 | Components | `components/*` | GT911 and e-paper controller implementations |
 
@@ -34,12 +34,8 @@ another app directly.
 
 ## Boot and runtime
 
-The isolated `sticky-sd-audio-test` profile branches after board power/charger
-and SPI pin preparation, before normal app/NVS initialization. Its diagnostic
-entry mounts SD before panel initialization, records through a bounded PSRAM
-block pool, verifies the WAV and unmounts. SPI2 initialization is now owned by
-`board_shared_spi_init()`; display and SD reuse it. This startup-only API is not
-a concurrent hotplug manager. See [S0 prototype](S0-SD-AUDIO-TEST.md).
+SPI2 initialization is owned by `board_shared_spi_init()`; display and SD reuse
+it. This startup-only API is not a concurrent hotplug manager.
 
 `app_main()` establishes the power latch, charger, shared SPI2, sensor I2C,
 RTC, battery, display, touch, buzzer, IMU, NVS and language state before the
@@ -79,9 +75,9 @@ accumulate ghosting beyond that ceiling.
 
 ## Data and scheduling
 
-All service collections have fixed capacities: 12 preserved reminders, 8 preserved checkups, 366
-weights and 42 kick sessions. Pregnancy/reminder/checkup/weight/preferences use
-the journaled MicroSD repository, including Kicks (kind 10). Canonical payloads use schema/version validation,
+All service collections have fixed capacities: 366 weights and 400 kick
+sessions. Pregnancy/weight/preferences use the journaled MicroSD repository,
+including Kicks (kind 10). Canonical payloads use schema/version validation,
 bounded strings and checksums. Namespaces fail independently so one corrupt
 record does not invalidate unrelated data.
 
@@ -111,8 +107,8 @@ captured at submission and the generation observed by the worker. Every request
 is rechecked against card state and mount generation inside the worker.
 Initialization additionally requires an explicit confirmation flag.
 The submission lock closes file admission before a sleep command enters the
-FIFO. A separate bounded lease gate tracks longer Record, Audio and Network
-work, binds every lease to mount generation plus dataset ID, and makes sleep
+FIFO. A separate bounded lease gate tracks longer-running
+record work, binds every lease to mount generation plus dataset ID, and makes sleep
 wait for those operations before queuing unmount. Late completion after a card
 switch releases its slot but returns a stale/dataset error. The worker also owns
 an independent eight-slot production repository pool. Its read/list/commit/
@@ -124,12 +120,9 @@ repository calls this production API yet, and existing user records still
 persist in NVS. Apps and pages must not access the adapter or filesystem
 directly.
 
-The owner also publishes FAT total/free bytes and a bounded read-only inventory
-of uppercase 8.3 WAV/PCM/TMP files under `AUDIO`. Unknown entries make usage
-unavailable instead of being omitted. Business writes use actual free bytes;
-audio admission additionally enforces 100 items, 128 MiB and the 32 MiB
-business reserve. A zero-free card enters Full and polling can restore writable
-state after space becomes available.
+The owner also publishes FAT total/free bytes. Business writes use actual free
+bytes. A zero-free card enters Full and polling can restore writable state after
+space becomes available.
 
 The first S1-02 format layer is hardware independent. `storage_crc32.h`
 provides the shared incremental CRC32/IEEE implementation, while
@@ -224,9 +217,8 @@ content and does not enable business writes.
 
 Before sleep, the pure `app/sticky_sleep_schedule.*` policy resets the scheduler
 and selects daily 03:00 maintenance or an active-app future system event. The
-ESP32 timer is armed up to 15 seconds early. V1 does not load business reminder
-caches or arm reminder/checkup wake alarms. Their domain codecs remain for
-migration and backup. The index and snapshot share a 1,024-key bound (including
+ESP32 timer is armed up to 15 seconds early. There are no business wake
+alarms. The index and snapshot share a 1,024-key bound (including
 tombstones); the worker allocates recovery buffers in PSRAM. Adapters bind their
 loaded state to a dataset/mount generation until explicitly reset for reload.
 

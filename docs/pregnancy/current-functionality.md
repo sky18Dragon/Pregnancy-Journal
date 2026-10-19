@@ -14,9 +14,8 @@ not a diagnostic, treatment or emergency-alert device.
 - Registered apps: Baby Week, Weight, Kicks and Settings.
 - Languages: English and Simplified Chinese. The language setting is stored in
   the selected MicroSD dataset and is changed from Settings.
-- Data boundary: no account, telemetry, cloud log, OTA or active AI service.
-  S2 includes a device-bound network-authorization storage contract but no
-  cloud submission path. Product records remain local.
+- Data boundary: no account, telemetry, cloud log, OTA, network access or AI
+  service. Product records remain local.
 
 ## Launcher and navigation
 
@@ -153,11 +152,9 @@ cannot time out to sleep; Settings' stable pages use a three-minute timeout.
 Safe Eject drains accepted storage work and holds the card unmounted until it is
 removed. Old Device Data provides verified, idempotent NVS-to-card import and a
 separate cleanup confirmation. Choose profile/weight/settings or Kicks import;
-Kicks scans all 42 historical slots independently. Both cleanup paths preserve
-reminder/checkup NVS copies for V2. A card change invalidates cleanup eligibility
-until another verified import. Tapping the dataset opens a confirmation that
-deletes only `PREGJNL`; Device Reset opens a different confirmation that only
-forgets the local network wrapping key and RAM Wi-Fi configuration.
+Kicks scans all 42 historical slots independently. A card change invalidates
+cleanup eligibility until another verified import. Tapping the dataset opens a
+confirmation that deletes only `PREGJNL`.
 
 ## Sleep, wake and refresh
 
@@ -169,9 +166,9 @@ sleep.
 
 Before sleep, the coordinator schedules the daily 03:00 maintenance refresh
 and any future event requested by the active app. The timer is armed up to 15
-seconds early. Reminder/checkup caches, business wake events and timer-triggered
-alarms are disabled in V1; their persisted app IDs remain unchanged and fall
-back to Baby Week when selected from an older saved state.
+seconds early. There are no business wake events or timer-triggered alarms. The
+persisted app IDs of the retired Reminder and Checkup apps stay reserved and fall
+back to Baby Week when read from an older saved state.
 
 Page changes use a full refresh; mutations inside a page use partial refresh,
 and the display layer makes every eleventh consecutive partial refresh a full
@@ -194,9 +191,9 @@ new release. Use [hardware checklist](hardware-regression-checklist.md).
 
 ## Known scope boundaries
 
-Reminder/checkup apps, business alerts, habits, notes, recording, provisioning,
-cloud submission and speech-to-text are deferred to V2. Their stored records
-and cryptographic protections are preserved. Kicks has no per-session history
+There are no reminder or checkup apps, business alerts, habits, notes,
+recording, provisioning, network access or speech-to-text. Records that older
+firmware left on a card or in NVS are neither read nor erased. Kicks has no per-session history
 editor/deletion UI; its 400-record limit requires planning around a backed-up
 card dataset. Weight history edits the existing date's value, not its date.
 The shared index holds at most 1,024 distinct keys including deleted keys;

@@ -70,9 +70,7 @@ const char *write_check_name(SdStoragePolicyStatus status)
     case SdStoragePolicyStatus::CardUnavailable: return "CARD UNAVAILABLE";
     case SdStoragePolicyStatus::CardReadOnly: return "CARD READ ONLY";
     case SdStoragePolicyStatus::CapacityUnavailable: return "NO CAPACITY";
-    case SdStoragePolicyStatus::UsageUnavailable: return "NO USAGE";
     case SdStoragePolicyStatus::NoSpace: return "NO SPACE";
-    case SdStoragePolicyStatus::AudioQuotaReached: return "AUDIO QUOTA";
     }
     return "UNKNOWN";
 }
@@ -158,11 +156,8 @@ void render(Canvas &canvas, const SdStorageServiceStatus &status)
     }
     canvas.draw_text_pixels(24, 306, line, ui_tokens::kSectionHeading,
                             GrayLevel::Black, FontWeight::Medium);
-    std::snprintf(line, sizeof(line), "AUDIO: %u / %llu B   WRITE: %s",
-                  static_cast<unsigned>(status.audio_items),
-                  static_cast<unsigned long long>(status.audio_bytes),
-                  write_check_name(sd_storage_service_check_write(
-                      SdStorageWriteClass::Business, 1U)));
+    std::snprintf(line, sizeof(line), "WRITE: %s",
+                  write_check_name(sd_storage_service_check_write(1U)));
     canvas.draw_text_pixels(24, 380, line, ui_tokens::kBody,
                             GrayLevel::Black, FontWeight::Regular);
     canvas.draw_text_pixels(24, 424,
@@ -187,8 +182,6 @@ bool changed(const SdStorageServiceStatus &a,
            a.selected_slot != b.selected_slot ||
            a.capacity_known != b.capacity_known ||
            a.total_bytes != b.total_bytes || a.free_bytes != b.free_bytes ||
-           a.audio_usage_known != b.audio_usage_known ||
-           a.audio_items != b.audio_items || a.audio_bytes != b.audio_bytes ||
            a.recovery_known != b.recovery_known ||
            a.recovery_status != b.recovery_status ||
            a.recovery_view_ready != b.recovery_view_ready ||
@@ -206,7 +199,7 @@ void log_status(const SdStorageServiceStatus &status)
 {
     STICKY_LOGI(
         kTag,
-        "card=%s mount=%u manifest=%s dataset=%s generation=%llu slot=%c recovery=%s view=%u checkpoint=%u journal=%u last_tx=%llu snapshot_tx=%llu live=%u objects=%u capacity_known=%u total=%llu free=%llu audio_known=%u audio_items=%u audio_bytes=%llu write_check=%s",
+        "card=%s mount=%u manifest=%s dataset=%s generation=%llu slot=%c recovery=%s view=%u checkpoint=%u journal=%u last_tx=%llu snapshot_tx=%llu live=%u objects=%u capacity_known=%u total=%llu free=%llu write_check=%s",
         card_name(status.card_state),
         static_cast<unsigned>(status.mount_generation),
         status.manifest_known ? manifest_name(status.manifest_state)
@@ -233,11 +226,7 @@ void log_status(const SdStorageServiceStatus &status)
         status.capacity_known ? 1U : 0U,
         static_cast<unsigned long long>(status.total_bytes),
         static_cast<unsigned long long>(status.free_bytes),
-        status.audio_usage_known ? 1U : 0U,
-        static_cast<unsigned>(status.audio_items),
-        static_cast<unsigned long long>(status.audio_bytes),
-        write_check_name(sd_storage_service_check_write(
-            SdStorageWriteClass::Business, 1U)));
+        write_check_name(sd_storage_service_check_write(1U)));
 }
 
 }  // namespace

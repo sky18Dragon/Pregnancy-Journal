@@ -17,43 +17,30 @@ void test_keys()
     using namespace pregnancy_repository;
     using namespace sticky_storage;
     RepositoryKey pregnancy = {};
-    RepositoryKey reminder = {};
-    RepositoryKey checkup = {};
     RepositoryKey weight = {};
     RepositoryKey weight_preferences = {};
     RepositoryKey device_preferences = {};
-    RepositoryKey network_authorization = {};
     assert(pregnancy_profile_key(pregnancy));
-    assert(reminder_key(42U, reminder));
-    assert(checkup_key(UINT32_MAX, checkup));
     assert(weight_key(7U, weight));
     assert(weight_preferences_key(weight_preferences));
     assert(device_preferences_key(device_preferences));
-    assert(network_authorization_key(network_authorization));
     assert(pregnancy.repository == RepositoryKind::Pregnancy);
-    assert(reminder.repository == RepositoryKind::Reminder);
-    assert(checkup.repository == RepositoryKind::Checkup);
     assert(weight.repository == RepositoryKind::Weight);
     assert(weight_preferences.repository == RepositoryKind::Preference);
     assert(device_preferences.repository == RepositoryKind::Preference);
-    assert(network_authorization.repository == RepositoryKind::Preference);
     uint32_t parsed_id = 0U;
-    assert(numeric_record_id(reminder.record_id, parsed_id));
-    assert(parsed_id == 42U);
+    assert(numeric_record_id(weight.record_id, parsed_id));
+    assert(parsed_id == 7U);
     assert(!numeric_record_id("00000000000000000000000000000000", parsed_id));
     assert(std::strcmp(pregnancy.record_id,
                        "00000000000000000000000000000001") == 0);
-    assert(std::strcmp(reminder.record_id,
-                       "0000000000000000000000000000002a") == 0);
-    assert(std::strcmp(checkup.record_id,
-                       "000000000000000000000000ffffffff") == 0);
+    assert(std::strcmp(weight.record_id,
+                       "00000000000000000000000000000007") == 0);
     assert(std::strcmp(weight_preferences.record_id,
                        "00000000000000000000000000000002") == 0);
     assert(std::strcmp(device_preferences.record_id,
                        "00000000000000000000000000000001") == 0);
-    assert(std::strcmp(network_authorization.record_id,
-                       "00000000000000000000000000000003") == 0);
-    assert(!reminder_key(0U, reminder));
+    assert(!weight_key(0U, weight));
 }
 
 void test_kicks()
@@ -184,67 +171,6 @@ void test_pregnancy()
            RecordCodecStatus::Corrupt);
     assert(decode_pregnancy_profile(nullptr, 0U, decoded) ==
            RecordCodecStatus::InvalidArgument);
-}
-
-void test_reminder()
-{
-    using namespace pregnancy_repository;
-    Reminder source = {};
-    source.id = 19U;
-    source.type = ReminderType::Supplement;
-    source.date = {2026U, 10U, 2U};
-    source.hour = 8U;
-    source.minute = 35U;
-    source.repeat_rule = RepeatRule::Daily;
-    source.enabled = false;
-    source.completed = true;
-    std::strcpy(source.title, "Vitamin & water");
-    std::strcpy(source.note, "after breakfast");
-    EncodedPayload payload = {};
-    assert(encode_reminder(source, payload) == RecordCodecStatus::Ok);
-    Reminder decoded = {};
-    assert(decode_reminder(payload.bytes.data(), payload.size, decoded) ==
-           RecordCodecStatus::Ok);
-    assert(decoded.id == source.id && decoded.type == source.type);
-    assert(same_date(decoded.date, source.date));
-    assert(decoded.hour == source.hour && decoded.minute == source.minute);
-    assert(decoded.repeat_rule == source.repeat_rule);
-    assert(!decoded.enabled && decoded.completed);
-    assert(std::strcmp(decoded.title, source.title) == 0);
-    assert(std::strcmp(decoded.note, source.note) == 0);
-
-    Reminder unterminated = source;
-    std::memset(unterminated.title, 'x', sizeof(unterminated.title));
-    assert(encode_reminder(unterminated, payload) ==
-           RecordCodecStatus::InvalidArgument);
-}
-
-void test_checkup()
-{
-    using namespace pregnancy_repository;
-    Checkup source = {};
-    source.id = 5U;
-    source.date = {2026U, 11U, 9U};
-    source.hour = 14U;
-    source.minute = 20U;
-    source.recommended_week = 24U;
-    source.completed = true;
-    source.reference_template = true;
-    std::strcpy(source.title, "Routine visit");
-    std::strcpy(source.location, "Clinic 2");
-    std::strcpy(source.note, "bring records");
-    EncodedPayload payload = {};
-    assert(encode_checkup(source, payload) == RecordCodecStatus::Ok);
-    Checkup decoded = {};
-    assert(decode_checkup(payload.bytes.data(), payload.size, decoded) ==
-           RecordCodecStatus::Ok);
-    assert(decoded.id == source.id && same_date(decoded.date, source.date));
-    assert(decoded.hour == source.hour && decoded.minute == source.minute);
-    assert(decoded.recommended_week == source.recommended_week);
-    assert(decoded.completed && decoded.reference_template);
-    assert(std::strcmp(decoded.title, source.title) == 0);
-    assert(std::strcmp(decoded.location, source.location) == 0);
-    assert(std::strcmp(decoded.note, source.note) == 0);
 }
 
 void test_weight_and_preferences()
@@ -383,52 +309,6 @@ void test_device_preferences_written_by_older_firmware_still_decode()
            RecordCodecStatus::Corrupt);
 }
 
-void test_network_authorization()
-{
-    using namespace pregnancy_repository;
-    NetworkAuthorizationSettings source = {};
-    source.cloud_authorized = true;
-    source.authorization_version = 4U;
-    source.provider_config_version = 2U;
-    std::strcpy(source.provider_id, "coze");
-    std::strcpy(source.service_region, "cn");
-    for (size_t index = 0U; index < sizeof(source.credentials.device_id); ++index)
-        source.credentials.device_id[index] = static_cast<uint8_t>(index + 1U);
-    for (size_t index = 0U; index < sizeof(source.credentials.nonce); ++index)
-        source.credentials.nonce[index] = static_cast<uint8_t>(index + 10U);
-    source.credentials.ciphertext_size = 5U;
-    std::memcpy(source.credentials.ciphertext, "abcde", 5U);
-    for (size_t index = 0U; index < sizeof(source.credentials.tag); ++index)
-        source.credentials.tag[index] = static_cast<uint8_t>(index + 20U);
-    assert(network_authorization_settings_valid(source));
-
-    EncodedPayload payload = {};
-    assert(encode_network_authorization(source, payload) ==
-           RecordCodecStatus::Ok);
-    NetworkAuthorizationSettings decoded = {};
-    assert(decode_network_authorization(payload.bytes.data(), payload.size,
-                                        decoded) == RecordCodecStatus::Ok);
-    assert(decoded.cloud_authorized &&
-           decoded.authorization_version == source.authorization_version);
-    assert(std::strcmp(decoded.provider_id, "coze") == 0);
-    assert(decoded.credentials.ciphertext_size == 5U);
-    assert(std::memcmp(decoded.credentials.ciphertext, "abcde", 5U) == 0);
-
-    NetworkAuthorizationSettings disabled = {};
-    assert(network_authorization_settings_valid(disabled));
-    assert(encode_network_authorization(disabled, payload) ==
-           RecordCodecStatus::Ok);
-    assert(decode_network_authorization(payload.bytes.data(), payload.size,
-                                        decoded) == RecordCodecStatus::Ok);
-    assert(!decoded.cloud_authorized);
-
-    source.credentials.device_id[0] = 0U;
-    std::memset(source.credentials.device_id, 0,
-                sizeof(source.credentials.device_id));
-    assert(encode_network_authorization(source, payload) ==
-           RecordCodecStatus::InvalidArgument);
-}
-
 }  // namespace
 
 int main()
@@ -438,11 +318,8 @@ int main()
     test_kick_modes();
     test_kick_version_one_payload();
     test_pregnancy();
-    test_reminder();
-    test_checkup();
     test_weight_and_preferences();
     test_device_preferences_and_envelope_rejection();
     test_device_preferences_written_by_older_firmware_still_decode();
-    test_network_authorization();
     return 0;
 }

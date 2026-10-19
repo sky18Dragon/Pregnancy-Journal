@@ -29,7 +29,6 @@
 #include "sd_recovery_loader.h"
 #include "sd_repository_completion.h"
 #include "sd_repository_request.h"
-#include "sd_audio_usage.h"
 #include "sd_application_data_delete.h"
 #include "sd_storage_layout.h"
 #include "sd_storage_policy.h"
@@ -53,7 +52,6 @@ constexpr UBaseType_t kTaskPriority = 2U;
 constexpr TickType_t kPollInterval = pdMS_TO_TICKS(100);
 constexpr uint32_t kRetryPollCount = 10U;
 constexpr uint32_t kCapacityPollCount = 10U;
-constexpr uint32_t kAudioUsagePollCount = 50U;
 
 enum class CommandType : uint8_t {
     PrepareSleep = 0,
@@ -283,9 +281,8 @@ void process_index_power_request(StickySdCard &card,
         if (card.space(space) != ESP_OK) {
             result.service_status = ESP_FAIL;
         } else {
-            const SdStorageUsage usage = {space.free_bytes, 0U, 0U};
-            if (sd_storage_check_write(SdStorageWriteClass::Business,
-                                       encoded_size, usage) !=
+            const SdStorageUsage usage = {space.free_bytes};
+            if (sd_storage_check_write(encoded_size, usage) !=
                 SdStoragePolicyStatus::Ok) {
                 result.service_status = ESP_ERR_NO_MEM;
             }
@@ -435,9 +432,6 @@ std::atomic<uint32_t> s_card_generation{0U};
 std::atomic<bool> s_capacity_known{false};
 std::atomic<uint64_t> s_total_bytes{0U};
 std::atomic<uint64_t> s_free_bytes{0U};
-std::atomic<bool> s_audio_usage_known{false};
-std::atomic<uint32_t> s_audio_items{0U};
-std::atomic<uint64_t> s_audio_bytes{0U};
 std::atomic<bool> s_manifest_known{false};
 std::atomic<uint8_t> s_manifest_state{
     static_cast<uint8_t>(SdManifestProbeState::NotInitialized)};
@@ -534,9 +528,6 @@ void publish_card_status(const StickySdCard &card)
         s_capacity_known.store(false, std::memory_order_relaxed);
         s_total_bytes.store(0U, std::memory_order_relaxed);
         s_free_bytes.store(0U, std::memory_order_relaxed);
-        s_audio_usage_known.store(false, std::memory_order_relaxed);
-        s_audio_items.store(0U, std::memory_order_relaxed);
-        s_audio_bytes.store(0U, std::memory_order_relaxed);
         s_manifest_known.store(false, std::memory_order_relaxed);
         s_manifest_state.store(
             static_cast<uint8_t>(SdManifestProbeState::NotInitialized),
@@ -661,37 +652,6 @@ esp_err_t refresh_capacity(StickySdCard &card)
     return ESP_OK;
 }
 
-bool refresh_audio_usage()
-{
-    const SdAudioUsageProbe usage =
-        sd_audio_usage_probe(kAudioDirectoryPath);
-    const bool known = usage.status == SdAudioUsageStatus::Ready ||
-                       usage.status == SdAudioUsageStatus::Missing;
-    const bool was_known =
-        s_audio_usage_known.load(std::memory_order_acquire);
-    const uint32_t previous_items =
-        s_audio_items.load(std::memory_order_relaxed);
-    const uint64_t previous_bytes =
-        s_audio_bytes.load(std::memory_order_relaxed);
-    s_status_revision.fetch_add(1U, std::memory_order_acq_rel);
-    s_audio_items.store(known ? usage.items : 0U,
-                        std::memory_order_relaxed);
-    s_audio_bytes.store(known ? usage.bytes : 0U,
-                        std::memory_order_relaxed);
-    s_audio_usage_known.store(known, std::memory_order_relaxed);
-    s_status_revision.fetch_add(1U, std::memory_order_release);
-    if (!known) {
-        STICKY_LOGW(kTag, "audio=usage status=%u",
-                    static_cast<unsigned>(usage.status));
-    } else if (!was_known || previous_items != usage.items ||
-               previous_bytes != usage.bytes) {
-        STICKY_LOGI(kTag, "audio=usage items=%u bytes=%llu",
-                    static_cast<unsigned>(usage.items),
-                    static_cast<unsigned long long>(usage.bytes));
-    }
-    return known;
-}
-
 void publish_manifest_status(const SdManifestProbeResult &probe)
 {
     s_status_revision.fetch_add(1U, std::memory_order_acq_rel);
@@ -785,12 +745,11 @@ void process_journal_request(StickySdCard &card, const Command &command)
             result.status = SdJournalRequestStatus::CapacityUnavailable;
             execute = false;
         } else {
-            const SdStorageUsage usage = {space.free_bytes, 0U, 0U};
+            const SdStorageUsage usage = {space.free_bytes};
             const uint64_t frame_bytes =
                 static_cast<uint64_t>(kSdJournalHeaderBytes) +
                 command.journal.payload_size;
-            if (sd_storage_check_write(SdStorageWriteClass::Business,
-                                       frame_bytes, usage) !=
+            if (sd_storage_check_write(frame_bytes, usage) !=
                 SdStoragePolicyStatus::Ok) {
                 result.status = SdJournalRequestStatus::NoSpace;
                 execute = false;
@@ -987,9 +946,8 @@ void process_journal_power_fixture(StickySdCard &card,
             if (card.space(space) != ESP_OK) {
                 result.status = SdJournalRequestStatus::CapacityUnavailable;
             } else {
-                const SdStorageUsage usage = {space.free_bytes, 0U, 0U};
+                const SdStorageUsage usage = {space.free_bytes};
                 if (sd_storage_check_write(
-                        SdStorageWriteClass::Business,
                         kJournalPartialFixtureTailBytes, usage) !=
                     SdStoragePolicyStatus::Ok) {
                     result.status = SdJournalRequestStatus::NoSpace;
@@ -1018,9 +976,8 @@ void process_journal_power_fixture(StickySdCard &card,
         if (card.space(space) != ESP_OK) {
             result.status = SdJournalRequestStatus::CapacityUnavailable;
         } else {
-            const SdStorageUsage usage = {space.free_bytes, 0U, 0U};
+            const SdStorageUsage usage = {space.free_bytes};
             if (sd_storage_check_write(
-                    SdStorageWriteClass::Business,
                     kJournalPowerFixtureObjectBytes, usage) !=
                 SdStoragePolicyStatus::Ok) {
                 result.status = SdJournalRequestStatus::NoSpace;
@@ -1105,9 +1062,9 @@ void process_object_power_request(StickySdCard &card,
             if (card.space(space) != ESP_OK) {
                 result.service_status = ESP_FAIL;
             } else {
-                const SdStorageUsage usage = {space.free_bytes, 0U, 0U};
+                const SdStorageUsage usage = {space.free_bytes};
                 if (sd_storage_check_write(
-                        SdStorageWriteClass::Business, bytes.size(), usage) !=
+                        bytes.size(), usage) !=
                     SdStoragePolicyStatus::Ok) {
                     result.service_status = ESP_ERR_NO_MEM;
                 }
@@ -1169,7 +1126,6 @@ esp_err_t mount_if_available(StickySdCard &card)
             STICKY_LOGW(kTag, "card=capacity result=%s",
                         esp_err_to_name(capacity_result));
         }
-        refresh_audio_usage();
         switch (probe.state) {
         case SdManifestProbeState::NotInitialized:
             STICKY_LOGI(kTag,
@@ -1278,7 +1234,6 @@ esp_err_t delete_application_data(StickySdCard &card,
         publish_recovery_status({}); // Fail closed after partial deletion.
     publish_manifest_status(probe);
     refresh_capacity(card);
-    refresh_audio_usage();
     STICKY_LOGI(kTag, "data_delete=finished files=%u dirs=%u",
                 static_cast<unsigned>(removed.files_removed),
                 static_cast<unsigned>(removed.directories_removed));
@@ -1299,7 +1254,6 @@ void storage_task(void *)
     bool sleep_prepared = false;
     uint32_t retry_polls = 0U;
     uint32_t capacity_polls = 0U;
-    uint32_t audio_usage_polls = 0U;
 #if defined(STICKY_SD_INJECT_MOUNT_FAILURE_ONCE) && \
     STICKY_SD_INJECT_MOUNT_FAILURE_ONCE
     uint32_t mount_fault_report_polls = 0U;
@@ -1312,7 +1266,6 @@ void storage_task(void *)
                 process_manifest_request(card, command);
                 if (card.can_read()) {
                     refresh_capacity(card);
-                    refresh_audio_usage();
                 }
                 s_pending_file_requests.fetch_sub(1U,
                                                   std::memory_order_acq_rel);
@@ -1322,7 +1275,6 @@ void storage_task(void *)
                 process_journal_request(card, command);
                 if (card.can_read()) {
                     refresh_capacity(card);
-                    refresh_audio_usage();
                 }
                 s_pending_file_requests.fetch_sub(1U,
                                                   std::memory_order_acq_rel);
@@ -1332,7 +1284,6 @@ void storage_task(void *)
                 process_repository_request(card, command);
                 if (card.can_read()) {
                     refresh_capacity(card);
-                    refresh_audio_usage();
                 }
                 s_pending_file_requests.fetch_sub(1U,
                                                   std::memory_order_acq_rel);
@@ -1431,7 +1382,6 @@ void storage_task(void *)
             STICKY_LOGI(kTag, "card=presence event=inserted");
             retry_polls = 0U;
             capacity_polls = 0U;
-            audio_usage_polls = 0U;
         } else if (poll.event == StickySdCardEvent::Removed) {
             STICKY_LOGI(kTag, "card=presence event=removed result=ok");
             if (s_manual_eject_hold.exchange(false,
@@ -1441,14 +1391,12 @@ void storage_task(void *)
                 xSemaphoreGive(s_submit_lock);
             }
             capacity_polls = 0U;
-            audio_usage_polls = 0U;
         } else if (poll.event == StickySdCardEvent::RemovalCleanupFailed) {
             STICKY_LOGW(kTag,
                         "card=presence event=removed cleanup=%s",
                         esp_err_to_name(poll.error));
             retry_polls = 0U;
             capacity_polls = 0U;
-            audio_usage_polls = 0U;
         }
 
         if (sleep_prepared) {
@@ -1472,17 +1420,11 @@ void storage_task(void *)
             const esp_err_t result = mount_if_available(card);
             retry_polls = result == ESP_OK ? 0U : kRetryPollCount;
             capacity_polls = 0U;
-            audio_usage_polls = 0U;
             continue;
         }
         if (card.can_read() && ++capacity_polls >= kCapacityPollCount) {
             refresh_capacity(card);
             capacity_polls = 0U;
-        }
-        if (card.can_read() &&
-            ++audio_usage_polls >= kAudioUsagePollCount) {
-            refresh_audio_usage();
-            audio_usage_polls = 0U;
         }
 #if defined(STICKY_SD_INJECT_MOUNT_FAILURE_ONCE) && \
     STICKY_SD_INJECT_MOUNT_FAILURE_ONCE
@@ -1857,10 +1799,6 @@ SdStorageServiceStatus sd_storage_service_status()
             s_capacity_known.load(std::memory_order_relaxed);
         status.total_bytes = s_total_bytes.load(std::memory_order_relaxed);
         status.free_bytes = s_free_bytes.load(std::memory_order_relaxed);
-        status.audio_usage_known =
-            s_audio_usage_known.load(std::memory_order_relaxed);
-        status.audio_items = s_audio_items.load(std::memory_order_relaxed);
-        status.audio_bytes = s_audio_bytes.load(std::memory_order_relaxed);
         status.manifest_known =
             s_manifest_known.load(std::memory_order_relaxed);
         status.manifest_state = static_cast<SdManifestProbeState>(
@@ -2315,16 +2253,11 @@ bool sd_storage_service_cancel_work(const SdStorageWorkToken &token,
     return cancelled;
 }
 
-SdStoragePolicyStatus sd_storage_service_check_write(
-    SdStorageWriteClass write_class, uint64_t requested_bytes)
+SdStoragePolicyStatus sd_storage_service_check_write(uint64_t requested_bytes)
 {
-    const SdStorageUsage validation_usage = {
-        UINT64_MAX,
-        0U,
-        0U,
-    };
-    const SdStoragePolicyStatus arguments = sd_storage_check_write(
-        write_class, requested_bytes, validation_usage);
+    const SdStorageUsage validation_usage = {UINT64_MAX};
+    const SdStoragePolicyStatus arguments =
+        sd_storage_check_write(requested_bytes, validation_usage);
     if (arguments == SdStoragePolicyStatus::InvalidArgument) {
         return arguments;
     }
@@ -2342,17 +2275,9 @@ SdStoragePolicyStatus sd_storage_service_check_write(
     if (!status.capacity_known) {
         return SdStoragePolicyStatus::CapacityUnavailable;
     }
-    if (write_class == SdStorageWriteClass::Audio &&
-        !status.audio_usage_known) {
-        return SdStoragePolicyStatus::UsageUnavailable;
-    }
 
-    const SdStorageUsage usage = {
-        status.free_bytes,
-        status.audio_items,
-        status.audio_bytes,
-    };
-    return sd_storage_check_write(write_class, requested_bytes, usage);
+    const SdStorageUsage usage = {status.free_bytes};
+    return sd_storage_check_write(requested_bytes, usage);
 }
 
 esp_err_t sd_storage_service_prepare_sleep(uint32_t timeout_ms)

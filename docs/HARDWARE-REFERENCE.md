@@ -24,15 +24,14 @@ magnets, USB-C, MicroSD, microphone, buzzer and three user buttons.
 | Battery gauge | BQ27220 over shared I2C1 | Implemented |
 | Battery | 750 mAh single-cell lithium battery | Read/charge state integrated |
 | Environment | SHT40 temperature/humidity sensor | Hardware present; not integrated in this firmware |
-| Audio input | PDM microphone | Dedicated S0 recording prototype; not in production flow |
+| Audio input | PDM microphone | Hardware present; not used by this firmware |
 | Audio output | Passive buzzer on PWM | Implemented |
-| Storage | MicroSD on shared SPI2 | S0 read/write prototype; S1 normal lifecycle physically verified for boot, hot remove/reinsert, sleep unmount and wake remount |
+| Storage | MicroSD on shared SPI2 | S1 normal lifecycle physically verified for boot, hot remove/reinsert, sleep unmount and wake remount |
 | Wireless | 2.4 GHz Wi-Fi and BLE 5.0 | Hardware present; intentionally outside current offline firmware |
 
 “Hardware present” does not mean the Pregnancy Journal currently initializes or
-uses it. Production firmware has no Wi-Fi, BLE provisioning, cloud sync, OTA or
-AI service. The isolated [S0 prototype](S0-SD-AUDIO-TEST.md) records local audio;
-hardware validation is still pending.
+uses it. The firmware has no Wi-Fi, BLE provisioning, cloud sync, OTA, audio
+recording or AI service.
 
 ## Pin and bus map
 

@@ -18,7 +18,7 @@ sticky_storage::RepositoryKey note_key()
 {
     sticky_storage::RepositoryKey key = {};
     assert(sticky_storage::repository_key_make(
-        sticky_storage::RepositoryKind::Note,
+        sticky_storage::RepositoryKind::Preference,
         "00000000000000000000000000000001", key));
     return key;
 }

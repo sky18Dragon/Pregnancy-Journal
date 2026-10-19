@@ -1,4 +1,4 @@
-> V1 UI includes Pregnancy, Weight, Kicks and Settings only. Reminder/checkup models below remain for legacy migration and V2.
+> The UI includes Pregnancy, Weight, Kicks and Settings only.
 
 # Data model
 
@@ -23,28 +23,6 @@ every render. A confirmed due date is preferred when supplied.
 - normalized progress and integer percent
 - trimester
 - before-start and overdue flags
-
-## Reminder
-
-- id, type, scheduled date/time
-- repeat rule: none, daily or weekly
-- enabled and completed flags
-- bounded title and note
-
-Capacity is 12. Completion rolls recurring reminders forward and marks one-time
-reminders complete.
-
-## Checkup
-
-- id, appointment date/time
-- recommended week and reference-template marker
-- completed flag
-- bounded title, location and note
-
-Capacity is 8. Entries are organizer data; they are not medical recommendations.
-
-The current editor creates a new item for today + 7 days at 09:00. The service
-also retains the hour/minute fields for future editing support.
 
 ## WeightProfileSettings
 

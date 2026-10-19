@@ -67,7 +67,7 @@ int main() {
   assert(app_page_launcher_neighbor(StickyAppId::Settings, 1) == StickyAppId::Pregnancy);
   assert(app_page_launcher_neighbor(StickyAppId::Pregnancy, -1) == StickyAppId::Settings);
   assert(app_page_launcher_neighbor(StickyAppId::Weight, -1) == StickyAppId::Pregnancy);
-  assert(app_page_launcher_neighbor(StickyAppId::Reminder, 1) == StickyAppId::Pregnancy);
+  assert(app_page_launcher_neighbor(static_cast<StickyAppId>(3), 1) == StickyAppId::Pregnancy);
   const prototype_ui::Rect landscape_header_action =
       prototype_ui::header_action_rect(800, 480);
   const prototype_ui::Rect portrait_header_action =

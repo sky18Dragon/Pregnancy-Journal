@@ -6,9 +6,7 @@
 #include <cstring>
 
 #include "domain_repository_records.h"
-#include "checkup_service.h"
 #include "kick_service.h"
-#include "reminder_service.h"
 #include "sd_repository_adapter.h"
 #include "weight_service.h"
 
@@ -259,54 +257,6 @@ class RepositoryCollectionStore {
         sticky_storage::SdRepositoryAdapterStatus::Idle;
 };
 
-struct ReminderTraits {
-    static constexpr sticky_storage::RepositoryKind kind =
-        sticky_storage::RepositoryKind::Reminder;
-    static bool key(uint32_t id, sticky_storage::RepositoryKey &output)
-    { return reminder_key(id, output); }
-    static RecordCodecStatus encode(const Reminder &item, EncodedPayload &payload)
-    { return encode_reminder(item, payload); }
-    static RecordCodecStatus decode(const uint8_t *data, size_t size,
-                                    Reminder &item)
-    { return decode_reminder(data, size, item); }
-    static bool prepare(const ReminderService &service, Reminder &item)
-    {
-        if (item.id == 0U) item.id = service.next_id();
-        return reminder_valid(item);
-    }
-    static bool insert(ReminderService &service, const Reminder &item)
-    { return service.create(item); }
-    static bool apply(ReminderService &service, const Reminder &item)
-    {
-        return service.find(item.id) == nullptr ? service.create(item)
-                                                : service.update(item);
-    }
-};
-
-struct CheckupTraits {
-    static constexpr sticky_storage::RepositoryKind kind =
-        sticky_storage::RepositoryKind::Checkup;
-    static bool key(uint32_t id, sticky_storage::RepositoryKey &output)
-    { return checkup_key(id, output); }
-    static RecordCodecStatus encode(const Checkup &item, EncodedPayload &payload)
-    { return encode_checkup(item, payload); }
-    static RecordCodecStatus decode(const uint8_t *data, size_t size,
-                                    Checkup &item)
-    { return decode_checkup(data, size, item); }
-    static bool prepare(const CheckupService &service, Checkup &item)
-    {
-        if (item.id == 0U) item.id = service.next_id();
-        return checkup_valid(item);
-    }
-    static bool insert(CheckupService &service, const Checkup &item)
-    { return service.create(item); }
-    static bool apply(CheckupService &service, const Checkup &item)
-    {
-        return service.find(item.id) == nullptr ? service.create(item)
-                                                : service.update(item);
-    }
-};
-
 struct KickTraits {
     static constexpr sticky_storage::RepositoryKind kind = sticky_storage::RepositoryKind::Kicks;
     static bool key(uint32_t id, sticky_storage::RepositoryKey &output)
@@ -352,12 +302,6 @@ struct WeightTraits {
 
 }  // namespace detail
 
-using ReminderRepositoryStore =
-    detail::RepositoryCollectionStore<Reminder, ReminderService,
-                                      detail::ReminderTraits>;
-using CheckupRepositoryStore =
-    detail::RepositoryCollectionStore<Checkup, CheckupService,
-                                      detail::CheckupTraits>;
 using KickRepositoryStore =
     detail::RepositoryCollectionStore<KickSession, KickService, detail::KickTraits>;
 using WeightRecordRepositoryStore =
@@ -427,43 +371,12 @@ class DevicePreferencesRepositoryStore {
         sticky_storage::SdRepositoryAdapterStatus::Idle;
 };
 
-class NetworkAuthorizationRepositoryStore {
-  public:
-    sticky_storage::SdRepositoryAdapterStatus begin_load();
-    sticky_storage::SdRepositoryAdapterStatus begin_save(
-        const NetworkAuthorizationSettings &settings);
-    sticky_storage::SdRepositoryAdapterStatus poll();
-
-    bool pending() const { return operation_ != Operation::None; }
-    bool ready() const { return ready_ && adapter_.binding_current(); }
-    bool found() const { return found_ && ready(); }
-    const NetworkAuthorizationSettings &settings() const { return settings_; }
-    uint32_t revision() const { return revision_; }
-    sticky_storage::SdRepositoryAdapterStatus status() const { return status_; }
-
-  private:
-    enum class Operation : uint8_t { None = 0, Load, Save };
-    sticky_storage::SdRepositoryAdapter adapter_ = {};
-    EncodedPayload payload_ = {};
-    NetworkAuthorizationSettings settings_ = {};
-    NetworkAuthorizationSettings pending_settings_ = {};
-    uint32_t revision_ = 0U;
-    bool ready_ = false;
-    bool found_ = false;
-    Operation operation_ = Operation::None;
-    sticky_storage::SdRepositoryAdapterStatus status_ =
-        sticky_storage::SdRepositoryAdapterStatus::Idle;
-};
-
 }  // namespace pregnancy_repository
 
 namespace pregnancy_repository {
 
-ReminderRepositoryStore &reminder_repository_store();
-CheckupRepositoryStore &checkup_repository_store();
 WeightRepositoryStore &weight_repository_store();
 KickRepositoryStore &kick_repository_store();
 DevicePreferencesRepositoryStore &device_preferences_repository_store();
-NetworkAuthorizationRepositoryStore &network_authorization_repository_store();
 
 }  // namespace pregnancy_repository

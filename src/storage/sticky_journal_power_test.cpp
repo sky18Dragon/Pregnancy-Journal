@@ -251,7 +251,7 @@ bool submit_next_append()
                                                       index),
                       static_cast<unsigned long long>(transaction_id));
         SdJournalMutationReference &mutation = transaction.mutations[index];
-        if (!repository_key_make(RepositoryKind::Note, record_id,
+        if (!repository_key_make(RepositoryKind::Preference, record_id,
                                  mutation.key)) {
             return false;
         }

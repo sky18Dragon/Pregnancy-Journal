@@ -22,31 +22,25 @@ compile_and_run sticky_app_lifecycle_test -pthread -Itest/lifecycle_support -Ite
 
 compile_and_run device_preferences_sync_test -Itest/support -Isrc/app -Isrc/storage -Isrc/ui test/device_preferences_sync_test.cpp
 
-compile_and_run pcm_wav_test -Isrc/storage test/pcm_wav_test.cpp
 compile_and_run board_sd_card_test -Itest/sd_support -Itest/support -Isrc/board \
     test/board_sd_card_test.cpp src/board/board_sd_card.cpp
-compile_and_run storage_contract_test -Isrc/storage \
-    test/storage_contract_test.cpp
 compile_and_run fake_storage_repository_test -Isrc/storage \
     test/fake_storage_repository_test.cpp \
     src/storage/fake_storage_repository.cpp \
     src/storage/storage_repository.cpp src/storage/sd_manifest.cpp
 compile_and_run domain_repository_records_test -Itest/support -Isrc/app \
     -Isrc/apps/pregnancy -Isrc/pregnancy/models \
-    -Isrc/pregnancy/services -Isrc/storage -Isrc/ui -Isrc/network \
+    -Isrc/pregnancy/services -Isrc/storage -Isrc/ui \
     test/domain_repository_records_test.cpp \
     src/pregnancy/services/domain_repository_records.cpp \
     src/pregnancy/services/kick_service.cpp \
-    src/pregnancy/services/reminder_service.cpp \
-    src/pregnancy/services/checkup_service.cpp \
     src/pregnancy/services/weight_service.cpp \
     src/apps/pregnancy/pregnancy_state.cpp \
-    src/network/network_authorization.cpp \
     src/storage/storage_repository.cpp src/storage/sd_manifest.cpp \
     src/app/sticky_app_id.cpp
 compile_and_run sd_repository_adapter_test -Itest/support -Isrc/app \
     -Isrc/apps/pregnancy -Isrc/pregnancy/models \
-    -Isrc/pregnancy/services -Isrc/storage -Isrc/ui -Isrc/network \
+    -Isrc/pregnancy/services -Isrc/storage -Isrc/ui \
     test/sd_repository_adapter_test.cpp \
     src/storage/sd_repository_adapter.cpp \
     src/storage/legacy_data_migration.cpp \
@@ -54,30 +48,23 @@ compile_and_run sd_repository_adapter_test -Itest/support -Isrc/app \
     src/pregnancy/services/domain_repository_stores.cpp \
     src/pregnancy/services/domain_repository_records.cpp \
     src/pregnancy/services/kick_service.cpp \
-    src/pregnancy/services/reminder_service.cpp \
-    src/pregnancy/services/checkup_service.cpp \
     src/pregnancy/services/weight_service.cpp \
     src/apps/pregnancy/pregnancy_state.cpp \
-    src/network/network_authorization.cpp \
     src/storage/storage_repository.cpp src/storage/sd_manifest.cpp \
     src/app/sticky_app_id.cpp
 compile_and_run legacy_nvs_source_test -Itest/support -Isrc/app \
     -Isrc/apps/pregnancy -Isrc/pregnancy/models -Isrc/pregnancy/services \
-    -Isrc/storage -Isrc/ui -Isrc/network test/legacy_nvs_source_test.cpp \
+    -Isrc/storage -Isrc/ui test/legacy_nvs_source_test.cpp \
     src/storage/legacy_nvs_source.cpp src/storage/persistent_state.cpp \
     src/pregnancy/services/kick_storage.cpp src/pregnancy/services/kick_service.cpp \
     src/pregnancy/services/domain_repository_records.cpp \
-    src/pregnancy/services/reminder_service.cpp src/pregnancy/services/reminder_storage_record.cpp \
-    src/pregnancy/services/checkup_service.cpp src/pregnancy/services/checkup_storage.cpp \
     src/pregnancy/services/weight_service.cpp src/pregnancy/services/weight_storage.cpp \
     src/apps/pregnancy/pregnancy_state.cpp src/apps/pregnancy/pregnancy_storage_record.cpp \
-    src/network/network_authorization.cpp src/storage/storage_repository.cpp \
+    src/storage/storage_repository.cpp \
     src/storage/sd_manifest.cpp src/app/sticky_app_id.cpp
 compile_and_run sd_storage_policy_test -Isrc/storage \
     test/sd_storage_policy_test.cpp src/storage/sd_storage_policy.cpp \
     src/storage/sd_manifest.cpp
-compile_and_run sd_audio_usage_test -Isrc/storage \
-    test/sd_audio_usage_test.cpp src/storage/sd_audio_usage.cpp
 compile_and_run sd_application_data_delete_test -Isrc/storage \
     test/sd_application_data_delete_test.cpp \
     src/storage/sd_application_data_delete.cpp
@@ -90,7 +77,7 @@ compile_and_run sd_repository_recovery_test -Isrc/storage \
     src/storage/sd_repository_recovery.cpp \
     src/storage/sd_journal_payload.cpp src/storage/storage_repository.cpp \
     src/storage/sd_manifest.cpp
-compile_and_run domain_repository_integration_test -Isrc/storage -Itest/support -Isrc/app -Isrc/apps/pregnancy -Isrc/pregnancy/models -Isrc/pregnancy/services -Isrc/ui -Isrc/network \
+compile_and_run domain_repository_integration_test -Isrc/storage -Itest/support -Isrc/app -Isrc/apps/pregnancy -Isrc/pregnancy/models -Isrc/pregnancy/services -Isrc/ui \
     test/domain_repository_integration_test.cpp \
     src/storage/sd_manifest_request.cpp src/storage/sd_manifest_writer.cpp \
     src/storage/sd_manifest_reader.cpp src/storage/sd_recovery_loader.cpp \
@@ -103,9 +90,9 @@ compile_and_run domain_repository_integration_test -Isrc/storage -Itest/support 
     src/storage/sd_journal_payload.cpp src/storage/sd_storage_policy.cpp \
     src/storage/storage_repository.cpp src/storage/sd_manifest.cpp \
     src/pregnancy/services/domain_repository_records.cpp \
-    src/pregnancy/services/kick_service.cpp src/pregnancy/services/reminder_service.cpp \
-    src/pregnancy/services/checkup_service.cpp src/pregnancy/services/weight_service.cpp \
-    src/apps/pregnancy/pregnancy_state.cpp src/network/network_authorization.cpp \
+    src/pregnancy/services/kick_service.cpp \
+    src/pregnancy/services/weight_service.cpp \
+    src/apps/pregnancy/pregnancy_state.cpp \
     src/app/sticky_app_id.cpp
 compile_and_run sd_repository_request_test -Isrc/storage \
     test/sd_repository_request_test.cpp \
@@ -240,27 +227,10 @@ compile_and_run sticky_sdcard_test -Itest/support -Isrc/board -Isrc/devices \
     -Isrc/storage \
     test/sticky_sdcard_test.cpp src/devices/sticky_sdcard.cpp \
     src/storage/sd_card_state.cpp
-compile_and_run voice_intent_test -Isrc/voice \
-    test/voice_intent_test.cpp src/voice/voice_intent.cpp
-compile_and_run pinyin_candidate_index_test -Isrc/ui -Isrc/ui/assets \
-    test/pinyin_candidate_index_test.cpp src/ui/pinyin_candidate_index.cpp \
-    src/ui/assets/pinyin_index_data.cpp
-compile_and_run chinese_text_editor_test -Isrc/ui -Isrc/ui/assets -Isrc/storage \
-    test/chinese_text_editor_test.cpp src/ui/chinese_text_editor.cpp \
-    src/ui/pinyin_candidate_index.cpp src/ui/assets/pinyin_index_data.cpp
-compile_and_run chinese_input_font_assets_test -Isrc/ui -Isrc/ui/assets \
-    test/chinese_input_font_assets_test.cpp \
-    src/ui/assets/chinese_input_font_assets.cpp
-compile_and_run chinese_input_page_test -Isrc/ui -Isrc/ui/assets \
-    test/chinese_input_page_test.cpp src/ui/chinese_input_page.cpp \
-    src/ui/chinese_text_editor.cpp src/ui/pinyin_candidate_index.cpp \
-    src/ui/canvas.cpp src/ui/font.cpp src/ui/ui_language.cpp \
-    src/ui/assets/chinese_input_font_assets.cpp \
-    src/ui/assets/chinese_font_assets.cpp src/ui/assets/pinyin_index_data.cpp
 compile_and_run app_manager_test -Itest/support -Isrc/app \
     test/app_manager_test.cpp src/app/app_manager.cpp
 compile_and_run app_registry_test -Itest/support -Isrc/app -Isrc/ui \
-    -Isrc/apps/pregnancy -Isrc/apps/reminder -Isrc/apps/checkup \
+    -Isrc/apps/pregnancy \
     -Isrc/apps/weight -Isrc/apps/kick -Isrc/apps/settings \
     test/app_registry_test.cpp src/app/app_registry.cpp
 compile_and_run refresh_policy_test -Isrc/ui test/refresh_policy_test.cpp
@@ -338,20 +308,6 @@ compile_and_run pregnancy_pages_test \
     src/pregnancy/content/content_service.cpp
 compile_and_run content_service_test -Isrc/pregnancy/content \
     test/content_service_test.cpp src/pregnancy/content/content_service.cpp
-compile_and_run reminder_service_test -Isrc/apps/pregnancy \
-    -Isrc/pregnancy/models -Isrc/pregnancy/services \
-    test/reminder_service_test.cpp src/pregnancy/services/reminder_service.cpp \
-    src/apps/pregnancy/pregnancy_state.cpp
-compile_and_run reminder_storage_record_test -Isrc/apps/pregnancy \
-    -Isrc/pregnancy/models -Isrc/pregnancy/services \
-    test/reminder_storage_record_test.cpp \
-    src/pregnancy/services/reminder_storage_record.cpp \
-    src/pregnancy/services/reminder_service.cpp \
-    src/apps/pregnancy/pregnancy_state.cpp
-compile_and_run checkup_service_test -Isrc/apps/pregnancy \
-    -Isrc/pregnancy/models -Isrc/pregnancy/services \
-    test/checkup_service_test.cpp src/pregnancy/services/checkup_service.cpp \
-    src/apps/pregnancy/pregnancy_state.cpp
 compile_and_run weight_service_test -Isrc/apps/pregnancy \
     -Isrc/pregnancy/models -Isrc/pregnancy/services \
     test/weight_service_test.cpp src/pregnancy/services/weight_service.cpp \
