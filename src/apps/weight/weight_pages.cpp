@@ -113,7 +113,7 @@ void draw_trend(Canvas &canvas, const WeightService &service, const WeightPageSt
     if (trend.values[i] < minimum) minimum = trend.values[i];
     if (trend.values[i] > maximum) maximum = trend.values[i];
   }
-  if (maximum - minimum < 20U) { minimum -= 10U; maximum += 10U; }
+  if (static_cast<unsigned>(maximum - minimum) < 20U) { minimum -= 10U; maximum += 10U; }
   int previous_x = 0, previous_y = 0;
   bool previous_present = false;
   for (size_t i = 0U; i < trend.days; ++i) {
