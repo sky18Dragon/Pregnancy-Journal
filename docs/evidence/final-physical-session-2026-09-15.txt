@@ -1,0 +1,49 @@
+Historical evidence from 2026-09-15; not a validation of current firmware.
+Archived from the local serial log with device identifiers and personal
+pregnancy/weight values redacted. Technical results are unchanged.
+
+Final physical evidence session — 2026-09-15 Asia/Shanghai
+Device: reTerminal Sticky, SSD1677 800x480
+Release ELF SHA-256: 0554646d6f295317977d7d54cadc2ad08449a785f50e9435db1b4b875c89e798
+
+Operator-labelled photographs:
+  docs/images/eink-ui/evidence/cold-boot-home-2026-09-15.jpg
+  docs/images/eink-ui/evidence/wake-home-2026-09-15.jpg
+  docs/images/eink-ui/evidence/sleep-home-2026-09-15.jpg
+
+Cold-boot excerpt from the monitored final release:
+  rst:0x1 (POWERON),boot:0xa (SPI_FAST_FLASH_BOOT)
+  app_init: Project name: pregnancy_journal
+  app_init: App version: 2.0.0
+  app_init: ELF file SHA256: 0554646d6...
+  sticky_boot: boot=reason reset=power_on wake=undefined
+  sticky_app: runtime=ready apps=6 default=pregnancy current=pregnancy result=ok
+  sticky_boot: phase=ready result=ok
+  sticky_display: display=refresh_begin mode=monochrome_full
+  sticky_display: display=refresh_done mode=monochrome_full elapsed_ms=2007 result=ESP_OK
+
+Supplemental Weight checkpoint mapping (not a final acceptance gate):
+  Entering editor: monochrome_partial sequence=1, result=ESP_OK
+  <weight redacted> / adjustment 1: monochrome_partial sequence=2, result=ESP_OK
+  <weight redacted> / adjustment 5: monochrome_partial sequence=6, result=ESP_OK
+  <weight redacted> / adjustment 10: monochrome_partial sequence=11, result=ESP_OK
+  Observed partial refresh latency: approximately 957–983 ms.
+  Operator instruction after capture: skip the Weight editor Partial x10 test.
+
+Sleep/wake session notes:
+  The user explicitly labelled wake-home-2026-09-15.jpg as Wake.
+  The user explicitly labelled sleep-home-2026-09-15.jpg as Sleep.
+  The sleep frame retains the dashboard and shows battery plus crescent status.
+  The wake frame restores the active dashboard without the crescent overlay.
+  The serial device disconnected during the sleep/power transition and later
+  re-enumerated. The reconnect again reported POWERON and ELF prefix 0554646d6,
+  then restored Pregnancy and completed a 2007 ms full refresh with ESP_OK.
+
+Final matrix disposition:
+  Cold Boot: PASS
+  Full Refresh: PASS
+  Partial x10: SKIPPED BY OPERATOR (non-blocking)
+  Sleep: PASS
+  Wake: PASS
+  Portrait: PASS
+  Landscape: PASS

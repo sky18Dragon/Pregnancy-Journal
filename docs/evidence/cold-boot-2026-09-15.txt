@@ -1,0 +1,41 @@
+Historical evidence from 2026-09-15; not a validation of current firmware.
+Archived from the local serial log with device identifiers and personal
+pregnancy/weight values redacted. Technical results are unchanged.
+
+Command:
+  pio run -e sticky-release -t upload \
+    --upload-port <serial-port>
+
+Local release artifact:
+  ELF SHA-256: 0554646d6f295317977d7d54cadc2ad08449a785f50e9435db1b4b875c89e798
+  BIN SHA-256: daecee45a30eebd35bcb6ce0feab3d4798ea1e88c585d7af6ceff8f596a7c72d
+  BIN size: 4105904 bytes
+
+Selected cold-boot serial evidence:
+  rst:0x1 (POWERON),boot:0xa (SPI_FAST_FLASH_BOOT)
+  I (1232) app_init: Project name:     pregnancy_journal
+  I (1238) app_init: App version:      2.0.0
+  I (1248) app_init: ELF file SHA256:  0554646d6...
+  I (1354) sticky_boot: phase=start firmware=2.0.0 profile=release compile_level=3
+  I (1362) sticky_boot: boot=reason reset=power_on wake=undefined
+  I (1637) sticky_display: display=init_begin width=800 height=480
+  I (1746) sticky_display: display=framebuffer_ready buffers=2 bytes_each=96000 memory=psram result=ok
+  I (1751) sticky_display: display=init_done elapsed_ms=113 result=ok
+  I (1758) sticky_display: display=clear_begin color=white mode=full
+  I (3698) sticky_display: display=clear_done color=white mode=full elapsed_ms=1939 result=ESP_OK
+  I (4130) GT911: begin ok: addr=0x14 sensor=480x800 map=800x480 elapsed=176ms
+  I (4147) sticky_touch: touch=controller_ready reason=boot address=0x14 reported_width=480 reported_height=800 map_width=480 map_height=800 fallback=0 result=ok
+  I (4307) sticky_imu: imu=ready address=0x6A who_am_i=0x6A accelerometer_hz=104 range_g=2 result=ok
+  I (4353) pregnancy_storage: pregnancy_storage=load source=due_date due=<redacted> migrated=0 recovered=0 result=ok
+  I (4364) sticky_app: runtime=ready apps=6 default=pregnancy current=pregnancy result=ok
+  I (4402) sticky_boot: phase=ready result=ok
+  I (4403) sticky_display: display=refresh_begin mode=monochrome_full
+  I (5238) sticky_imu: imu=placement state=settled from=unknown to=face_up motion_ms=0 quiet_samples=10 x_g=0.237 y_g=0.150 z_g=0.994
+  I (6410) sticky_display: display=refresh_done mode=monochrome_full elapsed_ms=2007 result=ESP_OK
+  I (8182) GT911: poll addr=0x14 status=0x00 cached=0 ready=0 count=0 map=480x800
+
+Result:
+  PASS for boot reason, firmware identity, app restoration, hardware init, and
+  successful full monochrome refresh. A straight-on photograph taken
+  immediately after this exact reset is still required for strict visual
+  Cold Boot acceptance.
