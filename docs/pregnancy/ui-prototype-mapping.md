@@ -27,11 +27,10 @@ the registry directly.
 
 ## Weekly illustration system
 
-Weeks 6–40 map to 35 distinct object illustrations and 35 distinct Chinese and
-English one-line comparisons. Text lives in
-`pregnancy/content/pregnancy_week_visual.cpp`; source and normalized artwork
-live under `assets/pregnancy/week-size/`; generated 1-bit C++ data lives in
-`ui/assets/pregnancy_week_assets.cpp`.
+Weeks 6–40 map to 35 distinct object illustrations. The home page uses the 340×340
+stipple plates under `assets/pregnancy/week-plates/` and their English and Chinese object
+names, generated into `ui/assets/pregnancy_plate_assets.cpp`. (The earlier 148×148 set and its
+generator were removed.)
 
 ## Hardware adaptations
 

@@ -92,7 +92,17 @@ void test_back_graph() {
   assert(weight_page_back_target(WeightPage::DeleteConfirm, true, target) && target == WeightPage::Editor);
 }
 
+void test_key_policy() {
+  // Every page holding unsaved input must keep the side keys from leaving it.
+  assert(weight_page_key_policy(WeightPage::Dashboard) == KeyPolicy::Free);
+  assert(weight_page_key_policy(WeightPage::History) == KeyPolicy::Free);
+  for (WeightPage page : {WeightPage::Editor, WeightPage::Profile,
+                          WeightPage::ReplaceConfirm, WeightPage::DeleteConfirm})
+    assert(weight_page_key_policy(page) == KeyPolicy::Locked);
+}
+
 int main() {
+  test_key_policy();
   test_dashboard_scales_with_width();
   test_back_graph();
   test_target_contract();

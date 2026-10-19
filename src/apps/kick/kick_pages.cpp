@@ -26,6 +26,14 @@ Rect secondary_button_rect(int width, int height) {
                                  : Rect{408, 400, 368, ui_tokens::kButtonHeight};
 }
 
+// Today's method row: the current method on the left, a CHANGE button on the
+// right. The button is the hit target and is drawn by the same rectangle.
+Rect method_change_rect(int width, int height) {
+  return portrait(width, height)
+             ? Rect{336, 656, 120, ui_tokens::kMinimumTouchHeight}
+             : Rect{256, 340, 120, ui_tokens::kMinimumTouchHeight};
+}
+
 Rect full_button_rect(int width, int height) {
   return portrait(width, height) ? Rect{24, 720, 432, ui_tokens::kButtonHeight}
                                  : Rect{24, 400, 752, ui_tokens::kButtonHeight};
@@ -160,13 +168,16 @@ void draw_bar_chart(Canvas &canvas, const Rect &rect,
 }
 
 void draw_option(Canvas &canvas, const Rect &rect, const char *title,
-                 const char *description, bool compact) {
+                 const char *description, bool compact, bool selected) {
+  if (selected)
+    canvas.fill_rect(rect.x, rect.y, rect.width, rect.height, GrayLevel::Black);
   prototype_ui::draw_frame(canvas, rect, ui_tokens::kBorderStroke);
+  const GrayLevel ink = selected ? GrayLevel::White : GrayLevel::Black;
   canvas.draw_text_pixels(rect.x + 20, rect.y + 14, ui_text(title), ui_tokens::kEmphasis,
-                          GrayLevel::Black, FontWeight::Medium);
+                          ink, FontWeight::Medium);
   ui_draw_wrapped_text_pixels(canvas, rect.x + 20, rect.y + 46,
                               rect.width - 40, ui_text(description),
-                              ui_tokens::kSecondaryBody, GrayLevel::Black,
+                              ui_tokens::kSecondaryBody, ink,
                               compact ? 2 : 4, 4, FontWeight::Regular);
 }
 
@@ -223,7 +234,7 @@ void draw_insight_stat(Canvas &canvas, int x, int y, int width,
 } // namespace
 
 void kick_page_render_today(Canvas &canvas, const KickDaySummary &today,
-                            bool save_failed) {
+                            bool save_failed, KickMethod method) {
   prototype_ui::begin_page(canvas);
   prototype_ui::draw_header(canvas, "KICK COUNTER",
                             "NOTICE YOUR BABY'S USUAL PATTERN", "APPS");
@@ -300,13 +311,27 @@ void kick_page_render_today(Canvas &canvas, const KickDaySummary &today,
     draw_period_values(canvas, 416, 108, 120, today, true);
   }
   if (save_failed) {
-    canvas.draw_text_pixels(ui_tokens::kContentMargin, is_portrait ? 632 : 352,
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, is_portrait ? 612 : 308,
                             ui_text("SAVE FAILED · TRY AGAIN"), ui_tokens::kSecondaryBody,
                             GrayLevel::Black, FontWeight::Medium);
   }
+  const Rect change = method_change_rect(canvas.width(), canvas.height());
+  canvas.draw_text_pixels(ui_tokens::kContentMargin, change.y, ui_text("METHOD"),
+                          ui_tokens::kSecondaryBody, GrayLevel::Black,
+                          FontWeight::Regular);
+  canvas.draw_text_pixels(ui_tokens::kContentMargin, change.y + 22,
+                          ui_text(method.set ? kick_mode_label(method.mode)
+                                             : "NOT SET"),
+                          ui_tokens::kBody, GrayLevel::Black, FontWeight::Medium);
+  prototype_ui::draw_button(canvas, change, "CHANGE", false);
   const Rect start = primary_button_rect(canvas.width(), canvas.height());
   const Rect insights = secondary_button_rect(canvas.width(), canvas.height());
-  prototype_ui::draw_button(canvas, start, "START COUNTING", true);
+  // A remembered check-in opens the feel page, so the button says so.
+  prototype_ui::draw_button(canvas, start,
+                            method.set && method.mode == KickMode::Awareness
+                                ? kick_mode_label(KickMode::Awareness)
+                                : "START COUNTING",
+                            true);
   prototype_ui::draw_button(canvas, insights, "VIEW 7-DAY TREND", false);
 }
 
@@ -389,7 +414,7 @@ void kick_page_render_counter(Canvas &canvas, KickPeriod period,
                   static_cast<unsigned>(count));
   draw_centered(canvas, center_x, center_y - 56, count_text, ui_tokens::kCounterDisplay,
                 FontWeight::Medium);
-  draw_centered(canvas, center_x, center_y + 34, ui_text("TAP TO RECORD"), ui_tokens::kBody,
+  draw_centered(canvas, center_x, center_y + 34, ui_text("TAP OR TOP KEY"), ui_tokens::kBody,
                 FontWeight::Medium);
   char elapsed[48] = {};
   std::snprintf(elapsed, sizeof(elapsed),
@@ -450,6 +475,7 @@ size_t kick_page_targets(KickPage page, int width, int height,
   if (page == KickPage::Today) {
     add(primary, KickAction::Start);
     add(secondary, KickAction::ShowInsights);
+    add(method_change_rect(width, height), KickAction::ChangeMethod);
   } else if (page == KickPage::Insights) {
     add(primary, KickAction::Start);
     add(secondary, KickAction::ShowCompare);
@@ -671,7 +697,7 @@ void kick_format_awareness(const KickAwarenessSummary &summary, char *output,
                   static_cast<unsigned>(summary.changed));
 }
 
-void kick_page_render_mode_select(Canvas &canvas) {
+void kick_page_render_mode_select(Canvas &canvas, KickMethod method) {
   prototype_ui::begin_page(canvas);
   prototype_ui::draw_header(canvas, "CHOOSE A RECORD TYPE",
                             "COMPARED WITH YOUR OWN LAST 7 DAYS", "BACK");
@@ -679,7 +705,8 @@ void kick_page_render_mode_select(Canvas &canvas) {
   for (size_t index = 0U; index < 3U; ++index) {
     draw_option(canvas, mode_option_rect(canvas.width(), canvas.height(), index),
                 kick_mode_label(kModeOptions[index]),
-                mode_description(kModeOptions[index]), compact);
+                mode_description(kModeOptions[index]), compact,
+                method.set && method.mode == kModeOptions[index]);
   }
 }
 

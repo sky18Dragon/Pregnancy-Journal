@@ -36,15 +36,18 @@ to the page it was opened from (Trend or Result).
 
 | Input | Result |
 | --- | --- |
-| Top button single click | Toggle Launcher |
-| Top button double click | Return to Baby Week |
+| Top button single click | Any page → Baby Week home → Launcher → close (back to the page you were on). On the Kicks counter page it counts one movement instead. Setup wizard pages ignore it |
+| Top button double click | The shortcut chosen in Settings → Shortcut: today's weight entry (default), Baby Week home, start Kicks, or off. Pages holding unsaved input or a running count are left alone |
+| Side button single press | Previous / next app in Launcher order, wrapping; presses within 400 ms merge into one switch. Pages with unsaved input or a running count ignore it |
 | Bottom-edge upward swipe | Open Launcher |
 | Downward swipe beginning in lower 30% | Close Launcher |
 | Bottom-edge swipe left / right (Launcher closed) | Switch to the next / previous app in Launcher order (Baby Week → Weight → Kicks → Settings, wrapping); a bar along the bottom edge acknowledges the swipe |
 | Launcher card tap | Pause current app and activate selected app |
 | Two side buttons held for two seconds | Request deep sleep |
 
-Launcher inactivity closes it after 30 seconds. Stable app pages normally sleep
+Each page declares how the keys act on it (Home, Free, Pager, Capture, Locked or
+Wizard; `src/ui/key_policy.h`). The design and rationale are in
+[key and shortcut design](pregnancy/key-shortcuts-design.md). Launcher inactivity closes it after 30 seconds. Stable app pages normally sleep
 after 60 seconds on battery; Settings uses three minutes. Editors and an active
 kick session can veto timeout sleep.
 
@@ -55,7 +58,7 @@ kick session can veto timeout sleep.
 | Clock setup | First-use RTC entry (`YYYYMMDDHHMM`) | Continue -> source setup |
 | Source setup | Choose confirmed due date or LMP | Choice -> date setup; optional Back |
 | Date setup | Enter `YYYYMMDD` and validate profile | Save -> Dashboard; Back |
-| Dashboard | Week/day, trimester, due countdown, progress and week image; three visible "this week" rows with chevrons | Baby row → Baby; mother and advice rows → Mom; 56 px menu box → Launcher. The illustration and card header are not tappable |
+| Dashboard | Engraving-style plate for the week (weeks 6–40) with its English object name, an 8×5 week grid (filled = past, ring with dot = current, empty = ahead) and the large week number with `WEEKS`; no progress bar or countdown | Illustration → Baby; week number block → Mom; menu icon (top right) → Launcher. The week grid is display only |
 | Baby | Offline weekly development content | Overview, Mom, Launcher |
 | Mom | Offline weekly body/preparation content | Overview, Baby, Launcher |
 
@@ -81,7 +84,7 @@ There are at most 366 live records; same-day replacement retains the stable ID.
 | Today | Today total, sessions, periods and latest session | Start, Insights, Back |
 | Insights | Seven-day recorded-data chart and summaries | Start, Compare, Back |
 | Record type | 1-hour count, Count to 10 or Feel check-in | Choose, Back |
-| Counter | Current mode and period, elapsed time and count (n/10 for Count to 10) | Count, Undo, Finish, Cancel |
+| Counter | Current mode and period, elapsed time and count (n/10 for Count to 10); the top button also counts a movement here | Count, Undo, Finish, Cancel |
 | Feel check-in | As usual, weaker, fewer, pattern changed | Choose (saves), Back |
 | Result | Saved record against its seven-day median | Done, Compare, Back |
 | Compare | Today per period, latest Count to 10, seven-day check-ins | Start, Back |
@@ -94,7 +97,8 @@ classification.
 
 | Page | Purpose | Primary transitions |
 | --- | --- | --- |
-| Main | Language, RTC, pregnancy summary, display cleanup, MicroSD | Open editor/summary/storage; APPS header action (Launcher) |
+| Main | Language, RTC, pregnancy summary, double-click shortcut, display cleanup, MicroSD | Open editor/summary/shortcut/storage; APPS header action (Launcher) |
+| Shortcut | Pick the double-click target: today's weight entry, Baby Week home, start Kicks, or off; the current one is inverted | Tap to save and stay; Back to Main |
 | Time editor | Edit and validate `YYYYMMDDHHMM` | Save or Back |
 | Pregnancy summary | Source, due date, week and progress | Edit or Back |
 | MicroSD summary | Read-only card, access and data status plus free space | Initialize/eject, More or Back |

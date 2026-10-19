@@ -56,7 +56,7 @@ void segmented_toggle(Canvas &canvas, Rect rect, const char *first, const char *
   prototype_ui::draw_button(canvas, {rect.x, rect.y, half, rect.height}, first, first_active, 2);
   prototype_ui::draw_button(canvas, {rect.x + half, rect.y, rect.width - half, rect.height}, second, !first_active, 2);
 }
-const char *unit_name(bool pounds) { return pounds ? "LB" : "KG"; }
+const char *unit_name(bool pounds) { return ui_text(pounds ? "LB" : "KG"); }
 void date_text(const PregnancyDate &date, char *output, size_t capacity) {
   std::snprintf(output, capacity, "%04u-%02u-%02u", date.year, date.month, date.day);
 }
@@ -228,7 +228,7 @@ void weight_page_render(Canvas &canvas, const WeightService &service,
     canvas.draw_text(layout.trend_title_x, layout.trend_title_y, ui_text("WEIGHT TREND"), 2, GrayLevel::Black);
     segmented_toggle(canvas, trend_toggle(width, height), "7 DAYS", "30 DAYS", state.trend_days == 7U);
     draw_trend(canvas, service, state);
-    std::snprintf(text, sizeof(text), ui_language_is_chinese() ? "身高 %u CM   记录 %u / 366" : "HEIGHT %u CM   RECORDS %u / 366", settings.height_cm, static_cast<unsigned>(service.count()));
+    std::snprintf(text, sizeof(text), ui_language_is_chinese() ? "身高 %u 厘米   记录 %u / 366" : "HEIGHT %u CM   RECORDS %u / 366", settings.height_cm, static_cast<unsigned>(service.count()));
     canvas.draw_text(ui_tokens::kContentMargin, layout.footer_text_y, text, 1, GrayLevel::Black);
     const char *labels[] = {"ADD TODAY", "HISTORY", "BASELINE"};
     for (size_t i = 0U; i < 3U; ++i) prototype_ui::draw_button(canvas, footer(i, 3U, width, height), labels[i], i == 0U);
@@ -257,7 +257,7 @@ void weight_page_render(Canvas &canvas, const WeightService &service,
     prototype_ui::draw_button(canvas, footer(1U, 2U, width, height), "SAVE", true);
   } else if (state.page == WeightPage::Profile) {
     prototype_ui::draw_header(canvas, "BASELINE", "PERSONAL RECORD", "CANCEL");
-    std::snprintf(text, sizeof(text), "%u CM", state.profile.height_cm);
+    std::snprintf(text, sizeof(text), "%u %s", state.profile.height_cm, ui_text("CM"));
     canvas.draw_text(24, vertical ? 170 : 114, text, 3, GrayLevel::Black);
     const auto baseline = weight_display_value(state.profile.baseline_tenths_kg, pounds);
     std::snprintf(text, sizeof(text), "%u.%u %s", baseline / 10U, baseline % 10U, unit_name(pounds));

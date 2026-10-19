@@ -10,6 +10,10 @@
 esp_err_t pregnancy_app_start(Canvas &canvas);
 void pregnancy_app_set_display_rotation(CanvasRotation rotation);
 void pregnancy_app_request_setup();
+// Makes the next resume show the dashboard instead of a detail page. Setup
+// pages are left alone. A fresh start always opens the dashboard anyway.
+// 下次恢复时显示首页而非详情页；不打断设置向导页。
+void pregnancy_app_request_dashboard();
 esp_err_t pregnancy_app_pause();
 esp_err_t pregnancy_app_resume();
 
@@ -20,3 +24,6 @@ esp_err_t pregnancy_app_prepare_power_sleep(
     uint32_t &next_event_epoch_seconds);
 
 uint32_t pregnancy_app_power_sleep_timeout_ms();
+// Draws the dashboard's sleep status (battery + moon in the menu slot) and returns true; false on
+// other pages, where the system overlay is used.
+bool pregnancy_app_draw_sleep_status(Canvas &canvas);

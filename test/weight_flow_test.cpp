@@ -1,4 +1,5 @@
 #include <cassert>
+#include <initializer_list>
 
 #include "weight_flow.h"
 
@@ -167,6 +168,50 @@ int main() {
   r = flow.handle_action(hit(WeightAction::AddToday));
   assert(r.invalid_clock && r.render && flow.page() == WeightPage::Dashboard);
   port.clock_ok = true;
+
+  // The shortcut opens today's entry like "add today"; from the history too.
+  {
+    FakePort p4;
+    WeightFlow f4(p4);
+    f4.read_today();
+    WeightFlowResult q = f4.enter_record_today();
+    assert(q.render && f4.page() == WeightPage::Editor && !f4.state().editing_history &&
+           f4.state().edit_id == 0U);
+    // A page holding unsaved input is never replaced and asks for no redraw.
+    f4.handle_action(hit(WeightAction::PlusOne));
+    const uint16_t edited = f4.state().edit_display_weight;
+    q = f4.enter_record_today();
+    assert(!q.render && !q.save_record && f4.page() == WeightPage::Editor &&
+           f4.state().edit_display_weight == edited);
+    f4.handle_action(hit(WeightAction::Back));
+    assert(f4.page() == WeightPage::Dashboard);
+    f4.handle_action(hit(WeightAction::History));
+    q = f4.enter_record_today();
+    assert(q.render && f4.page() == WeightPage::Editor && !f4.state().editing_history);
+
+    // Today already has a record: the editor opens on it.
+    FakePort p5;
+    add_record(p5, 10U, 655U);
+    WeightFlow f5(p5);
+    f5.read_today();
+    q = f5.enter_record_today();
+    assert(q.render && f5.page() == WeightPage::Editor && f5.state().edit_id != 0U &&
+           f5.state().edit_display_weight == 655U);
+    for (WeightAction action : {WeightAction::Profile}) {
+      f5.reset_to_dashboard();
+      f5.handle_action(hit(action));
+      assert(f5.page() == WeightPage::Profile);
+      q = f5.enter_record_today();
+      assert(!q.render && f5.page() == WeightPage::Profile);
+    }
+    // An unreadable clock is reported, not hidden.
+    FakePort p6;
+    WeightFlow f6(p6);
+    f6.read_today();
+    p6.clock_ok = false;
+    q = f6.enter_record_today();
+    assert(q.invalid_clock && f6.page() == WeightPage::Dashboard);
+  }
 
   // Date change: only noticed on the dashboard, and only once.
   assert(!flow.refresh_today());

@@ -38,9 +38,9 @@
 
 **局刷计数 / 强制全刷**：有，且在显示层兜底。
 
-- `kPartialRefreshesBeforeCleanup = 8`（`sticky_display.cpp:35`）。连续局刷 ≥ 8 次后，下一次 `refresh_partial()` 自动提升为全刷（`sticky_display.cpp:241-248`，日志 `reason=partial_limit`）。任意一次全刷/灰阶刷/清屏都会把计数清零。
+- `kPartialRefreshesBeforeCleanup = 10`（`sticky_display.cpp`，2026-10-18 起，原为 8）。连续局刷 ≥ 10 次后，下一次 `refresh_partial()` 自动提升为全刷（`sticky_display_refresh_partial()` 开头，日志 `reason=partial_limit`）。任意一次全刷/灰阶刷/清屏都会把计数清零。下文问题表（E2、E3、I7、C4）和 2026-10-16 实机记录里的“8 次”均为当时的数值。
 - 面板组件层另有保护：基线全刷之前请求局刷会被提升为全刷（`epaper_panel.c:208-210`）。
-- 胎动页自己还有一份独立的 8 次计数（`kick_app.cpp:42,118-122`），与显示层重复。
+- （已过时，见 E7 已修复）胎动页曾有一份独立的 8 次计数（`kick_app.cpp`），与显示层重复。
 - 睡眠前必定做一次全刷（`sticky_app.cpp:364`），随后切断屏幕供电；掉电后画面保持。
 - 电池状态叠加层在每次刷新前由显示层绘制（`draw_battery_overlay_if_enabled`），各 App 渲染时先把它关掉，仅睡眠帧和孕周页横屏紧凑电量图标使用。
 
@@ -51,7 +51,7 @@
 | 启动器 `render_launcher` (`sticky_app.cpp:183-193`) | 方向切换（`render_launcher(true)`） | **打开启动器、语言切换均为局刷**（默认参数 `false`） |
 | 孕周 `render_page` (`pregnancy_app.cpp:203`) | 进入/恢复/存储状态变化（`render_page(false)`） | **所有触摸动作**（`render_page(true)`，`:562`）包括切换 Baby/Mom/Dashboard 整页 |
 | 体重 `render` (`weight_app.cpp:182`) | 页面变化（`page != page_before`）、存储变化 | 同页内改数值 |
-| 胎动 `render` (`kick_app.cpp:324`) | 页面变化、存储变化 | 同页内计数；计数页每 8 次局刷自带全刷 |
+| 胎动 `render` (`kick_app.cpp:324`) | 页面变化、存储变化 | 同页内计数；计数页每 10 次局刷自带全刷（2026-10-18 起，原为 8） |
 | 设置 `render` (`settings_app.cpp:299`) | 少数动作（刷新屏幕、安全弹出、存储事件、偏好变化） | **大多数页面跳转为局刷**（`open_editor(); render();` 等，`:415-430`） |
 | 睡眠 | 一律全刷 | — |
 
@@ -276,9 +276,9 @@ flowchart TD
 | C1 | **【四个 App 的页面流程均已抽成无硬件依赖的 Flow，2026-10-16】** 设置的页面流程（页面切换与返回、时间编辑、存储初始化/弹出/导入/删除/重置对话框的进度与护栏条件）抽成 `SettingsFlow`（`settings_flow.*`，RTC、MicroSD、旧数据迁移、设备绑定等服务通过 `SettingsFlowPort` 注入），新增 `settings_flow_test`；`settings_app.cpp` 保留触摸、显示与服务适配（因新增适配器代码，行数未减少，约 580 行）。至此孕周/胎动/体重/设置都有 Flow + 假端口的宿主行为测试；存储轮询、重试与刷新选择仍在各 App 任务中。此前三个 App 的记录： 体重的页面与编辑流程（页面切换与返回、编辑值与范围、历史翻页、基线档案、要写入的记录/偏好/删除请求）抽成无硬件依赖的 `WeightFlow`（`weight_flow.*`，RTC 与已存记录/设置通过 `WeightFlowPort` 注入），`weight_app.cpp` 由 284 行降到约 220 行，新增 `weight_flow_test`。 胎动的页面与计数流程（页面切换与返回去向、计数器、保存请求、结果页、跨日）同样抽成无硬件依赖的 `KickFlow`（`kick_flow.*`，RTC 与“记录已满”通过 `KickFlowPort` 注入），`kick_app.cpp` 由 447 行降到约 350 行，新增 `kick_flow_test`；仓库存储的保存/重试/冲突检测仍在 App 中。 孕周的页面状态机、时间/日期输入、校验、进度计算和日期翻页抽成不依赖硬件的 `PregnancyFlow`（`pregnancy_flow.*`，RTC 通过 `PregnancyClockPort` 注入），App 任务只负责触摸、显示、RTC 适配和存储，`pregnancy_app.cpp` 由 625 行降到约 450 行；新增行为测试 `pregnancy_flow_test`（假 RTC：无 RTC、写入被拒、不可能日期、保存确认、设置请求、跨日等）。刷新选择仍在各 `render_page` 里、存储轮询仍在 App 中，属后续步骤。原问题：**UI 与业务逻辑耦合**：各 `*_app.cpp` 同时做触摸取走、状态机、存储轮询、刷新选择和渲染调用（如 `pregnancy_app.cpp` 625 行、`settings_app.cpp` 688 行）。刷新策略（full/partial）分散在 ~30 个调用点，没有集中策略 | `src/apps/*/*_app.cpp` | 高 |
 | C2 | **【孕周、体重、胎动、设置页及启动器均已完成，2026-10-15】** 孕周页改为每个方向一份 `PageLayout`、命中测试由 `pregnancy_page_targets()` 派生并加入宿主契约测试，改动前后预览像素与命中区逐字节一致；体重页同样由 `weight_page_targets()`、启动器由 `app_page_launcher_targets()`、设置页由 `settings_page_targets()`（禁用的主/次按钮不进入目标表）、胎动页由 `kick_page_targets()`（计数大圆作为圆形目标，反馈用外接正方形）派生命中（编辑页的 DELETE 在无记录时不绘制但仍可命中，由 App 忽略，未改）。原问题：**硬编码坐标 / 尺寸**：`pregnancy_pages.cpp` 约 120 处绘制调用、大量 `constexpr Rect` 字面量（横竖屏两套）；`kick_pages.cpp` 45 处、几乎无令牌；绘制 Rect 与命中 Rect 分别维护，违反 `DESIGN.md` 的“视觉与命中同一矩形”原则（如 `kHomeMenu` 56×56 与实际绘制的 32×32 图标） | `pregnancy_pages.cpp:20-62,374-556`，`kick_pages.cpp` | 高 |
 | C3 | **【孕周页的 Rect 重复定义与横竖屏成对常量已消除】** 原问题：**重复的绘制代码**：横屏/竖屏两个几乎整页拷贝的渲染分支（仪表盘 ~180 行）；多处重复的居中文本、虚线/下划线、按钮、圆角框实现；`Rect` 结构体在 `prototype_ui.h` 与 `pregnancy_pages.cpp:12-27` 各定义一份 | `pregnancy_pages.cpp:12-27,374-556`，`prototype_ui.h:10` | 中 |
-| C4 | 刷新策略重复实现：显示层 8 次上限与 `kick_app.cpp` 8 次计数重复；`prepare_app_transition_refresh` 死代码；`weight_app` / `kick_app` / `settings_app` / `reminder_app` / `checkup_app` 各自实现同款 `render(bool full)` 包装 | `kick_app.cpp:116-124`、`sticky_display.cpp:335-350` | 中 |
+| C4 | 刷新策略重复实现：显示层 8 次上限与 `kick_app.cpp` 8 次计数重复；`prepare_app_transition_refresh` 死代码（2026-10-19 起由 `sticky_app.cpp` 的启动器过渡调用，不再是死代码）；`weight_app` / `kick_app` / `settings_app` / `reminder_app` / `checkup_app` 各自实现同款 `render(bool full)` 包装 | `kick_app.cpp:116-124`、`sticky_display.cpp:335-350` | 中 |
 | C5 | 死代码与未启用模块仍编译：提醒、产检 App、中文输入页产品中不可达（启动器的空实现 `language_at`/`tutorial_at` 已删除） | `src/apps/reminder`、`src/apps/checkup`、`app_pages.cpp:99` | 低 |
-| C6 | **【试做：体重仪表盘，2026-10-16】** 仪表盘的文字与图表位置收进 `DashboardLayout`（横向由屏宽和内容边距推导：图表右列起点 = 边距 + 左列宽 + 边距、宽度 = 屏宽 − 边距 − 起点；KG/LB 与趋势开关按右边距/页头按钮对齐，不再写固定 x），竖向的堆叠位置按方向命名；图表内边距、点半径等魔数命名。800×480 / 480×800 的预览逐字节不变；在假想的 960×540 逻辑屏上图表、开关、底部按钮会跟随屏宽，竖向间距不随高度缩放；宿主新增“跟随屏宽”测试。其余页面未做。原问题：页面坐标是针对 800×480 / 480×800 两个固定尺寸写死的，无法按布局网格推导；新增设备尺寸或字号调整需要逐页改数字 | `kick_pages.cpp`、`weight_pages.cpp` `footer/unit/trend_toggle` 等 | 中 |
+| C6 | **【试做：体重仪表盘，2026-10-16；真机横竖屏确认与改动前一致】** 仪表盘的文字与图表位置收进 `DashboardLayout`（横向由屏宽和内容边距推导：图表右列起点 = 边距 + 左列宽 + 边距、宽度 = 屏宽 − 边距 − 起点；KG/LB 与趋势开关按右边距/页头按钮对齐，不再写固定 x），竖向的堆叠位置按方向命名；图表内边距、点半径等魔数命名。800×480 / 480×800 的预览逐字节不变；在假想的 960×540 逻辑屏上图表、开关、底部按钮会跟随屏宽，竖向间距不随高度缩放；宿主新增“跟随屏宽”测试。其余页面未做。原问题：页面坐标是针对 800×480 / 480×800 两个固定尺寸写死的，无法按布局网格推导；新增设备尺寸或字号调整需要逐页改数字 | `kick_pages.cpp`、`weight_pages.cpp` `footer/unit/trend_toggle` 等 | 中 |
 | C7 | 本次审计时工作区有 **298 个未提交改动文件**（`git status`），其中包含显示层、驱动组件(`epaper_panel.c`)、各 App 渲染，说明 UI 相关代码正处于变动中，后续重构基线需要先固定 | `git status --short` | 中 |
 
 ### 4.4.1 预览工具新发现（2026-10-15，尚未处理）
@@ -327,7 +327,7 @@ flowchart TD
 
 | 来源 | 获得的信息 | 对本项目的意义 |
 | --- | --- | --- |
-| [Seeed Sticky：Refresh and Low Power](https://www.seeedstudio.com/sticky/docs/en/device-guide/esp-refresh/) | 官方 demo 的刷新分工：4 级灰阶全刷仅用于首页；其余页面用黑白全刷；黑白局刷仅用于状态栏时间、每分钟一次。“整页切换、大面积变化、灰阶图像用全刷；反复局刷会有轻微残影，适当时做全刷”。**未给出局刷次数上限和刷新耗时**；只点名控制器 SSD1677，未给面板料号 | 印证“页面变化→全刷、页内小变化→局刷”的统一规则；说明 8 次上限是本项目自定的保守值，不是官方数据 |
+| [Seeed Sticky：Refresh and Low Power](https://www.seeedstudio.com/sticky/docs/en/device-guide/esp-refresh/) | 官方 demo 的刷新分工：4 级灰阶全刷仅用于首页；其余页面用黑白全刷；黑白局刷仅用于状态栏时间、每分钟一次。“整页切换、大面积变化、灰阶图像用全刷；反复局刷会有轻微残影，适当时做全刷”。**未给出局刷次数上限和刷新耗时**；只点名控制器 SSD1677，未给面板料号 | 印证“页面变化→全刷、页内小变化→局刷”的统一规则；说明局刷上限（原 8 次，现 10 次）是本项目自定的值，不是官方数据 |
 | [Seeed Sticky Playground 固件列表](https://www.seeedstudio.com/sticky/playground/firmware/) | 官方收录的第三方固件：CrossPoint Reader、CrossInk、CrossMux、TRMNL、ESPHome、OpenDisplay、Tesserae、Sticky Calculator、Sticky Bunny（limengdu，本项目所属生态）、InkSalah、Sticky MicroNotes、Toybox、Voice Companion 等；页面本身几乎不含 UI/刷新实现细节 | 可作为后续对照源码的候选；本次未逐个读源码 |
 | [Seeed_GFX2](https://github.com/Seeed-Studio/Seeed_GFX2) | 仅在 reTerminal 系列表中列出 Sticky，未给面板型号/局刷上限/耗时；通用能力含全刷、局刷、快刷、温度补偿 | 没有补充到面板料号，该项仍为【待确认】 |
 | 本仓库 `docs/STICKY_CALCULATOR_COMPARISON.md` | 已有对 Sticky Calculator 的源码对照（固定点阵字号、基线、逐像素绘制、二值图标笔画） | 已被 `docs/EINK_UI_OPTIMIZATION_PLAN.md` 吸收，是字体与线宽规则的先例 |
@@ -365,4 +365,10 @@ flowchart TD
 | 错误/警告 | 仅既有的 `manifest=degraded slot=A` |
 
 结论：I1 在真机上通过。
+
+### 7.2 未复现的观察：启动器偶发点击无反应（2026-10-16）
+
+测试者反馈一次：在“功能”启动器页点卡片没有反应，只有顶部键能关闭；之后自行恢复正常。对应的 release 日志（`sticky-release`，`86dfbf6`）显示启动器在 107.5 s 打开，下一次被识别的点按在 117.3 s，其间无触摸错误、无触摸控制器恢复、无队列满告警。release 版只记录“点按”，不记录被判为滑动（位移 > 24 px，约 2.6 mm）的触摸，因此无法区分“手指带位移被当作滑动”“点在卡片间隙”“控制器未上报”。曾临时烧录带触摸采样的 `sticky-debug` 观察一段时间，期间无触摸操作，未抓到现场；已烧回 `sticky-release`。
+
+处理：未改代码（点按位移容差在 `src/input`，属不可改范围）。若再次出现，需要烧录 `sticky-debug` 并保持串口抓取，记录出现时的页面、触碰方式与时间，再对照 `touch=path ... result=gesture` 与 `touch=detected` 判断。
 

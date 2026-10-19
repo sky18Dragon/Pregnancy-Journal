@@ -5,6 +5,8 @@
 
 #include "digit_fields.h"
 #include "pregnancy_state.h"
+#include "key_policy.h"
+#include "shortcut_target.h"
 #include "prototype_ui.h"
 
 class Canvas;
@@ -20,7 +22,29 @@ enum class SettingsPage : uint8_t {
   LegacyClearConfirm,
   CardDataDeleteConfirm,
   DeviceResetConfirm,
+  Shortcut, // double-click target
 };
+
+// How the hardware keys act on `page`. Editors and confirmation dialogs are Locked.
+// 各页对硬件按键的反应；编辑页和确认对话框为 Locked。
+inline KeyPolicy settings_page_key_policy(SettingsPage page) {
+  switch (page) {
+  case SettingsPage::Main:
+  case SettingsPage::Shortcut:
+  case SettingsPage::PregnancySummary:
+  case SettingsPage::StorageSummary:
+  case SettingsPage::StorageMore:
+  case SettingsPage::LegacyMigration:
+    return KeyPolicy::Free;
+  case SettingsPage::TimeEditor:
+  case SettingsPage::StorageConfirm:
+  case SettingsPage::LegacyClearConfirm:
+  case SettingsPage::CardDataDeleteConfirm:
+  case SettingsPage::DeviceResetConfirm:
+    return KeyPolicy::Locked;
+  }
+  return KeyPolicy::Locked;
+}
 
 enum class SettingsAction : uint8_t {
   None,
@@ -29,6 +53,11 @@ enum class SettingsAction : uint8_t {
   RefreshDisplay,
   PregnancySettings,
   StorageSettings,
+  ShortcutSettings, // main page: open the shortcut page
+  ShortcutWeight,   // shortcut page: pick a double-click target
+  ShortcutBabyWeek,
+  ShortcutKick,
+  ShortcutOff,
   BeginStorageInitialization,
   SafeEjectStorage,
   ConfirmStorageInitialization,
@@ -127,7 +156,15 @@ struct SettingsMigrationPageState {
 
 void settings_page_render_main(Canvas &canvas, bool rtc_ready,
                                const char *clock_text, const char *due_text,
-                               bool save_failed = false);
+                               bool save_failed = false,
+                               StickyShortcutTarget shortcut =
+                                   StickyShortcutTarget::WeightRecordToday);
+// The double-click target page: one row per target, the current one inverted.
+// 双击目标页：每个目标一行，当前项反色。
+void settings_page_render_shortcut(Canvas &canvas, StickyShortcutTarget current);
+// The action a row of the shortcut page performs, and the target it picks.
+SettingsAction settings_shortcut_action(StickyShortcutTarget target);
+bool settings_action_shortcut(SettingsAction action, StickyShortcutTarget &target);
 void settings_page_render_time_editor(Canvas &canvas,
                                       const DigitFields &fields,
                                       bool input_error);

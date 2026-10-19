@@ -30,13 +30,23 @@ landscape controls and switch to dedicated portrait rows, charts, keypads and
 bottom actions rather than cropping or rotating a fixed screenshot. Touch
 targets reflow with the visual controls.
 
-- Top-button single click toggles the launcher.
-- Swipe up beginning in the bottom edge opens it; swipe down beginning in the
-  lower 30% closes it.
+- Top-button single click: any page goes to the Baby Week home, the home opens
+  the launcher, and the launcher closes back to the page you were on. On the
+  Kicks counter page it counts one movement instead; the setup wizard ignores it.
+- Top-button double click runs the shortcut chosen in Settings → Shortcut: record
+  today's weight (the default), go to the Baby Week home, start Kicks, or off.
+  Pages holding unsaved input or a running count are left alone.
+- Side-button single press switches to the previous or next app in launcher
+  order, wrapping; presses within 400 ms merge into one switch. Pages with
+  unsaved input (editors, confirmations, a running count) and the setup wizard
+  ignore it. The direction is mirrored only when the screen is rotated 180°.
+- Swipe up beginning in the bottom edge opens the launcher; swipe down beginning
+  in the lower 30% closes it. A long flat swipe left or right along the bottom
+  edge, with the launcher closed, switches to the next or previous app without
+  opening it.
 - Swipes must be predominantly vertical, travel at least 96 px (or 20% of the
   panel height), and finish within 60–1600 ms.
 - A launcher with no activity closes after 30 seconds.
-- Double-clicking the top button always returns to Baby Week.
 - The on-screen Close control returns to the previously active app.
 
 ## App behavior
@@ -48,12 +58,17 @@ estimated due date or the first day of the last menstrual period. Dates are
 entered as `YYYYMMDD`; clock input is `YYYYMMDDHHMM`. The profile is saved in
 the selected MicroSD repository and can be edited later.
 
-The home page follows the settled grip orientation and reflows rather than
-cropping: landscape uses a two-column dashboard, while portrait uses a vertical
-week/progress, illustration and growth-card sequence. Setup and Baby/Mom detail
-pages have matching portrait layouts. Weeks 6–40 each have a distinct
-ImageGen illustration and one-line comparison. Source images are replaceable
-under `assets/pregnancy/week-size/` and are compiled into 148×148 1-bit assets.
+The home page is a plate. It follows the settled grip orientation and reflows
+rather than cropping: landscape puts the 340 px illustration on the right with
+the week number, `WEEKS` and an 8×5 week grid (filled = past, ring with a dot =
+current, empty = ahead) in a left column; portrait is calendar-style, with the
+illustration on top, the grid at the lower left and the week number at the lower
+right. Tapping the illustration opens the Baby page and tapping the week number
+block opens the Mom page; the menu icon opens the launcher. The dashboard has no
+progress bar or countdown. Setup and Baby/Mom detail pages have matching
+portrait layouts. Weeks 6–40 each have a distinct engraving-style plate. The
+340×340 sources are replaceable under `assets/pregnancy/week-plates/` and are
+compiled into 1-bit assets.
 The Baby and Mom detail tabs show week/day, trimester, days until the due date,
 offline guidance and three facts. Content is clamped to weeks 1–40.
 
@@ -78,12 +93,13 @@ The app supports short counting sessions throughout the day and
 tags each saved session as morning, afternoon or evening from the RTC (before
 12:00, 12:00–17:59, or 18:00 onward). Tapping the central target records one
 distinct movement; a 400 ms guard filters accidental double taps, and Undo
-removes the most recent tap. Finish saves a non-empty session. An active session
+removes the most recent tap, and on the counter page the top button also counts
+one movement. Finish saves a non-empty session. An active session
 keeps the device awake and is forced to finish after 60 minutes. Capacity is 400
 records. New sessions use the shared asynchronous MicroSD repository; the
 saved totals change only after durable completion. A failed save retains the
 draft for a stable-ID reload/retry, rejecting different-card or conflicting
-records. Cancellation discards the active draft. Eight partial updates trigger
+records. Cancellation discards the active draft. Ten partial updates trigger
 a full monochrome cleanup. The captured start date/time remains fixed across
 midnight, and summary pages update for the new date.
 
@@ -95,7 +111,9 @@ they are not a normal/abnormal score, diagnostic threshold or extrapolated
 12-hour estimate. The Kicks pages show recorded data and comparisons only; they
 carry no care-seeking instruction.
 
-Start opens a record-type choice:
+The first Start opens a record-type choice, and the chosen type is remembered:
+later Starts (including the double-click shortcut) go straight to that type, and
+the Today page has a Change row to pick another. Choosing opens:
 
 - **1-hour count** counts distinct movements for up to 60 minutes and converts
   the session to movements per hour (sessions under 15 minutes are not
@@ -121,8 +139,10 @@ movement totals and the seven-day chart.
 ### Settings
 
 Settings provides language, device-time editing, a Pregnancy Settings summary,
-e-paper clean refresh and a MicroSD status summary; its header returns to Baby
-Week. Pregnancy Settings shows the dating source, due date, current week and
+the double-click shortcut, e-paper clean refresh and a MicroSD status summary;
+its header returns to Baby Week. The Shortcut page offers four targets (today's
+weight entry, Baby Week home, start Kicks, off), saves on tap and stays on the
+page. Pregnancy Settings shows the dating source, due date, current week and
 40-week progress before entering the existing date editor. The MicroSD page
 reports card access, capacity, dataset identity/generation and recovery state.
 A writable,
@@ -153,9 +173,17 @@ seconds early. Reminder/checkup caches, business wake events and timer-triggered
 alarms are disabled in V1; their persisted app IDs remain unchanged and fall
 back to Baby Week when selected from an older saved state.
 
-Stable page entry uses a full refresh; mutations use partial refresh. After five
-fast app transitions the display receives a cleanup full refresh. Settings also
-offers an explicit cleanup action.
+Page changes use a full refresh; mutations inside a page use partial refresh,
+and the display layer makes every eleventh consecutive partial refresh a full
+one. Opening the launcher, returning to the app and switching apps draw their
+first frame with the fast (partial) waveform, and every sixth such transition is
+a full refresh. Settings also offers an explicit cleanup action. Trial
+(2026-10-18): switching between the pregnancy home and the baby page uses the
+partial waveform and, once the user has been idle for 5 s, one full refresh
+repaints the page; every other page change keeps the full refresh. Entering the
+pregnancy home with a profile the app already holds draws the home page at once
+and re-checks the card quietly. Weight and Kicks draw no loading page when the
+card answers within 1.5 s. Details: [refresh strategy](eink-refresh-strategy.md).
 
 ## Verification status
 

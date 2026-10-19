@@ -1,6 +1,5 @@
 #include "sticky_button.h"
 
-#include <atomic>
 #include <cstdint>
 
 #include "app_log.h"
@@ -22,22 +21,41 @@ constexpr uint16_t kTopLongPressTimeMs = STICKY_TOP_LONG_PRESS_MS;
 constexpr uint16_t kSideLongPressTimeMs = 2000U;
 constexpr uint16_t kShortPressTimeMs = 180U;
 constexpr UBaseType_t kEventQueueCapacity = 8U;
-constexpr int64_t kSleepChordHoldUs = 2000000LL;
-constexpr int64_t kSleepChordPressWindowUs = 500000LL;
+constexpr UBaseType_t kEdgeQueueCapacity = 16U;
+constexpr uint8_t kReadyCapacity = 8U;
+
+// A raw side-key edge, stamped when the callback ran.
+struct SideEdge {
+    SideKey side;
+    bool pressed;
+    int64_t at_us;
+};
 
 button_handle_t s_button = nullptr;
 button_handle_t s_left_button = nullptr;
 button_handle_t s_right_button = nullptr;
 QueueHandle_t s_event_queue = nullptr;
-std::atomic<bool> s_left_pressed{false};
-std::atomic<bool> s_right_pressed{false};
-std::atomic<int64_t> s_left_pressed_at_us{0};
-std::atomic<int64_t> s_right_pressed_at_us{0};
-bool s_sleep_chord_emitted = false;
+QueueHandle_t s_edge_queue = nullptr;
+// Only the consumer task touches the tracker and the ready ring.
+SideKeyTracker s_tracker;
+StickyButtonRecord s_ready[kReadyCapacity];
+uint8_t s_ready_head = 0U;
+uint8_t s_ready_count = 0U;
 
 void queue_event(StickyButtonEvent event)
 {
-    xQueueSend(s_event_queue, &event, 0);
+    const StickyButtonRecord record = {event, SideKey::Left,
+                                       esp_timer_get_time()};
+    xQueueSend(s_event_queue, &record, 0);
+}
+
+void push_ready(const StickyButtonRecord &record)
+{
+    if (s_ready_count >= kReadyCapacity) {
+        return;
+    }
+    s_ready[(s_ready_head + s_ready_count) % kReadyCapacity] = record;
+    ++s_ready_count;
 }
 
 void button_press_down_callback(void *button_handle, void *user_data)
@@ -77,17 +95,11 @@ void button_long_press_up_callback(void *button_handle, void *user_data)
 
 void side_button_callback(void *button_handle, void *user_data)
 {
-    const bool pressed = reinterpret_cast<uintptr_t>(user_data) != 0U;
-    const int64_t now_us = esp_timer_get_time();
-    if (button_handle == s_left_button) {
-        s_left_pressed.store(pressed, std::memory_order_release);
-        s_left_pressed_at_us.store(pressed ? now_us : 0,
-                                   std::memory_order_release);
-    } else if (button_handle == s_right_button) {
-        s_right_pressed.store(pressed, std::memory_order_release);
-        s_right_pressed_at_us.store(pressed ? now_us : 0,
-                                    std::memory_order_release);
-    }
+    const SideEdge edge = {
+        button_handle == s_right_button ? SideKey::Right : SideKey::Left,
+        reinterpret_cast<uintptr_t>(user_data) != 0U,
+        esp_timer_get_time()};
+    xQueueSend(s_edge_queue, &edge, 0);
 }
 
 esp_err_t create_side_button(int pin, button_handle_t &button)
@@ -135,8 +147,14 @@ esp_err_t sticky_button_init()
 
     if (s_event_queue == nullptr) {
         s_event_queue = xQueueCreate(kEventQueueCapacity,
-                                     sizeof(StickyButtonEvent));
+                                     sizeof(StickyButtonRecord));
         if (s_event_queue == nullptr) {
+            return ESP_ERR_NO_MEM;
+        }
+    }
+    if (s_edge_queue == nullptr) {
+        s_edge_queue = xQueueCreate(kEdgeQueueCapacity, sizeof(SideEdge));
+        if (s_edge_queue == nullptr) {
             return ESP_ERR_NO_MEM;
         }
     }
@@ -225,7 +243,7 @@ esp_err_t sticky_button_init()
     }
 
     STICKY_LOGI(kTag,
-                "button=ready ai_pin=%d side_pins=%d,%d active_level=low press=imu_start long_start_ms=%u single=launcher double=pregnancy_home sleep_chord_ms=2000 click_window_ms=%u result=ok",
+                "button=ready ai_pin=%d side_pins=%d,%d active_level=low press=imu_start long_start_ms=%u side_single=routed sleep_chord_ms=2000 click_window_ms=%u result=ok",
                 PIN_TOP_BUTTON,
                 PIN_SIDE_BUTTON_LEFT,
                 PIN_SIDE_BUTTON_RIGHT,
@@ -234,38 +252,46 @@ esp_err_t sticky_button_init()
     return ESP_OK;
 }
 
+bool sticky_button_take_record(StickyButtonRecord &record)
+{
+    if (s_event_queue == nullptr || s_edge_queue == nullptr) {
+        return false;
+    }
+
+    SideEdge edge;
+    while (xQueueReceive(s_edge_queue, &edge, 0) == pdTRUE) {
+        SideKeyEvent single;
+        if (s_tracker.on_edge(edge.side, edge.pressed, edge.at_us, single)) {
+            push_ready({StickyButtonEvent::SideSingle, single.side,
+                        single.at_us});
+        }
+    }
+    SideKeyEvent chord;
+    if (s_tracker.poll(esp_timer_get_time(), chord)) {
+        STICKY_LOGI(kTag,
+                    "button=sleep_chord state=detected hold_ms=2000 result=ok");
+        push_ready({StickyButtonEvent::SleepChord, SideKey::Left, chord.at_us});
+    }
+
+    if (s_ready_count > 0U) {
+        record = s_ready[s_ready_head];
+        s_ready_head = (s_ready_head + 1U) % kReadyCapacity;
+        --s_ready_count;
+        return true;
+    }
+    record = StickyButtonRecord();
+    return xQueueReceive(s_event_queue, &record, 0) == pdTRUE;
+}
+
 bool sticky_button_take_event(StickyButtonEvent &event)
 {
-    const bool left_pressed =
-        s_left_pressed.load(std::memory_order_acquire);
-    const bool right_pressed =
-        s_right_pressed.load(std::memory_order_acquire);
-    if (!left_pressed || !right_pressed) {
-        s_sleep_chord_emitted = false;
-    } else if (!s_sleep_chord_emitted) {
-        const int64_t left_at =
-            s_left_pressed_at_us.load(std::memory_order_acquire);
-        const int64_t right_at =
-            s_right_pressed_at_us.load(std::memory_order_acquire);
-        const int64_t press_gap_us = left_at > right_at
-                                         ? left_at - right_at
-                                         : right_at - left_at;
-        const int64_t held_since_us = left_at > right_at
-                                          ? left_at
-                                          : right_at;
-        if (press_gap_us <= kSleepChordPressWindowUs &&
-            esp_timer_get_time() - held_since_us >= kSleepChordHoldUs) {
-            s_sleep_chord_emitted = true;
-            event = StickyButtonEvent::SleepChord;
-            STICKY_LOGI(kTag,
-                        "button=sleep_chord state=detected hold_ms=2000 result=ok");
+    StickyButtonRecord record;
+    while (sticky_button_take_record(record)) {
+        if (record.event != StickyButtonEvent::SideSingle) {
+            event = record.event;
             return true;
         }
     }
-
-    if (s_event_queue == nullptr) {
-        return false;
-    }
     event = StickyButtonEvent::None;
-    return xQueueReceive(s_event_queue, &event, 0) == pdTRUE;
+    return false;
 }

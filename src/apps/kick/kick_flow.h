@@ -27,6 +27,8 @@ public:
   virtual bool read_clock(KickClockTime &time) = 0;
   // True when no more records can be stored.
   virtual bool at_capacity() = 0;
+  // The record method the user picked last; false when none was picked yet.
+  virtual bool remembered_mode(KickMode &mode) = 0;
 };
 
 // What the app has to do after an action.
@@ -36,6 +38,8 @@ struct KickFlowResult {
   bool capacity_reached = false; // report "record limit reached" and redraw
   bool save_session = false;     // save `session` (the app assigns its id)
   KickSession session = {};
+  bool remember_mode = false;    // the user picked `mode`: remember it
+  KickMode mode = KickMode::Timed;
 };
 
 class KickFlow {
@@ -43,6 +47,12 @@ public:
   explicit KickFlow(KickFlowPort &port) : port_(port) {}
 
   KickFlowResult handle_action(KickAction action, int64_t now_us);
+
+  // The double-click shortcut: start recording like tapping "start counting"
+  // (remembered method, record limit and clock checks included). A running
+  // counter is never replaced; the result then asks for no redraw.
+  // 双击快捷键：等同点“开始计数”；进行中的计数不会被替换。
+  KickFlowResult enter_start(int64_t now_us);
 
   // The counter reached its time limit: finish it (save, or drop an empty one).
   bool counter_expired(int64_t now_us) const {
@@ -77,6 +87,8 @@ private:
   KickPeriod inferred_period() const;
   KickFlowResult save_feel(KickFeel feel);
   KickFlowResult begin_counter(KickMode mode, int64_t now_us);
+  KickFlowResult start_with(KickMode mode, int64_t now_us);
+  KickFlowResult chosen(KickFlowResult result, KickMode mode) const;
 
   KickFlowPort &port_;
   KickPage page_ = KickPage::Today;
@@ -87,5 +99,8 @@ private:
   uint8_t hour_ = 0U;
   uint8_t minute_ = 0U;
   bool save_failed_ = false;
+  // The feel page was opened straight from Start (remembered method), so Back
+  // goes to Today rather than to a method list the user never saw.
+  bool feel_direct_ = false;
   KickSession result_session_ = {};
 };

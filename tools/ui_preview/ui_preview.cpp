@@ -9,9 +9,11 @@
 //                 the hit rectangles recovered from <page>_action_at()
 // tools/ui_preview/render_png.py turns these into PNGs.
 #include <cstdint>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <functional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -22,6 +24,7 @@
 #include "press_feedback.h"
 #include "prototype_ui.h"
 #include "settings_pages.h"
+#include "status_glyphs.h"
 #include "text_layout.h"
 #include "ui_language.h"
 #include "weight_pages.h"
@@ -131,6 +134,15 @@ void register_launcher() {
             "App:Checkup", "App:?5", "App:?6", "App:Weight", "App:Kicks"));
 }
 
+void draw_standin_battery(Canvas &c) {
+  int x = 0, y = 0;
+  pregnancy_page_status_battery_origin(c.height() > c.width(), x, y);
+  c.draw_rect(x, y, 44, 22, GrayLevel::Black);
+  c.draw_rect(x + 1, y + 1, 42, 20, GrayLevel::Black);
+  c.fill_rect(x + 44, y + 7, 4, 8, GrayLevel::Black);
+  c.fill_rect(x + 4, y + 4, 36 * 70 / 100, 14, GrayLevel::Black);   // sample: 70 % full
+}
+
 void register_pregnancy() {
   static const std::vector<std::string> names = {
       "None", "Digit0", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5",
@@ -164,6 +176,32 @@ void register_pregnancy() {
   add("pregnancy_dashboard",
       [](Canvas &c) { pregnancy_page_render_dashboard(c, {2027U, 2U, 20U}, sample_progress()); },
       hit(PregnancyPage::Dashboard, false), names);
+  // Status row. The real indicator needs the battery driver, so a stand-in with the same footprint
+  // (44x22 battery with nub, no label) is drawn at the origin the page reports.
+  add("pregnancy_dashboard_status",
+      [](Canvas &c) {
+        pregnancy_page_render_dashboard(c, {2027U, 2U, 20U}, sample_progress());
+        draw_standin_battery(c);
+      },
+      hit(PregnancyPage::Dashboard, false), names);
+  add("pregnancy_dashboard_sleep",
+      [](Canvas &c) {
+        pregnancy_page_render_dashboard(c, {2027U, 2U, 20U}, sample_progress());
+        draw_standin_battery(c);
+        pregnancy_page_render_sleep_moon(c);
+      },
+      hit(PregnancyPage::Dashboard, false), names);
+  // Caption sentences: first and last stage, and the longest object names (English two-liners).
+  for (int w : {7, 28, 33, 39}) {
+    add("pregnancy_caption_w" + std::to_string(w),
+        [w](Canvas &c) {
+          PregnancyProgress p = sample_progress();
+          p.weeks = static_cast<uint8_t>(w);
+          pregnancy_page_render_dashboard(c, {2027U, 2U, 20U}, p);
+          draw_standin_battery(c);
+        },
+        hit(PregnancyPage::Dashboard, false), names);
+  }
   add("pregnancy_baby",
       [](Canvas &c) {
         const PregnancyProgress p = sample_progress();
@@ -216,7 +254,8 @@ void register_kicks() {
   static const std::vector<std::string> names = {
       "None", "Back", "Start", "ShowInsights", "Count", "Undo", "Finish",
       "StartTimed", "StartCountToTen", "StartAwareness", "FeelUsual",
-      "FeelWeaker", "FeelFewer", "FeelChanged", "ShowCompare", "Done"};
+      "FeelWeaker", "FeelFewer", "FeelChanged", "ShowCompare", "Done",
+      "ChangeMethod"};
   auto hit = [](KickPage page) {
     return [page](int w, int h, int x, int y) {
       const int a = static_cast<int>(kick_page_action_at(page, w, h, x, y));
@@ -225,10 +264,23 @@ void register_kicks() {
   };
   add("kick_today", [](Canvas &c) { kick_page_render_today(c, kick_today()); },
       hit(KickPage::Today), names);
+  add("kick_today_method",
+      [](Canvas &c) {
+        kick_page_render_today(c, kick_today(), false, {true, KickMode::CountToTen});
+      },
+      hit(KickPage::Today), names);
+  add("kick_today_checkin",
+      [](Canvas &c) {
+        kick_page_render_today(c, kick_today(), true, {true, KickMode::Awareness});
+      },
+      hit(KickPage::Today), names);
   add("kick_insights",
       [](Canvas &c) { kick_page_render_insights(c, kick_today(), kick_trend()); },
       hit(KickPage::Insights), names);
   add("kick_mode_select", [](Canvas &c) { kick_page_render_mode_select(c); },
+      hit(KickPage::ModeSelect), names);
+  add("kick_mode_select_set",
+      [](Canvas &c) { kick_page_render_mode_select(c, {true, KickMode::CountToTen}); },
       hit(KickPage::ModeSelect), names);
   add("kick_counter_timed",
       [](Canvas &c) { kick_page_render_counter(c, KickPeriod::Evening, 7U, 5U, KickMode::Timed); },
@@ -258,7 +310,8 @@ void register_kicks() {
 void register_settings() {
   static const std::vector<std::string> names = {
       "None", "ToggleLanguage", "EditTime", "RefreshDisplay", "PregnancySettings",
-      "StorageSettings", "BeginStorageInitialization", "SafeEjectStorage",
+      "StorageSettings", "ShortcutSettings", "ShortcutWeight",
+      "ShortcutBabyWeek", "ShortcutKick", "ShortcutOff", "BeginStorageInitialization", "SafeEjectStorage",
       "ConfirmStorageInitialization", "CancelStorageInitialization",
       "ManageStorage", "ManageLegacyCommon", "ManageLegacyKicks",
       "BeginLegacyImport", "BeginLegacyClear", "ConfirmLegacyClear",
@@ -288,6 +341,20 @@ void register_settings() {
   add("settings_main",
       [](Canvas &c) { settings_page_render_main(c, true, "2026.10.10 14:42", "2027.02.20"); },
       hit(SettingsPage::Main), names);
+  add("settings_main_shortcut_kick",
+      [](Canvas &c) {
+        settings_page_render_main(c, true, "2026.10.10 14:42", "2027.02.20", false,
+                                  StickyShortcutTarget::KickStart);
+      },
+      hit(SettingsPage::Main), names);
+  add("settings_shortcut",
+      [](Canvas &c) {
+        settings_page_render_shortcut(c, StickyShortcutTarget::WeightRecordToday);
+      },
+      hit(SettingsPage::Shortcut), names);
+  add("settings_shortcut_kick",
+      [](Canvas &c) { settings_page_render_shortcut(c, StickyShortcutTarget::KickStart); },
+      hit(SettingsPage::Shortcut), names);
   add("settings_time_editor",
       [](Canvas &c) {
         DigitFields fields(DigitFieldKind::DateTime);
@@ -335,6 +402,15 @@ void register_settings() {
 
 struct TextItem { int x, y, width, size; std::string text; };
 std::vector<TextItem> g_texts;
+
+std::set<std::string> g_missing;
+void observe_missing(const char *english) {
+  // Already-Chinese text that only embeds an identifier (a dataset id such as "00b454dc") is data, not a gap.
+  for (const char *c = english; *c != '\0'; ++c)
+    if (static_cast<unsigned char>(*c) >= 0xE3) return;
+  for (const char *c = english; *c != '\0'; ++c)
+    if ((*c >= 'A' && *c <= 'Z') || (*c >= 'a' && *c <= 'z')) { g_missing.insert(english); return; }
+}
 
 std::vector<std::string> g_truncated;
 void observe_truncation(const char *text) { g_truncated.push_back(text); }
@@ -460,7 +536,16 @@ int main(int argc, char **argv) {
         g_truncated.clear();
         canvas_set_text_observer(observe_text);
         ui_set_truncation_observer(observe_truncation);
+        ui_set_missing_translation_observer(lang == 1 ? observe_missing : nullptr);
         c.render(canvas);
+        // UI_PREVIEW_SLEEP=1 shows every page as the sleep frame would: the status replaces the
+        // header action button slot (battery at 70 %, not charging).
+        if (const char *sleep_env = std::getenv("UI_PREVIEW_SLEEP"); sleep_env != nullptr && *sleep_env != '\0') {
+          const prototype_ui::Rect slot = prototype_ui::header_action_rect(canvas.width(), canvas.height());
+          sleep_status_draw(canvas, slot.x, slot.y, slot.width, slot.height, 70, false, GrayLevel::Black,
+                            GrayLevel::White);
+        }
+        ui_set_missing_translation_observer(nullptr);
         canvas_set_text_observer(nullptr);
         ui_set_truncation_observer(nullptr);
         emit(c, canvas, portrait ? "portrait" : "landscape", lang == 0 ? "en" : "zh", dir);
@@ -468,6 +553,11 @@ int main(int argc, char **argv) {
       }
     }
   }
-  std::printf("rendered %d previews into %s\n", count, dir.c_str());
+  if (FILE *f = std::fopen((dir + "/missing_translations.txt").c_str(), "w")) {
+    for (const std::string &key : g_missing) std::fprintf(f, "%s\n", key.c_str());
+    std::fclose(f);
+  }
+  std::printf("rendered %d previews into %s (%zu untranslated strings)\n", count,
+              dir.c_str(), g_missing.size());
   return 0;
 }

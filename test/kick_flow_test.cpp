@@ -15,6 +15,12 @@ public:
     return true;
   }
   bool at_capacity() override { return full; }
+  bool has_memory = false;
+  KickMode memory = KickMode::Timed;
+  bool remembered_mode(KickMode &mode) override {
+    mode = memory;
+    return has_memory;
+  }
 };
 
 constexpr int64_t kSecond = 1000000LL;
@@ -104,6 +110,33 @@ int main() {
   r = flow.handle_action(KickAction::Count, 200 * kSecond);
   assert(r.save_session && r.session.mode == KickMode::CountToTen && r.session.count == 10U);
 
+  // Top-key presses are counted at the time they were made. Presses that waited
+  // out a screen refresh arrive together but keep their own times, so the
+  // debounce only merges presses that really were closer than 400 ms.
+  flow.abandon_session();
+  flow.handle_action(KickAction::Start, 0);
+  flow.handle_action(KickAction::StartTimed, 1000 * kSecond);
+  flow.handle_action(KickAction::Count, 1010 * kSecond);
+  flow.handle_action(KickAction::Count, 1010 * kSecond + 900000);
+  flow.handle_action(KickAction::Count, 1011 * kSecond);          // 100 ms later
+  flow.handle_action(KickAction::Count, 1011 * kSecond + 400000); // 500 ms later
+  assert(flow.counter().count() == 3U);
+  // A press made before the session began (it was queued across a page change)
+  // is not a movement of this session.
+  flow.handle_action(KickAction::Count, 999 * kSecond);
+  assert(flow.counter().count() == 3U);
+
+  // The time to ten ends at the tenth press, not when it is processed.
+  flow.abandon_session();
+  flow.handle_action(KickAction::Start, 0);
+  flow.handle_action(KickAction::StartCountToTen, 2000 * kSecond);
+  for (int i = 1; i <= 9; ++i)
+    flow.handle_action(KickAction::Count, (2000 + 5 * i) * kSecond);
+  r = flow.handle_action(KickAction::Count, 2050 * kSecond);
+  assert(r.save_session && r.session.count == 10U &&
+         r.session.elapsed_seconds == 50U);
+  flow.abandon_session();
+
   // The counter expires after an hour; only on the counter page.
   flow.abandon_session();
   assert(flow.page() == KickPage::Today && flow.counter().count() == 0U);
@@ -126,6 +159,102 @@ int main() {
   flow.handle_action(KickAction::ShowCompare, 0);
   flow.handle_action(KickAction::Back, 0);
   assert(flow.page() == KickPage::Result);
+
+  // Remembered method: Start skips the method page; picking a method is what
+  // gets remembered, whether or not the session is ever saved.
+  {
+    FakePort p2;
+    KickFlow f2(p2);
+    KickFlowResult q = f2.handle_action(KickAction::Start, 0);
+    assert(f2.page() == KickPage::ModeSelect && !q.remember_mode);  // none yet
+    q = f2.handle_action(KickAction::StartCountToTen, 5 * kSecond);
+    assert(q.remember_mode && q.mode == KickMode::CountToTen &&
+           f2.page() == KickPage::Counter);
+    f2.abandon_session();
+    f2.handle_action(KickAction::Start, 0);
+    q = f2.handle_action(KickAction::StartAwareness, 0);
+    assert(q.remember_mode && q.mode == KickMode::Awareness &&
+           f2.page() == KickPage::Feel);
+    // Reached through the method page, Back returns there.
+    f2.handle_action(KickAction::Back, 0);
+    assert(f2.page() == KickPage::ModeSelect);
+    q = f2.handle_action(KickAction::StartTimed, 9 * kSecond);
+    assert(q.remember_mode && q.mode == KickMode::Timed);
+    f2.abandon_session();
+
+    p2.has_memory = true;
+    p2.memory = KickMode::Timed;
+    q = f2.handle_action(KickAction::Start, 20 * kSecond);
+    assert(q.render && !q.remember_mode && f2.page() == KickPage::Counter &&
+           f2.counter().mode() == KickMode::Timed);
+    f2.abandon_session();
+    p2.memory = KickMode::CountToTen;
+    f2.handle_action(KickAction::Start, 30 * kSecond);
+    assert(f2.page() == KickPage::Counter &&
+           f2.counter().mode() == KickMode::CountToTen);
+    f2.abandon_session();
+
+    // A remembered check-in opens the feel page; Back goes to Today, not to a
+    // method list the user never saw.
+    p2.memory = KickMode::Awareness;
+    q = f2.handle_action(KickAction::Start, 0);
+    assert(q.render && !q.remember_mode && f2.page() == KickPage::Feel);
+    f2.handle_action(KickAction::Back, 0);
+    assert(f2.page() == KickPage::Today);
+
+    // Change method always asks, and Back leaves the memory alone.
+    q = f2.handle_action(KickAction::ChangeMethod, 0);
+    assert(q.render && !q.remember_mode && f2.page() == KickPage::ModeSelect);
+    f2.handle_action(KickAction::Back, 0);
+    assert(f2.page() == KickPage::Today);
+
+    // The record limit and an unreadable clock stop a remembered start too.
+    p2.full = true;
+    q = f2.handle_action(KickAction::Start, 0);
+    assert(q.capacity_reached && f2.page() == KickPage::Today);
+    q = f2.handle_action(KickAction::ChangeMethod, 0);
+    assert(q.capacity_reached && f2.page() == KickPage::Today);
+    p2.full = false;
+    p2.memory = KickMode::Timed;
+    p2.clock_ok = false;
+    q = f2.handle_action(KickAction::Start, 0);
+    assert(q.render && f2.save_failed() && f2.page() == KickPage::Today);
+  }
+
+  // The double-click shortcut starts like "start counting"; a running counter
+  // is never replaced and asks for no redraw.
+  {
+    FakePort p3;
+    KickFlow f3(p3);
+    f3.read_clock();
+    KickFlowResult q = f3.enter_start(0);
+    assert(q.render && f3.page() == KickPage::ModeSelect);       // no memory yet
+    p3.has_memory = true;
+    p3.memory = KickMode::CountToTen;
+    f3.go_today();
+    q = f3.enter_start(40 * kSecond);
+    assert(q.render && f3.page() == KickPage::Counter &&
+           f3.counter().mode() == KickMode::CountToTen);
+    f3.handle_action(KickAction::Count, 45 * kSecond);
+    q = f3.enter_start(60 * kSecond);
+    assert(!q.render && !q.save_session && f3.page() == KickPage::Counter &&
+           f3.counter().count() == 1U);                           // untouched
+    f3.abandon_session();
+    p3.full = true;
+    q = f3.enter_start(70 * kSecond);
+    assert(q.capacity_reached && f3.page() == KickPage::Today);
+    p3.full = false;
+    p3.memory = KickMode::Awareness;
+    f3.handle_action(KickAction::Count, 0);
+    q = f3.enter_start(80 * kSecond);
+    assert(q.render && f3.page() == KickPage::Feel);
+    // From other pages the shortcut also starts recording.
+    f3.go_today();
+    f3.handle_action(KickAction::ShowInsights, 0);
+    p3.memory = KickMode::Timed;
+    q = f3.enter_start(90 * kSecond);
+    assert(f3.page() == KickPage::Counter && f3.counter().mode() == KickMode::Timed);
+  }
 
   // Clock refresh reports a date change once.
   flow.go_today();

@@ -58,4 +58,24 @@ int main() {
     assert(sync.desired().last_app==StickyAppId::Pregnancy);
     assert(sync.desired().language==UiLanguage::English);
     sync.tick(store,card,1010); assert(store.saves==4);
+    // The shortcut target and the remembered kick method are saved like the
+    // other preferences; an unchanged value is not a new write.
+    sync.tick(store,card,1011);
+    sync.set_kick_mode_pref(StickyKickModePref::Timed);
+    sync.set_shortcut_target(StickyShortcutTarget::Off);
+    sync.tick(store,card,1012); assert(store.saves==5);
+    sync.tick(store,card,1013);
+    assert(store.disk.kick_mode_pref==StickyKickModePref::Timed);
+    assert(store.disk.shortcut_target==StickyShortcutTarget::Off);
+    assert(sync.desired().kick_mode_pref==StickyKickModePref::Timed);
+    sync.set_kick_mode_pref(StickyKickModePref::Timed);
+    sync.set_shortcut_target(StickyShortcutTarget::Off);
+    sync.tick(store,card,1014); assert(store.saves==5);
+    // A change made while a save is in flight is sent afterwards.
+    sync.set_kick_mode_pref(StickyKickModePref::Awareness);
+    sync.tick(store,card,1015); assert(store.saves==6);
+    sync.set_kick_mode_pref(StickyKickModePref::CountToTen);
+    sync.tick(store,card,1016); assert(store.saves==7);
+    sync.tick(store,card,1017);
+    assert(store.disk.kick_mode_pref==StickyKickModePref::CountToTen);
 }

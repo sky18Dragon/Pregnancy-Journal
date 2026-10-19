@@ -8,6 +8,7 @@ For each page it writes:
 and a contact sheet (index.html) listing all pages with lint warnings.
 """
 import html
+import json
 import sys
 from pathlib import Path
 
@@ -29,6 +30,9 @@ def parse_meta(path):
             meta[parts[0]] = int(parts[1])
         elif parts[0] == "truncated":
             meta.setdefault("truncated", []).append(line[len("truncated "):])
+        elif parts[0] == "missing_glyph":
+            meta.setdefault("missing", []).append(
+                f"MISSING GLYPH {parts[1]}: {' '.join(parts[2:])}")
         elif parts[0] == "text":
             size, x, y, width = map(int, parts[1:5])
             meta.setdefault("texts", []).append((size, x, y, width, " ".join(parts[5:])))
@@ -66,6 +70,7 @@ def render(mono_path):
             f"light={meta.get('gray_light', 0)}")
     texts = meta.get("texts", [])
     fonts = [f"TRUNCATED (cut by line limit): {t}" for t in meta.get("truncated", [])]
+    fonts += meta.get("missing", [])
     for size, x, y, tw, text in texts:
         if size < CAPTION_MIN:
             fonts.append(f"FORBIDDEN {size}px: {text}")
@@ -97,9 +102,11 @@ def main():
     out = Path(sys.argv[1])
     rows = []
     fontlint = {}
+    lint_by_stem = {}
     for mono in sorted(out.glob("*.mono")):
         warns, fonts = render(mono)
         rows.append((mono.stem, warns))
+        lint_by_stem[mono.stem] = {"warnings": warns, "fonts": fonts}
         page = mono.stem.rsplit("_", 2)[0]
         for item in fonts:
             fontlint.setdefault(page, {}).setdefault(item, []).append(
@@ -110,6 +117,7 @@ def main():
         for item, where in sorted(fontlint[page].items()):
             lines.append(f"  [{','.join(sorted(set(where)))}] {item}")
     (out / "fontlint.txt").write_text("\n".join(lines) + "\n")
+    (out / "lint.json").write_text(json.dumps(lint_by_stem, ensure_ascii=False))
     forbidden = sum(1 for p in fontlint.values() for i in p if i.startswith("FORBIDDEN"))
     caption = sum(1 for p in fontlint.values() for i in p if i.startswith("caption"))
     other = sum(1 for p in fontlint.values() for i in p

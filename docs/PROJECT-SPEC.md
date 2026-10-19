@@ -2,7 +2,7 @@
 
 文档版本：v1.4 · 更新：2026-10-10 · 状态：四应用软件候选已实现，实机验收待完成。
 
-本文是当前交付范围的需求入口，执行任务与完成证据见 [TODO.md](../TODO.md)。V1/V2 表示交付阶段，不等于固件版本号；当前工作区固件仍为 `2.0.0`。代码已切换为四应用候选，正式交付须等待实机验收。
+本文是当前交付范围的需求入口，执行任务与完成证据见 [TODO.md](TODO.md)。V1/V2 表示交付阶段，不等于固件版本号；当前工作区固件仍为 `2.0.0`。代码已切换为四应用候选，正式交付须等待实机验收。
 
 ## 1. 已确认的版本范围
 
@@ -133,9 +133,9 @@
 
 首版按“入口与提醒收敛 → 存储容量 → 胎动 SD 与迁移 → 四应用业务完善 → 自动及实机验收 → 打包交付”推进。可独立推进的任务不必等待 V2 语音原型完成。
 
-- [TODO.md](../TODO.md)：V1 当前任务、依赖、V2 延期清单及 S0–S2 历史证据。
+- [TODO.md](TODO.md)：V1 当前任务、依赖、V2 延期清单及 S0–S2 历史证据。
 - [V2-PROJECT-SPEC.md](V2-PROJECT-SPEC.md)：下一版本提醒、产检、习惯、备忘和语音联网设计。
 - [当前功能参考](pregnancy/current-functionality.md)、[页面结构](PAGE-STRUCTURE.md)：描述真实代码，在实际切换四应用后更新。
-- [开发流程](DEVELOPMENT.md)、[架构](ARCHITECTURE.md)、[组件规范](COMPONENT-GUIDELINES.md)、[设计规范](../DESIGN.md)、[硬件资料](HARDWARE-REFERENCE.md)：实现和验证约束。
+- [开发流程](DEVELOPMENT.md)、[架构](ARCHITECTURE.md)、[组件规范](COMPONENT-GUIDELINES.md)、[设计规范](DESIGN.md)、[硬件资料](HARDWARE-REFERENCE.md)：实现和验证约束。
 
 四应用候选已按工作包实现；自动证据与剩余人工门槛见 [V1 验证记录](V1-VALIDATION.md)。发布必须通过实机验收，不能仅凭构建或文档勾选完成。

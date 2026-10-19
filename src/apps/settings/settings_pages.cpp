@@ -13,9 +13,10 @@ namespace {
 
 using prototype_ui::Rect;
 
+// Six rows: language, time, pregnancy, shortcut, display refresh, storage.
 constexpr Rect kLandscapeRows[] = {
-    {24, 98, 752, 62},  {24, 160, 752, 62}, {24, 222, 752, 62},
-    {24, 284, 752, 62}, {24, 346, 752, 62},
+    {24, 98, 752, 52},  {24, 150, 752, 52}, {24, 202, 752, 52},
+    {24, 254, 752, 52}, {24, 306, 752, 52}, {24, 358, 752, 52},
 };
 constexpr Rect kLandscapeKeys[] = {
     {476, 100, 94, 62}, {578, 100, 94, 62}, {680, 100, 96, 62},
@@ -36,8 +37,43 @@ bool portrait(int width, int height) { return height > width; }
 
 Rect setting_row(size_t index, int width, int height) {
   if (portrait(width, height))
-    return {24, 112 + static_cast<int>(index) * 106, 432, 106};
+    return {24, 112 + static_cast<int>(index) * 88, 432, 88};
   return kLandscapeRows[index];
+}
+
+// One row per double-click target. The rectangle is both drawn and hit-tested.
+Rect shortcut_row(size_t index, int width, int height) {
+  if (portrait(width, height))
+    return {24, 112 + static_cast<int>(index) * 116, 432, 104};
+  return {24, 96 + static_cast<int>(index) * 88, 752, 80};
+}
+
+struct ShortcutOption {
+  StickyShortcutTarget target;
+  SettingsAction action;
+  const char *title;
+  const char *description;
+  const char *short_label;
+};
+
+// Shown top to bottom, the default first.
+constexpr ShortcutOption kShortcutOptions[] = {
+    {StickyShortcutTarget::WeightRecordToday, SettingsAction::ShortcutWeight,
+     "WEIGHT: RECORD TODAY", "OPEN TODAY'S WEIGHT ENTRY", "WEIGHT"},
+    {StickyShortcutTarget::BabyWeek, SettingsAction::ShortcutBabyWeek,
+     "BABY WEEK HOME", "GO TO THE BABY WEEK HOME", "BABY WEEK"},
+    {StickyShortcutTarget::KickStart, SettingsAction::ShortcutKick,
+     "KICKS: START COUNTING", "START WITH YOUR LAST METHOD", "KICKS"},
+    {StickyShortcutTarget::Off, SettingsAction::ShortcutOff, "OFF",
+     "DOUBLE-CLICK DOES NOTHING", "OFF"},
+};
+constexpr size_t kShortcutOptionCount =
+    sizeof(kShortcutOptions) / sizeof(kShortcutOptions[0]);
+
+const ShortcutOption &shortcut_option(StickyShortcutTarget target) {
+  for (const ShortcutOption &option : kShortcutOptions)
+    if (option.target == target) return option;
+  return kShortcutOptions[0];
 }
 
 Rect form_row(size_t index, int width, int height) {
@@ -126,14 +162,19 @@ void draw_setting(Canvas &canvas, size_t index, const char *title,
     canvas.draw_line(row.x, row.y, row.x + row.width, row.y, GrayLevel::Black);
   canvas.draw_line(row.x, row.y + row.height - 1, row.x + row.width,
                    row.y + row.height - 1, GrayLevel::Black);
-  canvas.draw_text(row.x, row.y + 12, ui_text(title), 2, GrayLevel::Black);
-  canvas.draw_text(row.x, row.y + 36, ui_text(description), 1,
+  // Rows are 52 px (landscape) to 106 px tall; keep the text inside them.
+  const bool tall = row.height >= 62;
+  canvas.draw_text(row.x, row.y + (tall ? 12 : 8), ui_text(title), 2,
+                   GrayLevel::Black);
+  canvas.draw_text(row.x, row.y + (tall ? 36 : 30), ui_text(description), 1,
                    GrayLevel::Black);
   if (value != nullptr) {
     const int width = ui_text_width(value, 2U);
     canvas.draw_text(row.x + row.width - 34 - width,
-                     row.y +
-                         (portrait(canvas.width(), canvas.height()) ? 68 : 22),
+                     // Portrait: on the title line, clear of the description.
+                     row.y + (portrait(canvas.width(), canvas.height())
+                                  ? 12
+                                  : (row.height - 18) / 2),
                      ui_text(value), 2, GrayLevel::Black);
   }
   prototype_ui::draw_chevron(canvas, row.x + row.width - 18,
@@ -159,7 +200,7 @@ void draw_form_row(Canvas &canvas, int index, const char *label,
 
 void settings_page_render_main(Canvas &canvas, bool rtc_ready,
                                const char *clock_text, const char *due_text,
-                               bool save_failed) {
+                               bool save_failed, StickyShortcutTarget shortcut) {
   prototype_ui::begin_page(canvas);
   prototype_ui::draw_header(canvas, "SETTINGS",
                             "DEVICE SETTINGS AND PREGNANCY PROFILE", "APPS");
@@ -170,17 +211,53 @@ void settings_page_render_main(Canvas &canvas, bool rtc_ready,
                rtc_ready ? clock_text : "UNAVAILABLE");
   draw_setting(canvas, 2, "PREGNANCY SETTINGS", "DUE DATE / LAST PERIOD",
                due_text);
-  draw_setting(canvas, 3, "DISPLAY CLEAN REFRESH", "CLEARS E-INK GHOSTING",
+  draw_setting(canvas, 3, "SHORTCUT", "DOUBLE-CLICK THE TOP BUTTON",
+               shortcut_option(shortcut).short_label);
+  draw_setting(canvas, 4, "DISPLAY CLEAN REFRESH", "CLEARS E-INK GHOSTING",
                "RUN");
-  draw_setting(canvas, 4, "MICROSD STORAGE", "USER DATA", "VIEW");
+  draw_setting(canvas, 5, "MICROSD STORAGE", "USER DATA", "VIEW");
   const bool is_portrait = portrait(canvas.width(), canvas.height());
   ui_draw_wrapped_text_pixels(
-      canvas, ui_tokens::kContentMargin, is_portrait ? 660 : 424, canvas.width() - 2 * ui_tokens::kContentMargin,
+      canvas, ui_tokens::kContentMargin, is_portrait ? 664 : 424, canvas.width() - 2 * ui_tokens::kContentMargin,
       ui_language_is_chinese()
           ? "所有孕期记录仅保存在设备。本产品用于信息整理，不替代专业医疗建议。"
           : "ALL RECORDS STAY ON DEVICE. INFORMATION ONLY; NOT MEDICAL ADVICE.",
       ui_tokens::kSecondaryBody, GrayLevel::Black, is_portrait ? 3 : 2, 5,
       FontWeight::Regular);
+}
+
+void settings_page_render_shortcut(Canvas &canvas, StickyShortcutTarget current) {
+  prototype_ui::begin_page(canvas);
+  prototype_ui::draw_header(canvas, "SHORTCUT", "DOUBLE-CLICK THE TOP BUTTON",
+                            "BACK");
+  for (size_t index = 0U; index < kShortcutOptionCount; ++index) {
+    const ShortcutOption &option = kShortcutOptions[index];
+    const Rect row = shortcut_row(index, canvas.width(), canvas.height());
+    const bool selected = option.target == current;
+    if (selected)
+      canvas.fill_rect(row.x, row.y, row.width, row.height, GrayLevel::Black);
+    prototype_ui::draw_frame(canvas, row, ui_tokens::kBorderStroke);
+    const GrayLevel ink = selected ? GrayLevel::White : GrayLevel::Black;
+    canvas.draw_text_pixels(row.x + 20, row.y + 12, ui_text(option.title),
+                            ui_tokens::kEmphasis, ink, FontWeight::Medium);
+    canvas.draw_text_pixels(row.x + 20, row.y + row.height - 32,
+                            ui_text(option.description),
+                            ui_tokens::kSecondaryBody, ink, FontWeight::Regular);
+  }
+}
+
+SettingsAction settings_shortcut_action(StickyShortcutTarget target) {
+  return shortcut_option(target).action;
+}
+
+bool settings_action_shortcut(SettingsAction action, StickyShortcutTarget &target) {
+  for (const ShortcutOption &option : kShortcutOptions) {
+    if (option.action == action) {
+      target = option.target;
+      return true;
+    }
+  }
+  return false;
 }
 
 void settings_page_render_storage(Canvas &canvas,
@@ -201,7 +278,9 @@ void settings_page_render_storage(Canvas &canvas,
 
   char capacity[36] = "CAPACITY UNAVAILABLE";
   if (state.capacity_known) {
-    std::snprintf(capacity, sizeof(capacity), "FREE %u / %u MiB",
+    std::snprintf(capacity, sizeof(capacity),
+                  ui_language_is_chinese() ? "剩余 %u / %u 兆字节"
+                                           : "FREE %u / %u MiB",
                   static_cast<unsigned>(state.free_mib),
                   static_cast<unsigned>(state.total_mib));
   }
@@ -263,7 +342,9 @@ void settings_page_render_storage_more(Canvas &canvas,
   draw_nav_row(canvas, 3, "RESET DEVICE BINDING", "RESET LOCAL DEVICE", true);
   char identity[64] = "DATASET ID UNAVAILABLE";
   if (state.dataset_id_prefix[0] != '\0') {
-    std::snprintf(identity, sizeof(identity), "ID %.8s...  GEN %llu",
+    std::snprintf(identity, sizeof(identity),
+                  ui_language_is_chinese() ? "编号 %.8s...  第 %llu 代"
+                                           : "ID %.8s...  GEN %llu",
                   state.dataset_id_prefix,
                   static_cast<unsigned long long>(state.dataset_generation));
   }
@@ -328,9 +409,10 @@ void settings_page_render_legacy_migration(
   char imported[24] = {};
   char conflicts[24] = {};
   std::snprintf(valid, sizeof(valid), "%u", static_cast<unsigned>(state.valid));
-  std::snprintf(imported, sizeof(imported), "%u + %u EXISTING",
+  std::snprintf(imported, sizeof(imported), "%u + %u %s",
                 static_cast<unsigned>(state.imported),
-                static_cast<unsigned>(state.already_present));
+                static_cast<unsigned>(state.already_present),
+                ui_text("EXISTING"));
   std::snprintf(conflicts, sizeof(conflicts), "%u / %u",
                 static_cast<unsigned>(state.conflicts),
                 static_cast<unsigned>(state.corrupt));
@@ -394,7 +476,8 @@ void settings_page_render_card_data_delete_confirm(
                             "CURRENT PREGJNL DATASET ONLY", "BACK");
   char identity[48] = "DATASET ID UNAVAILABLE";
   if (dataset_id_prefix != nullptr && dataset_id_prefix[0] != '\0')
-    std::snprintf(identity, sizeof(identity), "DATASET %.8s...",
+    std::snprintf(identity, sizeof(identity),
+                  ui_language_is_chinese() ? "数据集 %.8s..." : "DATASET %.8s...",
                   dataset_id_prefix);
   canvas.draw_text_pixels(ui_tokens::kContentMargin, is_portrait ? 144 : 122, ui_text(identity),
                           ui_tokens::kSectionHeading, GrayLevel::Black,
@@ -530,6 +613,7 @@ bool settings_page_back_target(SettingsPage page, SettingsPage &target) {
   case SettingsPage::TimeEditor:
   case SettingsPage::PregnancySummary:
   case SettingsPage::StorageSummary:
+  case SettingsPage::Shortcut:
     target = SettingsPage::Main;
     return true;
   case SettingsPage::StorageConfirm:
@@ -565,10 +649,13 @@ size_t settings_page_targets(SettingsPage page, int width, int height,
   if (page == SettingsPage::Main) {
     constexpr SettingsAction kRowActions[] = {
         SettingsAction::ToggleLanguage, SettingsAction::EditTime,
-        SettingsAction::PregnancySettings, SettingsAction::RefreshDisplay,
-        SettingsAction::StorageSettings};
-    for (size_t index = 0U; index < 5U; ++index)
+        SettingsAction::PregnancySettings, SettingsAction::ShortcutSettings,
+        SettingsAction::RefreshDisplay, SettingsAction::StorageSettings};
+    for (size_t index = 0U; index < 6U; ++index)
       add(setting_row(index, width, height), kRowActions[index]);
+  } else if (page == SettingsPage::Shortcut) {
+    for (size_t index = 0U; index < kShortcutOptionCount; ++index)
+      add(shortcut_row(index, width, height), kShortcutOptions[index].action);
   } else if (page == SettingsPage::PregnancySummary) {
     add(pregnancy_button(0U, width, height), SettingsAction::EditPregnancy);
     add(pregnancy_button(1U, width, height), SettingsAction::Home);

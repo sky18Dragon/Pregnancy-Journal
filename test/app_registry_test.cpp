@@ -21,6 +21,8 @@ DEFINE_APP_STUBS(kick)
 DEFINE_APP_STUBS(settings)
 
 bool settings_app_power_sleep_allowed() { return true; }
+void kick_app_capture_press(int64_t) {}
+bool pregnancy_app_draw_sleep_status(Canvas &) { return true; }
 
 int main() {
   assert(sticky_app_registry_count() == 4U);
@@ -32,6 +34,11 @@ int main() {
   assert(static_cast<int>(StickyAppId::Checkup) == 4);
   assert(static_cast<int>(StickyAppId::Weight) == 7);
   assert(static_cast<int>(StickyAppId::Kicks) == 8);
+  // Only the pregnancy dashboard draws its own battery indicator, so only it supplies its own sleep status.
+  assert(sticky_app_registry_find(StickyAppId::Pregnancy)->draw_sleep_status != nullptr);
+  assert(sticky_app_registry_find(StickyAppId::Weight)->draw_sleep_status == nullptr);
+  assert(sticky_app_registry_find(StickyAppId::Kicks)->draw_sleep_status == nullptr);
+  assert(sticky_app_registry_find(StickyAppId::Settings)->draw_sleep_status == nullptr);
   assert(sticky_app_registry_find(StickyAppId::Reminder) == nullptr);
   assert(sticky_app_registry_find(StickyAppId::Checkup) == nullptr);
   const StickyAppDescriptor *apps = sticky_app_registry_data();
@@ -39,6 +46,9 @@ int main() {
   for (size_t index = 0U; index < sticky_app_registry_count(); ++index) {
     assert(apps[index].id == expected[index]);
     assert(apps[index].rotation == StickyAppRotationPolicy::FollowDevice);
+    // Only the kick counter takes the top key as an action.
+    assert((apps[index].capture_press != nullptr) ==
+           (apps[index].id == StickyAppId::Kicks));
   }
   return 0;
 }

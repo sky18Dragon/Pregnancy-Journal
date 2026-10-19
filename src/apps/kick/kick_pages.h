@@ -5,6 +5,7 @@
 
 #include "kick.h"
 #include "kick_comparison.h"
+#include "key_policy.h"
 #include "prototype_ui.h"
 
 class Canvas;
@@ -18,6 +19,14 @@ enum class KickPage : uint8_t {
   Result,
   Compare,
 };
+
+// How the hardware keys act on `page`. On the counter the top key records one
+// movement, exactly like tapping the circle; the other keys are ignored so a
+// stray press cannot leave a running session.
+// 各页对硬件按键的反应；计数页的顶键等同点计数圆，其余键忽略，避免误触离开进行中的记录。
+inline KeyPolicy kick_page_key_policy(KickPage page) {
+  return page == KickPage::Counter ? KeyPolicy::Capture : KeyPolicy::Free;
+}
 
 enum class KickAction : uint8_t {
   None,
@@ -36,6 +45,14 @@ enum class KickAction : uint8_t {
   FeelChanged,
   ShowCompare,
   Done,
+  ChangeMethod, // Today: pick the record method again
+};
+
+// The record method the user picked last; unset until they choose one.
+// 用户上次选择的记录方式；未选择过时 set 为 false。
+struct KickMethod {
+  bool set = false;
+  KickMode mode = KickMode::Timed;
 };
 
 // Descriptive comparison text; never contains advice or labels.
@@ -57,13 +74,14 @@ const char *kick_feel_label(KickFeel feel);
 const char *kick_mode_label(KickMode mode);
 
 void kick_page_render_today(Canvas &canvas, const KickDaySummary &today,
-                            bool save_failed = false);
+                            bool save_failed = false, KickMethod method = {});
 void kick_page_render_insights(Canvas &canvas, const KickDaySummary &today,
                                const KickTrendSummary &trend);
 void kick_page_render_counter(Canvas &canvas, KickPeriod period,
                               uint16_t count, uint16_t elapsed_minutes,
                               KickMode mode = KickMode::Timed);
-void kick_page_render_mode_select(Canvas &canvas);
+// `method` (when set) is drawn inverted as the current choice.
+void kick_page_render_mode_select(Canvas &canvas, KickMethod method = {});
 void kick_page_render_feel(Canvas &canvas);
 void kick_page_render_result(Canvas &canvas, const KickSession &session,
                              const KickComparison &comparison,

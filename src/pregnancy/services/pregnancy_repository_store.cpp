@@ -14,14 +14,37 @@ SdRepositoryAdapterStatus PregnancyRepositoryStore::begin_load()
         return status_;
     }
     adapter_.reset();
-    found_ = false;
-    ready_ = false;
-    profile_ = {};
-    revision_ = 0U;
+    forget_held();
+    changed_ = false;
     status_ = adapter_.begin_read(key);
     operation_ = status_ == SdRepositoryAdapterStatus::Pending
                      ? PregnancyStoreOperation::Load
                      : PregnancyStoreOperation::None;
+    return status_;
+}
+
+SdRepositoryAdapterStatus PregnancyRepositoryStore::begin_revalidate()
+{
+    if (pending()) return SdRepositoryAdapterStatus::Busy;
+    // A held profile is only trustworthy while its card/dataset binding is
+    // current; anything else takes the cold path.
+    if (!ready()) return begin_load();
+    RepositoryKey key = {};
+    if (!pregnancy_profile_key(key)) {
+        status_ = SdRepositoryAdapterStatus::InvalidArgument;
+        return status_;
+    }
+    changed_ = false;
+    status_ = adapter_.begin_read(key);
+    if (status_ == SdRepositoryAdapterStatus::Pending) {
+        operation_ = PregnancyStoreOperation::Revalidate;
+    } else {
+        // The card could not be asked, so the held copy can no longer be
+        // vouched for.
+        operation_ = PregnancyStoreOperation::None;
+        forget_held();
+        changed_ = true;
+    }
     return status_;
 }
 
@@ -48,11 +71,14 @@ SdRepositoryAdapterStatus PregnancyRepositoryStore::poll()
 {
     status_ = adapter_.poll();
     if (status_ == SdRepositoryAdapterStatus::Pending) return status_;
-    if (operation_ == PregnancyStoreOperation::Load &&
+    if (operation_ == PregnancyStoreOperation::Revalidate) {
+        poll_revalidate();
+    } else if (operation_ == PregnancyStoreOperation::Load &&
         status_ == SdRepositoryAdapterStatus::NotFound) {
         found_ = false;
         revision_ = 0U;
         ready_ = true;
+        changed_ = true;
         status_ = SdRepositoryAdapterStatus::Ok;
     } else if (operation_ == PregnancyStoreOperation::Load &&
                status_ == SdRepositoryAdapterStatus::Ok) {
@@ -67,6 +93,7 @@ SdRepositoryAdapterStatus PregnancyRepositoryStore::poll()
             revision_ = record.revision;
             found_ = true;
             ready_ = true;
+            changed_ = true;
         }
     } else if (operation_ == PregnancyStoreOperation::Save &&
                status_ == SdRepositoryAdapterStatus::Ok) {
@@ -83,6 +110,45 @@ SdRepositoryAdapterStatus PregnancyRepositoryStore::poll()
         operation_ = PregnancyStoreOperation::None;
     }
     return status_;
+}
+
+// Settles a finished Revalidate: keeps the held profile when the card agrees
+// with its revision, replaces it when not, and forgets it on any failure.
+void PregnancyRepositoryStore::poll_revalidate()
+{
+    if (status_ == SdRepositoryAdapterStatus::NotFound) {
+        changed_ = found_;
+        forget_held();
+        ready_ = true;  // the card answered: there is simply no profile
+        status_ = SdRepositoryAdapterStatus::Ok;
+        return;
+    }
+    if (status_ == SdRepositoryAdapterStatus::Ok) {
+        const sticky_storage::RepositoryRecord &record =
+            adapter_.result().outcome.record;
+        if (found_ && record.revision == revision_) return;
+        PregnancyProfile fresh = {};
+        if (decode_pregnancy_profile(record.payload.data(),
+                                     record.payload_size,
+                                     fresh) == RecordCodecStatus::Ok) {
+            profile_ = fresh;
+            revision_ = record.revision;
+            found_ = true;
+            changed_ = true;
+            return;
+        }
+        status_ = SdRepositoryAdapterStatus::Corrupt;
+    }
+    forget_held();
+    changed_ = true;
+}
+
+void PregnancyRepositoryStore::forget_held()
+{
+    found_ = false;
+    ready_ = false;
+    profile_ = {};
+    revision_ = 0U;
 }
 
 PregnancyRepositoryStore &pregnancy_repository_store()

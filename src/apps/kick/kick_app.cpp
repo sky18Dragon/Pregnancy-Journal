@@ -6,6 +6,7 @@
 #include "canvas.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
 #include "freertos/task.h"
 #include "kick_flow.h"
 #include "kick_pages.h"
@@ -43,6 +44,10 @@ KickSession s_pending_session = {};
 bool s_retry_session = false;
 uint32_t s_session_generation = 0U;
 PageRefreshTracker s_refresh;
+// Top-key presses made while the counter shows, as esp_timer microseconds. The
+// coordinator posts them; the kicks task counts them at the time they were made.
+constexpr UBaseType_t kKeyQueueLength = 8U;
+QueueHandle_t s_key_queue = nullptr;
 constexpr int kStatusPageId = 1000;
 press_feedback::Pending s_press;
 
@@ -71,12 +76,34 @@ public:
   bool at_capacity() override {
     return s_store.service().count() >= KickService::kCapacity;
   }
+  bool remembered_mode(KickMode &mode) override {
+    switch (sticky_app_kick_mode_pref()) {
+    case StickyKickModePref::Timed: mode = KickMode::Timed; return true;
+    case StickyKickModePref::CountToTen: mode = KickMode::CountToTen; return true;
+    case StickyKickModePref::Awareness: mode = KickMode::Awareness; return true;
+    case StickyKickModePref::Unset: break;
+    }
+    return false;
+  }
 };
 
 KickPort s_port;
 KickFlow s_flow(s_port);
 
+// The remembered method as the pages draw it.
+KickMethod current_method() {
+  KickMethod method;
+  method.set = s_port.remembered_mode(method.mode);
+  return method;
+}
+
 uint16_t elapsed_minutes() { return s_flow.elapsed_minutes(esp_timer_get_time()); }
+
+// A cold read that is in flight and has not drawn its loading page, and when it
+// began. A read that finishes quickly goes straight to the content page (see
+// loading_page_due()); later saves and other pending work are not watched.
+int64_t s_load_started_us = 0;
+bool s_load_watch = false;
 
 bool status_page_active() {
   return s_store.pending() || (s_storage_status != SdRepositoryAdapterStatus::Idle &&
@@ -87,6 +114,9 @@ void render(bool full = false) {
   sticky_display_set_battery_overlay_enabled(false);
   KickDaySummary today = {};
   const bool status = status_page_active();
+  sticky_app_set_key_policy(StickyAppId::Kicks,
+                            status ? KeyPolicy::Locked
+                                   : kick_page_key_policy(s_flow.page()));
   if (s_refresh.page_changes(status ? kStatusPageId : static_cast<int>(s_flow.page())))
     show_press_feedback();
   else
@@ -96,6 +126,7 @@ void render(bool full = false) {
                                   s_storage_saving, s_storage_status);
     s_refresh.needs_full(kStatusPageId, true);
     sticky_display_refresh_monochrome();
+    if (s_store.pending()) s_load_watch = false;  // the loading page is drawn
     return;
   }
   const KickPage page = s_flow.page();
@@ -107,7 +138,7 @@ void render(bool full = false) {
     kick_page_render_counter(*s_canvas, s_flow.period(), s_flow.counter().count(),
                              s_rendered_elapsed_minutes, s_flow.counter().mode());
   } else if (page == KickPage::ModeSelect) {
-    kick_page_render_mode_select(*s_canvas);
+    kick_page_render_mode_select(*s_canvas, current_method());
   } else if (page == KickPage::Feel) {
     kick_page_render_feel(*s_canvas);
   } else if (page == KickPage::Result) {
@@ -132,7 +163,8 @@ void render(bool full = false) {
     s_store.service().summarize_recent(date, trend);
     kick_page_render_insights(*s_canvas, today, trend);
   } else {
-    kick_page_render_today(*s_canvas, today, s_flow.save_failed());
+    kick_page_render_today(*s_canvas, today, s_flow.save_failed(),
+                           current_method());
   }
   // Page changes are full; the display layer owns the partial-refresh ceiling.
   if (s_refresh.needs_full(static_cast<int>(page), full))
@@ -154,8 +186,19 @@ void save_session(const KickSession &session) {
     s_flow.mark_save_failed();
 }
 
+StickyKickModePref pref_for(KickMode mode) {
+  switch (mode) {
+  case KickMode::Timed: return StickyKickModePref::Timed;
+  case KickMode::CountToTen: return StickyKickModePref::CountToTen;
+  case KickMode::Awareness: return StickyKickModePref::Awareness;
+  }
+  return StickyKickModePref::Unset;
+}
+
 // Carries out what the flow asked for after an action.
 void apply_flow_result(const KickFlowResult &result) {
+  if (result.remember_mode)
+    sticky_app_set_kick_mode_pref(pref_for(result.mode));
   if (result.open_launcher) {
     show_press_feedback();
     sticky_app_request_launcher();
@@ -173,6 +216,11 @@ void begin_load() {
   s_storage_status = s_store.begin_load();
   if (s_storage_status == SdRepositoryAdapterStatus::Pending)
     s_storage_status = SdRepositoryAdapterStatus::Idle;
+  s_load_started_us = esp_timer_get_time();
+  s_load_watch = s_store.pending();
+  // Nothing is drawn yet, so keep the top key locked as the loading page does.
+  if (s_store.pending())
+    sticky_app_set_key_policy(StickyAppId::Kicks, KeyPolicy::Locked);
 }
 
 bool poll_store() {
@@ -273,24 +321,93 @@ void handle(int x, int y) {
     render();
 }
 
+// A shortcut request waits for the card data to load, then applies once. It is
+// dropped when it is older than kEntryWindowUs.
+constexpr int64_t kEntryWindowUs = 5000000LL;
+std::atomic<int64_t> s_entry_requested_us{0};
+
+bool take_entry_request() {
+  const int64_t at = s_entry_requested_us.load();
+  if (at == 0) return false;
+  if (esp_timer_get_time() - at > kEntryWindowUs) {
+    s_entry_requested_us.store(0);
+    return false;
+  }
+  if (s_store.pending() || status_page_active() || !s_store.ready())
+    return false;
+  s_entry_requested_us.store(0);
+  return true;
+}
+
+// Starts recording when a shortcut asked for it; true when the page changed.
+bool apply_entry_request() {
+  if (!take_entry_request()) return false;
+  const KickFlowResult result = s_flow.enter_start(esp_timer_get_time());
+  apply_flow_result(result);
+  return result.render;
+}
+
+// Counts the queued top-key presses like taps on the circle, each at the time
+// it was made, so presses that waited out a screen refresh are not merged by
+// the debounce. The page is redrawn once for the whole batch.
+void handle_key_presses() {
+  int64_t at_us = 0;
+  bool changed = false;
+  while (xQueueReceive(s_key_queue, &at_us, 0) == pdTRUE) {
+    if (s_store.pending() || status_page_active() ||
+        s_flow.page() != KickPage::Counter)
+      continue;
+    const uint16_t before = s_flow.counter().count();
+    const KickFlowResult result = s_flow.handle_action(KickAction::Count, at_us);
+    apply_flow_result(result);
+    if (s_flow.counter().count() != before || result.save_session)
+      changed = true;
+    if (result.save_session) {
+      // The session is finished; later presses belong to nothing.
+      xQueueReset(s_key_queue);
+      break;
+    }
+  }
+  if (changed) render();
+}
+
+// Draws the loading page only for a read that is slow, so a quick read costs
+// one refresh (the content page) instead of two.
+void show_loading_page_if_slow() {
+  if (!s_load_watch) return;
+  if (!s_store.pending()) {  // finished: its own completion draws the page
+    s_load_watch = false;
+    return;
+  }
+  if (!loading_page_due(true, esp_timer_get_time() - s_load_started_us)) return;
+  render(true);  // sets s_load_watch to false
+}
+
 void task(void *) {
   begin_load();
   s_flow.read_clock();
-  render(true);
+  // A read in flight draws nothing yet: its completion (or the loading page,
+  // if it is slow) is the first frame. A read that could not start shows why.
+  if (!s_store.pending()) render(true);
   unsigned clock_polls = 0U;
   while (true) {
     if (poll_store()) render(true);
     if (!s_store.pending() && s_storage_status == SdRepositoryAdapterStatus::Ok && !s_store.ready()) {
       s_flow.go_today();
-      begin_load(); render(true);
+      begin_load();
+      if (!s_store.pending()) render(true);
     }
+    show_loading_page_if_slow();
     if (sticky_app_lifecycle_checkpoint(s_lifecycle)) {
+      xQueueReset(s_key_queue);  // presses from before the pause are stale
       if (!s_store.pending() && !s_store.ready()) {
         begin_load();
       }
       s_flow.read_clock();
-      render(true);
+      apply_entry_request();  // before the first redraw: one refresh, not two
+      if (!s_store.pending()) render(true);
     }
+    if (apply_entry_request()) render();
     if (!s_store.pending() && s_storage_status == SdRepositoryAdapterStatus::Ok &&
         s_flow.counter_expired(esp_timer_get_time())) {
       apply_flow_result(s_flow.finish(esp_timer_get_time()));
@@ -304,6 +421,7 @@ void task(void *) {
       clock_polls = 0U;
       if (s_flow.refresh_clock()) render(true);
     }
+    handle_key_presses();
     StickyTouchPress press = {};
     if (sticky_touch_take_press(press)) {
       int x = 0, y = 0;
@@ -325,9 +443,20 @@ esp_err_t kick_app_start(Canvas &canvas) {
   if (s_task != nullptr)
     return ESP_OK;
   s_canvas = &canvas;
+  if (s_key_queue == nullptr)
+    s_key_queue = xQueueCreate(kKeyQueueLength, sizeof(int64_t));
+  if (s_key_queue == nullptr)
+    return ESP_ERR_NO_MEM;
   return xTaskCreate(task, "kicks", kTaskStackBytes, nullptr, 3U, &s_task) == pdPASS
              ? ESP_OK
              : ESP_ERR_NO_MEM;
+}
+void kick_app_request_start() {
+  s_entry_requested_us.store(esp_timer_get_time());
+}
+void kick_app_capture_press(int64_t at_us) {
+  if (s_key_queue != nullptr)
+    xQueueSend(s_key_queue, &at_us, 0);
 }
 esp_err_t kick_app_pause() {
   return sticky_app_lifecycle_pause(s_lifecycle, s_task);

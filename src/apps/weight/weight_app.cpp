@@ -1,8 +1,11 @@
 #include "weight_app.h"
 
+#include <atomic>
+
 #include "app_log.h"
 #include "canvas.h"
 #include "domain_repository_stores.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "repository_status_page.h"
@@ -56,6 +59,12 @@ void show_press_feedback() {
   sticky_display_refresh_partial();
 }
 
+// A cold read that is in flight and has not drawn its loading page, and when it
+// began. A read that finishes quickly goes straight to the content page (see
+// loading_page_due()); saves and other pending work are not watched.
+int64_t s_load_started_us = 0;
+bool s_load_watch = false;
+
 bool status_page_active() {
   return s_store.pending() || (s_storage_status != SdRepositoryAdapterStatus::Idle &&
                                s_storage_status != SdRepositoryAdapterStatus::Ok);
@@ -65,14 +74,35 @@ void render(bool full = false) {
   sticky_display_set_battery_overlay_enabled(false);
   const bool status = status_page_active();
   const int page_id = status ? kStatusPageId : static_cast<int>(s_flow.page());
+  sticky_app_set_key_policy(StickyAppId::Weight,
+                            status ? KeyPolicy::Locked
+                                   : weight_page_key_policy(s_flow.page()));
   if (s_refresh.page_changes(page_id)) show_press_feedback();
   else s_press.clear();
   if (status) {
     repository_status_ui::render(*s_canvas, "WEIGHT DATA", s_store.pending(),
                                   s_storage_saving, s_storage_status);
+    if (s_store.pending()) s_load_watch = false;  // the loading page is drawn
   } else weight_page_render(*s_canvas, s_store.service(), s_store.settings(), s_flow.state());
   if (s_refresh.needs_full(page_id, full)) sticky_display_refresh_monochrome();
   else sticky_display_refresh_partial();
+}
+// A shortcut request waits for the card data to load, then applies once. It is
+// dropped when it is older than kEntryWindowUs.
+constexpr int64_t kEntryWindowUs = 5000000LL;
+std::atomic<int64_t> s_entry_requested_us{0};
+
+bool take_entry_request() {
+  const int64_t at = s_entry_requested_us.load();
+  if (at == 0) return false;
+  if (esp_timer_get_time() - at > kEntryWindowUs) {
+    s_entry_requested_us.store(0);
+    return false;
+  }
+  if (s_store.pending() || status_page_active() || !s_store.ready())
+    return false;
+  s_entry_requested_us.store(0);
+  return true;
 }
 void begin_load() {
   s_flow.reset_to_dashboard();
@@ -81,6 +111,11 @@ void begin_load() {
   s_storage_status = s_store.begin_load();
   if (s_storage_status == SdRepositoryAdapterStatus::Pending)
     s_storage_status = SdRepositoryAdapterStatus::Idle;
+  s_load_started_us = esp_timer_get_time();
+  s_load_watch = s_store.pending();
+  // Nothing is drawn yet, so keep the top key locked as the loading page does.
+  if (s_store.pending())
+    sticky_app_set_key_policy(StickyAppId::Weight, KeyPolicy::Locked);
 }
 void begin_preferences_save(const WeightProfileSettings &settings) {
   s_pending_settings = settings;
@@ -169,20 +204,47 @@ void handle(int x, int y) {
   // same page stay partial (the display layer still forces periodic cleanup).
   if (result.render) render();
 }
+// Opens today's entry when a shortcut asked for it; true when the page changed.
+bool apply_entry_request() {
+  if (!take_entry_request()) return false;
+  const WeightFlowResult result = s_flow.enter_record_today();
+  apply_flow_result(result);
+  return result.render;
+}
+// Draws the loading page only for a read that is slow, so a quick read costs
+// one refresh (the content page) instead of two.
+void show_loading_page_if_slow() {
+  if (!s_load_watch) return;
+  if (!s_store.pending()) {  // finished: its own completion draws the page
+    s_load_watch = false;
+    return;
+  }
+  if (!loading_page_due(true, esp_timer_get_time() - s_load_started_us)) return;
+  render(true);  // sets s_load_watch to false
+}
 void task(void *) {
-  begin_load(); s_flow.read_today(); render(true);
+  begin_load();
+  s_flow.read_today();
+  // A read in flight draws nothing yet: its completion (or the loading page,
+  // if it is slow) is the first frame. A read that could not start shows why.
+  if (!s_store.pending()) render(true);
   unsigned clock_polls = 0U;
   while (true) {
     if (poll_store()) render(true);
     if (!s_store.pending() && s_storage_status == SdRepositoryAdapterStatus::Ok && !s_store.ready()) {
-      begin_load(); render(true);
+      begin_load();
+      if (!s_store.pending()) render(true);
     }
+    show_loading_page_if_slow();
     if (sticky_app_lifecycle_checkpoint(s_lifecycle)) {
       if (!s_store.pending() && !s_store.ready()) {
         begin_load();
       }
-      s_flow.read_today(); render(true);
+      s_flow.read_today();
+      apply_entry_request();  // before the first redraw: one refresh, not two
+      if (!s_store.pending()) render(true);
     }
+    if (apply_entry_request()) render();
     if (++clock_polls >= 25U && s_flow.page() == WeightPage::Dashboard && !s_store.pending()) {
       clock_polls = 0U;
       if (s_flow.refresh_today()) render(true);
@@ -196,11 +258,16 @@ void task(void *) {
       s_press.clear();
       sticky_touch_clear_press();
     }
-    vTaskDelay(pdMS_TO_TICKS(40));
+    // Loading reads one record per completion; poll faster while pending so a
+    // full collection does not take longer than the card needs.
+    vTaskDelay(pdMS_TO_TICKS(s_store.pending() ? 5 : 40));
   }
 }
 }  // namespace
 
+void weight_app_request_record_today() {
+  s_entry_requested_us.store(esp_timer_get_time());
+}
 esp_err_t weight_app_start(Canvas &canvas) {
   app_log_register_tag(kTag);
   if (s_task) return ESP_OK;

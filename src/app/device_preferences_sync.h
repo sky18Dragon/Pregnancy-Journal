@@ -14,6 +14,16 @@ public:
     void set_last_app(StickyAppId app) {
         if (bound_ && desired_.last_app != app) { desired_.last_app = app; dirty_ = true; }
     }
+    void set_shortcut_target(StickyShortcutTarget target) {
+        if (bound_ && desired_.shortcut_target != target) {
+            desired_.shortcut_target = target; dirty_ = true;
+        }
+    }
+    void set_kick_mode_pref(StickyKickModePref pref) {
+        if (bound_ && desired_.kick_mode_pref != pref) {
+            desired_.kick_mode_pref = pref; dirty_ = true;
+        }
+    }
     void toggle_language() {
         if (!bound_) return;
         desired_.language = desired_.language == UiLanguage::ChineseSimplified
@@ -44,7 +54,9 @@ public:
                         bound_ = true; reload_ = false;
                     } else {
                         dirty_ = desired_.language != sent_.language ||
-                                 desired_.last_app != sent_.last_app;
+                                 desired_.last_app != sent_.last_app ||
+                                 desired_.shortcut_target != sent_.shortcut_target ||
+                                 desired_.kick_mode_pref != sent_.kick_mode_pref;
                     }
                     failed_ = false; failures_ = 0U;
                 } else {

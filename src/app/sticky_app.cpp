@@ -17,17 +17,21 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "kick_app.h"
 #include "pregnancy_app.h"
 #include "press_feedback.h"
 #include "pregnancy_repository_store.h"
 #include "scheduler.h"
 #include "sticky_sleep_schedule.h"
 #include "settings_app.h"
+#include "weight_app.h"
 #include "sd_storage_service.h"
 #include "sticky_app_display_orientation.h"
 #include "sticky_app_gesture.h"
 #include "sticky_button.h"
 #include "sticky_buzzer.h"
+#include "sticky_key_router.h"
+#include "sticky_shortcut.h"
 #include "sticky_display.h"
 #include "sticky_imu.h"
 #include "sticky_rtc.h"
@@ -44,6 +48,10 @@ constexpr uint32_t kTaskStackSize = 4608U;
 constexpr UBaseType_t kTaskPriority = 4U;
 constexpr uint32_t kSleepContextMagic = 0x53434657U;
 constexpr uint32_t kLauncherIdleCloseMs = 30000U;
+// Keys pressed this soon after a key-driven page change are dropped: the panel
+// is still redrawing and the press was most likely impatience, not a command.
+constexpr int64_t kTransitionSettleUs = 1000000LL;
+constexpr size_t kKeyPolicySlots = 16U;
 
 struct StickySleepContext {
   uint32_t magic;
@@ -68,11 +76,46 @@ std::atomic<bool> s_application_data_deleted{false};
 StickyImuOrientation s_last_orientation = StickyImuOrientation::Unknown;
 DevicePreferencesSync s_device_preferences;
 std::atomic<bool> s_preferences_save_failed{false};
+// Mirror of the saved kick method for other tasks, and a pick waiting to be
+// applied on the coordinator task (-1 = none).
+std::atomic<uint8_t> s_kick_mode_pref{static_cast<uint8_t>(StickyKickModePref::Unset)};
+std::atomic<int> s_kick_mode_request{-1};
+std::atomic<uint8_t> s_shortcut_target{static_cast<uint8_t>(StickyShortcutTarget::WeightRecordToday)};
+std::atomic<int> s_shortcut_request{-1};
+KeyRouter s_key_router;
+SideStepMerger s_side_merger;
+// Policy of the page each app is showing, indexed by StickyAppId value.
+std::atomic<uint8_t> s_key_policies[kKeyPolicySlots] = {};
 
 void render_launcher(bool full_refresh = true);
+void draw_switch_ack();
 
 uint32_t monotonic_ms() {
   return static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
+}
+
+// Opening the launcher, returning to the app and switching apps draw their first
+// frame with the fast (partial) waveform; the display layer makes every sixth
+// such transition a full refresh to clean the panel. The arm is taken by the
+// next monochrome refresh, normally the app's or the launcher's first frame. If
+// no one takes it, it is dropped after kTransitionArmTimeoutMs so it cannot
+// soften a later, unrelated full refresh.
+// 打开启动器、回到应用、换应用时第一帧用快速（局刷）波形；显示层每 6 次过渡补一次全刷清屏。
+constexpr uint32_t kTransitionArmTimeoutMs = 4000U;
+uint32_t s_transition_drop_at_ms = 0U;
+
+void arm_fast_transition() {
+  if (!sticky_display_prepare_app_transition_refresh()) return;
+  s_transition_drop_at_ms = monotonic_ms() + kTransitionArmTimeoutMs;
+  if (s_transition_drop_at_ms == 0U) s_transition_drop_at_ms = 1U;
+}
+
+void drop_stale_transition(uint32_t now_ms) {
+  if (s_transition_drop_at_ms == 0U ||
+      static_cast<int32_t>(now_ms - s_transition_drop_at_ms) < 0)
+    return;
+  sticky_display_cancel_app_transition_refresh();  // harmless once taken
+  s_transition_drop_at_ms = 0U;
 }
 
 // User input restarts the idle timer and clears any sleep retry back-off.
@@ -158,6 +201,13 @@ void poll_device_settings() {
       sticky_storage::sd_storage_service_status(),
       monotonic_ms());
   s_preferences_save_failed.store(s_device_preferences.saving_failed());
+  // A pick that is waiting to be applied must not be overwritten by the old value.
+  if (s_kick_mode_request.load() < 0)
+    s_kick_mode_pref.store(
+        static_cast<uint8_t>(s_device_preferences.desired().kick_mode_pref));
+  if (s_shortcut_request.load() < 0)
+    s_shortcut_target.store(
+        static_cast<uint8_t>(s_device_preferences.desired().shortcut_target));
   const UiLanguage previous = ui_language_get();
   ui_language_set(s_device_preferences.desired().language);
   if (previous != ui_language_get()) {
@@ -179,7 +229,8 @@ void toggle_language() {
   s_device_preferences.toggle_language();
 }
 
-// The launcher replaces the whole page, so every render defaults to a full refresh.
+// The launcher replaces the whole page, so every render defaults to a full
+// refresh; opening it arms the fast transition first (see arm_fast_transition).
 void render_launcher(bool full_refresh) {
   sticky_display_set_battery_overlay_enabled(false);
   CanvasRotation rotation = s_canvas->rotation();
@@ -202,6 +253,7 @@ bool open_launcher() {
   sticky_touch_clear_press();
   sticky_touch_clear_interaction();
   s_launcher_open = true;
+  arm_fast_transition();
   render_launcher();
   STICKY_LOGI(kTag, "launcher=open current=%s result=ok",
               sticky_app_id_name(s_manager.current_id()));
@@ -219,22 +271,30 @@ void close_launcher() {
                        s_canvas->rotation());
   s_canvas->set_rotation(rotation);
   configure_app_rotation(s_manager.current_id(), rotation);
+  arm_fast_transition();
   const esp_err_t result = s_manager.resume_current();
   STICKY_LOGI(kTag, "launcher=close current=%s result=%s",
               sticky_app_id_name(s_manager.current_id()),
               esp_err_to_name(result));
 }
 
-void select_app(StickyAppId app, const char *source) {
+// `acknowledge` draws the switch bar for a swipe or side key. It is drawn only
+// once the current app is paused: the app task may still be inside a refresh
+// of its own, and two tasks must never drive the panel at the same time (a
+// quick second swipe did, and the first refresh timed out after 10 s).
+void select_app(StickyAppId app, const char *source, bool acknowledge = false) {
   const StickyAppId previous = s_manager.current_id();
   const CanvasRotation previous_rotation = s_canvas->rotation();
   const CanvasRotation destination_rotation =
       rotation_for_app(app, s_last_orientation, previous_rotation);
   if (!s_launcher_open && s_manager.pause_current() != ESP_OK) return;
+  if (acknowledge) draw_switch_ack();
   s_canvas->set_rotation(destination_rotation);
   configure_app_rotation(app, destination_rotation);
+  arm_fast_transition();
   const esp_err_t result = s_manager.switch_from_paused_to(app);
   if (result != ESP_OK) {
+    sticky_display_cancel_app_transition_refresh();
     s_launcher_open = false;
     if (s_manager.pause_current() == ESP_OK) {
       s_canvas->set_rotation(previous_rotation);
@@ -298,14 +358,6 @@ void update_display_orientation() {
               esp_err_to_name(resume));
 }
 
-void draw_sleep_indicator() {
-  const int left = static_cast<int>(s_canvas->width()) - 45;
-  constexpr int top = 10;
-  s_canvas->fill_rect(left, top, 35, 35, GrayLevel::White);
-  s_canvas->fill_circle(left + 16, top + 17, 11, GrayLevel::Black);
-  s_canvas->fill_circle(left + 21, top + 12, 10, GrayLevel::White);
-}
-
 void enter_sleep(const char *source) {
   const StickyAppDescriptor *app = s_manager.current();
   if (app == nullptr || !app->sleep_allowed())
@@ -359,9 +411,11 @@ void enter_sleep(const char *source) {
   s_launcher_open = false;
   s_sleep_context = {kSleepContextMagic, s_manager.current_id(),
                      s_canvas->rotation()};
-  sticky_display_set_battery_overlay_enabled(true);
-  sticky_display_set_battery_overlay_sleep_layout(true);
-  draw_sleep_indicator();
+  const bool app_drew_status = !launcher_was_open &&
+                               app->draw_sleep_status != nullptr &&
+                               app->draw_sleep_status(*s_canvas);
+  sticky_display_set_battery_overlay_enabled(!app_drew_status);
+  sticky_display_set_battery_overlay_sleep_layout(true); // the overlay draws battery + moon itself
   sticky_display_cancel_app_transition_refresh();
   sticky_display_refresh_monochrome();
   sticky_buzzer_stop();
@@ -374,19 +428,30 @@ void enter_sleep(const char *source) {
   board_power_enter_deep_sleep(wake_us);
 }
 
-// Bottom-edge horizontal swipe: go straight to the next/previous app without
-// opening the launcher. A black bar along the bottom edge acknowledges the
-// swipe during the ~2 s full refresh that follows.
-void switch_to_neighbor_app(int direction) {
-  const StickyAppId target =
-      app_page_launcher_neighbor(s_manager.current_id(), direction);
-  if (target == s_manager.current_id()) return;
+// Black bar along the bottom edge: acknowledges a swipe or side key during the
+// ~2 s full refresh that follows.
+void draw_switch_ack() {
   const int bar_height = 8;
   press_feedback::draw(*s_canvas,
                        {0, static_cast<int>(s_canvas->height()) - bar_height,
                         static_cast<int>(s_canvas->width()), bar_height});
   sticky_display_refresh_partial();
-  select_app(target, "swipe");
+}
+
+// Goes straight to the app `steps` places along the launcher order (negative =
+// backwards, wrapping) without opening the launcher.
+void switch_by_steps(int steps, const char *source) {
+  StickyAppId target = s_manager.current_id();
+  const int direction = steps < 0 ? -1 : 1;
+  for (int count = steps < 0 ? -steps : steps; count > 0; --count)
+    target = app_page_launcher_neighbor(target, direction);
+  if (target == s_manager.current_id()) return;
+  select_app(target, source, true);
+}
+
+// Bottom-edge horizontal swipe: next/previous app.
+void switch_to_neighbor_app(int direction) {
+  switch_by_steps(direction, "swipe");
 }
 
 void handle_interaction(const StickyTouchInteraction &interaction) {
@@ -435,6 +500,129 @@ void handle_launcher_press(const StickyTouchPress &press) {
   }
 }
 
+KeyPolicy current_key_policy() {
+  const unsigned slot = static_cast<unsigned>(s_manager.current_id());
+  if (slot >= kKeyPolicySlots) return KeyPolicy::Locked;
+  return static_cast<KeyPolicy>(s_key_policies[slot].load());
+}
+
+// TODO(hardware): which turned-screen layouts put the physical left key on the
+// viewer's right is unconfirmed; only the upside-down layout is mirrored.
+bool side_keys_flipped() {
+  return s_canvas->rotation() == CanvasRotation::Deg180;
+}
+
+// After a key-driven page change, drop keys pressed while the panel redraws.
+void settle_after_key_transition() {
+  s_key_router.ignore_events_before(esp_timer_get_time() + kTransitionSettleUs);
+}
+
+// Baby Week on its dashboard, whatever page it was left on.
+void go_home(const char *source) {
+  pregnancy_app_request_dashboard();
+  select_app(StickyAppId::Pregnancy, source);
+}
+
+// The double-click target chosen in Settings. The app gets the entry request
+// before it is resumed, so it lands on the target page with a single refresh.
+void run_shortcut() {
+  const ShortcutAction action = shortcut_action(
+      sticky_app_shortcut_target(), s_manager.current_id(),
+      current_key_policy());
+  switch (action) {
+  case ShortcutAction::None:
+    // Already at the target: just close the launcher if it was open. With the
+    // shortcut off the key does nothing at all.
+    if (s_launcher_open &&
+        sticky_app_shortcut_target() != StickyShortcutTarget::Off)
+      close_launcher();
+    break;
+  case ShortcutAction::GoHome:
+    go_home("double_click");
+    break;
+  case ShortcutAction::OpenWeightToday:
+    weight_app_request_record_today();
+    select_app(shortcut_app(action), "double_click");
+    break;
+  case ShortcutAction::OpenKickStart:
+    kick_app_request_start();
+    select_app(shortcut_app(action), "double_click");
+    break;
+  }
+}
+
+void handle_button_record(const StickyButtonRecord &record) {
+  mark_activity(monotonic_ms());
+  sticky_buzzer_stop();
+  if (record.event == StickyButtonEvent::SleepChord) {
+    enter_sleep("side_button_chord");
+    return;
+  }
+  KeyInput input;
+  switch (record.event) {
+  case StickyButtonEvent::PressDown: input = KeyInput::TopPress; break;
+  case StickyButtonEvent::SingleClick: input = KeyInput::TopSingle; break;
+  case StickyButtonEvent::DoubleClick: input = KeyInput::TopDouble; break;
+  case StickyButtonEvent::SideSingle:
+    input = record.side == SideKey::Right ? KeyInput::SideRight
+                                          : KeyInput::SideLeft;
+    break;
+  default:
+    return;
+  }
+
+  KeyContext context;
+  context.launcher_open = s_launcher_open;
+  context.policy = current_key_policy();
+  context.side_keys_flipped = side_keys_flipped();
+  const KeyDecision decision =
+      s_key_router.route({input, record.at_us}, context);
+  if (decision.action != KeyAction::SwitchApp) s_side_merger.clear();
+  switch (decision.action) {
+  case KeyAction::OpenLauncher:
+    open_launcher();
+    settle_after_key_transition();
+    break;
+  case KeyAction::CloseLauncher:
+    close_launcher();
+    settle_after_key_transition();
+    break;
+  case KeyAction::GoHome:
+    go_home("top_click");
+    settle_after_key_transition();
+    break;
+  case KeyAction::RunShortcut:
+    run_shortcut();
+    settle_after_key_transition();
+    break;
+  case KeyAction::SwitchApp:
+    s_side_merger.add(decision.step, record.at_us);
+    break;
+  case KeyAction::CapturePress: {
+    const StickyAppDescriptor *app = s_manager.current();
+    if (app != nullptr && app->capture_press != nullptr)
+      app->capture_press(record.at_us);
+    break;
+  }
+  case KeyAction::None:
+  case KeyAction::PageFlip:
+    // PageFlip has no consumer yet (no Pager page).
+    break;
+  }
+}
+
+// Runs the app switch collected from quick side-key presses once they settle.
+void apply_pending_side_steps() {
+  int steps = 0;
+  if (!s_side_merger.take(esp_timer_get_time(), steps) || steps == 0) return;
+  const KeyPolicy policy = current_key_policy();
+  if (s_launcher_open ||
+      (policy != KeyPolicy::Free && policy != KeyPolicy::Home))
+    return;
+  switch_by_steps(steps, "side_key");
+  settle_after_key_transition();
+}
+
 void app_task(void *) {
   while (true) {
     if (s_application_data_deleted.exchange(false)) {
@@ -455,6 +643,11 @@ void app_task(void *) {
       s_scheduler.cancel(3U);
       s_scheduler.cancel(4U);
       s_device_preferences = {};
+      s_kick_mode_request.store(-1);
+      s_shortcut_request.store(-1);
+      s_shortcut_target.store(
+          static_cast<uint8_t>(StickyShortcutTarget::WeightRecordToday));
+      s_kick_mode_pref.store(static_cast<uint8_t>(StickyKickModePref::Unset));
       ui_language_set(UiLanguage::English);
       settings_app_notify_preferences_changed();
       STICKY_LOGI(kTag,
@@ -462,22 +655,18 @@ void app_task(void *) {
     }
     poll_device_settings();
     if (s_language_toggle_requested.exchange(false)) toggle_language();
+    const int kick_mode_request = s_kick_mode_request.exchange(-1);
+    if (kick_mode_request >= 0)
+      s_device_preferences.set_kick_mode_pref(
+          static_cast<StickyKickModePref>(kick_mode_request));
+    const int shortcut_request = s_shortcut_request.exchange(-1);
+    if (shortcut_request >= 0)
+      s_device_preferences.set_shortcut_target(
+          static_cast<StickyShortcutTarget>(shortcut_request));
     update_display_orientation();
-    StickyButtonEvent event = StickyButtonEvent::None;
-    if (sticky_button_take_event(event)) {
-      mark_activity(monotonic_ms());
-      sticky_buzzer_stop();
-      if (event == StickyButtonEvent::SingleClick) {
-        if (s_launcher_open)
-          close_launcher();
-        else
-          open_launcher();
-      } else if (event == StickyButtonEvent::DoubleClick) {
-        select_app(StickyAppId::Pregnancy, "double_click");
-      } else if (event == StickyButtonEvent::SleepChord) {
-        enter_sleep("side_button_chord");
-      }
-    }
+    StickyButtonRecord record;
+    while (sticky_button_take_record(record)) handle_button_record(record);
+    apply_pending_side_steps();
 
     StickyTouchInteraction interaction = {};
     while (sticky_touch_take_interaction(interaction)) {
@@ -508,6 +697,7 @@ void app_task(void *) {
     }
 
     const uint32_t now_ms = monotonic_ms();
+    drop_stale_transition(now_ms);
     if (s_launcher_open &&
         now_ms - s_last_activity_ms >= kLauncherIdleCloseMs) {
       close_launcher();
@@ -604,6 +794,34 @@ void sticky_app_request(StickyAppId app) {
 }
 
 void sticky_app_request_launcher() { s_launcher_requested.store(true); }
+
+void sticky_app_set_key_policy(StickyAppId app, KeyPolicy policy) {
+  const unsigned slot = static_cast<unsigned>(app);
+  if (slot < kKeyPolicySlots)
+    s_key_policies[slot].store(static_cast<uint8_t>(policy));
+}
+
+StickyKickModePref sticky_app_kick_mode_pref() {
+  return static_cast<StickyKickModePref>(s_kick_mode_pref.load());
+}
+
+StickyShortcutTarget sticky_app_shortcut_target() {
+  const uint8_t value = s_shortcut_target.load();
+  return value < kStickyShortcutTargetCount
+             ? static_cast<StickyShortcutTarget>(value)
+             : StickyShortcutTarget::WeightRecordToday;
+}
+
+void sticky_app_set_shortcut_target(StickyShortcutTarget target) {
+  if (static_cast<uint8_t>(target) >= kStickyShortcutTargetCount) return;
+  s_shortcut_target.store(static_cast<uint8_t>(target));
+  s_shortcut_request.store(static_cast<int>(target));
+}
+
+void sticky_app_set_kick_mode_pref(StickyKickModePref pref) {
+  s_kick_mode_pref.store(static_cast<uint8_t>(pref));
+  s_kick_mode_request.store(static_cast<int>(pref));
+}
 
 void sticky_app_request_language_toggle() {
   s_language_toggle_requested.store(true);

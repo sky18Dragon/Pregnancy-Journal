@@ -59,6 +59,8 @@ struct SettingsFlowResult {
   bool render = false;          // redraw the (possibly new) page
   bool render_full = false;     // ... with a forced full refresh
   bool toggle_language = false; // ask the coordinator to flip the language
+  bool select_shortcut = false; // save `shortcut` as the double-click target
+  StickyShortcutTarget shortcut = StickyShortcutTarget::WeightRecordToday;
   bool open_launcher = false;   // leave for the launcher (no redraw)
   bool request_home = false;    // ask for Baby Week (no redraw)
   bool request_pregnancy = false; // ask for the pregnancy setup (no redraw)

@@ -39,7 +39,7 @@ esp_err_t sticky_settings_load(StickyDeviceSettings &settings)
     if (sticky_persistent_select(a_valid ? &a : nullptr,
                                  b_valid ? &b : nullptr,
                                  selected)) {
-        settings = selected.settings;
+        settings = sticky_persistent_settings(selected);
     }
     if (!sticky_app_id_valid(settings.last_app)) {
         settings.last_app = StickyAppId::Pregnancy;

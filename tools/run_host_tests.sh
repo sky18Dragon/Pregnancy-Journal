@@ -275,13 +275,13 @@ compile_and_run digit_fields_test -Isrc/ui -Isrc/ui/assets \
 compile_and_run pregnancy_flow_test -Isrc/apps/pregnancy -Isrc/pregnancy/content -Isrc/app \
     -Isrc/ui -Isrc/ui/assets \
     test/pregnancy_flow_test.cpp src/apps/pregnancy/pregnancy_flow.cpp \
-    src/apps/pregnancy/pregnancy_pages.cpp src/apps/pregnancy/pregnancy_state.cpp \
+    src/apps/pregnancy/pregnancy_pages.cpp src/ui/status_glyphs.cpp src/apps/pregnancy/pregnancy_state.cpp \
     src/ui/digit_fields.cpp src/ui/canvas.cpp src/ui/font.cpp src/ui/prototype_ui.cpp \
     src/ui/text_layout.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp src/ui/assets/pixel_asset.cpp \
-    src/ui/assets/app_launcher_assets.cpp src/ui/assets/pregnancy_week_assets.cpp \
-    src/pregnancy/content/content_service.cpp \
-    src/pregnancy/content/pregnancy_week_visual.cpp
+    src/ui/assets/app_launcher_assets.cpp \
+    src/ui/assets/pregnancy_plate_assets.cpp \
+    src/pregnancy/content/content_service.cpp
 compile_and_run app_launcher_test -Isrc/app -Isrc/ui -Isrc/ui/assets \
     test/app_launcher_test.cpp src/ui/app_pages.cpp src/ui/canvas.cpp \
     src/ui/font.cpp src/ui/prototype_ui.cpp src/ui/text_layout.cpp src/ui/ui_language.cpp \
@@ -295,6 +295,11 @@ compile_and_run battery_status_overlay_theme_test -Isrc/ui -Isrc/ui/assets \
     src/ui/battery_status_overlay_theme.cpp src/ui/canvas.cpp \
     src/ui/font.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp
+compile_and_run status_glyphs_test -Isrc/ui -Isrc/ui/assets \
+    test/status_glyphs_test.cpp src/ui/status_glyphs.cpp src/ui/prototype_ui.cpp \
+    src/ui/battery_status_overlay_theme.cpp src/ui/canvas.cpp src/ui/font.cpp \
+    src/ui/text_layout.cpp src/ui/ui_language.cpp \
+    src/ui/assets/chinese_font_assets.cpp src/ui/assets/pixel_asset.cpp
 compile_and_run persistent_state_test -Isrc/app -Isrc/storage -Isrc/ui \
     test/persistent_state_test.cpp src/storage/persistent_state.cpp \
     src/app/sticky_app_id.cpp
@@ -324,20 +329,15 @@ compile_and_run pregnancy_storage_record_test -Isrc/apps/pregnancy \
     src/apps/pregnancy/pregnancy_state.cpp
 compile_and_run pregnancy_pages_test \
     -Isrc/apps/pregnancy -Isrc/pregnancy/content -Isrc/app -Isrc/ui -Isrc/ui/assets \
-    test/pregnancy_pages_test.cpp src/apps/pregnancy/pregnancy_pages.cpp src/ui/digit_fields.cpp \
+    test/pregnancy_pages_test.cpp src/apps/pregnancy/pregnancy_pages.cpp src/ui/status_glyphs.cpp src/ui/digit_fields.cpp \
     src/apps/pregnancy/pregnancy_state.cpp src/ui/canvas.cpp src/ui/font.cpp \
     src/ui/prototype_ui.cpp src/ui/text_layout.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp src/ui/assets/pixel_asset.cpp \
-    src/ui/assets/app_launcher_assets.cpp src/ui/assets/pregnancy_week_assets.cpp \
-    src/pregnancy/content/content_service.cpp \
-    src/pregnancy/content/pregnancy_week_visual.cpp
+    src/ui/assets/app_launcher_assets.cpp \
+    src/ui/assets/pregnancy_plate_assets.cpp \
+    src/pregnancy/content/content_service.cpp
 compile_and_run content_service_test -Isrc/pregnancy/content \
     test/content_service_test.cpp src/pregnancy/content/content_service.cpp
-compile_and_run pregnancy_week_visual_test -Isrc/pregnancy/content \
-    -Isrc/ui -Isrc/ui/assets \
-    test/pregnancy_week_visual_test.cpp \
-    src/pregnancy/content/pregnancy_week_visual.cpp \
-    src/ui/assets/pregnancy_week_assets.cpp
 compile_and_run reminder_service_test -Isrc/apps/pregnancy \
     -Isrc/pregnancy/models -Isrc/pregnancy/services \
     test/reminder_service_test.cpp src/pregnancy/services/reminder_service.cpp \
@@ -394,6 +394,12 @@ compile_and_run kick_flow_test -Isrc/apps/kick -Isrc/apps/pregnancy \
     src/ui/canvas.cpp src/ui/font.cpp src/ui/prototype_ui.cpp \
     src/ui/text_layout.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp
+compile_and_run sticky_shortcut_test -Isrc/app -Isrc/ui \
+    test/sticky_shortcut_test.cpp src/app/sticky_shortcut.cpp
+compile_and_run side_key_tracker_test -Isrc/input \
+    test/side_key_tracker_test.cpp src/input/side_key_tracker.cpp
+compile_and_run sticky_key_router_test -Isrc/app -Isrc/ui \
+    test/sticky_key_router_test.cpp src/app/sticky_key_router.cpp
 compile_and_run sticky_app_gesture_test -Isrc/app \
     test/sticky_app_gesture_test.cpp src/app/sticky_app_gesture.cpp
 compile_and_run sticky_app_display_orientation_test \

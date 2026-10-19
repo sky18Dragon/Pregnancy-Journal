@@ -71,8 +71,20 @@ SettingsFlowResult SettingsFlow::handle_action(SettingsAction action) {
     time_fields_.select_field(field);
     return rendered();
   }
+  StickyShortcutTarget picked = StickyShortcutTarget::WeightRecordToday;
+  if (settings_action_shortcut(action, picked)) {
+    // Picking a target saves it and stays on the page; the new choice is
+    // drawn inverted, which is the confirmation.
+    SettingsFlowResult picked_result = rendered();
+    picked_result.select_shortcut = true;
+    picked_result.shortcut = picked;
+    return picked_result;
+  }
   SettingsFlowResult result;
   switch (action) {
+  case SettingsAction::ShortcutSettings:
+    page_ = SettingsPage::Shortcut;
+    return rendered();
   case SettingsAction::ToggleLanguage:
     result.toggle_language = true;
     break;

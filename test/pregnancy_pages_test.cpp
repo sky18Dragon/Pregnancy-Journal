@@ -1,4 +1,7 @@
+#include <algorithm>
 #include <cassert>
+#include <utility>
+#include <cstdlib>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -8,8 +11,9 @@
 #include "canvas.h"
 #include "font.h"
 #include "pregnancy_pages.h"
+#include "pregnancy_plate_assets.h"
 #include "ui_tokens.h"
-#include "pregnancy_week_visual.h"
+#include "battery_status_overlay.h"
 #include "ui_language.h"
 
 namespace {
@@ -64,6 +68,33 @@ void write_canvas_preview(Canvas &canvas, const char *path) {
   }
 }
 
+// Width of a UTF-8 string drawn glyph by glyph with `tracking` px added after each glyph.
+int tracked_width_for_test(const char *text, uint8_t px, int tracking) {
+  int width = 0;
+  char one[5] = {};
+  for (const char *c = text; *c != '\0';) {
+    const unsigned char lead = static_cast<unsigned char>(*c);
+    const size_t length = lead < 0x80 ? 1 : (lead < 0xE0 ? 2 : (lead < 0xF0 ? 3 : 4));
+    std::memcpy(one, c, length);
+    one[length] = '\0';
+    width += font_text_width_pixels(one, px, FontWeight::Medium) + tracking;
+    c += length;
+  }
+  return width;
+}
+
+// Horizontal ink extent of the black pixels in a rectangle (min x, max x); {-1, -1} when empty.
+std::pair<int, int> ink_columns(Canvas &canvas, int x, int y, int width, int height) {
+  int lo = -1, hi = -1;
+  for (int row = y; row < y + height; ++row)
+    for (int col = x; col < x + width; ++col)
+      if (canvas.pixel_at(col, row) == GrayLevel::Black) {
+        if (lo < 0 || col < lo) lo = col;
+        if (col > hi) hi = col;
+      }
+  return {lo, hi};
+}
+
 size_t count_black_rect(Canvas &canvas, int x, int y, int width, int height) {
   size_t count = 0U;
   for (int row = y; row < y + height; ++row) {
@@ -114,7 +145,17 @@ void test_target_contract() {
   }
 }
 
+void test_key_policy() {
+  assert(pregnancy_page_key_policy(PregnancyPage::Dashboard) == KeyPolicy::Home);
+  assert(pregnancy_page_key_policy(PregnancyPage::Baby) == KeyPolicy::Free);
+  assert(pregnancy_page_key_policy(PregnancyPage::Mom) == KeyPolicy::Free);
+  for (PregnancyPage page : {PregnancyPage::ClockSetup, PregnancyPage::SourceSetup,
+                             PregnancyPage::DateSetup})
+    assert(pregnancy_page_key_policy(page) == KeyPolicy::Wizard);
+}
+
 int main() {
+  test_key_policy();
   test_target_contract();
   std::vector<uint8_t> regular_glyph_buffer(kStride * kHeight, 0xFFU);
   std::vector<uint8_t> medium_glyph_buffer(kStride * kHeight, 0xFFU);
@@ -168,55 +209,164 @@ int main() {
                                 FontWeight::Medium) <= 360);
   assert(font_text_width_pixels("有些人会逐渐感受到胎动，时间存在个体差异。",
                                 16U, FontWeight::Regular) <= 360);
+  // Every week has a 340 px plate and an English caption that fits the page.
   for (uint8_t week = 6U; week <= 40U; ++week) {
-    char sentence[160] = {};
-    std::snprintf(sentence, sizeof(sentence), "%s。",
-                  pregnancy_week_visual(week).sentence_zh);
-    assert(font_text_width_pixels(sentence, 17U, FontWeight::Regular) <= 688);
-
-    char size_title[80] = {};
-    std::snprintf(size_title, sizeof(size_title), "宝宝现在约有%s那么大",
-                  pregnancy_week_visual(week).object_zh);
-    assert(font_text_width_pixels(size_title, 24U, FontWeight::Medium) <= 368 ||
-           font_text_width_pixels(size_title, 20U, FontWeight::Medium) <= 368);
-
-    const WeekContent week_content = pregnancy_content_for_week(week);
-    assert(font_text_width_pixels(week_content.baby_development_zh, 16U,
-                                  FontWeight::Regular) <= 544);
-    assert(font_text_width_pixels(week_content.mother_changes_zh, 16U,
-                                  FontWeight::Regular) <= 544);
-    assert(font_text_width_pixels(week_content.daily_advice_zh, 16U,
-                                  FontWeight::Regular) <= 544);
+    {
+      const PixelAsset &plate = pregnancy_plate_asset(week);
+      assert(plate.width == 340U && plate.height == 340U && plate.data != nullptr);
+      // No plate may run into its own border: that would mean the object is cropped.
+      const size_t stride = (static_cast<size_t>(plate.width) + 7U) / 8U;
+      int min_x = plate.width, min_y = plate.height, max_x = -1, max_y = -1;
+      for (int y = 0; y < plate.height; ++y)
+        for (int x = 0; x < plate.width; ++x)
+          if (plate.data[static_cast<size_t>(y) * stride + x / 8] & (1U << (7 - x % 8))) {
+            min_x = std::min(min_x, x); max_x = std::max(max_x, x);
+            min_y = std::min(min_y, y); max_y = std::max(max_y, y);
+          }
+      assert(max_x >= 0);
+      assert(min_x >= 8 && min_y >= 8);
+      assert(plate.width - 1 - max_x >= 8 && plate.height - 1 - max_y >= 8);
+    }
+    const char *caption = pregnancy_plate_caption(week);
+    assert(caption != nullptr && caption[0] != '\0');
+    int caption_width = 0;
+    char one[2] = {0, 0};
+    for (const char *c = caption; *c != '\0'; ++c) {
+      one[0] = *c;
+      caption_width += font_text_width_pixels(one, ui_tokens::kBody,
+                                              FontWeight::Medium) + 6;
+    }
+    assert(caption_width - 6 <= 432);
   }
+  {
+    const PlateNumeral &numeral = pregnancy_plate_numeral();
+    for (int digit = 0; digit < 10; ++digit) {
+      assert(numeral.digit[digit].height == numeral.height);
+      assert(numeral.advance[digit] >= numeral.digit[digit].width);
+    }
+  }
+  // Caption sentences: five stages of eight weeks, an article that matches the name, and a fixed
+  // break after "of" in English so no name is ever split.
+  {
+    char text[kCaptionBufferSize] = {};
+    const char *const tail_en[5] = {"settling in", "growing every day", "learning your voice",
+                                    "saying hello", "waiting to meet you"};
+    const char *const tail_zh[5] = {"悄悄安了家", "每天都在长大", "正熟悉你的声音", "向你轻轻问好",
+                                    "等着和你见面"};
+    for (uint8_t week = 6; week <= 40; ++week) {
+      const int stage = (week - 1) / 8;
+      pregnancy_page_caption_text(week, false, text, sizeof(text));
+      const char *second = std::strchr(text, '\n');
+      assert(second != nullptr);
+      assert(std::strncmp(text, "Your baby is about the size of", 30) == 0 && second - text == 30);
+      assert(std::strstr(second + 1, tail_en[stage]) != nullptr);
+      assert(std::strncmp(second + 1, "a ", 2) == 0 || std::strncmp(second + 1, "an ", 3) == 0);
+      pregnancy_page_caption_text(week, true, text, sizeof(text));
+      assert(std::strncmp(text, "宝宝现在约有", std::strlen("宝宝现在约有")) == 0);
+      assert(std::strstr(text, pregnancy_plate_caption_zh(week)) != nullptr);
+      assert(std::strstr(text, "那么大，") != nullptr);
+      assert(std::strstr(text, tail_zh[stage]) != nullptr);
+      assert(std::strchr(text, '\n') == nullptr);
+      // One line, centred on the picture (x 580): it must end before the 24 px right margin (x 776).
+      assert(tracked_width_for_test(text, ui_tokens::kBody, 1) <= 2 * (776 - 580));
+    }
+    pregnancy_page_caption_text(8, false, text, sizeof(text));    // stage boundaries
+    assert(std::strstr(text, "settling in") != nullptr);
+    pregnancy_page_caption_text(9, false, text, sizeof(text));
+    assert(std::strstr(text, "growing every day") != nullptr);
+    pregnancy_page_caption_text(25, false, text, sizeof(text));
+    assert(std::strstr(text, "saying hello") != nullptr);
+    pregnancy_page_caption_text(33, false, text, sizeof(text));
+    assert(std::strstr(text, "waiting to meet you") != nullptr);
+    pregnancy_page_caption_text(15, false, text, sizeof(text));   // apple -> "an"
+    assert(std::strstr(text, "\nan apple,") != nullptr);
+    pregnancy_page_caption_text(28, false, text, sizeof(text));   // long name stays on one line
+    assert(std::strstr(text, "\na butternut squash, saying hello") != nullptr);
+  }
+  // Rendered captions, every week, landscape: they stay clear of the left column (grid ends x 300)
+  // and of the 24 px right margin, and their descenders stay at least 24 px above the bottom edge.
+  for (const UiLanguage language : {UiLanguage::English, UiLanguage::ChineseSimplified}) {
+    ui_language_set(language);
+    for (uint8_t week = 6; week <= 40; ++week) {
+      PregnancyProgress shown = progress;
+      shown.weeks = week;
+      pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, shown);
+      int lowest = -1, left = 800, right = -1;
+      for (int y = 418; y < 480; ++y)
+        for (int x = 340; x < 800; ++x)
+          if (canvas.pixel_at(x, y) == GrayLevel::Black) {
+            lowest = std::max(lowest, y);
+            left = std::min(left, x);
+            right = std::max(right, x);
+          }
+      assert(lowest >= 0);                 // the caption is there
+      assert(lowest <= 479 - 24);          // 24 px bottom margin
+      assert(left >= 340 && right <= 776); // between the left column and the right margin
+    }
+  }
+  ui_language_set(UiLanguage::English);
   pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress);
   assert(count_level(buffer, GrayLevel::Black) > 8000U);
   assert(count_level(buffer, GrayLevel::DarkGray) == 0U);
   assert(count_level(buffer, GrayLevel::LightGray) == 0U);
+  // Targets: the menu icon, the engraving (Baby page) and the numeral block (Mom
+  // page). The caption and the empty margins are not tappable.
   assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 750, 45) ==
          PregnancyAction::OpenLauncher);
-  // Only visible controls are targets: the menu box and the three "this week"
-  // rows. The illustration and the card header are not tappable.
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 736, 63) ==
-         PregnancyAction::OpenLauncher);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 160, 312) ==
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 580, 250) ==
          PregnancyAction::ShowBaby);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 160, 368) ==
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 100, 150) ==
          PregnancyAction::ShowMom);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 160, 424) ==
-         PregnancyAction::ShowMom);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 160, 240) ==
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 580, 440) ==
+         PregnancyAction::None); // the caption is not tappable
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 100, 330) ==
+         PregnancyAction::None); // the week grid is display only
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 340, 250) ==
          PregnancyAction::None);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 500, 250) ==
-         PregnancyAction::None);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 500, 350) ==
-         PregnancyAction::None);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 700, 468) ==
-         PregnancyAction::None);
+  assert(count_black_rect(canvas, 410, 80, 340, 340) > 6000U);
+  // Week 20: twenty finished cells are solid in the grid.
+  assert(count_black_rect(canvas, 48, 252, 252, 156) > 20U * 28U * 28U * 8U / 10U);
   write_preview(buffer, "/tmp/pregnancy_dashboard.ppm");
-
+  // Status row (landscape): the power indicator is top-left on the menu icon's centre line (y 52),
+  // inside the safe area; the menu icon stays top-right. In the sleep frame the moon sits just right
+  // of the indicator, nowhere near the menu, and the menu icon is not touched.
+  {
+    int bx = 0, by = 0;
+    pregnancy_page_status_battery_origin(false, bx, by);
+    assert(bx <= 12 && by <= 12 && bx >= 0 && by >= 0);   // hugs the top-left corner
+    assert(bx + kBatteryStatusCompactWidth + 12 + 35 < 720 - 24); // battery + moon end well before the menu slot
+    const size_t menu_ink = count_black_rect(canvas, 720, 24, 56, 56);
+    assert(menu_ink > 100U);
+    assert(count_black_rect(canvas, bx + kBatteryStatusCompactWidth + 12, 0, 40, 50) == 0U); // moon slot is empty awake
+    pregnancy_page_render_sleep_moon(canvas);
+    assert(count_black_rect(canvas, bx + kBatteryStatusCompactWidth + 12, 0, 40, 50) > 150U);
+    assert(count_black_rect(canvas, 720, 24, 56, 56) == menu_ink); // menu untouched
+    assert(count_black_rect(canvas, 410, 80, 340, 340) > 6000U);
+    pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress);
+  }
+  // The 孕周 block (digits and label) is centred on the grid's centre line, above the grid.
+  {
+    const auto digits = ink_columns(canvas, 48, 84, 252, 84);     // the digit rows only
+    assert(digits.first >= 0);
+    assert(std::abs((digits.first + digits.second) / 2 - (48 + 252 / 2)) <= 3);
+    assert(digits.second < 300 && digits.first > 48);              // inside the grid's width
+    assert(count_black_rect(canvas, 74, 84, 200, 132) > 600U);    // digits + label sit in the hit rect
+    assert(count_black_rect(canvas, 48, 224, 252, 28) == 0U);     // clear gap above the grid
+  }
   ui_language_set(UiLanguage::ChineseSimplified);
   pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress);
   assert(count_level(buffer, GrayLevel::Black) > 8000U);
+  // The Chinese object name (not the English one) is centred under the picture, and the unit label under
+  // the numeral switches from WEEKS to 孕周: both areas must carry ink and differ from the English frame.
+  assert(count_black_rect(canvas, 410, 420, 340, 50) > 100U);
+  const size_t zh_caption_ink = count_black_rect(canvas, 410, 420, 340, 50);
+  const size_t zh_label_ink = count_black_rect(canvas, 30, 190, 260, 40);
+  ui_language_set(UiLanguage::English);
+  pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress);
+  assert(count_black_rect(canvas, 410, 420, 340, 50) != zh_caption_ink);
+  assert(count_black_rect(canvas, 30, 190, 260, 40) != zh_label_ink);
+  ui_language_set(UiLanguage::ChineseSimplified);
+  pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress);
   write_preview(buffer, "/tmp/pregnancy_dashboard_zh.ppm");
 
   pregnancy_page_render_detail(canvas, PregnancyPage::Baby, progress,
@@ -231,24 +381,42 @@ int main() {
   pregnancy_page_render_dashboard(canvas, {2027U, 3U, 18U}, progress);
   assert(canvas.width() == 480U);
   assert(canvas.height() == 800U);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 440,
-                                  40) == PregnancyAction::OpenLauncher);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 416,
-                                  63) == PregnancyAction::OpenLauncher);
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 428,
+                                  52) == PregnancyAction::OpenLauncher);
   assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 240,
-                                  652) == PregnancyAction::ShowBaby);
+                                  300) == PregnancyAction::ShowBaby);
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 400,
+                                  720) == PregnancyAction::ShowMom);
+  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 100,
+                                  700) == PregnancyAction::None); // grid
   assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 240,
-                                  700) == PregnancyAction::ShowMom);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 240,
-                                  748) == PregnancyAction::ShowMom);
-  assert(pregnancy_page_action_at(PregnancyPage::Dashboard, true, 480, 800, 240,
-                                  360) == PregnancyAction::None);
-  const char *portrait_countdown = "距离预产期还有 140 天";
-  const int portrait_countdown_width =
-      font_text_width_pixels(portrait_countdown, ui_tokens::kBody, FontWeight::Regular);
-  const int portrait_heart_x = (480 - (portrait_countdown_width + 8 + 24)) / 2 +
-                               portrait_countdown_width + 8;
-  assert(count_black_rect(canvas, portrait_heart_x, 143, 24, 24) > 20U);
+                                  560) == PregnancyAction::None);
+  assert(count_black_rect(canvas, 70, 130, 340, 340) > 6000U);
+  assert(count_black_rect(canvas, 24, 630, 236, 146) > 20U * 26U * 26U * 8U / 10U);
+  // Portrait: the block is centred in the space right of the grid (x 260..456) and vertically on
+  // the grid's centre line (y 630 + 146 / 2 = 703).
+  {
+    const auto digits = ink_columns(canvas, 260, 637, 196, 84);
+    assert(digits.first >= 0);
+    assert(std::abs((digits.first + digits.second) / 2 - (260 + 456) / 2) <= 3);
+    int top = -1, bottom = -1;
+    for (int y = 637; y < 780; ++y)
+      for (int x = 268; x < 448; ++x)
+        if (canvas.pixel_at(x, y) == GrayLevel::Black) { if (top < 0) top = y; bottom = y; }
+    assert(top >= 0 && std::abs((top + bottom) / 2 - 703) <= 6);   // block centre on the grid's centre line
+  }
+  {
+    int bx = 0, by = 0;
+    pregnancy_page_status_battery_origin(true, bx, by);
+    assert(bx <= 12 && by <= 12 && bx >= 0 && by >= 0);
+    assert(bx + kBatteryStatusCompactWidth + 12 + 35 < 400 - 24);
+    const size_t menu_ink = count_black_rect(canvas, 400, 24, 56, 56);
+    assert(menu_ink > 100U);
+    pregnancy_page_render_sleep_moon(canvas);
+    assert(count_black_rect(canvas, bx + kBatteryStatusCompactWidth + 12, 0, 40, 50) > 150U);
+    assert(count_black_rect(canvas, 400, 24, 56, 56) == menu_ink);
+    assert(count_black_rect(canvas, 70, 130, 340, 340) > 6000U);
+  }
   write_canvas_preview(canvas, "/tmp/pregnancy_dashboard_portrait_zh.ppm");
 
   pregnancy_page_render_source_setup(canvas, true);
@@ -272,6 +440,36 @@ int main() {
   assert(pregnancy_page_action_at(PregnancyPage::Baby, true, 480, 800, 240,
                                   752) == PregnancyAction::ShowBaby);
   write_canvas_preview(canvas, "/tmp/pregnancy_baby_portrait_zh.ppm");
+
+  // Only the Dashboard <-> Baby pair is trialled with the partial waveform.
+  assert(pregnancy_page_change_uses_partial(PregnancyPage::Dashboard,
+                                            PregnancyPage::Baby));
+  assert(pregnancy_page_change_uses_partial(PregnancyPage::Baby,
+                                            PregnancyPage::Dashboard));
+  assert(!pregnancy_page_change_uses_partial(PregnancyPage::Dashboard,
+                                             PregnancyPage::Mom));
+  assert(!pregnancy_page_change_uses_partial(PregnancyPage::Mom,
+                                             PregnancyPage::Dashboard));
+  assert(!pregnancy_page_change_uses_partial(PregnancyPage::Baby,
+                                             PregnancyPage::Mom));
+  assert(!pregnancy_page_change_uses_partial(PregnancyPage::Baby,
+                                             PregnancyPage::Baby));
+  assert(!pregnancy_page_change_uses_partial(PregnancyPage::SourceSetup,
+                                             PregnancyPage::Dashboard));
+
+  // The id version rejects "no page yet" (-1), the status page id and any
+  // out-of-range number before it looks at the pair.
+  const int dashboard = static_cast<int>(PregnancyPage::Dashboard);
+  const int baby = static_cast<int>(PregnancyPage::Baby);
+  const int mom = static_cast<int>(PregnancyPage::Mom);
+  assert(pregnancy_page_id_change_uses_partial(dashboard, baby));
+  assert(pregnancy_page_id_change_uses_partial(baby, dashboard));
+  assert(!pregnancy_page_id_change_uses_partial(dashboard, mom));
+  assert(!pregnancy_page_id_change_uses_partial(-1, dashboard));
+  assert(!pregnancy_page_id_change_uses_partial(dashboard, -1));
+  assert(!pregnancy_page_id_change_uses_partial(1000, baby));
+  assert(!pregnancy_page_id_change_uses_partial(baby, 1000));
+  assert(!pregnancy_page_id_change_uses_partial(mom + 1, baby));
 
   char digit = '\0';
   assert(pregnancy_action_digit(PregnancyAction::Digit0, digit));
