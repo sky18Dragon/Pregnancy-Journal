@@ -30,8 +30,6 @@ int main() {
                                   StickyAppId::Kicks, StickyAppId::Settings};
   assert(static_cast<int>(StickyAppId::Settings) == 1);
   assert(static_cast<int>(StickyAppId::Pregnancy) == 2);
-  assert(static_cast<int>(StickyAppId::Reminder) == 3);
-  assert(static_cast<int>(StickyAppId::Checkup) == 4);
   assert(static_cast<int>(StickyAppId::Weight) == 7);
   assert(static_cast<int>(StickyAppId::Kicks) == 8);
   // Only the pregnancy dashboard draws its own battery indicator, so only it supplies its own sleep status.
@@ -39,8 +37,9 @@ int main() {
   assert(sticky_app_registry_find(StickyAppId::Weight)->draw_sleep_status == nullptr);
   assert(sticky_app_registry_find(StickyAppId::Kicks)->draw_sleep_status == nullptr);
   assert(sticky_app_registry_find(StickyAppId::Settings)->draw_sleep_status == nullptr);
-  assert(sticky_app_registry_find(StickyAppId::Reminder) == nullptr);
-  assert(sticky_app_registry_find(StickyAppId::Checkup) == nullptr);
+  // Ids 3 and 4 belonged to the retired Reminder and Checkup apps.
+  assert(sticky_app_registry_find(static_cast<StickyAppId>(3)) == nullptr);
+  assert(sticky_app_registry_find(static_cast<StickyAppId>(4)) == nullptr);
   const StickyAppDescriptor *apps = sticky_app_registry_data();
   assert(apps != nullptr);
   for (size_t index = 0U; index < sticky_app_registry_count(); ++index) {

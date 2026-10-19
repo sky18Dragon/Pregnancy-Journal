@@ -3,14 +3,11 @@
 #include <cstddef>
 #include <cstdio>
 
-#include "checkup_storage.h"
 #include "kick_service.h"
 #include "kick_storage_record.h"
 #include "nvs.h"
 #include "persistent_state.h"
 #include "pregnancy_storage_record.h"
-#include "reminder_service.h"
-#include "reminder_storage_record.h"
 #include "weight_service.h"
 #include "weight_storage.h"
 
@@ -21,10 +18,7 @@ namespace {
 constexpr size_t kLegacyKickSlots = 42U;
 
 constexpr uint32_t kPregnancySlot = 0U;
-constexpr uint32_t kReminderFirst = 1U;
-constexpr uint32_t kCheckupFirst =
-    kReminderFirst + ReminderService::kCapacity;
-constexpr uint32_t kWeightFirst = kCheckupFirst + CheckupService::kCapacity;
+constexpr uint32_t kWeightFirst = 1U;
 constexpr uint32_t kWeightPreferencesSlot =
     kWeightFirst + 32U;  // Legacy firmware had exactly 32 weight slots.
 constexpr uint32_t kDevicePreferencesSlot = kWeightPreferencesSlot + 1U;
@@ -144,48 +138,6 @@ LegacyMigrationReadStatus read_pregnancy(LegacyMigrationRecord &output)
                         : LegacyMigrationReadStatus::Missing;
 }
 
-LegacyMigrationReadStatus read_reminder(uint32_t index,
-                                        LegacyMigrationRecord &output)
-{
-    nvs_handle_t handle = 0;
-    const LegacyMigrationReadStatus opened = open_readonly("reminders", handle);
-    if (opened != LegacyMigrationReadStatus::Record) return opened;
-    char key[8] = {};
-    std::snprintf(key, sizeof(key), "r%02u", static_cast<unsigned>(index));
-    ReminderStorageRecord stored = {};
-    const LegacyMigrationReadStatus read = read_exact(handle, key, stored);
-    nvs_close(handle);
-    if (read != LegacyMigrationReadStatus::Record) return read;
-    if (!reminder_storage_record_valid(stored) ||
-        !pregnancy_repository::reminder_key(stored.reminder.id, output.key) ||
-        !encode_ok(pregnancy_repository::encode_reminder(stored.reminder,
-                                                         output.payload))) {
-        return LegacyMigrationReadStatus::Corrupt;
-    }
-    return LegacyMigrationReadStatus::Record;
-}
-
-LegacyMigrationReadStatus read_checkup(uint32_t index,
-                                       LegacyMigrationRecord &output)
-{
-    nvs_handle_t handle = 0;
-    const LegacyMigrationReadStatus opened = open_readonly("checkups", handle);
-    if (opened != LegacyMigrationReadStatus::Record) return opened;
-    char key[8] = {};
-    std::snprintf(key, sizeof(key), "c%02u", static_cast<unsigned>(index));
-    CheckupStorageRecord stored = {};
-    const LegacyMigrationReadStatus read = read_exact(handle, key, stored);
-    nvs_close(handle);
-    if (read != LegacyMigrationReadStatus::Record) return read;
-    if (!checkup_storage_record_valid(stored) ||
-        !pregnancy_repository::checkup_key(stored.item.id, output.key) ||
-        !encode_ok(pregnancy_repository::encode_checkup(stored.item,
-                                                        output.payload))) {
-        return LegacyMigrationReadStatus::Corrupt;
-    }
-    return LegacyMigrationReadStatus::Record;
-}
-
 LegacyMigrationReadStatus read_weight(uint32_t index,
                                       LegacyMigrationRecord &output)
 {
@@ -284,10 +236,6 @@ LegacyMigrationReadStatus LegacyNvsSource::read(
 {
     record = {};
     if (slot == kPregnancySlot) return read_pregnancy(record);
-    if (slot >= kReminderFirst && slot < kCheckupFirst)
-        return read_reminder(slot - kReminderFirst, record);
-    if (slot >= kCheckupFirst && slot < kWeightFirst)
-        return read_checkup(slot - kCheckupFirst, record);
     if (slot >= kWeightFirst && slot < kWeightPreferencesSlot)
         return read_weight(slot - kWeightFirst, record);
     if (slot == kWeightPreferencesSlot)
@@ -317,8 +265,9 @@ bool LegacyNvsSource::legacy_kicks_present() const
 
 bool LegacyNvsSource::clear_migrated_namespaces()
 {
-    // Deferred reminder/checkup namespaces stay intact for V2. Kicks has its
-    // own independently verified import and cleanup.
+    // Kicks has its own independently verified import and cleanup. Other
+    // namespaces, including those of the retired reminder and checkup apps,
+    // are never touched.
     constexpr const char *kNamespaces[] = {
         "pregnancy", "weight", "sticky_core"};
     for (const char *name : kNamespaces) {

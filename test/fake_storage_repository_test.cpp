@@ -18,11 +18,11 @@ int main()
     RepositoryKey first = {};
     RepositoryKey second = {};
     RepositoryKey third = {};
-    assert(repository_key_make(RepositoryKind::Note, kId1, first));
-    assert(repository_key_make(RepositoryKind::Note, kId2, second));
+    assert(repository_key_make(RepositoryKind::Preference, kId1, first));
+    assert(repository_key_make(RepositoryKind::Preference, kId2, second));
     assert(repository_key_make(RepositoryKind::Weight, kId3, third));
     RepositoryKey invalid = {};
-    assert(!repository_key_make(RepositoryKind::Note, "bad", invalid));
+    assert(!repository_key_make(RepositoryKind::Preference, "bad", invalid));
 
     RepositoryRecord record = {};
     assert(storage.read(first, record) == RepositoryStatus::NotFound);
@@ -68,7 +68,7 @@ int main()
     assert(record.revision == 1U);
 
     RepositoryPageRequest page_request = {};
-    page_request.repository = RepositoryKind::Note;
+    page_request.repository = RepositoryKind::Preference;
     page_request.limit = 1U;
     RepositoryPage page = {};
     assert(storage.list(page_request, page) == RepositoryStatus::Ok);

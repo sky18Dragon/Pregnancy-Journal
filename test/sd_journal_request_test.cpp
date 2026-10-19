@@ -101,7 +101,7 @@ int main()
     SdJournalTransactionPayload transaction = {};
     transaction.mutation_count = 1U;
     assert(repository_key_make(
-        RepositoryKind::Note, "00000000000000000000000000000001",
+        RepositoryKind::Preference, "00000000000000000000000000000001",
         transaction.mutations[0].key));
     transaction.mutations[0].type = RepositoryMutationType::Upsert;
     transaction.mutations[0].expected_revision = 0U;

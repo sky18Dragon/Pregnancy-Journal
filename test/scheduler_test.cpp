@@ -10,17 +10,17 @@ int main()
     assert(scheduler.schedule(1U, 300U,
                               StickyScheduledEventType::DailyRefresh));
     assert(scheduler.schedule(2U, 200U,
-                              StickyScheduledEventType::Reminder));
+                              StickyScheduledEventType::System));
     assert(scheduler.schedule(3U, 200U,
-                              StickyScheduledEventType::Checkup));
+                              StickyScheduledEventType::System));
     assert(scheduler.next(100U, event));
     assert(event.id == 2U && event.epoch_seconds == 200U);
-    assert(event.type == StickyScheduledEventType::Reminder);
+    assert(event.type == StickyScheduledEventType::System);
     assert(scheduler.schedule(2U, 240U,
-                              StickyScheduledEventType::Reminder));
+                              StickyScheduledEventType::System));
     assert(scheduler.count() == 3U);
     assert(scheduler.next(100U, event));
-    assert(event.id == 3U && event.type == StickyScheduledEventType::Checkup);
+    assert(event.id == 3U && event.type == StickyScheduledEventType::System);
     assert(scheduler.cancel(3U));
     assert(scheduler.cancel(2U));
     assert(scheduler.next(100U, event) && event.id == 1U);

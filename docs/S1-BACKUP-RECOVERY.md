@@ -6,8 +6,8 @@ datasets, format media or migrate a newer schema.
 
 ## What a complete backup contains
 
-The backup unit is the whole `PREGJNL` directory. Copying only `AUDIO`, only
-the newest manifest or only journal files is not a recoverable backup. Keep all
+The backup unit is the whole `PREGJNL` directory. Copying only
+`RECORDS`, only the newest manifest or only journal files is not a recoverable backup. Keep all
 managed directories, including empty directories and `TMP` leftovers:
 
 ```text
@@ -15,8 +15,6 @@ PREGJNL/
   MANIFEST/
   JOURNAL/
   RECORDS/
-  AUDIO/
-  TASKS/
   INDEX/
   TMP/
 ```
@@ -80,9 +78,8 @@ manifest or formats a card.
    card through the operating system, then insert it into the powered-off
    device.
 5. After boot, confirm that the settings page reports the same dataset ID and
-   selected manifest generation. Network credentials are device-bound; a card
-   restored to another device requires explicit Wi-Fi and provider
-   re-authorization. Archived tasks must not be automatically re-submitted.
+   selected manifest generation. A card restored to another device
+   behaves the same way: the dataset, not the device, owns the records.
 
 If validation fails, retain an untouched copy and use computer filesystem
 diagnostics on another copy. The device must remain fail-closed and must not

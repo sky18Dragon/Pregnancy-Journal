@@ -3,7 +3,6 @@
 #include "board_power.h"
 #include "board_sensor_bus.h"
 #include "board_shared_spi.h"
-#include "sticky_sd_audio_test.h"
 #include "canvas.h"
 #include "domain_repository_stores.h"
 #include "sticky_app.h"
@@ -20,9 +19,7 @@
 #include "sticky_checkpoint_commit_test.h"
 #include "sticky_storage_status_test.h"
 #include "sticky_touch.h"
-#include "sticky_voice_classifier_test.h"
 #include "font_test_screen.h"
-#include "sticky_chinese_input_test.h"
 #include "ui_language.h"
 
 #include <cinttypes>
@@ -241,16 +238,6 @@ extern "C" void app_main()
         halt_after_error("board_shared_spi", shared_spi_result);
     }
 
-#if defined(STICKY_SD_AUDIO_TEST) && STICKY_SD_AUDIO_TEST
-    sticky_sd_audio_test_run();
-    return;
-#endif
-
-#if defined(STICKY_VOICE_CLASSIFIER_TEST) && STICKY_VOICE_CLASSIFIER_TEST
-    sticky_voice_classifier_test_run();
-    return;
-#endif
-
     const esp_err_t sensor_bus_result = board_sensor_bus_init();
     if (sensor_bus_result != ESP_OK) {
         halt_after_error("board_sensor_bus", sensor_bus_result);
@@ -323,10 +310,6 @@ extern "C" void app_main()
         halt_after_error("sticky_touch_init", touch_result);
     }
 
-#if defined(STICKY_CHINESE_INPUT_TEST) && STICKY_CHINESE_INPUT_TEST
-    sticky_chinese_input_test_run(*canvas);
-#endif
-
     // Buzzer and IMU are optional for journaling: run silent or with a fixed
     // orientation instead of halting the whole device.
     // 蜂鸣器和IMU不是记录功能的必要条件：失败时静音或固定方向继续运行。
@@ -345,7 +328,7 @@ extern "C" void app_main()
                     esp_err_to_name(imu_result));
     }
 
-    // NVS holds only legacy records awaiting migration and the network key.
+    // NVS holds only legacy records awaiting migration.
     // Never erase it automatically here: a full or newer-format partition
     // disables those features while journaling on MicroSD keeps working.
     // NVS仅保存待迁移旧数据，不能自动擦除；初始化失败时跳过这些功能继续启动。

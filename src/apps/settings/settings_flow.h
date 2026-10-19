@@ -47,11 +47,10 @@ public:
   virtual void begin_import() = 0;
   virtual void clear_old_copies() = 0;
 
-  // Card data delete and device-binding reset.
+  // Card data delete.
   virtual void prepare_delete() = 0;
   // Returns the result message; `deleted` is true when the data is gone.
   virtual const char *delete_card_data(bool enabled, bool &deleted) = 0;
-  virtual const char *reset_device_binding() = 0;
 };
 
 // What the app has to do after an action.

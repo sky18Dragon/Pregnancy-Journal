@@ -27,8 +27,8 @@ the result.
   main (opens Launcher); BACK goes up one level (Kicks Feel check-in → Record
   type; Compare → the page it came from); CANCEL abandons an entry.
 - [ ] Double-click returns to Baby Week from every app.
-- [ ] Baby Week, Weight, Kicks and Settings each open correctly; old Reminder/Checkup
-  last-app states fall back to Baby Week without renumbering IDs.
+- [ ] Baby Week, Weight, Kicks and Settings each open correctly; a saved
+  last-app state that points at a retired app falls back to Baby Week without renumbering IDs.
 - [ ] Launcher closes after inactivity and inactive apps do not receive touch.
 - [ ] Selecting an app persists the last app across a normal deep-sleep wake.
 
@@ -45,10 +45,10 @@ the result.
   progress; overdue dates remain readable.
 - [ ] Baby and Mom tabs show the expected offline content for the current week.
 
-## V1 applications and deferred data
+## Applications
 
-- [ ] Reminder/Checkup UI, business timer wake and alarm paths stay disabled;
-  old source records and IDs remain intact.
+- [ ] No business timer wake or alarm path exists; a card that holds old
+  reminder/checkup records still mounts and nothing reads or triggers them.
 - [ ] Weight create/edit supports kg/lb and 7/30 calendar-day filters, including
   missing days, unsorted imports and leap dates. No normal/abnormal gain label.
 - [ ] History pages select the correct dated record; same-day replacement and
@@ -82,7 +82,7 @@ the result.
   card the page falls back to the storage message or the cold read.
 - [ ] Kicks import scans 42 slots read-only, survives interruption and re-import,
   detects damage/conflicts and blocks cleanup until readback on the same card.
-- [ ] Common cleanup preserves reminder/checkup/Kicks source namespaces;
+- [ ] Common cleanup preserves the Kicks source namespace;
   independently confirmed Kicks cleanup removes only its verified source.
 - [ ] Validate copied/restored `PREGJNL` using the backup tool; preserve unrelated
   card files and explain device-bound credentials before Device Reset.
@@ -205,7 +205,7 @@ the full card matrix before release.
 ## Scheduled wake and fault cases
 
 - [ ] Daily 03:00 maintenance and future app-system events determine the wake
-  deadline; old reminder/checkup data never contributes a business wake deadline.
+  deadline; old reminder/checkup data on a card never contributes a wake deadline.
 - [ ] Timer wake up to 15 seconds early never starts a business alarm or buzzer.
 - [ ] Daily maintenance returns to Baby Week in its scheduled window; button
   wake retains the expected app and global navigation remains responsive.

@@ -53,32 +53,11 @@ int main()
            SdStoragePolicyStatus::InvalidArgument);
 
     SdStorageUsage usage = {};
-    usage.free_bytes = kBusinessReserveBytes + kWorstCaseRecordingBytes;
-    assert(sd_storage_check_write(SdStorageWriteClass::Audio,
-                                  kWorstCaseRecordingBytes, usage) ==
-           SdStoragePolicyStatus::Ok);
-    usage.free_bytes -= 1U;
-    assert(sd_storage_check_write(SdStorageWriteClass::Audio,
-                                  kWorstCaseRecordingBytes, usage) ==
-           SdStoragePolicyStatus::NoSpace);
-    usage.free_bytes = UINT64_MAX;
-    usage.audio_items = kAudioItemLimit;
-    assert(sd_storage_check_write(SdStorageWriteClass::Audio, 1U, usage) ==
-           SdStoragePolicyStatus::AudioQuotaReached);
-    usage.audio_items = 0U;
-    usage.audio_bytes = kAudioByteLimit;
-    assert(sd_storage_check_write(SdStorageWriteClass::Audio, 1U, usage) ==
-           SdStoragePolicyStatus::AudioQuotaReached);
-
-    usage = {};
     usage.free_bytes = 100U;
-    assert(sd_storage_check_write(SdStorageWriteClass::Business, 100U,
-                                  usage) == SdStoragePolicyStatus::Ok);
-    assert(sd_storage_check_write(SdStorageWriteClass::Business, 101U,
-                                  usage) ==
+    assert(sd_storage_check_write(100U, usage) == SdStoragePolicyStatus::Ok);
+    assert(sd_storage_check_write(101U, usage) ==
            SdStoragePolicyStatus::NoSpace);
-    assert(sd_storage_check_write(SdStorageWriteClass::Business, 0U,
-                                  usage) ==
+    assert(sd_storage_check_write(0U, usage) ==
            SdStoragePolicyStatus::InvalidArgument);
     return 0;
 }

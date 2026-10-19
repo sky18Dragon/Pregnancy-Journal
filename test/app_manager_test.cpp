@@ -39,7 +39,9 @@ int main()
     assert(pauses[1] == 1 && resumes[0] == 1);
     assert(manager.started(StickyAppId::Pregnancy));
     assert(manager.started(StickyAppId::Settings));
-    for (StickyAppId old_app : {StickyAppId::Reminder, StickyAppId::Checkup}) {
+    // Ids 3 and 4 belonged to the retired Reminder and Checkup apps.
+    for (int retired : {3, 4}) {
+        const StickyAppId old_app = static_cast<StickyAppId>(retired);
         StickyAppManager restored(apps, 2U, StickyAppId::Pregnancy);
         assert(restored.start(canvas, old_app) == ESP_OK);
         assert(restored.current_id() == StickyAppId::Pregnancy);

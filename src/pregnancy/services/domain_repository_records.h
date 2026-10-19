@@ -4,12 +4,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "checkup.h"
 #include "kick.h"
 #include "persistent_state.h"
-#include "network_authorization.h"
 #include "pregnancy_state.h"
-#include "reminder.h"
 #include "storage_repository.h"
 #include "weight.h"
 
@@ -31,29 +28,16 @@ struct EncodedPayload {
 // Repository kind provides the namespace. Numeric IDs remain stable across
 // rewrites and are rendered as exactly 32 lowercase hexadecimal characters.
 bool pregnancy_profile_key(sticky_storage::RepositoryKey &key);
-bool reminder_key(uint32_t id, sticky_storage::RepositoryKey &key);
-bool checkup_key(uint32_t id, sticky_storage::RepositoryKey &key);
 bool kick_key(uint32_t id, sticky_storage::RepositoryKey &key);
 bool weight_key(uint32_t id, sticky_storage::RepositoryKey &key);
 bool weight_preferences_key(sticky_storage::RepositoryKey &key);
 bool device_preferences_key(sticky_storage::RepositoryKey &key);
-bool network_authorization_key(sticky_storage::RepositoryKey &key);
 bool numeric_record_id(const char *record_id, uint32_t &id);
 
 RecordCodecStatus encode_pregnancy_profile(const PregnancyProfile &value,
                                             EncodedPayload &payload);
 RecordCodecStatus decode_pregnancy_profile(const uint8_t *bytes, size_t size,
                                             PregnancyProfile &value);
-
-RecordCodecStatus encode_reminder(const Reminder &value,
-                                  EncodedPayload &payload);
-RecordCodecStatus decode_reminder(const uint8_t *bytes, size_t size,
-                                  Reminder &value);
-
-RecordCodecStatus encode_checkup(const Checkup &value,
-                                 EncodedPayload &payload);
-RecordCodecStatus decode_checkup(const uint8_t *bytes, size_t size,
-                                 Checkup &value);
 
 RecordCodecStatus encode_kick(const KickSession &value, EncodedPayload &payload);
 RecordCodecStatus decode_kick(const uint8_t *bytes, size_t size, KickSession &value);
@@ -72,10 +56,5 @@ RecordCodecStatus encode_device_preferences(
     const StickyDeviceSettings &value, EncodedPayload &payload);
 RecordCodecStatus decode_device_preferences(
     const uint8_t *bytes, size_t size, StickyDeviceSettings &value);
-
-RecordCodecStatus encode_network_authorization(
-    const NetworkAuthorizationSettings &value, EncodedPayload &payload);
-RecordCodecStatus decode_network_authorization(
-    const uint8_t *bytes, size_t size, NetworkAuthorizationSettings &value);
 
 }  // namespace pregnancy_repository

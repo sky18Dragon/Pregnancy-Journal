@@ -10,7 +10,7 @@ namespace sticky_storage {
 // the user explicitly requests deletion after a verified import.
 class LegacyNvsSource final : public LegacyMigrationSource {
   public:
-    static constexpr uint32_t kSlotCount = 55U;
+    static constexpr uint32_t kSlotCount = 35U;
 
     uint32_t slot_count() const override { return kSlotCount; }
     LegacyMigrationReadStatus read(uint32_t slot,

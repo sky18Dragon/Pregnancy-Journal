@@ -4,9 +4,7 @@ namespace sticky_storage {
 
 bool SdStorageWorkGate::kind_valid(SdStorageWorkKind kind)
 {
-    return kind == SdStorageWorkKind::Record ||
-           kind == SdStorageWorkKind::Audio ||
-           kind == SdStorageWorkKind::Network;
+    return kind == SdStorageWorkKind::Record;
 }
 
 SdStorageWorkStatus SdStorageWorkGate::admit(

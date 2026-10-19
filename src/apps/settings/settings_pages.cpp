@@ -339,7 +339,6 @@ void settings_page_render_storage_more(Canvas &canvas,
                state.migration_enabled);
   draw_nav_row(canvas, 2, "DELETE CARD DATA", "THIS APP'S DATA ONLY",
                state.delete_enabled);
-  draw_nav_row(canvas, 3, "RESET DEVICE BINDING", "RESET LOCAL DEVICE", true);
   char identity[64] = "DATASET ID UNAVAILABLE";
   if (state.dataset_id_prefix[0] != '\0') {
     std::snprintf(identity, sizeof(identity),
@@ -377,7 +376,7 @@ void settings_page_render_storage_confirm(Canvas &canvas) {
       ui_tokens::kBodyLineGap, FontWeight::Regular);
   ui_draw_wrapped_text_pixels(
       canvas, ui_tokens::kContentMargin, is_portrait ? 350 : 270, canvas.width() - 2 * ui_tokens::kContentMargin,
-      ui_text("FUTURE USER RECORDS AND AUDIO WILL BE SAVED ON THIS CARD."),
+      ui_text("USER RECORDS WILL BE SAVED ON THIS CARD."),
       ui_tokens::kBody, GrayLevel::Black, is_portrait ? 4 : 2,
       ui_tokens::kBodyLineGap, FontWeight::Medium);
   prototype_ui::draw_button(
@@ -455,11 +454,6 @@ void settings_page_render_legacy_clear_confirm(Canvas &canvas, bool kicks_only) 
           : "REMOVES OLD PREGNANCY, WEIGHT AND DEVICE SETTING COPIES. MICROSD RECORDS ARE NOT CHANGED."),
       ui_tokens::kBody, GrayLevel::Black, is_portrait ? 6 : 3,
       ui_tokens::kBodyLineGap, FontWeight::Regular);
-  ui_draw_wrapped_text_pixels(
-      canvas, ui_tokens::kContentMargin, is_portrait ? 390 : 290, canvas.width() - 2 * ui_tokens::kContentMargin,
-      ui_text("REMINDER AND CHECKUP COPIES ARE PRESERVED FOR V2."),
-      ui_tokens::kBody, GrayLevel::Black, is_portrait ? 3 : 2,
-      ui_tokens::kBodyLineGap, FontWeight::Medium);
   prototype_ui::draw_button(
       canvas, storage_split_button(0U, canvas.width(), canvas.height()),
       "CANCEL", false, 2);
@@ -488,46 +482,12 @@ void settings_page_render_card_data_delete_confirm(
               "DOES NOT FORMAT THE CARD OR DELETE OTHER CARD FILES."),
       ui_tokens::kBody, GrayLevel::Black, is_portrait ? 6 : 3,
       ui_tokens::kBodyLineGap, FontWeight::Regular);
-  ui_draw_wrapped_text_pixels(
-      canvas, ui_tokens::kContentMargin, is_portrait ? 390 : 290, canvas.width() - 2 * ui_tokens::kContentMargin,
-      ui_text("DEVICE RESET AND OLD NVS COPY CLEANUP ARE SEPARATE ACTIONS."),
-      ui_tokens::kBody, GrayLevel::Black, is_portrait ? 3 : 2,
-      ui_tokens::kBodyLineGap, FontWeight::Medium);
   prototype_ui::draw_button(
       canvas, storage_split_button(0U, canvas.width(), canvas.height()),
       "CANCEL", false, 2);
   prototype_ui::draw_button(
       canvas, storage_split_button(1U, canvas.width(), canvas.height()),
       "DELETE PREGJNL DATA", true, 2);
-}
-
-void settings_page_render_device_reset_confirm(Canvas &canvas) {
-  prototype_ui::begin_page(canvas);
-  const bool is_portrait = portrait(canvas.width(), canvas.height());
-  prototype_ui::draw_header(canvas, "RESET DEVICE BINDING",
-                            "LOCAL NETWORK CREDENTIAL KEY ONLY", "BACK");
-  canvas.draw_text_pixels(ui_tokens::kContentMargin, is_portrait ? 144 : 122,
-                          ui_text("CONFIRM LOCAL RESET"),
-                          ui_tokens::kSectionHeading, GrayLevel::Black,
-                          FontWeight::Medium);
-  ui_draw_wrapped_text_pixels(
-      canvas, ui_tokens::kContentMargin, is_portrait ? 196 : 170, canvas.width() - 2 * ui_tokens::kContentMargin,
-      ui_text("FORGETS THIS DEVICE'S LOCAL NETWORK KEY AND CLEARS THE RAM-ONLY "
-              "WI-FI CONFIGURATION. NETWORK AUTHORIZATION MUST BE SET UP AGAIN."),
-      ui_tokens::kBody, GrayLevel::Black, is_portrait ? 7 : 3,
-      ui_tokens::kBodyLineGap, FontWeight::Regular);
-  ui_draw_wrapped_text_pixels(
-      canvas, ui_tokens::kContentMargin, is_portrait ? 420 : 290, canvas.width() - 2 * ui_tokens::kContentMargin,
-      ui_text("MICROSD PREGJNL DATA, OTHER CARD FILES AND OLD NVS RECORDS ARE "
-              "NOT DELETED."),
-      ui_tokens::kBody, GrayLevel::Black, is_portrait ? 4 : 2,
-      ui_tokens::kBodyLineGap, FontWeight::Medium);
-  prototype_ui::draw_button(
-      canvas, storage_split_button(0U, canvas.width(), canvas.height()),
-      "CANCEL", false, 2);
-  prototype_ui::draw_button(
-      canvas, storage_split_button(1U, canvas.width(), canvas.height()),
-      "RESET THIS DEVICE", true, 2);
 }
 
 // The box holding the editable fields of the time editor.
@@ -622,7 +582,6 @@ bool settings_page_back_target(SettingsPage page, SettingsPage &target) {
     return true;
   case SettingsPage::LegacyMigration:
   case SettingsPage::CardDataDeleteConfirm:
-  case SettingsPage::DeviceResetConfirm:
     target = SettingsPage::StorageMore;
     return true;
   case SettingsPage::LegacyClearConfirm:
@@ -677,7 +636,6 @@ size_t settings_page_targets(SettingsPage page, int width, int height,
     }
     if (secondary_action_enabled)
       add(form_row(2U, width, height), SettingsAction::BeginCardDataDelete);
-    add(form_row(3U, width, height), SettingsAction::BeginDeviceReset);
   } else if (page == SettingsPage::LegacyMigration) {
     if (primary_action_enabled)
       add(storage_split_button(0U, width, height), SettingsAction::BeginLegacyImport);
@@ -687,8 +645,6 @@ size_t settings_page_targets(SettingsPage page, int width, int height,
     split(SettingsAction::CancelLegacyClear, SettingsAction::ConfirmLegacyClear);
   } else if (page == SettingsPage::CardDataDeleteConfirm) {
     split(SettingsAction::CancelCardDataDelete, SettingsAction::ConfirmCardDataDelete);
-  } else if (page == SettingsPage::DeviceResetConfirm) {
-    split(SettingsAction::CancelDeviceReset, SettingsAction::ConfirmDeviceReset);
   } else {
     // The time fields select which part the keys edit.
     Rect cells[DigitFields::kMaxFields];

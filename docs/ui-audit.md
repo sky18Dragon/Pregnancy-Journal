@@ -150,7 +150,7 @@
 
 ### 1.6 未启用 / 非产品页面
 
-- **提醒（Reminder）、产检（Checkup）**：源码仍在（`src/apps/reminder`、`src/apps/checkup`，`CMakeLists` 里仍编译），但未在 `app_registry.cpp` 注册，用户不可达。
+- **提醒（Reminder）、产检（Checkup）**：2026-10-19 起代码已删除，不再有对应页面。
 - **中文输入页** `src/ui/chinese_input_page.*`：仅被 `sticky_chinese_input_test` 使用，产品页面未接入。
 - 各类 `*_test_pages`、字体测试屏：仅调试环境。
 
@@ -277,7 +277,7 @@ flowchart TD
 | C2 | **【孕周、体重、胎动、设置页及启动器均已完成，2026-10-15】** 孕周页改为每个方向一份 `PageLayout`、命中测试由 `pregnancy_page_targets()` 派生并加入宿主契约测试，改动前后预览像素与命中区逐字节一致；体重页同样由 `weight_page_targets()`、启动器由 `app_page_launcher_targets()`、设置页由 `settings_page_targets()`（禁用的主/次按钮不进入目标表）、胎动页由 `kick_page_targets()`（计数大圆作为圆形目标，反馈用外接正方形）派生命中（编辑页的 DELETE 在无记录时不绘制但仍可命中，由 App 忽略，未改）。原问题：**硬编码坐标 / 尺寸**：`pregnancy_pages.cpp` 约 120 处绘制调用、大量 `constexpr Rect` 字面量（横竖屏两套）；`kick_pages.cpp` 45 处、几乎无令牌；绘制 Rect 与命中 Rect 分别维护，违反 `DESIGN.md` 的“视觉与命中同一矩形”原则（如 `kHomeMenu` 56×56 与实际绘制的 32×32 图标） | `pregnancy_pages.cpp:20-62,374-556`，`kick_pages.cpp` | 高 |
 | C3 | **【孕周页的 Rect 重复定义与横竖屏成对常量已消除】** 原问题：**重复的绘制代码**：横屏/竖屏两个几乎整页拷贝的渲染分支（仪表盘 ~180 行）；多处重复的居中文本、虚线/下划线、按钮、圆角框实现；`Rect` 结构体在 `prototype_ui.h` 与 `pregnancy_pages.cpp:12-27` 各定义一份 | `pregnancy_pages.cpp:12-27,374-556`，`prototype_ui.h:10` | 中 |
 | C4 | 刷新策略重复实现：显示层 8 次上限与 `kick_app.cpp` 8 次计数重复；`prepare_app_transition_refresh` 死代码（2026-10-19 起由 `sticky_app.cpp` 的启动器过渡调用，不再是死代码）；`weight_app` / `kick_app` / `settings_app` / `reminder_app` / `checkup_app` 各自实现同款 `render(bool full)` 包装 | `kick_app.cpp:116-124`、`sticky_display.cpp:335-350` | 中 |
-| C5 | 死代码与未启用模块仍编译：提醒、产检 App、中文输入页产品中不可达（启动器的空实现 `language_at`/`tutorial_at` 已删除） | `src/apps/reminder`、`src/apps/checkup`、`app_pages.cpp:99` | 低 |
+| C5 | 【已修复，2026-10-19】死代码与未启用模块仍编译：提醒、产检 App、中文输入页已随 V2 功能一并删除（启动器的空实现 `language_at`/`tutorial_at` 此前已删除） | — | 低 |
 | C6 | **【试做：体重仪表盘，2026-10-16；真机横竖屏确认与改动前一致】** 仪表盘的文字与图表位置收进 `DashboardLayout`（横向由屏宽和内容边距推导：图表右列起点 = 边距 + 左列宽 + 边距、宽度 = 屏宽 − 边距 − 起点；KG/LB 与趋势开关按右边距/页头按钮对齐，不再写固定 x），竖向的堆叠位置按方向命名；图表内边距、点半径等魔数命名。800×480 / 480×800 的预览逐字节不变；在假想的 960×540 逻辑屏上图表、开关、底部按钮会跟随屏宽，竖向间距不随高度缩放；宿主新增“跟随屏宽”测试。其余页面未做。原问题：页面坐标是针对 800×480 / 480×800 两个固定尺寸写死的，无法按布局网格推导；新增设备尺寸或字号调整需要逐页改数字 | `kick_pages.cpp`、`weight_pages.cpp` `footer/unit/trend_toggle` 等 | 中 |
 | C7 | 本次审计时工作区有 **298 个未提交改动文件**（`git status`），其中包含显示层、驱动组件(`epaper_panel.c`)、各 App 渲染，说明 UI 相关代码正处于变动中，后续重构基线需要先固定 | `git status --short` | 中 |
 

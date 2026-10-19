@@ -17,11 +17,10 @@ enum class SettingsPage : uint8_t {
   PregnancySummary,
   StorageSummary,
   StorageConfirm,
-  StorageMore, // import old data, delete card data, reset device binding
+  StorageMore, // import old data, delete card data
   LegacyMigration,
   LegacyClearConfirm,
   CardDataDeleteConfirm,
-  DeviceResetConfirm,
   Shortcut, // double-click target
 };
 
@@ -40,7 +39,6 @@ inline KeyPolicy settings_page_key_policy(SettingsPage page) {
   case SettingsPage::StorageConfirm:
   case SettingsPage::LegacyClearConfirm:
   case SettingsPage::CardDataDeleteConfirm:
-  case SettingsPage::DeviceResetConfirm:
     return KeyPolicy::Locked;
   }
   return KeyPolicy::Locked;
@@ -72,9 +70,6 @@ enum class SettingsAction : uint8_t {
   BeginCardDataDelete,
   ConfirmCardDataDelete,
   CancelCardDataDelete,
-  BeginDeviceReset,
-  ConfirmDeviceReset,
-  CancelDeviceReset,
   EditPregnancy,
   Home,
   Back,
@@ -182,7 +177,6 @@ void settings_page_render_legacy_migration(
 void settings_page_render_legacy_clear_confirm(Canvas &canvas, bool kicks_only = false);
 void settings_page_render_card_data_delete_confirm(
     Canvas &canvas, const char *dataset_id_prefix);
-void settings_page_render_device_reset_confirm(Canvas &canvas);
 // Where the header action of `page` goes inside Settings; false = leaves
 // Settings for the launcher (the main page).
 bool settings_page_back_target(SettingsPage page, SettingsPage &target);

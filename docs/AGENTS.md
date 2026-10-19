@@ -35,9 +35,8 @@ behavior.
   mount storage, switch apps or refresh the panel directly.
 - Reuse the sensor I2C bus and shared SPI2 bus. Never create a competing bus on
   the same pins from an app or page.
-- Keep records bounded, versioned and validated. Current firmware uses NVS;
-  next-version user data and audio must persist on MicroSD according to
-  `docs/PROJECT-SPEC.md`. Use the shared SD storage service and domain-specific
+- Keep records bounded, versioned and validated. User data persists on
+  MicroSD according to `docs/PROJECT-SPEC.md`. Use the shared SD storage service and domain-specific
   repositories; do not add NVS user-data storage or silently fall back to Flash.
   Preserve existing NVS records through the validated migration process.
 - Existing `StickyAppId` values are persistent data. Do not renumber or reuse

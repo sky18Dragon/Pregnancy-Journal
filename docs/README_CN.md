@@ -10,13 +10,12 @@
 ## 当前状态
 
 - 硬件：ESP32-S3 reTerminal Sticky，3.97 英寸 800×480 黑白电子纸；固件版本 `2.0.0`。
-- 四个已注册应用：**孕周（Baby Week）**、**体重**、**胎动**、**设置**。提醒、产检与
-  到期提醒、习惯、备忘、录音、配网和语音转文本移到下一版本
-  （见 [V2 扩展需求](V2-PROJECT-SPEC.md)）。
+- 四个已注册应用：**孕周（Baby Week）**、**体重**、**胎动**、**设置**。没有提醒、产检、
+  习惯、备忘、录音、配网和语音转文本。
 - 界面语言：English / 简体中文。所有用户数据都存放在 MicroSD 卡上；没有账号、
   遥测、云上传、OTA 或 AI 服务。
 - 这是尚未通过验收的固件候选。自动门槛是主机测试套件（`tools/run_host_tests.sh`，
-  2026-10-19 为 88/88 步）加上 `sticky-release`、`sticky-debug`、`sticky-power-test`
+  2026-10-19 为 77/77 步）加上 `sticky-release`、`sticky-debug`、`sticky-power-test`
   三个配置编译通过。实机验收另行记录在 [V1 验证记录](V1-VALIDATION.md) 和
   [硬件回归清单](pregnancy/hardware-regression-checklist.md)，本文不声称已通过实机验收。
 
@@ -29,7 +28,7 @@
 | 孕周 | 首页是“图版”：第 6–40 周每周一张雕版风格插画、周图网格和当前周数；宝宝页、妈妈页显示孕周/孕天、孕期阶段、距预产期天数和离线内容 | 内容范围 1–40 周；仅供参考 |
 | 体重 | kg/lb，精度 0.1；基线与身高；7/30 日图表；历史编辑与删除 | 最多 366 条，每天一条；替换和删除都需确认 |
 | 胎动 | 三种记录方式：1 小时计数、数到 10、感觉打卡；记住上次选的方式；每条记录与自己过去 7 天的中位数比较（只给出差值方向和大小） | 最多 400 条；可撤销；400 ms 防误触；单次最长 60 分钟 |
-| 设置 | 语言、设备时间、孕期设置、双击快捷键、电子纸清屏、MicroSD 页（状态、创建数据集、安全弹出、旧数据导入、删除卡内数据、设备重置） | 时间编辑时禁止休眠；创建数据集需两次明确操作 |
+| 设置 | 语言、设备时间、孕期设置、双击快捷键、电子纸清屏、MicroSD 页（状态、创建数据集、安全弹出、旧数据导入、删除卡内数据） | 时间编辑时禁止休眠；创建数据集需两次明确操作 |
 
 首页上点插画进入宝宝页，点周数进入妈妈页。首页不再显示进度条和倒计时，这些数字在
 宝宝页和妈妈页里。
@@ -80,8 +79,7 @@
 ## 存储与隐私
 
 四个应用都使用绑定数据集、带日志的 MicroSD repository，不回退到 Flash。设置提供经校验的
-旧数据导入（胎动有独立路径）、安全弹出、设备重置和卡内应用数据删除。提醒/产检的 NVS 原
-副本保留给 V2。恢复索引最多容纳 1,024 个键（含已删除键）；日志和对象的垃圾回收尚未实现，
+旧数据导入（胎动有独立路径）、安全弹出和卡内应用数据删除。恢复索引最多容纳 1,024 个键（含已删除键）；日志和对象的垃圾回收尚未实现，
 索引满时拒绝新键而不是丢弃记录。见[存储](pregnancy/storage.md)、
 [数据模型](pregnancy/data-model.md)和[备份与恢复](S1-BACKUP-RECOVERY.md)。
 
@@ -90,12 +88,11 @@
 | 路径 | 内容 |
 | --- | --- |
 | `src/app/` | 应用注册表、协调器（功能列表、应用切换、按键路由、睡眠） |
-| `src/apps/` | 孕周（`pregnancy`）、`weight`、`kick`、`settings`；`reminder`、`checkup` 为 V2 保留，未注册 |
+| `src/apps/` | 孕周（`pregnancy`）、`weight`、`kick`、`settings` |
 | `src/pregnancy/` | 领域服务、模型和离线内容 |
 | `src/ui/` | 画布、字体、设计令牌、公共页面、生成的资源 |
 | `src/storage/` | MicroSD 服务、日志、索引和 repository |
 | `src/display/`、`src/board/`、`src/devices/`、`src/input/`、`src/sensors/` | 显示所有者与硬件访问 |
-| `src/voice/`、`src/network/` | V2 预研：语音意图分类器和设备绑定的联网授权约定，均不在产品流程中 |
 | `components/` | GT911 触摸与 SSD1677 电子纸驱动 |
 | `test/`、`tools/` | 主机测试与工具（见下） |
 | `docs/` | 需求、设计、验证记录与证据 |
@@ -120,7 +117,7 @@ python3 tools/check_markdown_links.py
 目标板为 `sticky_esp32s3`，使用自定义 `partitions.csv`（含 128 KiB `coredump` 分区，可用
 `idf.py coredump-info` 读取崩溃信息）。`sticky-release` 另外套用 `sdkconfig.release.defaults`
 （-O2、静默断言、INFO 日志上限）。`platformio.ini` 里的其他环境是独立的硬件测试（字形覆盖、
-SD 录音、存储断电与故障注入、中文输入、语音分类器），不是产品构建。
+存储断电与故障注入），不是产品构建。
 
 常用工具：`tools/ui_preview/render_all.sh` 把每个页面渲染成 1-bit PNG，并输出命中区叠加图和
 检查结果；`tools/check_ui_tokens.py` 检查字号与边距令牌；`tools/validate_sd_backup.py` 校验复制出的
@@ -143,7 +140,6 @@ pio device monitor -p /dev/cu.usbmodemXXXX -b 115200 --filter time --rts 0 --dtr
 **产品与状态**
 - [当前功能参考](pregnancy/current-functionality.md)
 - [首版四应用需求与验收](PROJECT-SPEC.md)
-- [V2 扩展需求](V2-PROJECT-SPEC.md)和[未来路线图](pregnancy/future-roadmap.md)
 - [当前任务](TODO.md)和[变更记录](CHANGELOG.md)
 - [V1 验证记录](V1-VALIDATION.md)、[实机结果](V1-HARDWARE-RESULTS.md)、
   [人工测试清单](V1-MANUAL-TEST-CHECKLIST.md)和

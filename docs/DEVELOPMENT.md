@@ -27,22 +27,6 @@ pio run -e sticky-power-test
 diagnostic logging; `sticky-power-test` enables the power-test behavior. The
 optional `sticky-font-test` profiles render glyph coverage screens.
 
-`sticky-chinese-input-test` runs the isolated S0 Chinese input page with real
-touch handling; `sticky-chinese-input-test-portrait` rotates the same renderer
-and converts physical touch coordinates to its 480×800 logical axes. Neither
-profile persists entered text: Save only changes its label and Cancel clears the
-in-memory test state. The current ranking-acceptance seed is `排序验收：` with
-`yun` already entered; `孕` must appear on the first candidate page. See the
-[S0 Pinyin resource prototype](S0-PINYIN-RESOURCE-PROTOTYPE.md) for the exact
-test sequence and current evidence.
-
-`sticky-sd-audio-test` is an isolated S0 hardware prototype, not production
-firmware. See [SD/audio test procedure](S0-SD-AUDIO-TEST.md) before flashing it.
-
-`sticky-sd-display-test` exercises display refresh before/after SD unmount
-without recording audio or writing test files. Confirm the final screen
-physically; a successful driver return alone is not visual acceptance.
-
 `sticky-manifest-commit-test` is an isolated S1 write-path test. It waits for a
 previously initialized dataset and requires two touches before writing exactly
 the next generation to the inactive manifest slot. Read
@@ -54,7 +38,7 @@ performs a read-only journal probe and never writes automatically. After two
 separate confirmations, the storage owner first creates and verifies the
 immutable `RECORDS/PWRTEST.BIN` fixture, then the user must explicitly start a
 bounded loop of at most 7 maximum-size canonical journal commits. A write-start
-audio cue follows the static screen refresh, and the commits then run without
+buzzer beep follows the static screen refresh, and the commits then run without
 an intentional inter-frame delay so a reset is more likely to overlap real
 storage I/O. On the
 next boot, a complete journal remains `Ready`; a partial final frame is
@@ -75,7 +59,7 @@ writes to this test dataset remain blocked.
 journal transaction or changing the recovery index. Boot first probes the
 existing journal and the fixed `RECORDS/OBJPWR01.BIN` fixture read-only. If the
 object is missing, two separate touches expose and start one 1,024-byte write;
-the audio cue marks the point at which a non-safe reset should be applied. On
+the buzzer beep marks the point at which a non-safe reset should be applied. On
 the next boot an exact object is reported as a complete isolated orphan and a
 short/mismatched object as a partial isolated orphan. Neither result is made
 visible through the journal, overwritten, deleted or repaired. Use only a
@@ -95,7 +79,7 @@ or references the short object.
 requires the known 36-record / transaction-36 journal baseline, then probes the
 fixed `INDEX/IDXPWR01.BIN` candidate read-only. Two touches start one 2,960-byte
 immutable snapshot write; the profile never appends a checkpoint. Reset at the
-audio cue, then verify that reboot reports a complete or partial index orphan
+buzzer beep, then verify that reboot reports a complete or partial index orphan
 while the journal remains 36 / 36. See the
 [S1 index snapshot](S1-INDEX-SNAPSHOT.md) for format and safety rules.
 
@@ -119,7 +103,7 @@ recording physical acceptance. Use only the designated disposable test card.
 The S1 storage diagnostics are isolated from production builds:
 
 - `sticky-storage-status-test` mounts and reports card, manifest, capacity,
-  audio inventory and a one-byte business-write policy check. It also executes
+  a one-byte business-write policy check. It also executes
   the formal read-only startup recovery chain and displays journal/snapshot
   transaction IDs, live records, verified object references and whether the
   bounded view is ready. It does not create or modify files.
@@ -138,13 +122,6 @@ The S1 storage diagnostics are isolated from production builds:
   `Fault`, clear the unmounted failure safely and retry a real mount with a new
   generation. These compile-time hooks are absent from release, debug and
   power-test profiles.
-
-`sticky-voice-classifier-test` is an isolated S0 hardware prototype. Its
-PlatformIO post script generates and validates the ESP-SR model image, then
-uploads it at the address declared by `partitions.voice.csv`. It does not mount
-MicroSD, save audio or use the network. Review the current thresholds, resource
-evidence and remaining hardware matrix in
-[the S0 voice progress record](S0-VOICE-CLASSIFIER-PROGRESS.md) before using it.
 
 The normal firmware now starts the MicroSD storage worker. It detects and
 mounts supported media without formatting it, handles removal/cleanup, and must
@@ -204,8 +181,7 @@ migration expectations before device testing.
 ## Source map
 
 - `src/app/`: registry, lifecycle, routing, orientation and sleep coordinator.
-- `src/apps/`: page state and interaction for the four V1 apps; deferred app
-  sources remain available for V2.
+- `src/apps/`: page state and interaction for the four apps.
 - `src/pregnancy/`: domain models, content, services and storage.
 - `src/ui/`: Canvas, typography, localization and generated visual assets.
 - `src/board/`, `devices/`, `display/`, `input/`, `sensors/`: hardware layers.
@@ -233,29 +209,6 @@ document migration/recovery.
 Edit source files in `assets/`, run the matching `tools/generate_*.py`, and
 commit both source and generated `src/ui/assets/*`. Do not hand-edit generated
 byte arrays.
-
-The offline single-character Pinyin index is generated from the pinned,
-licensed sources under `third_party/pinyin-data/`:
-
-```bash
-python3 tools/fetch_unihan_frequency.py
-python3 tools/generate_pinyin_index.py
-python3 tools/report_chinese_input_budget.py
-python3 tools/fetch_chinese_input_font.py
-python3 tools/generate_chinese_input_font_assets.py
-```
-
-The first command downloads the pinned Unicode 15.1 Unihan archive, verifies its
-SHA-256 and regenerates the committed GB2312 Level-1 `kFrequency` extract. The
-second command combines that extract with pinned readings and the editable
-`assets/chinese-input/candidate-priority.tsv` source to regenerate
-`src/ui/assets/pinyin_index_data.{h,cpp}`. The third reports the historical
-planning estimate. The final two commands fetch
-the pinned OFL font with SHA-256 verification and regenerate the committed
-18/24 px `src/ui/assets/chinese_input_font_assets.cpp`; the downloaded source
-font stays under ignored `tools/.cache/`. See the
-[S0 Pinyin resource prototype](S0-PINYIN-RESOURCE-PROTOTYPE.md) before changing
-coverage or candidate ordering.
 
 ### Hardware
 

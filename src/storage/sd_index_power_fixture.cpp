@@ -22,7 +22,7 @@ bool fixture_entry(void *context, size_t index,
     char record_id[kRepositoryRecordIdCharacters + 1U] = {};
     std::snprintf(record_id, sizeof(record_id), "%032llx",
                   static_cast<unsigned long long>(index + 1U));
-    if (!repository_key_make(RepositoryKind::Note, record_id, entry.key)) {
+    if (!repository_key_make(RepositoryKind::Preference, record_id, entry.key)) {
         return false;
     }
     entry.revision = 1U;

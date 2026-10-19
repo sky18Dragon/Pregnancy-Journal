@@ -1,5 +1,2 @@
 dependencies:
   espressif/button: "4.1.6"
-  # Pinned to the version used by Espressif's current Chinese command example.
-  # The model is enabled only by the dedicated S0 voice prototype profile.
-  espressif/esp-sr: "~2.4.7"

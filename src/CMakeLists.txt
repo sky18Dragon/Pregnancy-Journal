@@ -16,7 +16,6 @@ idf_component_register(
         "board/board_sensor_bus.cpp"
         "board/board_shared_spi.cpp"
         "board/board_sd_card.cpp"
-        "board/sticky_sd_audio_test.cpp"
         "core/app_log.cpp"
         "devices/sticky_battery.cpp"
         "devices/sticky_buzzer.cpp"
@@ -36,7 +35,6 @@ idf_component_register(
         "storage/legacy_nvs_source.cpp"
         "storage/sd_application_data_delete.cpp"
         "storage/sd_card_state.cpp"
-        "storage/sd_audio_usage.cpp"
         "storage/sd_journal.cpp"
         "storage/sd_journal_completion.cpp"
         "storage/sd_journal_file.cpp"
@@ -73,10 +71,6 @@ idf_component_register(
         "storage/sticky_index_power_test.cpp"
         "storage/sticky_checkpoint_commit_test.cpp"
         "storage/sticky_storage_status_test.cpp"
-        "voice/voice_intent.cpp"
-        "network/network_authorization.cpp"
-        "network/bound_credentials.cpp"
-        "network/wifi_ram_configuration.cpp"
         "system/scheduler.cpp"
         "apps/pregnancy/pregnancy_app.cpp"
         "apps/pregnancy/pregnancy_flow.cpp"
@@ -93,13 +87,9 @@ idf_component_register(
         "apps/settings/settings_flow.cpp"
         "apps/settings/settings_pages.cpp"
         "pregnancy/content/content_service.cpp"
-        "pregnancy/services/reminder_service.cpp"
         "pregnancy/services/domain_repository_records.cpp"
         "pregnancy/services/domain_repository_stores.cpp"
         "pregnancy/services/pregnancy_repository_store.cpp"
-        "pregnancy/services/reminder_storage_record.cpp"
-        "pregnancy/services/checkup_service.cpp"
-        "pregnancy/services/checkup_storage.cpp"
         "pregnancy/services/weight_service.cpp"
         "pregnancy/services/weight_storage.cpp"
         "pregnancy/services/kick_service.cpp"
@@ -109,32 +99,23 @@ idf_component_register(
         "ui/app_pages.cpp"
         "ui/digit_fields.cpp"
         "ui/assets/chinese_font_assets.cpp"
-        "ui/assets/chinese_input_font_assets.cpp"
         "ui/assets/app_launcher_assets.cpp"
-        "ui/assets/pinyin_index_data.cpp"
         "ui/assets/pregnancy_plate_assets.cpp"
         "ui/assets/pixel_asset.cpp"
         "ui/battery_status_overlay.cpp"
         "ui/battery_status_overlay_theme.cpp"
         "ui/status_glyphs.cpp"
         "ui/canvas.cpp"
-        "ui/chinese_input_page.cpp"
-        "ui/chinese_text_editor.cpp"
         "ui/font.cpp"
         "ui/font_test_screen.cpp"
         "ui/prototype_ui.cpp"
         "ui/repository_status_page.cpp"
-        "ui/pinyin_candidate_index.cpp"
-        "ui/sticky_chinese_input_test.cpp"
         "ui/text_layout.cpp"
         "ui/ui_language.cpp"
-        "voice/sticky_voice_classifier_test.cpp"
     INCLUDE_DIRS
         "."
         "app"
         "apps/pregnancy"
-        "apps/reminder"
-        "apps/checkup"
         "apps/weight"
         "apps/kick"
         "apps/settings"
@@ -151,21 +132,15 @@ idf_component_register(
         "system"
         "ui"
         "ui/assets"
-        "voice"
-        "network"
     REQUIRES
         esp_driver_gpio
         esp_driver_i2c
         esp_driver_ledc
         esp_driver_spi
-        esp_driver_i2s
         esp_driver_sdspi
         fatfs
         sdmmc
         esp_hw_support
-        esp-sr
-        esp_wifi
-        mbedtls
         button
         gt911
         nvs_flash

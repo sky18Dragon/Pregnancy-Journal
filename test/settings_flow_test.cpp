@@ -20,9 +20,8 @@ public:
   bool complete = false;
   bool eject_ok = true;
   bool delete_ok = true;
-  bool reset_ok = true;
   int prepared = 0, forgotten = 0, imports = 0, clears = 0, deletes = 0,
-      delete_preps = 0, resets = 0, ejects = 0, submits = 0;
+      delete_preps = 0, ejects = 0, submits = 0;
 
   bool read_clock(SettingsClockTime &time) override {
     if (!clock_ok) return false;
@@ -56,10 +55,6 @@ public:
     ++deletes;
     deleted = enabled && delete_ok;
     return deleted ? "PREGJNL DATA DELETED" : "APP DATA DELETE FAILED";
-  }
-  const char *reset_device_binding() override {
-    ++resets;
-    return reset_ok ? "DEVICE BINDING RESET" : "DEVICE RESET FAILED";
   }
 };
 
@@ -226,21 +221,6 @@ int main() {
   port.storage.delete_enabled = false;
   r = flow.handle_action(SettingsAction::ConfirmCardDataDelete);
   assert(!r.notify_data_deleted);
-
-  flow.handle_action(SettingsAction::ManageStorage);
-  flow.handle_action(SettingsAction::BeginDeviceReset);
-  assert(flow.page() == SettingsPage::DeviceResetConfirm);
-  flow.handle_action(SettingsAction::CancelDeviceReset);
-  assert(flow.page() == SettingsPage::StorageMore && port.resets == 0);
-  flow.handle_action(SettingsAction::BeginDeviceReset);
-  r = flow.handle_action(SettingsAction::ConfirmDeviceReset);
-  assert(r.render_full && port.resets == 1 && same(flow.operation_message(), "DEVICE BINDING RESET") &&
-         flow.page() == SettingsPage::StorageSummary);
-  flow.handle_action(SettingsAction::ManageStorage);
-  flow.handle_action(SettingsAction::BeginDeviceReset);
-  port.reset_ok = false;
-  flow.handle_action(SettingsAction::ConfirmDeviceReset);
-  assert(same(flow.operation_message(), "DEVICE RESET FAILED"));
 
   // The shortcut page: open it from Main, pick a target (saved, same page,
   // redraw), Back returns to Main. Picking never leaves the page.

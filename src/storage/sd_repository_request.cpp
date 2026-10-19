@@ -385,8 +385,8 @@ SdRepositoryRequestResult sd_repository_execute_request(
         const uint64_t requested_bytes = request.mutation.payload_size +
                                          journal_bytes;
         if (sd_storage_check_write(
-                SdStorageWriteClass::Business, requested_bytes,
-                {context.free_bytes, 0U, 0U}) != SdStoragePolicyStatus::Ok) {
+                requested_bytes,
+                {context.free_bytes}) != SdStoragePolicyStatus::Ok) {
             result.status = SdRepositoryRequestStatus::CardFull;
             return result;
         }

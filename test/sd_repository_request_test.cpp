@@ -26,7 +26,7 @@ sticky_storage::RepositoryKey key(unsigned id)
     std::snprintf(text, sizeof(text), "%032x", id);
     sticky_storage::RepositoryKey result = {};
     assert(sticky_storage::repository_key_make(
-        sticky_storage::RepositoryKind::Reminder, text, result));
+        sticky_storage::RepositoryKind::Weight, text, result));
     return result;
 }
 
@@ -91,11 +91,11 @@ int main()
         recovery_paths, manifest.selected.dataset_id, index, workspace);
     assert(loaded.status == SdRecoveryLoadStatus::Empty && loaded.view_ready);
     assert(loaded.last_transaction_id == 0U && index.live_count() == 0U);
-    const RepositoryKey reminder = key(9U);
+    const RepositoryKey record_key = key(9U);
     const std::array<uint8_t, 5U> first = {1U, 3U, 5U, 7U, 9U};
     RepositoryMutation mutation = {};
     assert(repository_mutation_make_upsert(
-        reminder, 0U, first.data(), first.size(), mutation));
+        record_key, 0U, first.data(), first.size(), mutation));
     SdRepositoryRequest request = {};
     assert(sd_repository_make_commit_request(
         4U, kDataset, mutation, 1U, request));
@@ -104,7 +104,7 @@ int main()
     ready.manifest = manifest.selected;
     ready.recovery_view_ready = loaded.view_ready;
     SdRepositoryRequest empty_read = {};
-    assert(sd_repository_make_read_request(4U, kDataset, reminder, empty_read));
+    assert(sd_repository_make_read_request(4U, kDataset, record_key, empty_read));
     assert(sd_repository_execute_request(empty_read, ready, paths, index).status ==
            SdRepositoryRequestStatus::NotFound);
     SdRepositoryRequestResult result = sd_repository_execute_request(
@@ -126,7 +126,7 @@ int main()
 
     SdRepositoryRequest read_request = {};
     assert(sd_repository_make_read_request(
-        4U, kDataset, reminder, read_request));
+        4U, kDataset, record_key, read_request));
     result = sd_repository_execute_request(read_request, ready, paths, index);
     assert(result.status == SdRepositoryRequestStatus::Ok);
     assert(result.record.revision == 1U &&
@@ -135,7 +135,7 @@ int main()
                        first.size()) == 0);
 
     RepositoryPageRequest page_request = {};
-    page_request.repository = RepositoryKind::Reminder;
+    page_request.repository = RepositoryKind::Weight;
     page_request.limit = 1U;
     SdRepositoryRequest list_request = {};
     assert(sd_repository_make_list_request(
@@ -151,7 +151,7 @@ int main()
     RepositoryMutation conflicting = {};
     const std::array<uint8_t, 3U> conflict_bytes = {8U, 8U, 8U};
     assert(repository_mutation_make_upsert(
-        reminder, 0U, conflict_bytes.data(), conflict_bytes.size(),
+        record_key, 0U, conflict_bytes.data(), conflict_bytes.size(),
         conflicting));
     SdRepositoryRequest conflict_request = {};
     assert(sd_repository_make_commit_request(
@@ -162,13 +162,13 @@ int main()
 
     const std::array<uint8_t, 4U> second = {2U, 4U, 6U, 8U};
     assert(repository_mutation_make_upsert(
-        reminder, 0U, second.data(), second.size(), mutation));
+        record_key, 0U, second.data(), second.size(), mutation));
     assert(sd_repository_make_commit_request(
         4U, kDataset, mutation, 2U, request));
     result = sd_repository_execute_request(request, ready, paths, index);
     assert(result.status == SdRepositoryRequestStatus::RevisionConflict);
     assert(repository_mutation_make_upsert(
-        reminder, 1U, second.data(), second.size(), mutation));
+        record_key, 1U, second.data(), second.size(), mutation));
     assert(sd_repository_make_commit_request(
         4U, kDataset, mutation, 2U, request));
     result = sd_repository_execute_request(request, ready, paths, index);
@@ -177,7 +177,7 @@ int main()
 
     SdRepositoryRequest erase = {};
     assert(sd_repository_make_erase_request(
-        4U, kDataset, reminder, 2U, 3U, erase));
+        4U, kDataset, record_key, 2U, 3U, erase));
     result = sd_repository_execute_request(erase, ready, paths, index);
     assert(result.status == SdRepositoryRequestStatus::Ok && result.changed);
     result = sd_repository_execute_request(erase, ready, paths, index);
@@ -196,7 +196,7 @@ int main()
 
     // Tombstones are permanent for a record ID.
     assert(repository_mutation_make_upsert(
-        reminder, 3U, first.data(), first.size(), mutation));
+        record_key, 3U, first.data(), first.size(), mutation));
     assert(sd_repository_make_commit_request(
         4U, kDataset, mutation, 4U, request));
     result = sd_repository_execute_request(request, ready, paths, index);

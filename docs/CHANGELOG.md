@@ -2,6 +2,23 @@
 
 ## Unreleased — V1 four-app candidate (2026-10-10)
 
+- 彻底去除到期提醒、产检、习惯、备忘、录音、配网和语音转文本相关功能（2026-10-19，负责人明确要求“V2 版本彻底去除”并确认范围；
+  改动涉及 `src/display`、`src/app`、各 `*_app.cpp` 与存储层，已获批准）：
+  - **删除的代码**：`src/apps/reminder`、`src/apps/checkup`、`src/voice`、`src/network`（含设备绑定凭据、网络授权、RAM Wi-Fi 配置）、
+    提醒/产检的领域模型、服务与存储适配、中文输入页与拼音索引、录音与 PCM/WAV 工具、SD 音频与 SD+显示硬件测试、语音分类器与 ESP-SR 模型分区
+    （`partitions.voice.csv`、`sdkconfig.voice.defaults`）、对应 `platformio.ini` 环境、`third_party` 拼音数据、`assets/chinese-input`、`tools/generate_*`
+    中相关生成器，以及 38 条仅供这些功能使用的界面字符串（另删 3 条无人引用的提醒文案，并把一条文案里的“提醒、产检”去掉）。
+    Settings 里的“设备重置”页与动作（只清网络密钥）一并删除；存储策略不再有音频配额与预留，工作租约只剩 Record 一类。
+  - **删除的文档**：`V2-PROJECT-SPEC.md`、`S0-PINYIN-RESOURCE-PROTOTYPE.md`、`S0-SD-AUDIO-TEST.md`、`S0-VOICE-CLASSIFIER-PROGRESS.md`、
+    `pregnancy/reminder-scheduler.md`、`pregnancy/future-roadmap.md`；README（三种语言）、PROJECT-SPEC、TODO、DEVELOPMENT、ARCHITECTURE、
+    HARDWARE-REFERENCE、存储/数据模型/架构/回归清单等现行文档里的相关描述已改写。本文件、V1 验证记录与 `docs/evidence/` 作为历史保留。
+  - **保留的编号（兼容）**：`StickyAppId` 数值不重编号（Settings=1、Pregnancy=2、Weight=7、Kicks=8，3–6 保留为已退役，存档里的旧 last-app 回退到孕周）；
+    `RepositoryKind` 的名称只剩 Pregnancy=1、Weight=4、Preference=9、Kicks=10，但 `repository_kind_valid()` 仍按 1..10 的范围放行，
+    因此写过提醒/产检记录的旧卡照常挂载、日志与快照照常回放，只是这些记录不再被读取、写入或迁移。
+    旧 NVS 迁移槽位由 55 降为 35；旧卡里的偏好记录 id 3（网络授权）和 NVS 的 `sticky_keys/net_root` 成为无人使用的遗留数据，不会被清除。
+  - **验证**：宿主测试 77/77（原 88 步，减去已删除功能的 11 步）；`sticky-release`、`sticky-debug`、`sticky-power-test` 三个配置编译通过、0 警告；
+    Markdown 链接检查通过。**仅宿主与编译验证，没有烧录、没有真机验证**；旧卡挂载兼容性只由宿主测试覆盖，建议先备份卡再在真机上试一次。
+
 - 孕周首页（Dashboard）整页重做为“图版”：340 px 点刻雕版插画，插画正下方字距拉开的英文物件名，
   8×5 周图网格做进度（实心=已过的周，圆环+黑点=进行中的一周，空框=未到），大号压缩粗体周数 +
   `WEEKS`，右上无边框菜单图标。竖屏为台历式：插画在上，左下周图，右下右对齐的周数；横屏插画在右，
@@ -506,7 +523,7 @@
 - SPI2 初始化移至板级共用入口。
 - 新增独立 `sticky-sd-audio-test`：MicroSD 安全挂载、30 秒 PDM 分块写卡、WAV/CRC 读回校验与并发显示刷新测试入口。
 - 原型不自动录音、不格式化、不上传音频、不迁移或擦除现有 NVS；生产存储切换仍未完成。
-- 新增 WAV/CRC 主机测试；硬件验收仍待连接设备，详见 [S0 原型说明](S0-SD-AUDIO-TEST.md)。
+- 新增 WAV/CRC 主机测试；硬件验收仍待连接设备，原说明文档已于 2026-10-19 删除。
 
 ## 2.0.0 - 2026-09-13
 

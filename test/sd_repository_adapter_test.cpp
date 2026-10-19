@@ -141,7 +141,7 @@ int main()
 
     RepositoryKey key = {};
     assert(repository_key_make(
-        RepositoryKind::Reminder,
+        RepositoryKind::Weight,
         "00000000000000000000000000000001", key));
     constexpr std::array<uint8_t, 3U> payload = {1U, 2U, 3U};
     SdRepositoryAdapter adapter;
@@ -164,7 +164,7 @@ int main()
     assert(adapter.begin_erase(key, 1U) ==
            SdRepositoryAdapterStatus::CardFull);
     g_status.card_state = SdCardState::ReadyReadWrite;
-    assert(adapter.begin_list(RepositoryKind::Reminder, 0U, true) ==
+    assert(adapter.begin_list(RepositoryKind::Weight, 0U, true) ==
            SdRepositoryAdapterStatus::Pending);
     g_result.outcome.status = SdRepositoryRequestStatus::RecoveryError;
     assert(adapter.poll() == SdRepositoryAdapterStatus::Corrupt);
@@ -344,67 +344,6 @@ int main()
     assert(g_mutation.expected_revision == 8U);
     assert(held.poll() == SdRepositoryAdapterStatus::Ok && held.revision() == 9U);
 
-    pregnancy_repository::ReminderRepositoryStore reminders;
-    RepositoryKey reminder_key = {};
-    assert(pregnancy_repository::reminder_key(2U, reminder_key));
-    g_result = {};
-    g_result.outcome.status = SdRepositoryRequestStatus::Ok;
-    g_result.outcome.page.count = 2U;
-    std::strcpy(g_result.outcome.page.entries[0].record_id,
-                reminder_key.record_id);
-    g_result.outcome.page.entries[0].revision = 3U;
-    RepositoryKey deleted_key = {};
-    assert(pregnancy_repository::reminder_key(9U, deleted_key));
-    std::strcpy(g_result.outcome.page.entries[1].record_id,
-                deleted_key.record_id);
-    g_result.outcome.page.entries[1].revision = 4U;
-    g_result.outcome.page.entries[1].tombstone = true;
-    assert(reminders.begin_load() == SdRepositoryAdapterStatus::Pending);
-    assert(reminders.poll() == SdRepositoryAdapterStatus::Pending);
-
-    Reminder stored = {};
-    stored.id = 2U;
-    stored.date = {2027U, 1U, 2U};
-    stored.hour = 8U;
-    std::strcpy(stored.title, "STORED");
-    pregnancy_repository::EncodedPayload reminder_payload = {};
-    assert(pregnancy_repository::encode_reminder(stored, reminder_payload) ==
-           pregnancy_repository::RecordCodecStatus::Ok);
-    g_result = {};
-    g_result.outcome.status = SdRepositoryRequestStatus::Ok;
-    g_result.outcome.record.key = reminder_key;
-    g_result.outcome.record.revision = 3U;
-    g_result.outcome.record.payload_size = reminder_payload.size;
-    std::memcpy(g_result.outcome.record.payload.data(),
-                reminder_payload.bytes.data(), reminder_payload.size);
-    assert(reminders.poll() == SdRepositoryAdapterStatus::Ok);
-    assert(reminders.service().count() == 1U);
-    assert(reminders.service().next_id() == 10U);
-
-    Reminder created = {};
-    created.date = {2027U, 1U, 3U};
-    created.hour = 9U;
-    std::strcpy(created.title, "NEW");
-    assert(reminders.begin_upsert(created) ==
-           SdRepositoryAdapterStatus::Pending);
-    assert(g_mutation.expected_revision == 0U);
-    uint32_t mutation_id = 0U;
-    assert(pregnancy_repository::numeric_record_id(
-        g_mutation.key.record_id, mutation_id));
-    assert(mutation_id == 10U);
-    g_result = {};
-    g_result.outcome.status = SdRepositoryRequestStatus::Ok;
-    g_result.outcome.batch.revisions[0] = 1U;
-    assert(reminders.poll() == SdRepositoryAdapterStatus::Ok);
-    assert(reminders.service().find(10U) != nullptr);
-
-    assert(reminders.begin_erase(2U) == SdRepositoryAdapterStatus::Pending);
-    g_result = {};
-    g_result.outcome.status = SdRepositoryRequestStatus::Ok;
-    g_result.outcome.batch.revisions[0] = 4U;
-    assert(reminders.poll() == SdRepositoryAdapterStatus::Ok);
-    assert(reminders.service().find(2U) == nullptr);
-
     pregnancy_repository::WeightRepositoryStore weights;
     g_result = {};
     g_result.outcome.status = SdRepositoryRequestStatus::Ok;
@@ -443,38 +382,6 @@ int main()
     assert(preferences.poll() == SdRepositoryAdapterStatus::Ok);
     assert(preferences.settings().language == UiLanguage::ChineseSimplified);
     assert(preferences.settings().last_app == StickyAppId::Weight);
-
-    pregnancy_repository::NetworkAuthorizationRepositoryStore authorization;
-    g_result = {};
-    g_result.outcome.status = SdRepositoryRequestStatus::NotFound;
-    assert(authorization.begin_load() == SdRepositoryAdapterStatus::Pending);
-    assert(authorization.poll() == SdRepositoryAdapterStatus::Ok);
-    assert(authorization.ready() && !authorization.found());
-    NetworkAuthorizationSettings network = {};
-    network.cloud_authorized = true;
-    network.authorization_version = 1U;
-    network.provider_config_version = 1U;
-    std::strcpy(network.provider_id, "coze");
-    std::strcpy(network.service_region, "cn");
-    network.credentials.ciphertext_size = 4U;
-    network.credentials.device_id[0] = 1U;
-    network.credentials.nonce[0] = 2U;
-    network.credentials.ciphertext[0] = 3U;
-    network.credentials.tag[0] = 4U;
-    assert(authorization.begin_save(network) ==
-           SdRepositoryAdapterStatus::Pending);
-    RepositoryKey authorization_key = {};
-    assert(pregnancy_repository::network_authorization_key(
-        authorization_key));
-    assert(g_mutation.key.repository == authorization_key.repository);
-    assert(std::strcmp(g_mutation.key.record_id,
-                       authorization_key.record_id) == 0);
-    g_result = {};
-    g_result.outcome.status = SdRepositoryRequestStatus::Ok;
-    g_result.outcome.batch.revisions[0] = 1U;
-    assert(authorization.poll() == SdRepositoryAdapterStatus::Ok);
-    assert(authorization.found() && authorization.revision() == 1U);
-    assert(std::strcmp(authorization.settings().provider_id, "coze") == 0);
 
     pregnancy_repository::KickRepositoryStore kicks;
     g_result = {};
@@ -557,8 +464,10 @@ int main()
     assert(yearly.service().count() == 366U && yearly.service().next_id() == 1001U);
     assert(loaded_reads == 366U && loaded_pages == 46U);
 
+    RepositoryKey legacy_key = {};
+    assert(pregnancy_repository::weight_key(2U, legacy_key));
     FakeLegacySource legacy;
-    legacy.migration_record.key = reminder_key;
+    legacy.migration_record.key = legacy_key;
     legacy.migration_record.payload.size = 3U;
     legacy.migration_record.payload.bytes[0] = 7U;
     legacy.migration_record.payload.bytes[1] = 8U;

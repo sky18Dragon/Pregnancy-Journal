@@ -130,8 +130,8 @@ void register_launcher() {
         return -1;
       },
       // Index 0 is Close; 1 + StickyAppId value (Settings=1 ... Kicks=8).
-      NAMES("Close", "App:?0", "App:Settings", "App:Pregnancy", "App:Reminder",
-            "App:Checkup", "App:?5", "App:?6", "App:Weight", "App:Kicks"));
+      NAMES("Close", "App:?0", "App:Settings", "App:Pregnancy", "App:?3",
+            "App:?4", "App:?5", "App:?6", "App:Weight", "App:Kicks"));
 }
 
 void draw_standin_battery(Canvas &c) {
@@ -316,8 +316,7 @@ void register_settings() {
       "ManageStorage", "ManageLegacyCommon", "ManageLegacyKicks",
       "BeginLegacyImport", "BeginLegacyClear", "ConfirmLegacyClear",
       "CancelLegacyClear", "BeginCardDataDelete", "ConfirmCardDataDelete",
-      "CancelCardDataDelete", "BeginDeviceReset", "ConfirmDeviceReset",
-      "CancelDeviceReset", "EditPregnancy", "Home", "Back", "Delete", "Save",
+      "CancelCardDataDelete", "EditPregnancy", "Home", "Back", "Delete", "Save",
       "Digit0", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6",
       "Digit7", "Digit8", "Digit9", "Field0", "Field1", "Field2", "Field3",
       "Field4"};
@@ -393,9 +392,6 @@ void register_settings() {
   add("settings_card_delete_confirm",
       [](Canvas &c) { settings_page_render_card_data_delete_confirm(c, "00b454dc"); },
       hit(SettingsPage::CardDataDeleteConfirm), names);
-  add("settings_device_reset_confirm",
-      [](Canvas &c) { settings_page_render_device_reset_confirm(c); },
-      hit(SettingsPage::DeviceResetConfirm), names);
 }
 
 // ---- text lint hook --------------------------------------------------------

@@ -173,16 +173,6 @@ SettingsFlowResult SettingsFlow::handle_action(SettingsAction action) {
     result.notify_data_deleted = deleted;
     return result;
   }
-  case SettingsAction::BeginDeviceReset:
-    page_ = SettingsPage::DeviceResetConfirm;
-    return rendered();
-  case SettingsAction::CancelDeviceReset:
-    page_ = SettingsPage::StorageMore;
-    return rendered();
-  case SettingsAction::ConfirmDeviceReset:
-    operation_message_ = port_.reset_device_binding();
-    page_ = SettingsPage::StorageSummary;
-    return rendered(true);
   case SettingsAction::EditPregnancy:
     result.request_pregnancy = true;
     break;

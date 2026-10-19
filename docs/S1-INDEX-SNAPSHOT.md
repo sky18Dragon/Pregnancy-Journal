@@ -71,7 +71,7 @@ truncates a partial file or repairs media.
 journal records and transaction 36. Boot probes the journal and
 `INDEX/IDXPWR01.BIN` read-only. After two separate confirmations it writes one
 2,960-byte, 45-entry deterministic snapshot but deliberately never appends a
-checkpoint. The audio cue marks the unsafe-reset point.
+checkpoint. The buzzer beep marks the unsafe-reset point.
 
 After reboot:
 

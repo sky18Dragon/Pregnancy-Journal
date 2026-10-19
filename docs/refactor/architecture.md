@@ -6,8 +6,8 @@ current user-facing feature inventory is maintained in
 
 ## Runtime ownership
 
-`app_registry.cpp` is the composition root for six descriptors: Baby Week,
-Reminders, Checkups, Weight, Kicks and Settings. Each descriptor supplies
+`app_registry.cpp` is the composition root for four descriptors: Baby Week,
+Weight, Kicks and Settings. Each descriptor supplies
 start, pause, resume, sleep preparation, timeout and sleep-policy callbacks.
 `StickyAppManager` validates IDs, starts Baby Week by default, switches apps,
 and restores the previous app if activation fails. The coordinator in
@@ -39,12 +39,12 @@ action.
   checksummed alternating device settings records.
 - `apps/pregnancy` + `pregnancy/content`: profile, calculation and offline week
   content.
-- `pregnancy/services`: bounded reminder, checkup, weight and kick services plus
-  independent NVS storage.
+- `pregnancy/services`: bounded weight and kick services plus
+  MicroSD repository storage.
 - `ui/ui_language.*`: shared English/Simplified Chinese translation table.
 
 The framework manager supports at most eight apps. Current service capacities
-are 12 reminders, 8 checkups, 32 weight records and 42 kick sessions.
+are 366 weight records and 400 kick sessions.
 
 ## Input flow
 

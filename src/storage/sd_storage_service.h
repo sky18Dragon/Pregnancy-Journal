@@ -28,9 +28,6 @@ struct SdStorageServiceStatus {
     bool capacity_known = false;
     uint64_t total_bytes = 0U;
     uint64_t free_bytes = 0U;
-    bool audio_usage_known = false;
-    uint32_t audio_items = 0U;
-    uint64_t audio_bytes = 0U;
     bool manifest_known = false;
     SdManifestProbeState manifest_state =
         SdManifestProbeState::NotInitialized;
@@ -209,8 +206,8 @@ esp_err_t sd_storage_service_collect_object_power_result(
     SdStorageObjectPowerResult &result);
 #endif
 
-// Record, audio and network operations that span more than one worker request
-// hold a bounded lease. A lease is bound to one mounted dataset, participates
+// Record operations that span more than one worker request hold a bounded
+// lease. A lease is bound to one mounted dataset, participates
 // in the sleep drain, and must be finished or cancelled on every path. Finish
 // reports a stale generation/dataset after a card switch and always releases a
 // valid token; callers must not submit a late result after such a response.
@@ -222,11 +219,8 @@ SdStorageWorkStatus sd_storage_service_finish_work(
 bool sd_storage_service_cancel_work(const SdStorageWorkToken &token,
                                     SdStorageWorkRecord &record);
 
-// Applies the current card state/capacity and the shared business/audio quota
-// rules. Audio usage comes from the owner task's bounded read-only inventory;
-// callers cannot under-report files already occupying the card.
-SdStoragePolicyStatus sd_storage_service_check_write(
-    SdStorageWriteClass write_class, uint64_t requested_bytes);
+// Applies the current card state and capacity to a write of `requested_bytes`.
+SdStoragePolicyStatus sd_storage_service_check_write(uint64_t requested_bytes);
 
 // Stops admission and waits for the storage owner to finish ejecting the card.
 // FIFO ordering drains every admitted filesystem request before unmount. Deep

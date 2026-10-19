@@ -72,7 +72,7 @@ int main()
     assert(std::strcmp(decoded.dataset_id, kDataset) == 0);
     assert(decoded.last_transaction_id == 36U);
     assert(decoded.entry_count == kIndexPowerFixtureEntries);
-    assert(decoded.entries[0].key.repository == RepositoryKind::Note);
+    assert(decoded.entries[0].key.repository == RepositoryKind::Preference);
     assert(decoded.entries[0].object_bytes ==
            kJournalPowerFixtureObjectBytes);
     assert(std::strcmp(decoded.entries[0].object_file, "PWRTEST.BIN") == 0);

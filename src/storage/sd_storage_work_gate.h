@@ -11,8 +11,6 @@ namespace sticky_storage {
 
 enum class SdStorageWorkKind : uint8_t {
     Record = 0,
-    Audio,
-    Network,
 };
 
 struct SdStorageWorkToken {
@@ -41,7 +39,7 @@ enum class SdStorageWorkStatus : uint8_t {
     DatasetMismatch,
 };
 
-// Bounded lease table used by record, audio and network work that can outlive
+// Bounded lease table used by record work that can outlive
 // one storage-worker queue command. The service serializes calls with its
 // submission mutex; the class itself intentionally owns no RTOS primitive.
 class SdStorageWorkGate {
