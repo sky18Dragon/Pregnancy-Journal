@@ -25,7 +25,7 @@ Completed on a Seeed Studio reTerminal Sticky after flashing `sticky-release`.
 - Date: 2026-09-12
 - Firmware: `1.0.0`
 - Commit: `fdc6be6`
-- Device port: `/dev/cu.usbmodem5C843369951`
+- Device port: `/dev/cu.usbmodemXXXX`
 - Host suite: 14/14 passed
 - Boot result: `phase=ready`, `apps=3 default=home current=home`
 - Device result: all physical interaction checks passed; no failed item reported

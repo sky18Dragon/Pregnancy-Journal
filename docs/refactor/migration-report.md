@@ -22,7 +22,7 @@ fallback/switching, launcher hit testing, persistence, scheduling, Home,
 Settings, Pregnancy and hardware-independent input policies.
 
 Firmware `1.0.0` at commit `fdc6be6` was flashed through
-`/dev/cu.usbmodem5C843369951` and verified on 2026-09-12. Serial logs reached
+`/dev/cu.usbmodemXXXX` and verified on 2026-09-12. Serial logs reached
 `phase=ready`, reported `apps=3 default=home current=home`, and confirmed the
 RTC, battery, display, touch, IMU and button paths. The user completed the
 physical interaction checklist without finding a problem.

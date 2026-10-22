@@ -15,7 +15,7 @@ Build and flash record:
 - Landscape and portrait Font Test builds: 23,740 bytes RAM (7.2%),
   4,040,676/4,040,680 bytes flash (48.2%); binaries are
   4,041,072/4,041,088 bytes.
-- Upload port: `/dev/cu.usbmodem5C843369951`.
+- Upload port: `/dev/cu.usbmodemXXXX`.
 - Esptool wrote the final 4,105,904-byte release image, verified the image
   hash, and hard-reset the device.
 - Post-reset runtime sampling showed normal GT911 polling with `map=480x800`

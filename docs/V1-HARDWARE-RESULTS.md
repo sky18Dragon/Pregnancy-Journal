@@ -20,7 +20,7 @@ R01–R07 软件修复和 V1-REG-04 胎动栈修复已加入；原 Settings 刷�
   两项修复已通过主机 73/73 和三个配置构建，已重烧录并正常启动，操作复测进行中。
 - 三项修复构建 SHA-256：`6b0a879158b26df4c5d98662385858bb1fa07e3afd4d0b7c13d2011a94a29eb7`；主机 73/73、三个配置构建通过，已烧录并正常启动，初始化操作复测进行中。
 - 设备：esptool 识别为 ESP32-S3 revision v0.2。
-- 串口：`/dev/cu.usbmodem5C843369951`，115200；USB Single Serial。
+- 串口：`/dev/cu.usbmodemXXXX`，115200；USB Single Serial。
 - 连接：用户已连接 USB；电池状态及独立电池供电尚未确认。
 - MicroSD：用户确认可直接用于测试，没有需要保留的记录；总容量 32,199,671,808 B，空闲 32,193,282,048 B；卡型号待现场确认。
 - 本轮未执行全 Flash 擦除、卡格式化或旧 NVS 清除。
@@ -31,7 +31,7 @@ R01–R07 软件修复和 V1-REG-04 胎动栈修复已加入；原 Settings 刷�
 | --- | --- | --- |
 | USB 串口检测 | PASS | 系统枚举及 `pio device list` 均检测到上述端口 |
 | 候选包与当前编译输入比对 | PASS | 305 文件摘要匹配；包内 SHA-256 和 ZIP 完整性通过 |
-| release 烧录 | PASS | `pio run -e sticky-release -t upload --upload-port /dev/cu.usbmodem5C843369951`；SUCCESS 78.955 s；引导、分区、应用写入后均 hash verified |
+| release 烧录 | PASS | `pio run -e sticky-release -t upload --upload-port /dev/cu.usbmodemXXXX`；SUCCESS 78.955 s；引导、分区、应用写入后均 hash verified |
 | 烧录文件身份 | PASS | 镜像中 `firmware.bin` 摘要与候选包一致 |
 | release 启动 | PASS（串口） | `phase=ready result=ok`；`runtime=ready apps=4 default=pregnancy current=pregnancy` |
 | 板级服务初始化 | PASS（串口） | RTC、battery、SSD1677、GT911、IMU、按键和蜂鸣器均 ready；尚未完成交互/屏幕观察 |
