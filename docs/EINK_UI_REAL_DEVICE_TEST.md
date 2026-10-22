@@ -227,6 +227,11 @@ revised scope.
 
 ## Software evidence
 
+The serial evidence below is historical (2026-09-15), not acceptance evidence
+for current firmware. Curated text copies are tracked in Git; device identifiers
+and personal pregnancy/weight values have been redacted. Raw local `.log` files
+remain excluded by the repository log policy.
+
 | Artifact | Purpose |
 | --- | --- |
 | [Current portrait dashboard](images/eink-ui/pregnancy-dashboard-portrait-current-mono.png) | Baseline final-mono simulation matching the original device-photo defects. |
@@ -257,5 +262,5 @@ revised scope.
 | [Weight partial checkpoint 10](images/eink-ui/evidence/weight-partial-10-2026-09-15.jpg) | Supplemental 68.2 kg checkpoint after ten +0.1 adjustments. |
 | [Wake dashboard](images/eink-ui/evidence/wake-home-2026-09-15.jpg) | User-labelled immediate wake frame with active portrait UI restored. |
 | [Sleep dashboard](images/eink-ui/evidence/sleep-home-2026-09-15.jpg) | User-labelled retained sleep frame with battery and crescent indicator. |
-| [Cold-boot serial evidence](evidence/cold-boot-2026-09-15.log) | Final release upload, running-image hash match, `POWERON` boot, pregnancy restoration, and successful full-refresh log. |
-| [Final physical-session evidence](evidence/final-physical-session-2026-09-15.log) | Curated photo labels, partial-refresh checkpoint mapping, sleep disconnect, and release reconnect evidence. |
+| [Cold-boot serial evidence](evidence/cold-boot-2026-09-15.txt) | Final release upload, running-image hash match, `POWERON` boot, pregnancy restoration, and successful full-refresh log. |
+| [Final physical-session evidence](evidence/final-physical-session-2026-09-15.txt) | Curated photo labels, partial-refresh checkpoint mapping, sleep disconnect, and release reconnect evidence. |

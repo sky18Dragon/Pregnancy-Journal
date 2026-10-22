@@ -92,7 +92,7 @@ int main()
     assert(result.status == SdManifestRequestStatus::StaleGeneration);
 
     context.mount_generation = 7U;
-    for (const auto test : {
+    for (const auto &test : {
              std::pair{SdCardState::Absent,
                        SdManifestRequestStatus::CardMissing},
              std::pair{SdCardState::Unmounted,

@@ -1,6 +1,7 @@
 #include <array>
 #include <cassert>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include <unistd.h>
@@ -198,5 +199,18 @@ int main()
     assert(decoded.entries[1022].tombstone);
     maximum.entry_count++;
     assert(sd_index_snapshot_encode(maximum, bytes.data(), bytes.size()) == 0U);
+
+    // Invalid input must discard the entire previous snapshot, including its
+    // tail entries, so a later recovery cannot observe stale records.
+    assert(sd_index_snapshot_decode(nullptr, 0U, decoded) ==
+           SdIndexSnapshotStatus::InvalidArgument);
+    assert(decoded.dataset_id[0] == '\0');
+    assert(decoded.last_transaction_id == 0U && decoded.entry_count == 0U);
+    for (const auto &entry : decoded.entries) {
+        assert(entry.key.record_id[0] == '\0');
+        assert(entry.revision == 0U && !entry.tombstone);
+        assert(entry.object_bytes == 0U && entry.object_crc32 == 0U);
+        assert(entry.object_file[0] == '\0');
+    }
     return 0;
 }

@@ -116,7 +116,7 @@ SdRecoveryLoadStatus load_checkpoint_snapshot(
             checkpoint.index_crc32) {
         return SdRecoveryLoadStatus::IndexMismatch;
     }
-    std::memset(&workspace.snapshot, 0, sizeof(workspace.snapshot));
+    workspace.snapshot.reset();
     if (sd_index_snapshot_decode(workspace.index_bytes.data(), expected,
                                  workspace.snapshot) !=
             SdIndexSnapshotStatus::Ok ||
@@ -208,7 +208,7 @@ SdRecoveryLoadResult sd_recovery_load(
 {
     SdRecoveryLoadResult result = {};
     index.reset();
-    std::memset(&workspace.snapshot, 0, sizeof(workspace.snapshot));
+    workspace.snapshot.reset();
     if (!paths_valid(paths) || !sd_dataset_id_valid(dataset_id)) {
         result.status = SdRecoveryLoadStatus::InvalidArgument;
         return result;
