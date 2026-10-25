@@ -11,10 +11,10 @@ rm -f "${OUT}"/*.mono "${OUT}"/*.meta "${OUT}"/*.png "${OUT}"/*.raw
 g++ -std=c++17 -Wall -Wextra -O1 -DUI_TEXT_OBSERVER \
   -Isrc/app -Isrc/apps/kick -Isrc/apps/pregnancy -Isrc/apps/settings -Isrc/apps/weight \
   -Isrc/pregnancy/content -Isrc/pregnancy/models -Isrc/pregnancy/services \
-  -Isrc/ui -Isrc/ui/assets -Itest/support \
+  -Isrc/ui -Isrc/ui/assets -Isrc/storage -Itest/support \
   tools/ui_preview/ui_preview.cpp \
   src/ui/app_pages.cpp src/ui/digit_fields.cpp src/ui/canvas.cpp src/ui/font.cpp src/ui/prototype_ui.cpp \
-  src/ui/text_layout.cpp src/ui/ui_language.cpp \
+  src/ui/text_layout.cpp src/ui/ui_language.cpp src/ui/repository_status_page.cpp \
   src/ui/assets/chinese_font_assets.cpp src/ui/assets/pixel_asset.cpp \
   src/ui/assets/app_launcher_assets.cpp \
   src/ui/assets/pregnancy_plate_assets.cpp \

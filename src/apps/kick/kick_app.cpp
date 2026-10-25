@@ -33,6 +33,7 @@ constexpr uint32_t kTaskStackBytes = 8192U;
 // payloads out of poll_store's frame, including its normal load path.
 pregnancy_repository::EncodedPayload s_retry_left = {}, s_retry_right = {};
 Canvas *s_canvas = nullptr;
+repository_status_ui::State s_status_page;
 TaskHandle_t s_task = nullptr;
 StickyAppLifecycle s_lifecycle = {};
 pregnancy_repository::KickRepositoryStore &s_store =
@@ -122,8 +123,9 @@ void render(bool full = false) {
   else
     s_press.clear();
   if (status) {
-    repository_status_ui::render(*s_canvas, ui_text("KICKS"), s_store.pending(),
-                                  s_storage_saving, s_storage_status);
+    s_status_page = repository_status_ui::make_state(s_store.pending(),
+        s_storage_saving, s_storage_status, sticky_storage::sd_storage_service_status());
+    repository_status_ui::render(*s_canvas, ui_text("KICKS"), s_status_page);
     s_refresh.needs_full(kStatusPageId, true);
     sticky_display_refresh_monochrome();
     if (s_store.pending()) s_load_watch = false;  // the loading page is drawn
@@ -271,9 +273,9 @@ void remember_press_target(int x, int y) {
   const int w = s_canvas->width(), h = s_canvas->height();
   bool found = false;
   if (status_page_active()) {
-    const auto retry = repository_status_ui::retry_rect(*s_canvas);
-    const auto back = prototype_ui::header_action_rect(w, h);
-    found = retry.contains(x, y) ? (target = retry, true) : back.contains(x, y) ? (target = back, true) : false;
+    const auto action = repository_status_ui::action_at(*s_canvas, s_status_page, x, y);
+    found = action != repository_status_ui::Action::None;
+    if (found) target = repository_status_ui::target_rect(*s_canvas, action);
   } else {
     KickTarget targets[16];
     const size_t count = kick_page_targets(s_flow.page(), w, h, targets, 16U);
@@ -294,6 +296,12 @@ void handle(int x, int y) {
       s_press.set(back);
       show_press_feedback();
       sticky_app_request_launcher();
+      return;
+    }
+    if (repository_status_ui::action_at(*s_canvas, s_status_page, x, y) ==
+        repository_status_ui::Action::Setup) {
+      show_press_feedback();
+      sticky_app_request_storage_setup(s_status_page.setup_generation);
       return;
     }
     if (repository_status_ui::retry_rect(*s_canvas).contains(x, y)) {

@@ -14,6 +14,7 @@
 #include "pregnancy_repository_store.h"
 #include "sd_storage_service.h"
 #include "settings_flow.h"
+#include "repository_status_page.h"
 #include "settings_pages.h"
 #include "sticky_app.h"
 #include "sticky_app_lifecycle.h"
@@ -37,6 +38,8 @@ SettingsStoragePageState s_displayed_storage = {};
 bool s_home_requested = false;
 bool s_pregnancy_requested = false;
 std::atomic<bool> s_preferences_changed{false};
+std::atomic<uint32_t> s_storage_setup_requested{0U};
+uint32_t s_initialization_generation = 0U;
 PregnancyProfile s_profile = {};
 PregnancyProgress s_progress = {};
 bool s_profile_configured = false;
@@ -53,7 +56,7 @@ public:
   bool read_clock(SettingsClockTime &time) override;
   bool write_clock(const SettingsClockTime &time) override;
   SettingsStoragePageState storage_state() override;
-  void prepare_initialization() override;
+  void prepare_initialization(uint32_t mount_generation) override;
   bool has_dataset_id() const override;
   void forget_dataset_id() override;
   const char *submit_initialization() override;
@@ -126,9 +129,7 @@ SettingsStoragePageState storage_page_state() {
       state.dataset == SettingsStorageDatasetView::Ready ||
       state.dataset == SettingsStorageDatasetView::Degraded;
   state.initialize_enabled =
-      state.card == SettingsStorageCardView::ReadWrite &&
-      state.dataset == SettingsStorageDatasetView::NotInitialized &&
-      state.requests_open;
+      repository_status_ui::can_initialize(status) && state.requests_open;
   state.eject_enabled =
       (state.card == SettingsStorageCardView::ReadWrite ||
        state.card == SettingsStorageCardView::ReadOnly ||
@@ -269,14 +270,16 @@ SettingsStoragePageState SettingsPort::storage_state() {
   return storage_page_state();
 }
 
-void SettingsPort::prepare_initialization() { generate_dataset_id(); }
+void SettingsPort::prepare_initialization(uint32_t mount_generation) {
+  s_initialization_generation = mount_generation;
+  generate_dataset_id();
+}
 bool SettingsPort::has_dataset_id() const { return s_storage_dataset_id[0] != '\0'; }
 void SettingsPort::forget_dataset_id() { s_storage_dataset_id[0] = '\0'; }
 
 const char *SettingsPort::submit_initialization() {
-  const SdStorageServiceStatus status = sd_storage_service_status();
   const esp_err_t result = sd_storage_service_submit_manifest_initialize(
-      status.mount_generation, s_storage_dataset_id, true, s_storage_request);
+      s_initialization_generation, s_storage_dataset_id, true, s_storage_request);
   if (result == ESP_OK) {
     s_storage_request_pending = true;
     STICKY_LOGI(kTag, "storage=initialize request=%u result=queued",
@@ -440,11 +443,21 @@ void handle(SettingsAction action) {
     render(result.render_full);
 }
 
+bool apply_storage_setup_request() {
+  const uint32_t generation = s_storage_setup_requested.exchange(0U);
+  if (generation == 0U) return false;
+  s_flow.enter_storage_setup(generation);
+  sticky_touch_clear_press();
+  return true;
+}
+
 void task(void *) {
+  apply_storage_setup_request();
   render(true);
   while (true) {
-    if (s_preferences_changed.exchange(false)) render(true);
-    if (sticky_app_lifecycle_checkpoint(s_lifecycle))
+    const bool resumed = sticky_app_lifecycle_checkpoint(s_lifecycle);
+    const bool entry = apply_storage_setup_request();
+    if (s_preferences_changed.exchange(false) || resumed || entry)
       render(true);
     if (s_flow.page() == SettingsPage::StorageSummary ||
         s_flow.page() == SettingsPage::StorageMore) {
@@ -570,4 +583,8 @@ bool settings_app_take_pregnancy_request() {
 }
 void settings_app_notify_preferences_changed() {
   s_preferences_changed.store(true);
+}
+
+void settings_app_request_storage_setup(uint32_t mount_generation) {
+  s_storage_setup_requested.store(mount_generation);
 }

@@ -15,6 +15,7 @@
 #include "pregnancy_state.h"
 #include "press_feedback.h"
 #include "prototype_ui.h"
+#include "repository_status_page.h"
 #include "refresh_policy.h"
 #include "sticky_app.h"
 #include "sticky_app_lifecycle.h"
@@ -94,54 +95,13 @@ bool s_setup_after_load = false;
 sticky_storage::SdRepositoryAdapterStatus s_storage_error =
     sticky_storage::SdRepositoryAdapterStatus::Idle;
 
-prototype_ui::Rect storage_retry_rect() {
-  return s_canvas->height() > s_canvas->width()
-             ? prototype_ui::Rect{24, 720, 432, 56}
-             : prototype_ui::Rect{24, 400, 752, 56};
-}
-
-const char *storage_error_copy(
-    sticky_storage::SdRepositoryAdapterStatus status) {
-  using sticky_storage::SdRepositoryAdapterStatus;
-  switch (status) {
-  case SdRepositoryAdapterStatus::CardMissing:
-    return "MICROSD CARD IS REQUIRED";
-  case SdRepositoryAdapterStatus::CardReadOnly:
-    return "MICROSD CARD IS READ ONLY";
-  case SdRepositoryAdapterStatus::CardFull:
-  case SdRepositoryAdapterStatus::CapacityReached:
-    return "MICROSD STORAGE IS FULL";
-  case SdRepositoryAdapterStatus::DatasetUnavailable:
-    return "CREATE OR SELECT A DATASET IN SETTINGS";
-  case SdRepositoryAdapterStatus::RecoveryUnavailable:
-  case SdRepositoryAdapterStatus::Corrupt:
-    return "MICROSD DATA NEEDS REVIEW";
-  case SdRepositoryAdapterStatus::StaleGeneration:
-    return "MICROSD CARD CHANGED";
-  default:
-    return "MICROSD STORAGE UNAVAILABLE";
-  }
-}
+repository_status_ui::State s_status_page;
 
 void render_storage_state() {
-  prototype_ui::begin_page(*s_canvas);
-  prototype_ui::draw_header(*s_canvas, "MICROSD DATA",
-                            "PREGNANCY PROFILE STORAGE", "BACK");
-  const bool portrait = s_canvas->height() > s_canvas->width();
-  if (s_profile_loading || s_profile_saving) {
-    s_canvas->draw_text(32, portrait ? 260 : 176,
-                        s_profile_saving ? "SAVING TO MICROSD"
-                                         : "LOADING FROM MICROSD",
-                        4, GrayLevel::Black);
-    return;
-  }
-  s_canvas->draw_text(32, portrait ? 226 : 154,
-                      storage_error_copy(s_storage_error), 3,
-                      GrayLevel::Black);
-  s_canvas->draw_text(32, portrait ? 286 : 210,
-                      "NO FLASH FALLBACK WAS USED", 2,
-                      GrayLevel::Black);
-  prototype_ui::draw_button(*s_canvas, storage_retry_rect(), "RETRY", true, 2);
+  s_status_page = repository_status_ui::make_state(
+      s_profile_loading || s_profile_saving, s_profile_saving, s_storage_error,
+      sticky_storage::sd_storage_service_status());
+  repository_status_ui::render(*s_canvas, "MICROSD DATA", s_status_page);
 }
 
 bool read_rtc(StickyRtcDateTime &value) {
@@ -511,8 +471,13 @@ void app_task(void *) {
                                                        s_canvas->height()));
           show_press_feedback();
           sticky_app_request_launcher();
-        } else if (storage_retry_rect().contains(x, y)) {
-          s_press.set(storage_retry_rect());
+        } else if (repository_status_ui::action_at(*s_canvas, s_status_page, x, y) ==
+                   repository_status_ui::Action::Setup) {
+          s_press.set(repository_status_ui::setup_rect(*s_canvas));
+          show_press_feedback();
+          sticky_app_request_storage_setup(s_status_page.setup_generation);
+        } else if (repository_status_ui::retry_rect(*s_canvas).contains(x, y)) {
+          s_press.set(repository_status_ui::retry_rect(*s_canvas));
           retry_profile_storage();
           render_page(true);
         }

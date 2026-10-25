@@ -35,7 +35,7 @@ public:
     return true;
   }
   SettingsStoragePageState storage_state() override { return storage; }
-  void prepare_initialization() override { dataset_id = true; ++prepared; }
+  void prepare_initialization(uint32_t) override { dataset_id = true; ++prepared; }
   bool has_dataset_id() const override { return dataset_id; }
   void forget_dataset_id() override { dataset_id = false; ++forgotten; }
   const char *submit_initialization() override {
@@ -69,7 +69,45 @@ bool same(const char *a, const char *b) { return a && std::strcmp(a, b) == 0; }
 
 } // namespace
 
+void test_storage_setup_entry() {
+  FakePort port;
+  SettingsFlow flow(port);
+  port.storage.initialize_enabled = true;
+  port.storage.mount_generation = 7U;
+  // Even a forged final action cannot write without opening the confirmation.
+  flow.handle_action(SettingsAction::ConfirmStorageInitialization);
+  assert(port.submits == 0);
+  auto result = flow.enter_storage_setup(7U);
+  assert(result.render && flow.page() == SettingsPage::StorageConfirm);
+  assert(port.prepared == 1 && port.submits == 0);
+  flow.handle_action(SettingsAction::CancelStorageInitialization);
+  assert(!port.dataset_id && port.submits == 0);
+  flow.enter_storage_setup(7U);
+  flow.handle_action(SettingsAction::Back);
+  assert(!port.dataset_id && port.submits == 0);
+  // Both a late entry request and a card replacement during confirmation fail.
+  port.storage.mount_generation = 8U;
+  flow.enter_storage_setup(7U);
+  assert(flow.page() == SettingsPage::StorageSummary && port.submits == 0);
+  flow.enter_storage_setup(8U);
+  port.storage.mount_generation = 9U;
+  flow.handle_action(SettingsAction::ConfirmStorageInitialization);
+  assert(port.submits == 0 && !port.dataset_id);
+  assert(same(flow.operation_message(), "CARD CHANGED · TRY AGAIN"));
+  port.storage.initialize_enabled = false;
+  flow.enter_storage_setup(9U);
+  assert(flow.page() == SettingsPage::StorageSummary && port.submits == 0);
+  port.storage.initialize_enabled = true;
+  flow.enter_storage_setup(9U);
+  assert(port.submits == 0);
+  flow.handle_action(SettingsAction::ConfirmStorageInitialization);
+  assert(port.submits == 1 && !port.dataset_id);
+  flow.handle_action(SettingsAction::ConfirmStorageInitialization);
+  assert(port.submits == 1); // no repeat submission from a queued second tap
+}
+
 int main() {
+  test_storage_setup_entry();
   FakePort port;
   SettingsFlow flow(port);
   assert(flow.page() == SettingsPage::Main);

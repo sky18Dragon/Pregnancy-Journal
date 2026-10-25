@@ -24,6 +24,7 @@
 #include "press_feedback.h"
 #include "prototype_ui.h"
 #include "settings_pages.h"
+#include "repository_status_page.h"
 #include "status_glyphs.h"
 #include "text_layout.h"
 #include "ui_language.h"
@@ -307,6 +308,32 @@ void register_kicks() {
       hit(KickPage::Compare), names);
 }
 
+void register_storage_status() {
+  using namespace repository_status_ui;
+  using sticky_storage::SdRepositoryAdapterStatus;
+  const char *apps[] = {"pregnancy", "weight", "kick"};
+  const char *titles[] = {"MICROSD DATA", "WEIGHT DATA", "KICKS"};
+  const char *states[] = {"setup", "missing", "readonly", "corrupt", "unavailable", "loading", "saving"};
+  const SdRepositoryAdapterStatus statuses[] = {
+      SdRepositoryAdapterStatus::DatasetUnavailable, SdRepositoryAdapterStatus::CardMissing,
+      SdRepositoryAdapterStatus::CardReadOnly, SdRepositoryAdapterStatus::Corrupt,
+      SdRepositoryAdapterStatus::DatasetUnavailable, SdRepositoryAdapterStatus::Pending,
+      SdRepositoryAdapterStatus::Pending};
+  for (int app = 0; app < 3; ++app) {
+    for (int i = 0; i < 7; ++i) {
+      const State state{i >= 5, i == 6, statuses[i], i == 0 ? 7U : 0U};
+      const char *title = titles[app];
+      add(std::string("storage_") + apps[app] + "_" + states[i],
+          [state, title](Canvas &c) { render(c, title, state); },
+          [state](int w, int h, int x, int y) {
+            Canvas c(static_cast<uint16_t>(w), static_cast<uint16_t>(h), nullptr, 0U);
+            const auto a = action_at(c, state, x, y);
+            return a == Action::None ? -1 : static_cast<int>(a);
+          }, {"None", "Back", "Retry", "Setup"});
+    }
+  }
+}
+
 void register_settings() {
   static const std::vector<std::string> names = {
       "None", "ToggleLanguage", "EditTime", "RefreshDisplay", "PregnancySettings",
@@ -518,6 +545,7 @@ int main(int argc, char **argv) {
   register_weight();
   register_kicks();
   register_settings();
+  register_storage_status();
 
   std::vector<uint8_t> pixels(800U * 480U / 4U);
   Canvas canvas(800U, 480U, pixels.data(), pixels.size());
