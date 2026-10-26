@@ -25,6 +25,7 @@
 
 字号与线宽
 - 最小字号分两档（`ui_tokens.h`）：**正文与操作文字 ≥ 18 px**（`kBody`：按钮、列表行、数值、警示，凡用户必须读懂才能操作的文字）；**说明类文字 ≥ 16 px**（`kSecondaryBody`：副标题、页脚、图表刻度）。**低于 16 px 一律禁止**（`kMicro`、`kCompactLabel` 已删除）。旧 `scale` 映射改为 1→16 px、2→18 px、≥3 仍为 7×scale，因此 `draw_text(…, 2)` 与按钮标签默认就是 18 px。
+- **全应用中文排版（2026-10-26）**：`ui_tokens::reading_size()` 在中文为 18 px，`button_size()` 为 20 px，`portrait_heading_size()` 为 28 px；英文仍使用原有 16/18/24 px 对应档位。新增页面用语言感知令牌测量、换行及绘制，紧凑图表刻度可用固定说明令牌。
 - 页面标题 28 px，区块标题 24 px，大数字 52–56 px；一律使用 `ui_tokens.h` 令牌，不在页面里写字号字面量。
 - 页面代码里的字号和左边距必须用 `ui_tokens::` 名称（`kBody`、`kSectionHeading`、`kContentMargin` …），不写数字字面量；`tools/check_ui_tokens.py` 在 `run_host_tests.sh` 中强制检查（`--fix` 可自动改写已有对应令牌的字面量）。新增字号先加令牌再用。
 - 最小线宽 **2 px**（已确认）用于需要一眼看清的边框/分隔/图标笔画；1 px 仅允许用于次要分隔线且必须是纯黑。选中/强调描边 3 px（`kEmphasisStroke`）。

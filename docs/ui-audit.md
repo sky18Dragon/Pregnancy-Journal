@@ -79,7 +79,7 @@
 | 设计令牌 | `src/ui/ui_tokens.h`（字号、边距、触控高度、线宽） |
 | 启动器页面 | `src/ui/app_pages.cpp` |
 | App 页面 | `src/apps/<app>/<app>_pages.*`（渲染 + 命中测试）；`<app>_app.cpp`（状态机、刷新调用、触摸取走） |
-| 字体 | `src/ui/font.cpp` 5×7 点阵 + `src/ui/assets/chinese_font_assets.cpp`（生成，597 字 × 2 字重，32×32 母版运行时缩放）、`chinese_input_font_assets.cpp`（输入法字体）。生成器 `tools/generate_chinese_font_assets.py` |
+| 字体 | `src/ui/font.cpp` 5×7 点阵 + `src/ui/assets/chinese_font_assets.cpp`（生成，多字号原生 1-bit 字模 × 2 字重，运行时不缩放）。生成器 `tools/generate_chinese_font_assets.py` |
 | 图标 / 图片 | 多数语义图标用 `draw_line/draw_circle` 现场画（`pregnancy_pages.cpp:172-221`）；启动器贴纸、孕周 148×148 1-bit 插图在 `assets/` → `tools/generate_*.py` → `src/ui/assets/*.cpp` |
 | 多语言 | `src/ui/ui_language.*`（英/简中，`ui_text("KEY")` 查表） |
 | 刷新 / 驱动（不属于 UI） | `src/display/`、`components/seeed_epaper/`、`src/board/` |
@@ -237,7 +237,7 @@ flowchart TD
 | E1 | **【已修复，待实机复测，2026-10-15】** 原问题：**页面切换刷新策略四处不一致**。体重/胎动：页变 → 全刷(~2 s 整屏闪黑)；设置：整页换版(主页→时间编辑→MicroSD…)大多只局刷；孕周：Dashboard↔Baby↔Mom 全部局刷；启动器打开也是局刷。整页内容替换用局刷会产生严重残影，而同类操作在别的 App 却用全刷，用户体验和残影风险都不可预测 | `weight_app.cpp:182`、`kick_app.cpp:324`、`settings_app.cpp:299,415-430`、`pregnancy_app.cpp:562`、`sticky_app.cpp:183-193` | **高** |
 | E2 | **“局刷”其实是整帧发送+全屏波形**，8 次上限只是计数，不是按面积或内容变化量判断；整页换版（变化面积近 100%）和一个数字变化（<1%）被同等计入，且没有任何“脏区”信息被使用 | `sticky_display.cpp:236-281` | **高** |
 | E3 | 胎动计数页**每次点按 = 一次整屏局刷**，约 8 次后必然出现一次约 2 s 的全刷闪烁，正好发生在用户连续点按的中途，且计数点按过程中无即时反馈（局刷本身延迟） | `kick_app.cpp:116-124`，`kick_pages.cpp:342-` | **高** |
-| E4 | 灰阶设计与 1-bit 输出不匹配：`LightGray` 画的边线在送屏阈值处理后**一定消失**，`DarkGray` 只剩全覆盖像素；代码里仍保留 4 级灰阶抽象（`GrayLevel`），页面代码虽多已改用 Black/White，但仍存在灰阶依赖（电池叠加主题按 `<= DarkGray` 采样判断背景色）。字体来自 32×32 母版**运行时缩放**，小字号笔画粗细不均（`EINK_UI_CURRENT_ANALYSIS.md`） | `convert_gray4_to_monochrome_in_place`、`battery_status_overlay_theme.cpp:32`、`ui/font.cpp` | 中 |
+| E4 | **【当前实现核对，2026-10-26】** UI 已使用分字号生成的原生 1-bit 字模，运行时逐像素绘制，下面的 32×32 缩放描述仅为历史问题。胎动首页本次改用更大的原生字号，未调整全局字模阈值或刷新策略；反白字实机效果待验证。原问题：灰阶设计与 1-bit 输出不匹配：`LightGray` 画的边线在送屏阈值处理后**一定消失**，`DarkGray` 只剩全覆盖像素；代码里仍保留 4 级灰阶抽象（`GrayLevel`），页面代码虽多已改用 Black/White，但仍存在灰阶依赖（电池叠加主题按 `<= DarkGray` 采样判断背景色）。字体来自 32×32 母版**运行时缩放**，小字号笔画粗细不均（`EINK_UI_CURRENT_ANALYSIS.md`） | `convert_gray4_to_monochrome_in_place`、`battery_status_overlay_theme.cpp:32`、`ui/font.cpp` | 中 |
 | E5 | 显示层有“APP 切换快刷”机制但**从未被调用**，实际每次 App 切换/恢复都是 ~2 s 全刷。文档（`docs/pregnancy/eink-refresh-strategy.md`）声称“App 切换使用快刷，5 次后清理”，与代码不符 | `sticky_display.cpp:335-350`，无调用点 | 中 |
 | E6 | **【已修复】** 原问题：启动器打开用局刷：从任意 App 页切到启动器相当于整页换版，局刷残影风险高；而从启动器进 App 又是全刷 | `sticky_app.cpp:183-193,200-212` | 中 |
 | E7 | **【已修复】** 原问题：胎动页自带第二份“8 次”局刷计数（`s_partial_refreshes`），与显示层 `s_partial_refresh_count_since_full` 重复且互不感知，两处阈值无法统一调整 | `kick_app.cpp:42,118-122` | 低 |
@@ -261,7 +261,7 @@ flowchart TD
 
 | # | 问题 | 位置 | 严重 |
 | --- | --- | --- | --- |
-| V1 | **【已修复，待实机复测，2026-10-15】** 根因是旧 `scale` 映射（2→14 px）使所有按钮和标签都是 14 px；现改为 1→16、2→18，页头副标题、启动器、各页说明文字统一 ≥16 px，孕周首页卡片正文 18 px，并修复由此暴露的横竖屏重叠/越界/截断（预览新增字号与版面检查）。原问题：**字号大量低于自家规范**：`DESIGN.md` 规定正文 18 px，但页头副标题固定 14 px（`prototype_ui.cpp:34-35`）、启动器摘要/底部提示 14 px、仪表盘成长卡片正文 14 px、倒计时 16 px、胎动柱状图数字 14 px。`kMicro=12` 令牌虽定义，实际屏幕上 14 px 的 CJK 在 235 ppi 屏上约 1.5 mm，笔画 1 px，可读性差 | `ui_tokens.h`、`prototype_ui.cpp:34`、`pregnancy_pages.cpp:409-512`、`kick_pages.cpp:118-130`、`app_pages.cpp:78-98` | **高** |
+| V1 | **【扩展至全应用，2026-10-26】** 中文阅读字号统一 18 px、默认按钮 20 px、页头 28 px；覆盖孕周/体重/胎动/设置/启动器/公共状态页，体重主按钮加宽，中文换行避免行首闭合标点。完整版本待实机验证。 **【胎动首页补充优化，2026-10-26】** 中文说明/时段标签提升到 18 px，区块标题及底部按钮 20 px，竖屏页标题 28 px；空态、三种记录方式和保存失败均有横竖屏预览。仅宿主预览，未经真机验证。 **【已修复，待实机复测，2026-10-15】** 根因是旧 `scale` 映射（2→14 px）使所有按钮和标签都是 14 px；现改为 1→16、2→18，页头副标题、启动器、各页说明文字统一 ≥16 px，孕周首页卡片正文 18 px，并修复由此暴露的横竖屏重叠/越界/截断（预览新增字号与版面检查）。原问题：**字号大量低于自家规范**：`DESIGN.md` 规定正文 18 px，但页头副标题固定 14 px（`prototype_ui.cpp:34-35`）、启动器摘要/底部提示 14 px、仪表盘成长卡片正文 14 px、倒计时 16 px、胎动柱状图数字 14 px。`kMicro=12` 令牌虽定义，实际屏幕上 14 px 的 CJK 在 235 ppi 屏上约 1.5 mm，笔画 1 px，可读性差 | `ui_tokens.h`、`prototype_ui.cpp:34`、`pregnancy_pages.cpp:409-512`、`kick_pages.cpp:118-130`、`app_pages.cpp:78-98` | **高** |
 | V2 | **【字号与边距已修复，2026-10-15】** 页面文字调用的字号、左边距、内容宽度 `-48`、按钮/触控高度字面量全部换成令牌，改动前后 248 个预览输出逐字节一致；`tools/check_ui_tokens.py` 纳入宿主测试防止回退。矩形坐标表里的数字（间距、位置）仍是字面量，属 C2/C6。原问题：**令牌几乎没被使用**：`ui_tokens::` 在 pregnancy_pages 仅 2 处、weight_pages 2 处、kick_pages **0 处**，settings_pages 21 处。字号/间距/坐标基本是页面内字面量，层级随页面不同 | `pregnancy_pages.cpp`、`kick_pages.cpp`、`weight_pages.cpp` | 高 |
 | V3 | **【已修复，待实机复测，2026-10-15】** 所有边框统一为 2 px（`kBorderStroke`，新增 `prototype_ui::draw_frame()`；按钮、胎动选项卡、孕周斜切框/成长卡片、空图表框；按下反馈外框 3 px），1 px 只留给次要分隔线；选中态语言统一为“同组互斥项反色”，已在各处核对（分段开关、标签、数字字段），孕周来源页的黑底按钮是主操作而非选中，同页无冲突。主操作与选中同为黑底仍可再区分，需你决定。原问题：1 px 线条是主要分隔/描边手段（`kRuleStroke=1`、`kBorderStroke=1`），在真机上偏弱；而强调描边 3 px 令牌(`kEmphasisStroke`)几乎不用于选中态。选中/激活状态没有统一的视觉语言（反色 / 粗框 / 勾选不一） | `ui_tokens.h`，`kick_pages.cpp:146-147`（手工叠两层 draw_rect 做粗框），`prototype_ui.cpp:draw_button` | 中 |
 | V4 | **【已修复，待实机复测，2026-10-15】** 孕周页的私有按钮、斜切框、圆角卡片、胶囊进度条全部删除，改用公共的 `prototype_ui::draw_button/draw_frame` 与新增的 `draw_progress_bar`（孕周按钮由斜切角改为直角，卡片由圆角改为直角框，进度条由胶囊改为直角条）；胎动、体重页的单行包装函数 `render_button`/`page_button` 删除；未使用的 `draw_label` 删除。设置、胎动、体重、启动器画面逐字节不变。原问题：同类组件多套实现：`prototype_ui::draw_button` 与 `pregnancy_pages.cpp:231` 私有 `draw_button` 同名并存；圆角、斜切角、胶囊、粗框各页自画 | `pregnancy_pages.cpp:98-170,231` | 中 |

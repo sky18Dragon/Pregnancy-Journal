@@ -376,7 +376,7 @@ compile_and_run sticky_shake_detector_test -Isrc/sensors \
 compile_and_run ui_language_test -Isrc/ui -Isrc/ui/assets \
     test/ui_language_test.cpp src/ui/canvas.cpp src/ui/font.cpp \
     src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp
-compile_and_run text_layout_test -Isrc/ui -Isrc/ui/assets \
+compile_and_run text_layout_test -DUI_TEXT_OBSERVER -Isrc/ui -Isrc/ui/assets \
     test/text_layout_test.cpp src/ui/text_layout.cpp src/ui/canvas.cpp \
     src/ui/font.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp

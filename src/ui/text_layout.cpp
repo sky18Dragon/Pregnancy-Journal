@@ -6,6 +6,26 @@
 
 #include "font.h"
 
+namespace {
+bool opening_punctuation(uint32_t codepoint) {
+  return codepoint == 0x3008U || codepoint == 0x300AU ||
+         codepoint == 0x300CU || codepoint == 0x300EU ||
+         codepoint == 0x3010U || codepoint == 0xFF08U ||
+         codepoint == 0x2018U || codepoint == 0x201CU;
+}
+
+bool closing_punctuation(uint32_t codepoint) {
+  return codepoint == 0x3001U || codepoint == 0x3002U ||
+         codepoint == 0xFF0CU || codepoint == 0xFF0EU ||
+         codepoint == 0xFF01U || codepoint == 0xFF1FU ||
+         codepoint == 0xFF1AU || codepoint == 0xFF1BU ||
+         codepoint == 0x3009U || codepoint == 0x300BU ||
+         codepoint == 0x300DU || codepoint == 0x300FU ||
+         codepoint == 0x3011U || codepoint == 0xFF09U ||
+         codepoint == 0x2019U || codepoint == 0x201DU;
+}
+} // namespace
+
 #ifdef UI_TEXT_OBSERVER
 namespace {
 TextTruncationObserver s_truncation_observer = nullptr;
@@ -56,6 +76,16 @@ int ui_draw_wrapped_text_pixels(Canvas &canvas, int x, int y,
         // of the line (so "-50%" or "10-12" are never split).
         break_length = candidate_length;
         break_skip = 0U;
+      } else if (codepoint >= 0x2E80U && !opening_punctuation(codepoint)) {
+        const char *lookahead = next;
+        uint32_t following = 0U;
+        font_decode_utf8(lookahead, following);
+        // Chinese can wrap between characters, but punctuation belongs with
+        // its phrase. Do not leave a closing mark at the start of a line.
+        if (!closing_punctuation(following)) {
+          break_length = candidate_length;
+          break_skip = 0U;
+        }
       }
       probe = next;
     }

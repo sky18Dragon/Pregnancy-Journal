@@ -247,14 +247,16 @@ void render_setup(Canvas &canvas, const char *title, const char *caption,
   const bool portrait = portrait_layout(canvas);
   if (portrait) {
     canvas.draw_text(24, 24, title, 4, GrayLevel::Black);
-    canvas.draw_text(24, 66, caption, 1, GrayLevel::Black);
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, 66, caption,
+                            ui_tokens::reading_size(), GrayLevel::Black);
     prototype_ui::draw_frame(canvas, kPortrait.input, ui_tokens::kBorderStroke);
     digit_fields_draw(canvas, kPortrait.input, fields, kPortrait.input_size);
     canvas.draw_text(24, 204,
                      input_error ? "CHECK THE DATE AND TRY AGAIN"
                                  : "TAP A FIELD TO EDIT ONLY THAT PART",
                      2, GrayLevel::Black);
-    canvas.draw_text(24, 242, "SAVED ONLY ON THIS DEVICE", 1, GrayLevel::Black);
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, 242, "SAVED ONLY ON THIS DEVICE",
+                            ui_tokens::reading_size(), GrayLevel::Black);
     if (can_cancel)
       prototype_ui::draw_button(canvas, kPortrait.back, "CANCEL", false, 3);
     render_keypad(canvas, true);
@@ -307,12 +309,15 @@ void pregnancy_page_render_source_setup(Canvas &canvas, bool can_cancel) {
     ui_draw_wrapped_text_pixels(
         canvas, ui_tokens::kContentMargin, 594, 432,
         ui_text("A CLINICIAN-CONFIRMED DUE DATE IS PREFERRED"),
-        ui_tokens::kSecondaryBody, GrayLevel::Black, 2, 2, FontWeight::Regular);
+        ui_tokens::reading_size(), GrayLevel::Black, 2, 2, FontWeight::Regular);
     if (can_cancel)
       prototype_ui::draw_button(canvas, kPortrait.back, "CANCEL", false, 3);
     return;
   }
-  canvas.draw_text(42, 28, ui_text("PREGNANCY SETUP"), 5, GrayLevel::Black);
+  canvas.draw_text_pixels(42, 28, ui_text("PREGNANCY SETUP"),
+                          ui_language_is_chinese() ? ui_tokens::kPageHeading
+                                                   : font_ui_pixel_size(5),
+                          GrayLevel::Black);
   canvas.draw_text(42, 86, ui_text("CHOOSE THE DATE YOU KNOW"), 2,
                    GrayLevel::Black);
   prototype_ui::draw_button(canvas, kLandscape.due_source, ui_text("ESTIMATED DUE DATE"), true, 3);
@@ -392,7 +397,7 @@ void pregnancy_page_render_dashboard(Canvas &canvas,
     const char *second = std::strchr(caption, '\n');
     char first[kCaptionBufferSize] = {};
     std::memcpy(first, caption, static_cast<size_t>(second - caption));
-    const uint8_t px = portrait ? ui_tokens::kBody : ui_tokens::kSecondaryBody;
+    const uint8_t px = portrait ? ui_tokens::kBody : ui_tokens::reading_size();
     draw_centered_line(canvas, hero_x, layout.caption_y_en, first, px, 0);
     draw_centered_line(canvas, hero_x, layout.caption_y_en + px + kCaptionLineGap, second + 1, px, 0);
   }
@@ -443,7 +448,9 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
                 chinese ? (page == PregnancyPage::Baby ? "宝宝" : "妈妈")
                         : (page == PregnancyPage::Baby ? "BABY" : "MOM"));
   if (portrait_layout(canvas)) {
-    canvas.draw_text(24, 22, title, 3, GrayLevel::Black);
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, 22, title,
+                            chinese ? ui_tokens::kPageHeading
+                                    : font_ui_pixel_size(3), GrayLevel::Black);
     prototype_ui::draw_button(canvas, kPortrait.home, chinese ? "返回" : "HOME", false, 2);
     canvas.draw_line(24, 82, 456, 82, GrayLevel::Black);
     canvas.draw_text(24, 108, chinese ? "孕周" : "WEEK", 2, GrayLevel::Black);
@@ -459,7 +466,7 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
                   chinese ? "距离预产期约 %d 天" : "ABOUT %d DAYS TO DUE DATE",
                   progress.days_until_due_date);
     ui_draw_wrapped_text_pixels(canvas, 230, 176, 226, remaining,
-                                ui_tokens::kSecondaryBody, GrayLevel::Black, 2, 2,
+                                ui_tokens::reading_size(), GrayLevel::Black, 2, 2,
                                 FontWeight::Regular);
     canvas.draw_line(24, 220, 456, 220, GrayLevel::Black);
 
@@ -473,12 +480,19 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
                                    : content.baby_development,
                            2, GrayLevel::Black, 5, 8);
       canvas.draw_line(24, 450, 456, 450, GrayLevel::Black);
-      canvas.draw_text(24, 474, chinese ? "身长参考" : "SIZE GUIDE", 1,
-                       GrayLevel::Black);
-      canvas.draw_text(24, 502, ui_text(content.baby_size_text), 3, GrayLevel::Black);
-      canvas.draw_text(250, 474, chinese ? "体重参考" : "WEIGHT GUIDE", 1,
-                       GrayLevel::Black);
-      canvas.draw_text(250, 502, ui_text(content.baby_weight_text), 3, GrayLevel::Black);
+      canvas.draw_text_pixels(ui_tokens::kContentMargin, 474,
+                              chinese ? "身长参考" : "SIZE GUIDE",
+                              ui_tokens::reading_size(), GrayLevel::Black);
+      const uint8_t reference_size = chinese ? ui_tokens::kEmphasis
+                                             : font_ui_pixel_size(3);
+      ui_draw_wrapped_text_pixels(canvas, ui_tokens::kContentMargin, 502, 196,
+                                  ui_text(content.baby_size_text), reference_size,
+                                  GrayLevel::Black, 3, 4, FontWeight::Medium);
+      canvas.draw_text_pixels(250, 474, chinese ? "体重参考" : "WEIGHT GUIDE",
+                              ui_tokens::reading_size(), GrayLevel::Black);
+      ui_draw_wrapped_text_pixels(canvas, 250, 502, 206,
+                                  ui_text(content.baby_weight_text), reference_size,
+                                  GrayLevel::Black, 3, 4, FontWeight::Medium);
     } else {
       canvas.draw_text(24, 246,
                        chinese ? "身体负担正在逐渐增加"
@@ -489,8 +503,9 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
                                    : content.mother_changes,
                            2, GrayLevel::Black, 5, 8);
       canvas.draw_line(24, 450, 456, 450, GrayLevel::Black);
-      canvas.draw_text(24, 474, chinese ? "本周建议" : "SUGGESTION", 1,
-                       GrayLevel::Black);
+      canvas.draw_text_pixels(ui_tokens::kContentMargin, 474,
+                              chinese ? "本周建议" : "SUGGESTION",
+                              ui_tokens::reading_size(), GrayLevel::Black);
       ui_draw_wrapped_text(canvas, 24, 504, 432,
                            chinese ? content.daily_advice_zh
                                    : content.daily_advice,
@@ -520,13 +535,18 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
                   static_cast<unsigned>(progress.weeks),
                   static_cast<unsigned>(progress.days));
     canvas.draw_text(24, 142, stat, 7, GrayLevel::Black);
-    canvas.draw_text(24, 210, ui_text(pregnancy_stage_name(progress.stage)), 2,
-                     GrayLevel::Black);
+    const int stage_lines = ui_draw_wrapped_text_pixels(
+        canvas, ui_tokens::kContentMargin, 210, 166,
+        ui_text(pregnancy_stage_name(progress.stage)), ui_tokens::kBody,
+        GrayLevel::Black, 2, 4, FontWeight::Medium);
     char remaining[48] = {};
     std::snprintf(remaining, sizeof(remaining),
                   chinese ? "距离预产期约 %d 天" : "ABOUT %d DAYS TO DUE DATE",
                   progress.days_until_due_date);
-    canvas.draw_text(24, 240, remaining, 1, GrayLevel::Black);
+    ui_draw_wrapped_text_pixels(canvas, ui_tokens::kContentMargin,
+                                210 + stage_lines * (ui_tokens::kBody + 4) + 8,
+                                166, remaining, ui_tokens::reading_size(),
+                                GrayLevel::Black, 3, 4, FontWeight::Medium);
     canvas.draw_text(238, 94,
                      chinese ? "宝宝正在感知外面的世界"
                              : "BABY IS DISCOVERING THE WORLD",
@@ -538,14 +558,18 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
     canvas.draw_line(238, 252, 410, 252, GrayLevel::Black);
     canvas.draw_line(426, 252, 598, 252, GrayLevel::Black);
     canvas.draw_line(614, 252, 776, 252, GrayLevel::Black);
-    canvas.draw_text(238, 266, chinese ? "身长参考" : "SIZE GUIDE", 1,
-                     GrayLevel::Black);
-    canvas.draw_text(238, 287, ui_text(content.baby_size_text), 2, GrayLevel::Black);
-    canvas.draw_text(426, 266, chinese ? "体重参考" : "WEIGHT GUIDE", 1,
-                     GrayLevel::Black);
-    canvas.draw_text(426, 287, ui_text(content.baby_weight_text), 2, GrayLevel::Black);
-    canvas.draw_text(614, 266, chinese ? "本周关键词" : "KEYWORD", 1,
-                     GrayLevel::Black);
+    canvas.draw_text_pixels(238, 266, chinese ? "身长参考" : "SIZE GUIDE",
+                            ui_tokens::reading_size(), GrayLevel::Black);
+    ui_draw_wrapped_text_pixels(canvas, 238, 287, 172,
+                                ui_text(content.baby_size_text), ui_tokens::kBody,
+                                GrayLevel::Black, 3, 4, FontWeight::Medium);
+    canvas.draw_text_pixels(426, 266, chinese ? "体重参考" : "WEIGHT GUIDE",
+                            ui_tokens::reading_size(), GrayLevel::Black);
+    ui_draw_wrapped_text_pixels(canvas, 426, 287, 172,
+                                ui_text(content.baby_weight_text), ui_tokens::kBody,
+                                GrayLevel::Black, 3, 4, FontWeight::Medium);
+    canvas.draw_text_pixels(614, 266, chinese ? "本周关键词" : "KEYWORD",
+                            ui_tokens::reading_size(), GrayLevel::Black);
     ui_draw_wrapped_text_pixels(canvas, 614, 287, 162,
                                 chinese ? "感知 · 活动" : "SENSES · MOTION",
                                 ui_tokens::kBody, GrayLevel::Black, 2, 2,
@@ -556,10 +580,11 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
     canvas.draw_text(24, 146, chinese ? "休息" : "REST", 5, GrayLevel::Black);
     canvas.draw_text(24, 194, chinese ? "补水" : "HYDRATE", 5,
                      GrayLevel::Black);
-    ui_draw_wrapped_text(canvas, 24, 254, 166,
+    ui_draw_wrapped_text_pixels(canvas, ui_tokens::kContentMargin, 254, 166,
                          chinese ? "关注身体变化，按医护建议安排产检。"
                                  : "NOTICE CHANGES AND FOLLOW YOUR CARE PLAN.",
-                         1, GrayLevel::Black, 4, 5);
+                         ui_tokens::reading_size(), GrayLevel::Black, 4, 5,
+                         FontWeight::Regular);
     canvas.draw_text(238, 94,
                      chinese ? "身体负担正在逐渐增加"
                              : "YOUR BODY IS CARRYING MORE",
@@ -571,16 +596,16 @@ void pregnancy_page_render_detail(Canvas &canvas, PregnancyPage page,
     canvas.draw_line(238, 252, 410, 252, GrayLevel::Black);
     canvas.draw_line(426, 252, 598, 252, GrayLevel::Black);
     canvas.draw_line(614, 252, 776, 252, GrayLevel::Black);
-    canvas.draw_text(238, 266, chinese ? "建议" : "SUGGESTION", 1,
-                     GrayLevel::Black);
+    canvas.draw_text_pixels(238, 266, chinese ? "建议" : "SUGGESTION",
+                            ui_tokens::reading_size(), GrayLevel::Black);
     canvas.draw_text(238, 287, chinese ? "分段活动" : "PACE ACTIVITY", 2,
                      GrayLevel::Black);
-    canvas.draw_text(426, 266, chinese ? "记录" : "RECORD", 1,
-                     GrayLevel::Black);
+    canvas.draw_text_pixels(426, 266, chinese ? "记录" : "RECORD",
+                            ui_tokens::reading_size(), GrayLevel::Black);
     canvas.draw_text(426, 287, chinese ? "体重趋势" : "WEIGHT TREND", 2,
                      GrayLevel::Black);
-    canvas.draw_text(614, 266, chinese ? "如感不适" : "IF UNWELL", 1,
-                     GrayLevel::Black);
+    canvas.draw_text_pixels(614, 266, chinese ? "如感不适" : "IF UNWELL",
+                            ui_tokens::reading_size(), GrayLevel::Black);
     canvas.draw_text(614, 287, chinese ? "联系医护" : "CONTACT CARE", 2,
                      GrayLevel::Black);
   }

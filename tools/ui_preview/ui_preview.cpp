@@ -215,6 +215,28 @@ void register_pregnancy() {
         pregnancy_page_render_detail(c, PregnancyPage::Mom, p, pregnancy_content_for_week(p.weeks));
       },
       hit(PregnancyPage::Mom, false), names);
+  // Font/line-break changes must fit every shipped week's reading copy, not
+  // just the week-21 fixture above.
+  for (int week = 1; week <= 40; ++week) {
+    if (week == sample_progress().weeks) continue;
+    for (PregnancyPage page : {PregnancyPage::Baby, PregnancyPage::Mom}) {
+      const std::string id = page == PregnancyPage::Baby ? "pregnancy_baby_w"
+                                                        : "pregnancy_mom_w";
+      add(id + std::to_string(week),
+          [week, page](Canvas &c) {
+            const PregnancyDate due = {2027U, 2U, 20U};
+            int32_t due_index = 0;
+            pregnancy_date_to_day_index(due, due_index);
+            PregnancyDate today;
+            pregnancy_date_from_day_index(due_index - kPregnancyNominalDays +
+                                              week * 7, today);
+            PregnancyProgress progress;
+            pregnancy_progress_calculate(today, due, progress);
+            pregnancy_page_render_detail(c, page, progress,
+                                        pregnancy_content_for_week(week));
+          }, hit(page, false), names);
+    }
+  }
 }
 
 void register_weight() {
@@ -274,6 +296,19 @@ void register_kicks() {
       [](Canvas &c) {
         kick_page_render_today(c, kick_today(), true, {true, KickMode::Awareness});
       },
+      hit(KickPage::Today), names);
+  add("kick_today_timed",
+      [](Canvas &c) {
+        KickDaySummary today = {};
+        today.evening = 10U; today.total = 10U; today.session_count = 1U;
+        today.latest_count = 10U; today.latest_duration_minutes = 1U;
+        today.latest_hour = 20U; today.latest_minute = 24U;
+        today.has_latest = true;
+        kick_page_render_today(c, today, false, {true, KickMode::Timed});
+      },
+      hit(KickPage::Today), names);
+  add("kick_today_empty",
+      [](Canvas &c) { kick_page_render_today(c, {}); },
       hit(KickPage::Today), names);
   add("kick_insights",
       [](Canvas &c) { kick_page_render_insights(c, kick_today(), kick_trend()); },

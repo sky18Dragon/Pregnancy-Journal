@@ -103,9 +103,12 @@ void test_key_policy() {
 
 int main() {
   test_key_policy();
-  test_dashboard_scales_with_width();
   test_back_graph();
-  test_target_contract();
+  for (UiLanguage language : {UiLanguage::English, UiLanguage::ChineseSimplified}) {
+    ui_language_set(language);
+    test_dashboard_scales_with_width();
+    test_target_contract();
+  }
   for (uint16_t value = 300U; value <= 2000U; ++value)
     assert(weight_stored_value(weight_display_value(value, true), true) == value);
   WeightService service;

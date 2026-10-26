@@ -11,7 +11,8 @@ void ui_set_truncation_observer(TextTruncationObserver observer);
 #endif
 
 // Draws bounded UTF-8 text, wrapping at spaces when possible and at code-point
-// boundaries otherwise. Returns the number of rendered lines.
+// boundaries otherwise. Chinese breaks keep opening/closing punctuation with
+// their phrase whenever the available width permits it. Returns line count.
 int ui_draw_wrapped_text(Canvas &canvas, int x, int y, int maximum_width,
                          const char *text, uint8_t scale, GrayLevel color,
                          int maximum_lines, int line_gap = 6);

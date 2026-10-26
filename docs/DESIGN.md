@@ -39,6 +39,15 @@ The canonical tokens are in `src/ui/ui_tokens.h`:
 | Rule/border | 1 px |
 | Emphasis stroke | 3 px |
 
+Chinese typography uses the language-aware helpers in `ui_tokens.h`: reading
+copy is 18 px, default action labels are 20 px, and portrait page headings are
+28 px. English retains the 16 px caption / 18 px action scale. Measure, wrap and
+draw using the same resolved size; never enlarge a bitmap at runtime. Keep
+numeric displays at their existing native sizes. Chinese paragraphs wrap at
+character boundaries while keeping punctuation with its phrase. Size controls
+from their labels where needed: the Chinese portrait Weight primary action is
+wider so “记录今日体重” stays on one line.
+
 Use integer-aligned geometry. Primary text and outlines are black on white.
 Gray is secondary and should not carry the only indication of selection,
 urgency or disabled state. Prefer whitespace, rules, stroke weight and fill

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "ui_language.h"
 
 namespace ui_tokens {
 
@@ -17,6 +18,19 @@ constexpr uint8_t kPageHeading = 28U;
 constexpr uint8_t kDisplay = 52U;
 constexpr uint8_t kDisplayLarge = 56U;
 constexpr uint8_t kCounterDisplay = 70U;
+
+// Chinese reading copy needs a larger native strike on the 1-bit panel.
+// Use the same resolved size for measuring, wrapping and drawing. Keep the
+// fixed caption token for compact chart ticks and the font diagnostic screen.
+inline uint8_t reading_size() {
+  return ui_language_is_chinese() ? kBody : kSecondaryBody;
+}
+inline uint8_t button_size() {
+  return ui_language_is_chinese() ? kEmphasis : kBody;
+}
+inline uint8_t portrait_heading_size() {
+  return ui_language_is_chinese() ? kPageHeading : kSectionHeading;
+}
 
 constexpr int kContentMargin = 24;
 constexpr int kSafeArea = 24;

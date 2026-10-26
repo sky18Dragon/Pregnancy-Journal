@@ -63,7 +63,7 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app) {
       ui_language_is_chinese()
           ? "记录、查看与管理你的孕期信息。"
           : "Record, review and manage pregnancy information.",
-      ui_tokens::kSecondaryBody, GrayLevel::Black, 2, 2, FontWeight::Regular);
+      ui_tokens::reading_size(), GrayLevel::Black, 2, 2, FontWeight::Regular);
   prototype_ui::draw_button(canvas, close,
                             ui_language_is_chinese() ? "关闭" : "CLOSE", false,
                             2);
@@ -83,7 +83,7 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app) {
                             FontWeight::Medium);
     canvas.draw_text_pixels(rect.x + 64, rect.y + (portrait ? 54 : 58),
                             chinese ? entry.summary_zh : entry.summary_en,
-                            ui_tokens::kSecondaryBody, GrayLevel::Black,
+                            ui_tokens::reading_size(), GrayLevel::Black,
                             FontWeight::Regular);
     prototype_ui::draw_chevron(canvas, rect.x + rect.width - 18,
                                rect.y + (portrait ? 38 : 44));
@@ -95,7 +95,7 @@ void app_page_render_launcher(Canvas &canvas, StickyAppId current_app) {
       ui_language_is_chinese()
           ? "顶部按键关闭 · 双击为快捷键"
           : "TOP: CLOSE / DOUBLE-CLICK: SHORTCUT",
-      ui_tokens::kSecondaryBody, GrayLevel::Black, 2, 2, FontWeight::Regular);
+      ui_tokens::reading_size(), GrayLevel::Black, 2, 2, FontWeight::Regular);
 }
 
 StickyAppId app_page_launcher_neighbor(StickyAppId current, int direction) {
