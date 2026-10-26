@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.0.1 — Registry package preparation (2026-10-26)
+
+- Preparing the Playground update from source base `4c8f5fa` with the first-use MicroSD
+  shortcut and application-wide Chinese typography improvements below. Both firmware
+  version definitions now use `2.0.1`; application behavior and partitions are unchanged.
+  The owner approved the submission plan on 2026-10-27. The exact merged package
+  (SHA-256 `8abae1dc16e284aef5bc78e07c1a62d498c24d921a394163892c0628a5c63d2e`)
+  passed two verified USB installations and startup captures. The owner confirmed
+  all four apps, portrait/landscape display, touch/buttons, existing records and
+  physical USB reconnection. After the second install, card recovery loaded
+  45 transactions / 7 live records and full refresh returned ESP_OK.
+  Browser flashing and endurance remain untested; the existing manifest warning
+  remains. Registry submission is prepared; website publication is upstream-owned.
+
 ## Unreleased — V1 four-app candidate (2026-10-10)
 
 - 全应用中文排版统一（2026-10-26，在胎动首页试做后扩展）：孕周详情/设置、体重、胎动、设置、

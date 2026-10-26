@@ -13,7 +13,7 @@ recommendation.
 ## Status
 
 - Target: ESP32-S3 reTerminal Sticky with a 3.97-inch 800×480 monochrome
-  e-paper panel. Firmware version `2.0.0`.
+  e-paper panel. Firmware version `2.0.1`.
 - Four registered apps: **Baby Week**, **Weight**, **Kicks** and **Settings**.
   There are no reminders, checkups, business alerts, habits, notes, recording,
   provisioning or speech-to-text.

@@ -9,7 +9,7 @@ not a diagnostic, treatment or emergency-alert device.
 
 - Target: Seeed Studio reTerminal Sticky, ESP32-S3, 800×480 monochrome
   e-paper panel.
-- Firmware version: `2.0.0` (from `platformio.ini`).
+- Firmware version: `2.0.1` (from `platformio.ini`).
 - Default app: Baby Week (the Pregnancy app).
 - Registered apps: Baby Week, Weight, Kicks and Settings.
 - Languages: English and Simplified Chinese. The language setting is stored in
