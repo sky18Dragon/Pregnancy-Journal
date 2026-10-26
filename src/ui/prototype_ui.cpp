@@ -96,12 +96,19 @@ void draw_progress_bar(Canvas &canvas, const Rect &rect, int percent) {
 
 void draw_button(Canvas &canvas, const Rect &rect, const char *label,
                  bool filled, uint8_t scale) {
+  draw_button_pixels(canvas, rect, label, filled,
+                      scale == 2 ? ui_tokens::button_size()
+                                 : font_ui_pixel_size(scale));
+}
+
+void draw_button_pixels(Canvas &canvas, const Rect &rect, const char *label,
+                        bool filled, uint8_t pixel_size) {
   const GrayLevel foreground = filled ? GrayLevel::White : GrayLevel::Black;
   if (filled)
     canvas.fill_rect(rect.x, rect.y, rect.width, rect.height, GrayLevel::Black);
   else
     draw_frame(canvas, rect, ui_tokens::kBorderStroke);
-  draw_centered_label(canvas, rect, ui_text(label), font_ui_pixel_size(scale),
+  draw_centered_label(canvas, rect, ui_text(label), pixel_size,
                       foreground, FontWeight::Medium);
 }
 
@@ -114,7 +121,8 @@ void draw_header(Canvas &canvas, const char *title, const char *subtitle,
            ? header_action_rect(canvas.width(), canvas.height()).x - 12
            : canvas.width() - kPagePadding) -
       kPagePadding;
-  uint8_t title_size = portrait ? ui_tokens::kSectionHeading : ui_tokens::kPageHeading;
+  uint8_t title_size = portrait ? ui_tokens::portrait_heading_size()
+                                : ui_tokens::kPageHeading;
   while (title_size > ui_tokens::kEmphasis &&
          font_text_width_pixels(ui_text(title), title_size,
                                 FontWeight::Medium) > available)
@@ -137,7 +145,7 @@ void draw_header(Canvas &canvas, const char *title, const char *subtitle,
   if (subtitle != nullptr)
     ui_draw_wrapped_text_pixels(canvas, kPagePadding,
                                 title_lines == 2 ? 66 : 57, available,
-                                ui_text(subtitle), ui_tokens::kSecondaryBody,
+                                ui_text(subtitle), ui_tokens::reading_size(),
                                 GrayLevel::Black, 2, 2, FontWeight::Regular);
   if (back_label != nullptr)
     draw_button(canvas, header_action_rect(canvas.width(), canvas.height()),

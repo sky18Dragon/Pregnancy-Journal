@@ -278,6 +278,10 @@ compile_and_run sticky_sleep_schedule_test -Isrc/app -Isrc/system \
     src/system/scheduler.cpp
 compile_and_run scheduler_test -Isrc/system \
     test/scheduler_test.cpp src/system/scheduler.cpp
+compile_and_run repository_status_page_test -Itest/support -Isrc/storage -Isrc/ui -Isrc/ui/assets \
+    test/repository_status_page_test.cpp src/ui/repository_status_page.cpp \
+    src/ui/canvas.cpp src/ui/font.cpp src/ui/prototype_ui.cpp \
+    src/ui/text_layout.cpp src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp
 compile_and_run settings_pages_test -Isrc/apps/settings -Isrc/apps/pregnancy \
     -Isrc/ui -Isrc/ui/assets \
     test/settings_pages_test.cpp src/apps/settings/settings_pages.cpp src/ui/digit_fields.cpp \
@@ -372,7 +376,7 @@ compile_and_run sticky_shake_detector_test -Isrc/sensors \
 compile_and_run ui_language_test -Isrc/ui -Isrc/ui/assets \
     test/ui_language_test.cpp src/ui/canvas.cpp src/ui/font.cpp \
     src/ui/ui_language.cpp src/ui/assets/chinese_font_assets.cpp
-compile_and_run text_layout_test -Isrc/ui -Isrc/ui/assets \
+compile_and_run text_layout_test -DUI_TEXT_OBSERVER -Isrc/ui -Isrc/ui/assets \
     test/text_layout_test.cpp src/ui/text_layout.cpp src/ui/canvas.cpp \
     src/ui/font.cpp src/ui/ui_language.cpp \
     src/ui/assets/chinese_font_assets.cpp

@@ -15,6 +15,8 @@ esp_err_t sticky_app_start(Canvas &canvas);
 // instead of directly switching the active application.
 void sticky_app_request(StickyAppId app);
 void sticky_app_request_launcher();
+// Opens the existing confirmation for the card the user saw; never writes.
+void sticky_app_request_storage_setup(uint32_t mount_generation);
 void sticky_app_request_language_toggle();
 // An app publishes how the hardware keys act on the page it is showing; call it
 // whenever the page changes. Until an app publishes, its keys stay Locked.

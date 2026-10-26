@@ -70,6 +70,7 @@ uint32_t s_last_activity_ms = 0U;
 uint8_t s_sleep_failures = 0U;
 uint32_t s_sleep_retry_at_ms = 0U;
 std::atomic<int> s_requested_app{-1};
+std::atomic<uint32_t> s_storage_setup_requested{0U};
 std::atomic<bool> s_launcher_requested{false};
 std::atomic<bool> s_language_toggle_requested{false};
 std::atomic<bool> s_application_data_deleted{false};
@@ -679,6 +680,10 @@ void app_task(void *) {
       }
     } else if (s_launcher_requested.exchange(false)) {
       open_launcher();
+    } else if (s_storage_setup_requested.load() != 0U) {
+      const uint32_t generation = s_storage_setup_requested.exchange(0U);
+      settings_app_request_storage_setup(generation);
+      select_app(StickyAppId::Settings, "storage_setup");
     } else if (s_requested_app.load() >= 0) {
       const int requested = s_requested_app.exchange(-1);
       const StickyAppId requested_app = static_cast<StickyAppId>(requested);
@@ -791,6 +796,10 @@ void sticky_app_request(StickyAppId app) {
 }
 
 void sticky_app_request_launcher() { s_launcher_requested.store(true); }
+
+void sticky_app_request_storage_setup(uint32_t mount_generation) {
+  if (mount_generation != 0U) s_storage_setup_requested.store(mount_generation);
+}
 
 void sticky_app_set_key_policy(StickyAppId app, KeyPolicy policy) {
   const unsigned slot = static_cast<unsigned>(app);

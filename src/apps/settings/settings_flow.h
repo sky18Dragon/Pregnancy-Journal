@@ -34,7 +34,7 @@ public:
 
   // Initialization: a dataset id is generated when the confirmation opens and
   // forgotten when the dialog is left.
-  virtual void prepare_initialization() = 0;
+  virtual void prepare_initialization(uint32_t mount_generation) = 0;
   virtual bool has_dataset_id() const = 0;
   virtual void forget_dataset_id() = 0;
   // Returns nullptr when the request was queued, otherwise the failure message.
@@ -71,6 +71,7 @@ public:
   explicit SettingsFlow(SettingsFlowPort &port) : port_(port) {}
 
   SettingsFlowResult handle_action(SettingsAction action);
+  SettingsFlowResult enter_storage_setup(uint32_t mount_generation);
 
   // Message shown on the storage pages; owned by string literals.
   const char *operation_message() const { return operation_message_; }
@@ -89,6 +90,7 @@ private:
 
   SettingsFlowPort &port_;
   SettingsPage page_ = SettingsPage::Main;
+  uint32_t initialization_generation_ = 0U;
   DigitFields time_fields_{DigitFieldKind::DateTime};
   bool input_error_ = false;
   bool migrating_kicks_ = false;

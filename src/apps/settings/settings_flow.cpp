@@ -58,6 +58,22 @@ void SettingsFlow::save_time() {
   input_error_ = false;
 }
 
+SettingsFlowResult SettingsFlow::enter_storage_setup(uint32_t mount_generation) {
+  port_.forget_dataset_id();
+  page_ = SettingsPage::StorageSummary;
+  const auto state = port_.storage_state();
+  if (mount_generation == 0U || state.mount_generation != mount_generation ||
+      !state.initialize_enabled) {
+    operation_message_ = "CARD CHANGED · TRY AGAIN";
+    return rendered();
+  }
+  initialization_generation_ = mount_generation;
+  port_.prepare_initialization(initialization_generation_);
+  operation_message_ = nullptr;
+  page_ = SettingsPage::StorageConfirm;
+  return rendered();
+}
+
 SettingsFlowResult SettingsFlow::handle_action(SettingsAction action) {
   char digit = 0;
   size_t field = 0U;
@@ -100,24 +116,30 @@ SettingsFlowResult SettingsFlow::handle_action(SettingsAction action) {
     operation_message_ = nullptr;
     page_ = SettingsPage::StorageSummary;
     return rendered();
-  case SettingsAction::BeginStorageInitialization:
-    if (!port_.storage_state().initialize_enabled)
-      break;
-    port_.prepare_initialization();
+  case SettingsAction::BeginStorageInitialization: {
+    const auto state = port_.storage_state();
+    if (!state.initialize_enabled) break;
+    initialization_generation_ = state.mount_generation;
+    port_.prepare_initialization(initialization_generation_);
     operation_message_ = nullptr;
     page_ = SettingsPage::StorageConfirm;
     return rendered();
+  }
   case SettingsAction::SafeEjectStorage:
     operation_message_ = port_.safe_eject();
     return rendered(true);
   case SettingsAction::ConfirmStorageInitialization: {
+    if (page_ != SettingsPage::StorageConfirm) break;
     const SettingsStoragePageState state = port_.storage_state();
     page_ = SettingsPage::StorageSummary;
-    if (!state.initialize_enabled || !port_.has_dataset_id()) {
+    if (!state.initialize_enabled || !port_.has_dataset_id() ||
+        state.mount_generation != initialization_generation_) {
+      port_.forget_dataset_id();
       operation_message_ = "CARD CHANGED · TRY AGAIN";
       return rendered();
     }
     operation_message_ = port_.submit_initialization();
+    port_.forget_dataset_id();
     return rendered();
   }
   case SettingsAction::CancelStorageInitialization:

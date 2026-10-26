@@ -12,6 +12,18 @@ using prototype_ui::Rect;
 bool portrait(int width, int height) { return height > width; }
 Rect footer(size_t index, size_t count, int width, int height) {
   const int gap = 12;
+  // Give the six-character primary action room on the Chinese portrait page.
+  // Rendering and hit testing both consume these same rectangles.
+  if (count == 3U && portrait(width, height) && ui_language_is_chinese()) {
+    const int primary = 160;
+    const int secondary = (width - 2 * ui_tokens::kContentMargin - primary -
+                           2 * gap) / 2;
+    const int x = ui_tokens::kContentMargin +
+        (index == 0U ? 0 : primary + gap + static_cast<int>(index - 1U) *
+                                            (secondary + gap));
+    return {x, height - 80, index == 0U ? primary : secondary,
+            ui_tokens::kButtonHeight};
+  }
   const int item = (width - 2 * ui_tokens::kContentMargin - gap * static_cast<int>(count - 1U)) / static_cast<int>(count);
   return {24 + static_cast<int>(index) * (item + gap), height - 80, item, ui_tokens::kButtonHeight};
 }
@@ -79,7 +91,8 @@ DashboardLayout dashboard_layout(int width, int height) {
   constexpr int kLeftColumnWidth = 285; // landscape: number and baseline column
   constexpr int kUnitX = 230;
   if (portrait(width, height)) {
-    return {150, kUnitX, 192, 246, 264, kMargin, 304,
+    return {150, kUnitX, 192, ui_language_is_chinese() ? 240 : 246,
+            ui_language_is_chinese() ? 268 : 264, kMargin, 304,
             {kMargin, 356, width - 2 * kMargin, 228}, 622};
   }
   // Landscape: the chart takes the right column, from the left column's edge
@@ -222,14 +235,17 @@ void weight_page_render(Canvas &canvas, const WeightService &service,
     if (service.summary(settings.height_cm, settings.baseline_tenths_kg, summary)) {
       const int change = pounds ? static_cast<int>(summary.change_tenths_kg) * 22046 / 10000 : summary.change_tenths_kg;
       std::snprintf(text, sizeof(text), "%s%d.%d %s", change < 0 ? "-" : "+", std::abs(change) / 10, std::abs(change) % 10, unit_name(pounds));
-      canvas.draw_text(ui_tokens::kContentMargin, layout.baseline_label_y, ui_text("FROM BASELINE"), 1, GrayLevel::Black);
+      canvas.draw_text_pixels(ui_tokens::kContentMargin, layout.baseline_label_y,
+                              ui_text("FROM BASELINE"), ui_tokens::reading_size(),
+                              GrayLevel::Black);
       canvas.draw_text(ui_tokens::kContentMargin, layout.baseline_value_y, text, 3, GrayLevel::Black);
     }
     canvas.draw_text(layout.trend_title_x, layout.trend_title_y, ui_text("WEIGHT TREND"), 2, GrayLevel::Black);
     segmented_toggle(canvas, trend_toggle(width, height), "7 DAYS", "30 DAYS", state.trend_days == 7U);
     draw_trend(canvas, service, state);
     std::snprintf(text, sizeof(text), ui_language_is_chinese() ? "身高 %u 厘米   记录 %u / 366" : "HEIGHT %u CM   RECORDS %u / 366", settings.height_cm, static_cast<unsigned>(service.count()));
-    canvas.draw_text(ui_tokens::kContentMargin, layout.footer_text_y, text, 1, GrayLevel::Black);
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, layout.footer_text_y, text,
+                            ui_tokens::reading_size(), GrayLevel::Black);
     const char *labels[] = {"ADD TODAY", "HISTORY", "BASELINE"};
     for (size_t i = 0U; i < 3U; ++i) prototype_ui::draw_button(canvas, footer(i, 3U, width, height), labels[i], i == 0U);
   } else if (state.page == WeightPage::History) {

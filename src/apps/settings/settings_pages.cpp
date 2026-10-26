@@ -162,20 +162,24 @@ void draw_setting(Canvas &canvas, size_t index, const char *title,
     canvas.draw_line(row.x, row.y, row.x + row.width, row.y, GrayLevel::Black);
   canvas.draw_line(row.x, row.y + row.height - 1, row.x + row.width,
                    row.y + row.height - 1, GrayLevel::Black);
-  // Rows are 52 px (landscape) to 106 px tall; keep the text inside them.
+  // Rows are 52 px in landscape and 88 px in portrait.
   const bool tall = row.height >= 62;
-  canvas.draw_text(row.x, row.y + (tall ? 12 : 8), ui_text(title), 2,
-                   GrayLevel::Black);
-  canvas.draw_text(row.x, row.y + (tall ? 36 : 30), ui_text(description), 1,
-                   GrayLevel::Black);
+  const uint8_t title_size = ui_tokens::button_size();
+  canvas.draw_text_pixels(row.x, row.y + (tall ? 12 : 8), ui_text(title),
+                          title_size, GrayLevel::Black, FontWeight::Medium);
+  canvas.draw_text_pixels(row.x, row.y + (tall ? 36 : 30), ui_text(description),
+                          ui_tokens::reading_size(), GrayLevel::Black,
+                          ui_language_is_chinese() ? FontWeight::Regular
+                                                   : FontWeight::Medium);
   if (value != nullptr) {
-    const int width = ui_text_width(value, 2U);
-    canvas.draw_text(row.x + row.width - 34 - width,
+    const int width = font_text_width_pixels(ui_text(value), title_size,
+                                             FontWeight::Medium);
+    canvas.draw_text_pixels(row.x + row.width - 34 - width,
                      // Portrait: on the title line, clear of the description.
                      row.y + (portrait(canvas.width(), canvas.height())
                                   ? 12
-                                  : (row.height - 18) / 2),
-                     ui_text(value), 2, GrayLevel::Black);
+                                  : (row.height - title_size) / 2),
+                     ui_text(value), title_size, GrayLevel::Black);
   }
   prototype_ui::draw_chevron(canvas, row.x + row.width - 18,
                              row.y + (row.height - 16) / 2);
@@ -190,7 +194,8 @@ void draw_form_row(Canvas &canvas, int index, const char *label,
                    y + row_height - 1, GrayLevel::Black);
   canvas.draw_text(24, y + 20, ui_text(label), 2, GrayLevel::Black);
   if (sub != nullptr)
-    canvas.draw_text(24, y + 42, ui_text(sub), 1, GrayLevel::Black);
+    canvas.draw_text_pixels(ui_tokens::kContentMargin, y + 42, ui_text(sub),
+                            ui_tokens::reading_size(), GrayLevel::Black);
   const int width = ui_text_width(value, 2U);
   canvas.draw_text(canvas.width() - 24 - width, y + (is_portrait ? 70 : 24),
                    ui_text(value), 2, GrayLevel::Black);
@@ -222,7 +227,7 @@ void settings_page_render_main(Canvas &canvas, bool rtc_ready,
       ui_language_is_chinese()
           ? "所有孕期记录仅保存在设备。本产品用于信息整理，不替代专业医疗建议。"
           : "ALL RECORDS STAY ON DEVICE. INFORMATION ONLY; NOT MEDICAL ADVICE.",
-      ui_tokens::kSecondaryBody, GrayLevel::Black, is_portrait ? 3 : 2, 5,
+      ui_tokens::reading_size(), GrayLevel::Black, is_portrait ? 3 : 2, 5,
       FontWeight::Regular);
 }
 
@@ -242,7 +247,7 @@ void settings_page_render_shortcut(Canvas &canvas, StickyShortcutTarget current)
                             ui_tokens::kEmphasis, ink, FontWeight::Medium);
     canvas.draw_text_pixels(row.x + 20, row.y + row.height - 32,
                             ui_text(option.description),
-                            ui_tokens::kSecondaryBody, ink, FontWeight::Regular);
+                            ui_tokens::reading_size(), ink, FontWeight::Regular);
   }
 }
 
@@ -312,18 +317,18 @@ void draw_nav_row(Canvas &canvas, size_t index, const char *label,
   canvas.draw_text_pixels(row.x, row.y + 10, ui_text(label), ui_tokens::kBody,
                           GrayLevel::Black, FontWeight::Medium);
   canvas.draw_text_pixels(row.x, row.y + 10 + ui_tokens::kBody + 6, ui_text(sub),
-                          ui_tokens::kSecondaryBody, GrayLevel::Black,
+                          ui_tokens::reading_size(), GrayLevel::Black,
                           FontWeight::Regular);
   if (enabled) {
     prototype_ui::draw_chevron(canvas, row.x + row.width - 12,
                                row.y + row.height / 2 - 8);
   } else {
     const char *text = ui_text("UNAVAILABLE");
-    const int width = font_text_width_pixels(text, ui_tokens::kSecondaryBody,
+    const int width = font_text_width_pixels(text, ui_tokens::reading_size(),
                                              FontWeight::Regular);
     canvas.draw_text_pixels(row.x + row.width - width,
-                            row.y + (row.height - ui_tokens::kSecondaryBody) / 2,
-                            text, ui_tokens::kSecondaryBody, GrayLevel::Black,
+                            row.y + (row.height - ui_tokens::reading_size()) / 2,
+                            text, ui_tokens::reading_size(), GrayLevel::Black,
                             FontWeight::Regular);
   }
 }
@@ -350,7 +355,7 @@ void settings_page_render_storage_more(Canvas &canvas,
   ui_draw_wrapped_text_pixels(
       canvas, ui_tokens::kContentMargin, is_portrait ? 600 : 368,
       canvas.width() - 2 * ui_tokens::kContentMargin, ui_text(identity),
-      ui_tokens::kSecondaryBody, GrayLevel::Black, 1, 3, FontWeight::Regular);
+      ui_tokens::reading_size(), GrayLevel::Black, 1, 3, FontWeight::Regular);
 }
 
 void settings_page_render_storage_confirm(Canvas &canvas) {
@@ -426,7 +431,7 @@ void settings_page_render_legacy_migration(
                   : state.kicks_preserved
                   ? "LEGACY KICK DATA IS PRESENT AND WILL BE PRESERVED."
                   : "LEGACY KICK DATA IS NEVER DELETED BY THIS TOOL."),
-      ui_tokens::kSecondaryBody, GrayLevel::Black, is_portrait ? 3 : 1, 4,
+      ui_tokens::reading_size(), GrayLevel::Black, is_portrait ? 3 : 1, 4,
       FontWeight::Regular);
   prototype_ui::draw_button(
       canvas, storage_split_button(0U, canvas.width(), canvas.height()),
@@ -506,8 +511,9 @@ void settings_page_render_time_editor(Canvas &canvas, const DigitFields &fields,
   const bool is_portrait = portrait(canvas.width(), canvas.height());
   canvas.draw_line(24, is_portrait ? 108 : 100, canvas.width() - 24,
                    is_portrait ? 108 : 100, GrayLevel::Black);
-  canvas.draw_text(24, is_portrait ? 124 : 118, ui_text("TAP A FIELD TO EDIT ONLY THAT PART"), 1,
-                   GrayLevel::Black);
+  canvas.draw_text_pixels(ui_tokens::kContentMargin, is_portrait ? 124 : 118,
+                          ui_text("TAP A FIELD TO EDIT ONLY THAT PART"),
+                          ui_tokens::reading_size(), GrayLevel::Black);
   const Rect box = time_box(canvas.width(), canvas.height());
   digit_fields_draw(canvas, box, fields,
                     time_text_size(canvas.width(), canvas.height()));

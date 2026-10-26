@@ -115,6 +115,22 @@ for a writable, mounted, uninitialized card with an open worker queue. A second
 page states that the operation creates the application dataset without
 formatting the card or deleting unrelated files; only its final primary action
 submits the asynchronous storage request.
+
+Baby Week, Weight and Kicks share `repository_status_page`. When a read fails
+because the dataset is unavailable, the page offers **SET UP MEMORY CARD**
+only if the current card is mounted, writable, positively identified as
+uninitialized, and the manifest worker accepts requests. Loading/saving,
+missing, read-only, full, corrupt, unknown or initialized cards do not offer
+this action. The secondary reload and header back actions remain available.
+Text wraps within the logical canvas in both orientations and languages.
+
+The setup action posts the displayed mount generation to the coordinator,
+which opens Settings directly at the existing MicroSD confirmation. Opening
+it creates no files. Settings rechecks eligibility and the same mount
+generation on entry and final confirmation; changing cards requires starting
+the confirmation again. Cancel/Back return to MicroSD summary without writing.
+The original Settings → MicroSD entry remains available.
+
 Safe eject, legacy cleanup, card-data deletion and device-binding reset each
 have independent eligibility and confirmation. Card deletion never doubles as
 device reset, and device reset never mounts or deletes card content.

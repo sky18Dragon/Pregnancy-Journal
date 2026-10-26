@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "canvas.h"
+#include "ui_tokens.h"
 
 namespace prototype_ui {
 
@@ -39,6 +40,8 @@ void draw_frame(Canvas &canvas, const Rect &rect, int stroke,
 void draw_progress_bar(Canvas &canvas, const Rect &rect, int percent);
 void draw_button(Canvas &canvas, const Rect &rect, const char *label,
                  bool filled = false, uint8_t scale = 2);
+void draw_button_pixels(Canvas &canvas, const Rect &rect, const char *label,
+                        bool filled, uint8_t pixel_size);
 void draw_header(Canvas &canvas, const char *title, const char *subtitle,
                  const char *back_label = nullptr);
 void draw_chevron(Canvas &canvas, int x, int y,
